@@ -1,0 +1,69 @@
+{
+ "frameWidth": 112,
+ "frameHeight": 96,
+ "originX": 0.5,
+ "originY": 0.9375,
+ "columns": 8,
+ "anims": {
+  "idle": {
+   "start": 0,
+   "count": 8,
+   "fps": 7,
+   "loop": true
+  },
+  "run": {
+   "start": 8,
+   "count": 8,
+   "fps": 13,
+   "loop": true
+  },
+  "jump": {
+   "start": 16,
+   "count": 2,
+   "fps": 10,
+   "loop": true
+  },
+  "fall": {
+   "start": 24,
+   "count": 2,
+   "fps": 10,
+   "loop": true
+  },
+  "land": {
+   "start": 32,
+   "count": 2,
+   "fps": 16,
+   "loop": false
+  },
+  "dash": {
+   "start": 40,
+   "count": 3,
+   "fps": 18,
+   "loop": true
+  },
+  "attack": {
+   "start": 48,
+   "count": 4,
+   "fps": 24,
+   "loop": false
+  },
+  "attack_up": {
+   "start": 56,
+   "count": 4,
+   "fps": 24,
+   "loop": false
+  },
+  "attack_down": {
+   "start": 64,
+   "count": 3,
+   "fps": 22,
+   "loop": false
+  },
+  "hurt": {
+   "start": 72,
+   "count": 2,
+   "fps": 10,
+   "loop": false
+  }
+ }
+}

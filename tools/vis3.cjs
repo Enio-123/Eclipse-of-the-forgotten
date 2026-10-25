@@ -1,0 +1,26 @@
+const { chromium } = require('playwright');
+(async () => {
+  const out = process.argv[2];
+  const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+  const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  page.on('pageerror', (e) => console.log('ERR ' + e.message));
+  await page.goto('http://localhost:8765/index.html');
+  await page.waitForFunction(() => window.__scene && window.__scene.player, null, { timeout: 15000 });
+  await page.evaluate(() => { window.__game.registry.set('started', true); document.getElementById('start').classList.add('gone'); });
+  await page.waitForTimeout(900);
+  const tp = (x, y) => page.evaluate(([x, y]) => { const s = window.__scene; s.player.teleport(x, y); s.player.invuln = 3; }, [x, y]);
+  const ex = await page.evaluate(() => window.__scene.enemies.find((e) => e.zone.y > 400 && e.zone.x < 900).zone.x);
+  await tp(ex - 50, 448); await page.waitForTimeout(400);
+  await page.keyboard.press('x'); await page.waitForTimeout(45);
+  await page.screenshot({ path: out + '-a.png', clip: { x: 300, y: 300, width: 700, height: 300 } });
+  await page.waitForTimeout(350); await page.keyboard.press('x'); await page.waitForTimeout(350); await page.keyboard.press('x'); await page.waitForTimeout(500);
+  await page.screenshot({ path: out + '-b.png', clip: { x: 300, y: 300, width: 700, height: 300 } });
+  await page.keyboard.down('ArrowUp'); await page.waitForTimeout(30); await page.keyboard.press('x'); await page.waitForTimeout(45);
+  await page.screenshot({ path: out + '-c.png', clip: { x: 300, y: 200, width: 700, height: 400 } });
+  await page.keyboard.up('ArrowUp');
+  await page.waitForTimeout(400);
+  await page.keyboard.down('z'); await page.waitForTimeout(200); await page.keyboard.down('ArrowDown'); await page.waitForTimeout(30); await page.keyboard.press('x'); await page.waitForTimeout(45);
+  await page.screenshot({ path: out + '-d.png', clip: { x: 300, y: 200, width: 700, height: 400 } });
+  await page.keyboard.up('ArrowDown'); await page.keyboard.up('z');
+  await browser.close();
+})();

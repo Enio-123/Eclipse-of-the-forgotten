@@ -1,0 +1,21 @@
+{
+ "frameWidth": 72,
+ "frameHeight": 48,
+ "originX": 0.5,
+ "originY": 0.9166666666666666,
+ "columns": 6,
+ "anims": {
+  "crawl": {
+   "start": 0,
+   "count": 6,
+   "fps": 9,
+   "loop": true
+  },
+  "death": {
+   "start": 6,
+   "count": 4,
+   "fps": 10,
+   "loop": false
+  }
+ }
+}

@@ -1,0 +1,309 @@
+import Phaser from 'phaser';
+import { TILE } from '../config';
+import { PLANK_H } from '../gfx/textures';
+import { rng } from '../gfx/raster';
+import type { Level } from './Level';
+import type { RoomDef } from './rooms';
+
+interface Strand {
+  img: Phaser.GameObjects.Image;
+  phase: number;
+  amp: number;
+}
+
+interface Flicker {
+  img: Phaser.GameObjects.Image;
+  base: number;
+  phase: number;
+  speed: number;
+}
+
+export interface Point {
+  x: number;
+  y: number;
+}
+
+// Profundidades de desenho usadas no mundo
+export const DEPTH = {
+  rail: -3,
+  prop: -2,
+  support: -1,
+  tiles: 0,
+  front: 1,
+  enemy: 8,
+  player: 10,
+  slash: 11,
+  water: 12,
+} as const;
+
+// Trechos do tabuleiro da ponte que recebem balaustrada (em tiles)
+const BRIDGE_RAILS: [number, number][] = [[24, 50], [57, 78], [99, 106], [124, 132], [145, 170]];
+const BRIDGE_DECK_ROW = 22;
+
+// Tudo que enfeita a sala e não tem física: suportes das plataformas, musgo,
+// tufos de mato, balaustrada, poças, postes, estátuas, velas, árvores e o espelho.
+export class Decor {
+  readonly strands: Strand[] = [];
+  readonly flickers: Flicker[] = [];
+  readonly puddles: Point[] = [];
+  readonly water: { sprite: Phaser.GameObjects.TileSprite; x0: number; x1: number; y: number }[] = [];
+  mirror: { x: number; y: number; glow: Phaser.GameObjects.Image } | null = null;
+  figureSpawn: Point | null = null;
+  private rand: () => number;
+
+  constructor(private scene: Phaser.Scene, private level: Level, room: RoomDef) {
+    this.rand = rng(room.id.length * 7919 + room.map.length * 31);
+    this.supports();
+    if (level.theme !== 'memory') this.moss();
+    this.tufts();
+    if (level.theme === 'bridge') {
+      this.rails();
+      this.makePuddles();
+    }
+    if (level.theme === 'memory') {
+      this.flowers();
+      this.waterBodies();
+    }
+    this.objects();
+  }
+
+  // ---------- suportes: nenhuma plataforma flutua solta ----------
+  private supports() {
+    const L = this.level;
+    for (const r of L.spans((x, y) => L.ch(x, y) === '-')) {
+      const yTop = r.y * TILE;
+      const yBot = yTop + PLANK_H;
+      const leftWall = L.solidCell(r.x0 - 1, r.y);
+      const rightWall = L.solidCell(r.x1 + 1, r.y);
+      if (leftWall || rightWall) {
+        if (leftWall) this.bracket(r.x0 * TILE, yBot, false);
+        if (rightWall) this.bracket((r.x1 + 1) * TILE, yBot, true);
+        // viga comprida presa de um lado só: a ponta solta fica pendurada numa corrente
+        if (leftWall !== rightWall && r.x1 - r.x0 >= 4) {
+          const free = leftWall ? r.x1 : r.x0;
+          const c = L.ceilingAbove(free, r.y - 1);
+          if (c >= 0 && r.y - c <= 30) this.chain(leftWall ? (free + 1) * TILE - 3 : free * TILE + 3, (c + 1) * TILE, yTop + 2);
+        }
+        continue;
+      }
+      const ends = [r.x0, r.x1];
+      const near = ends.every((x) => {
+        const g = L.groundBelow(x, r.y + 1);
+        return g >= 0 && g - r.y - 1 <= 4;
+      });
+      if (near) {
+        const cols = r.x1 - r.x0 >= 6 ? [r.x0, Math.round((r.x0 + r.x1) / 2), r.x1] : ends;
+        for (const x of cols) this.postAt(x, r, yBot);
+        continue;
+      }
+      const ceil = ends.map((x) => L.ceilingAbove(x, r.y - 1));
+      if (ceil.every((c) => c >= 0 && r.y - c <= 30)) {
+        this.chain(r.x0 * TILE + 3, (ceil[0] + 1) * TILE, yTop + 2);
+        this.chain((r.x1 + 1) * TILE - 3, (ceil[1] + 1) * TILE, yTop + 2);
+        continue;
+      }
+      for (const x of ends) this.postAt(x, r, yBot);
+    }
+  }
+
+  private postAt(x: number, r: { x0: number; x1: number; y: number }, yBot: number) {
+    const g = this.level.groundBelow(x, r.y + 1);
+    if (g < 0) return;
+    const px = x === r.x0 ? x * TILE + 4 : x === r.x1 ? (x + 1) * TILE - 4 : x * TILE + 8;
+    // o poste desce até a primeira pedra (passa por trás de espinhos)
+    let gy = g;
+    while (gy < this.level.h && !this.level.solidCell(x, gy)) gy++;
+    const h = gy * TILE - yBot;
+    if (h <= 0) return;
+    this.scene.add.tileSprite(px, yBot, 6, h, 'deco-post').setOrigin(0.5, 0).setDepth(DEPTH.support);
+  }
+
+  private chain(x: number, y0: number, y1: number) {
+    const s = this.scene;
+    s.add.tileSprite(x, y0, 5, y1 - y0, 'deco-chain').setOrigin(0.5, 0).setDepth(DEPTH.support);
+    s.add.image(x, y0, 'deco-anchor').setOrigin(0.5, 0).setDepth(DEPTH.support);
+  }
+
+  private bracket(x: number, y: number, flip: boolean) {
+    this.scene.add.image(x, y, 'deco-bracket').setOrigin(flip ? 1 : 0, 0).setFlipX(flip).setDepth(DEPTH.support);
+  }
+
+  // ---------- musgo pendurado nos tetos ----------
+  private moss() {
+    const L = this.level;
+    const p = L.theme === 'catacomb' ? 0.55 : 0.4;
+    for (let y = 0; y < L.h; y++) {
+      for (let x = 0; x < L.w; x++) {
+        if (!L.ceilingCell(x, y)) continue;
+        const g = L.groundBelow(x, y + 1);
+        const space = (g < 0 ? L.h + 4 : g) - (y + 1);
+        if (space < 2 || this.rand() > p) continue;
+        const n = this.rand() < 0.35 ? 2 : 1;
+        for (let k = 0; k < n; k++) {
+          const img = this.scene.add
+            .image(x * TILE + 1 + this.rand() * 14, (y + 1) * TILE - 2, 'deco-moss', Math.floor(this.rand() * 12))
+            .setOrigin(0.5, 0)
+            .setDepth(DEPTH.front);
+          // em túneis baixos o musgo fica curto para não encostar na cabeça
+          if (space < 4) img.setCrop(0, 0, 4, Math.max(6, space * TILE - 26));
+          this.strands.push({ img, phase: this.rand() * Math.PI * 2, amp: 0.6 + this.rand() * 1.1 });
+        }
+      }
+    }
+  }
+
+  // ---------- tufos de mato e flores no chão ----------
+  private tufts() {
+    const L = this.level;
+    const key = `deco-tufts-${L.theme}`;
+    const p = { bridge: 0.3, catacomb: 0.45, memory: 0.8 }[L.theme];
+    for (let y = 1; y < L.h; y++) {
+      for (let x = 0; x < L.w; x++) {
+        if (!L.floorCell(x, y) || this.rand() > p) continue;
+        this.scene.add
+          .image(x * TILE + 2 + this.rand() * 12, y * TILE + 1, key, Math.floor(this.rand() * 6))
+          .setOrigin(0.5, 1)
+          .setFlipX(this.rand() < 0.5)
+          .setDepth(DEPTH.front);
+      }
+    }
+  }
+
+  private flowers() {
+    const L = this.level;
+    const g = this.scene.add.graphics().setDepth(DEPTH.front);
+    const cols = [0xffffff, 0xffe0ec, 0xf6a9c9, 0xfff0a0, 0xd6c4ff, 0xff8fae];
+    for (let y = 1; y < L.h; y++) {
+      for (let x = 0; x < L.w; x++) {
+        if (!L.floorCell(x, y) || this.rand() > 0.5) continue;
+        const n = 1 + Math.floor(this.rand() * 2);
+        for (let k = 0; k < n; k++) {
+          const fx = Math.floor(x * TILE + 1 + this.rand() * 14);
+          const h = 2 + Math.floor(this.rand() * 3);
+          const top = y * TILE - h;
+          g.fillStyle(0x3f8a3c).fillRect(fx, top + 1, 1, h);
+          g.fillStyle(cols[Math.floor(this.rand() * cols.length)]);
+          if (this.rand() < 0.4) g.fillRect(fx - 1, top, 3, 1).fillRect(fx, top - 1, 1, 3);
+          else g.fillRect(fx, top, 1, 1);
+        }
+      }
+    }
+  }
+
+  private waterBodies() {
+    const L = this.level;
+    for (const s of L.spans((x, y) => L.ch(x, y) === '~')) {
+      const sprite = this.scene.add
+        .tileSprite(s.x0 * TILE, s.y * TILE + 3, (s.x1 - s.x0 + 1) * TILE, TILE - 3, 'water')
+        .setOrigin(0)
+        .setAlpha(0.82)
+        .setDepth(DEPTH.water);
+      this.water.push({ sprite, x0: s.x0 * TILE, x1: (s.x1 + 1) * TILE, y: s.y * TILE + 3 });
+    }
+  }
+
+  // ---------- ponte: balaustrada e poças de chuva ----------
+  private rails() {
+    const y = BRIDGE_DECK_ROW * TILE;
+    for (const [x0, x1] of BRIDGE_RAILS) {
+      for (let x = x0; x <= x1; x++) {
+        const r = this.rand();
+        if (r < 0.04) continue;
+        const key = r < 0.16 ? 'deco-balustrade-broken' : 'deco-balustrade';
+        this.scene.add.image(x * TILE, y, key).setOrigin(0, 1).setDepth(DEPTH.rail);
+      }
+    }
+  }
+
+  private makePuddles() {
+    const L = this.level;
+    for (const [x0, x1] of BRIDGE_RAILS) {
+      for (let x = x0; x <= x1; x++) {
+        if (this.rand() > 0.1 || L.ceilingAbove(x, BRIDGE_DECK_ROW - 1) >= 0) continue;
+        const px = x * TILE + 8;
+        const py = BRIDGE_DECK_ROW * TILE + 1;
+        this.scene.add.image(px, py, 'puddle').setOrigin(0.5, 1).setDepth(DEPTH.front);
+        this.puddles.push({ x: px, y: py - 1 });
+      }
+    }
+  }
+
+  // ---------- objetos marcados no mapa ----------
+  private objects() {
+    const s = this.scene;
+    for (const p of this.level.spawns) {
+      switch (p.kind) {
+        case 'L':
+        case 'l': {
+          const lit = p.kind === 'L';
+          s.add.image(p.x, p.y, lit ? 'deco-lamp' : 'deco-lamp-off').setOrigin(0.5, 1).setDepth(DEPTH.prop);
+          if (lit) this.light(p.x, p.y - 42, 0xffad55, 1.1, 0.75, 3.4);
+          break;
+        }
+        case 'S':
+          s.add.image(p.x, p.y, 'deco-statue').setOrigin(0.5, 1).setDepth(DEPTH.prop).setTint(0xc9cfdf);
+          break;
+        case 'G': {
+          s.add.image(p.x, p.y, 'deco-scaffold').setOrigin(0.5, 1).setDepth(DEPTH.prop);
+          // velas acesas no cadafalso
+          const deck = p.y - 34;
+          for (const dx of [-22, 26]) {
+            s.add.sprite(p.x + dx, deck, 'deco-candles').setOrigin(0.5, 1).setDepth(DEPTH.prop).play({ key: 'candles', startFrame: dx > 0 ? 1 : 0 });
+            this.light(p.x + dx, deck - 8, 0xffb04a, 0.6, 0.6, 2.4);
+          }
+          break;
+        }
+        case 'D': {
+          const cx = p.x + 56;
+          s.add.image(cx, p.y, 'deco-gate').setOrigin(0.5, 1).setDepth(DEPTH.front);
+          this.light(cx - 46, p.y - 70, 0xff9a3c, 1, 0.8, 3);
+          this.light(cx + 45, p.y - 70, 0xff9a3c, 1, 0.8, 3);
+          break;
+        }
+        case 'C':
+          s.add.sprite(p.x, p.y, 'deco-candles').setOrigin(0.5, 1).setDepth(DEPTH.prop).play({ key: 'candles', startFrame: Math.floor(this.rand() * 2) });
+          this.light(p.x, p.y - 8, 0xffb04a, 0.7, 0.7, 2.6);
+          break;
+        case 'M': {
+          const glow = s.add.image(p.x, p.y - 42, 'glow').setScale(3.4).setTint(0xffe2a0).setAlpha(0.3).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.rail);
+          s.add.image(p.x, p.y, 'deco-mirror').setOrigin(0.5, 1).setDepth(DEPTH.prop);
+          this.mirror = { x: p.x, y: p.y, glow };
+          break;
+        }
+        case 'T':
+          s.add.image(p.x, p.y + 2, 'deco-tree-big').setOrigin(0.5, 1).setDepth(DEPTH.prop);
+          break;
+        case 't':
+          s.add.image(p.x, p.y + 2, this.rand() < 0.6 ? 'deco-tree-pink' : 'deco-tree-green').setOrigin(0.5, 1).setDepth(DEPTH.prop).setFlipX(this.rand() < 0.5);
+          break;
+        case 'F':
+          this.figureSpawn = { x: p.x, y: p.y };
+          break;
+      }
+    }
+  }
+
+  // ponto de luz quente: um brilho forte pequeno e um halo largo e fraco
+  private light(x: number, y: number, tint: number, scale: number, alpha: number, halo: number) {
+    const add = Phaser.BlendModes.ADD;
+    const core = this.scene.add.image(x, y, 'glow').setScale(scale).setTint(tint).setAlpha(alpha).setBlendMode(add).setDepth(DEPTH.front);
+    const wide = this.scene.add.image(x, y, 'glow').setScale(halo).setTint(tint).setAlpha(0.16).setBlendMode(add).setDepth(DEPTH.front);
+    this.flickers.push({ img: core, base: alpha, phase: this.rand() * 10, speed: 0.011 + this.rand() * 0.006 });
+    this.flickers.push({ img: wide, base: 0.16, phase: this.rand() * 10, speed: 0.007 + this.rand() * 0.004 });
+  }
+
+  update(time: number, dt: number) {
+    const v = this.scene.cameras.main.worldView;
+    for (const s of this.strands) {
+      const im = s.img;
+      if (im.x < v.x - 16 || im.x > v.right + 16 || im.y > v.bottom + 8 || im.y < v.y - 40) continue;
+      im.rotation = Math.sin(time * 0.0011 + s.phase) * 0.06 * s.amp;
+    }
+    for (const f of this.flickers) {
+      const a = Math.sin(time * f.speed + f.phase) * 0.6 + Math.sin(time * f.speed * 2.9 + f.phase * 1.7) * 0.4;
+      f.img.alpha = f.base * (0.84 + 0.16 * a);
+    }
+    for (const w of this.water) w.sprite.tilePositionX -= dt * 9;
+    if (this.mirror) this.mirror.glow.alpha = 0.26 + Math.sin(time * 0.002) * 0.08;
+  }
+}

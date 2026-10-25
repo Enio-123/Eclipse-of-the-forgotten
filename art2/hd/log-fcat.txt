@@ -1,0 +1,11 @@
+paleta 84 cores
+cat-far (1024, 360)
+cat-mid (1024, 360)
+terrain-catacumbas (1760, 768)
+terrain-sinos (1536, 960)
+terrain-cripta (768, 384)
+deco-candles (32, 14)
+deco-tufts-catacomb (72, 8)
+deco-shrine (44, 54)
+deco-pedestal (28, 36)
+deco-portcullis (16, 80)

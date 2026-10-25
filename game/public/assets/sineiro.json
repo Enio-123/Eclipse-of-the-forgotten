@@ -1,0 +1,99 @@
+{
+ "frameWidth": 208,
+ "frameHeight": 150,
+ "originX": 0.46153846153846156,
+ "originY": 0.9733333333333334,
+ "columns": 6,
+ "anims": {
+  "idle": {
+   "start": 0,
+   "count": 4,
+   "fps": 5,
+   "loop": true
+  },
+  "walk": {
+   "start": 6,
+   "count": 6,
+   "fps": 7,
+   "loop": true
+  },
+  "slamwind": {
+   "start": 12,
+   "count": 2,
+   "fps": 6,
+   "loop": false
+  },
+  "slam": {
+   "start": 18,
+   "count": 2,
+   "fps": 14,
+   "loop": false
+  },
+  "slamrec": {
+   "start": 24,
+   "count": 1,
+   "fps": 4,
+   "loop": false
+  },
+  "sweepwind": {
+   "start": 30,
+   "count": 1,
+   "fps": 6,
+   "loop": false
+  },
+  "sweep": {
+   "start": 36,
+   "count": 2,
+   "fps": 16,
+   "loop": false
+  },
+  "chargewind": {
+   "start": 42,
+   "count": 1,
+   "fps": 6,
+   "loop": false
+  },
+  "charge": {
+   "start": 48,
+   "count": 4,
+   "fps": 12,
+   "loop": true
+  },
+  "stun": {
+   "start": 54,
+   "count": 2,
+   "fps": 4,
+   "loop": true
+  },
+  "roar": {
+   "start": 60,
+   "count": 2,
+   "fps": 6,
+   "loop": true
+  },
+  "kneel": {
+   "start": 66,
+   "count": 1,
+   "fps": 2,
+   "loop": true
+  },
+  "rise": {
+   "start": 72,
+   "count": 3,
+   "fps": 5,
+   "loop": false
+  },
+  "hurt": {
+   "start": 78,
+   "count": 1,
+   "fps": 10,
+   "loop": false
+  },
+  "death": {
+   "start": 84,
+   "count": 4,
+   "fps": 5,
+   "loop": false
+  }
+ }
+}

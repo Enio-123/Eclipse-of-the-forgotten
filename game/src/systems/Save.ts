@@ -1,0 +1,196 @@
+import { PLAYER, WEAPONS, WEAPON_IDS, type WeaponId } from '../config';
+import type { Ability, RoomId } from '../world/rooms';
+import { OFFERS, SLOTS } from '../world/lore';
+
+// Progresso salvo no navegador: sala e entrada do último ponto, arma e memórias
+export interface SaveData {
+  room: RoomId;
+  entry: string;
+  weapon: WeaponId;
+  kintsugi: number;
+  prologueDone: boolean;
+  seen: string[];
+  abilities: Ability[];
+  memories: string[];
+  traded: string[];
+  upgrades: string[];
+  visited: Record<string, number[]>;
+  coins: number;
+  // itens ligados no inventário (null num save antigo, de antes do inventário)
+  equipped: string[] | null;
+}
+
+export type Upgrade = 'mask' | 'blade' | 'breath' | 'purse' | 'shard' | 'whetstone';
+const UPGRADES: Upgrade[] = ['mask', 'blade', 'breath', 'purse', 'shard', 'whetstone'];
+// num save antigo as melhorias eram fixas: entram ligadas, na ordem de quem mais ajuda a sobreviver
+const MIGRATE_ORDER: Upgrade[] = ['mask', 'shard', 'breath', 'whetstone', 'blade', 'purse'];
+const slotCost = (u: Upgrade) => OFFERS.find((o) => o.id === u)?.slots ?? 1;
+const strs = (v: unknown) => (Array.isArray(v) ? v.filter((s) => typeof s === 'string') : []) as string[];
+
+const KEY = 'eclipse-progresso-v1';
+const ROOM_IDS: RoomId[] = ['ponte', 'catacumbas', 'memoria', 'sinos', 'cripta'];
+
+export function loadSave(): SaveData | null {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (!raw) return null;
+    const d = JSON.parse(raw) as Partial<SaveData>;
+    if (!d || !ROOM_IDS.includes(d.room as RoomId) || typeof d.entry !== 'string') return null;
+    return {
+      room: d.room as RoomId,
+      entry: d.entry,
+      weapon: WEAPON_IDS.includes(d.weapon as WeaponId) ? (d.weapon as WeaponId) : 'scythe',
+      kintsugi: typeof d.kintsugi === 'number' ? Math.max(0, Math.min(3, Math.floor(d.kintsugi))) : 0,
+      prologueDone: !!d.prologueDone,
+      seen: strs(d.seen),
+      abilities: strs(d.abilities).filter((a) => a === 'wall' || a === 'double') as Ability[],
+      memories: strs(d.memories),
+      traded: strs(d.traded),
+      upgrades: strs(d.upgrades),
+      visited: d.visited && typeof d.visited === 'object' ? (d.visited as Record<string, number[]>) : {},
+      coins: typeof d.coins === 'number' && Number.isFinite(d.coins) ? Math.max(0, Math.floor(d.coins)) : 0,
+      equipped: Array.isArray(d.equipped) ? strs(d.equipped) : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function writeSave(d: SaveData) {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(d));
+  } catch {
+    /* sem armazenamento: o progresso vale só nesta sessão */
+  }
+}
+
+export function clearSave() {
+  try {
+    localStorage.removeItem(KEY);
+  } catch {
+    /* nada a apagar */
+  }
+}
+
+// Estado da partida em andamento (compartilhado entre as cenas)
+export const progress = {
+  kintsugi: 0,
+  prologueDone: false,
+  seen: new Set<string>(),
+  room: 'ponte' as RoomId,
+  entry: 'P',
+  weapon: 'scythe' as WeaponId,
+  abilities: new Set<Ability>(),
+  // memórias guardadas e as que foram trocadas com o Cobrador (essas viram "esquecidas")
+  memories: new Set<string>(),
+  traded: new Set<string>(),
+  upgrades: new Set<Upgrade>(),
+  // itens do inventário ligados agora (cada um ocupa espaços; só valem ligados)
+  equipped: new Set<Upgrade>(),
+  // pedaços do mapa já vistos em cada sala (células de 4x4 tiles)
+  visited: new Map<string, Set<number>>(),
+  coins: 0,
+  // quanto falta para a próxima lasca de vida cair de um inimigo (não é gravado)
+  lifeAcc: 0,
+
+  reset() {
+    this.kintsugi = 0;
+    this.prologueDone = false;
+    this.seen = new Set();
+    this.room = 'ponte';
+    this.entry = 'P';
+    this.abilities = new Set();
+    this.memories = new Set();
+    this.traded = new Set();
+    this.upgrades = new Set();
+    this.equipped = new Set();
+    this.visited = new Map();
+    this.coins = 0;
+    this.lifeAcc = 0;
+    clearSave();
+  },
+
+  restore(d: SaveData) {
+    this.kintsugi = d.kintsugi;
+    this.prologueDone = d.prologueDone;
+    this.seen = new Set(d.seen);
+    this.room = d.room;
+    this.entry = d.entry;
+    this.weapon = d.weapon;
+    this.abilities = new Set(d.abilities);
+    this.memories = new Set(d.memories);
+    this.traded = new Set(d.traded);
+    this.upgrades = new Set(d.upgrades.filter((u) => UPGRADES.includes(u as Upgrade)) as Upgrade[]);
+    this.equipped = new Set();
+    if (d.equipped) {
+      for (const u of d.equipped) if (this.upgrades.has(u as Upgrade) && this.fits(u as Upgrade)) this.equipped.add(u as Upgrade);
+    } else {
+      for (const u of MIGRATE_ORDER) if (this.upgrades.has(u) && this.fits(u)) this.equipped.add(u);
+    }
+    this.visited = new Map(Object.entries(d.visited).map(([k, v]) => [k, new Set(Array.isArray(v) ? v : [])]));
+    this.coins = d.coins;
+    this.lifeAcc = 0;
+  },
+
+  // ---------- inventário ----------
+  // o item está valendo agora (comprado e ligado)
+  on(u: Upgrade) {
+    return this.upgrades.has(u) && this.equipped.has(u);
+  },
+
+  get slotsUsed() {
+    let n = 0;
+    for (const u of this.equipped) n += slotCost(u);
+    return n;
+  },
+
+  fits(u: Upgrade) {
+    return this.equipped.has(u) || this.slotsUsed + slotCost(u) <= SLOTS;
+  },
+
+  // liga ou desliga; 'full' quando não cabe (tire outro primeiro)
+  toggle(u: Upgrade): 'on' | 'off' | 'full' | 'missing' {
+    if (!this.upgrades.has(u)) return 'missing';
+    if (this.equipped.delete(u)) return 'off';
+    if (!this.fits(u)) return 'full';
+    this.equipped.add(u);
+    return 'on';
+  },
+
+  // ---------- armas de chefe ----------
+  hasWeapon(id: WeaponId) {
+    return !WEAPONS[id].boss || this.seen.has(`weapon:${id}`);
+  },
+
+  // memórias que ainda dá para trocar
+  get held() {
+    return [...this.memories].filter((m) => !this.traded.has(m)).length;
+  },
+
+  get maxHp() {
+    return PLAYER.maxHp + (this.on('mask') ? 1 : 0) + (this.on('shard') ? 1 : 0);
+  },
+
+  get dmgMul() {
+    return (this.on('blade') ? 1.3 : 1) * (this.on('whetstone') ? 1.15 : 1);
+  },
+
+  // grava sem mudar o ponto de retorno (pegar item, abrir grade, ver o mapa)
+  save() {
+    const visited: Record<string, number[]> = {};
+    for (const [k, v] of this.visited) visited[k] = [...v];
+    writeSave({
+      room: this.room, entry: this.entry, weapon: this.weapon, kintsugi: this.kintsugi, prologueDone: this.prologueDone,
+      seen: [...this.seen], abilities: [...this.abilities], memories: [...this.memories], traded: [...this.traded],
+      upgrades: [...this.upgrades], visited, coins: this.coins, equipped: [...this.equipped],
+    });
+  },
+
+  // ponto de retorno: onde o jogador volta ao morrer ou ao continuar
+  checkpoint(room: RoomId, entry: string, weapon: WeaponId) {
+    this.room = room;
+    this.entry = entry;
+    this.weapon = weapon;
+    this.save();
+  },
+};

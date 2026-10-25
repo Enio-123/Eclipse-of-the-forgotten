@@ -1,0 +1,10 @@
+game/node_modules/
+game/dist/
+artifact/
+artifact-files/
+shots/
+*.png
+!game/public/**/*.png
+__pycache__/
+*.log
+undefined

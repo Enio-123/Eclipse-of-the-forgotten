@@ -1,0 +1,33 @@
+{
+ "frameWidth": 208,
+ "frameHeight": 150,
+ "originX": 0.46153846153846156,
+ "originY": 0.9733333333333334,
+ "columns": 4,
+ "anims": {
+  "idle": {
+   "start": 0,
+   "count": 4,
+   "fps": 5,
+   "loop": true
+  },
+  "slamwind": {
+   "start": 4,
+   "count": 2,
+   "fps": 6,
+   "loop": false
+  },
+  "slam": {
+   "start": 8,
+   "count": 2,
+   "fps": 14,
+   "loop": false
+  },
+  "charge": {
+   "start": 12,
+   "count": 4,
+   "fps": 12,
+   "loop": true
+  }
+ }
+}

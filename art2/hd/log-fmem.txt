@@ -1,0 +1,3 @@
+mem-sky 20.8
+mem-far 53.1
+mem-mid 86.3

@@ -1,0 +1,3 @@
+bridge-far (2200, 760) 13.5 s
+bridge-far-rim (2200, 760) 13.6 s
+pronto 13.6
