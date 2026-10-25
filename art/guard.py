@@ -286,6 +286,14 @@ def death():
     ]
 
 
+def stagger():
+    # golpe aparado: a espada voa para trás, o escudo sobe e abre o peito, ele cambaleia
+    return [
+        dict(armW=(212, 34), wpn=236, lean=-15, hip=(-3, 1.5), armS=(140, 14), sAng=-48, legF=(10, 6), legB=(-24, 12), tilt=-16),
+        dict(armW=(204, 26), wpn=222, lean=-11, hip=(-2.5, 1.2), armS=(128, 18), sAng=-40, legF=(12, 6), legB=(-20, 10), tilt=-11),
+    ]
+
+
 ANIMS = {
     'idle': (idle(), 5, True),
     'walk': (walk(), 9, True),
@@ -302,6 +310,7 @@ ANIMS = {
     'getup': (getup(), 8, False),
     'hurt': (hurt(), 10, False),
     'death': (death(), 8, False),
+    'stagger': (stagger(), 6, False),
 }
 
 if __name__ == '__main__':

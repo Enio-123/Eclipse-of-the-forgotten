@@ -1,16 +1,18 @@
 import Phaser from 'phaser';
-import { PAL, QUAKE, TILE, VIEW_H, WEAPONS, WEAPON_IDS, type WeaponId } from '../config';
+import { ARCHER, PAL, PARRY, QUAKE, TILE, VIEW_H, WEAPONS, WEAPON_IDS, type WeaponId } from '../config';
 import { Player, type PlayerAction } from '../entities/Player';
 import { Crawler } from '../entities/Crawler';
 import { Guard } from '../entities/Guard';
 import { Crow } from '../entities/Crow';
+import { Archer } from '../entities/Archer';
+import { Censer } from '../entities/Censer';
 import { Boss } from '../entities/Boss';
 import { overlap, type Enemy } from '../entities/Enemy';
 import { Arrow } from '../entities/Arrow';
 import { Controls } from '../systems/Controls';
 import { audio, type SfxName } from '../systems/Audio';
 import { settings } from '../systems/Settings';
-import { progress, type Upgrade } from '../systems/Save';
+import { MAX_LEVEL, progress, type Upgrade } from '../systems/Save';
 import { Level, isGround, isSolid } from '../world/Level';
 import { Decor, DEPTH } from '../world/Decor';
 import { Backdrop } from '../world/Backdrop';
@@ -18,9 +20,10 @@ import { Weather } from '../world/Weather';
 import { MAP_POS, ROOMS, type Exit, type RoomDef, type RoomId, type Side } from '../world/rooms';
 import { Props, type MemoryOrb, type Relic, type Shrine } from '../world/Props';
 import { Fixtures, type Door } from '../world/Fixtures';
+import { Npcs, type Npc } from '../world/Npcs';
 import type { Breakable } from '../world/secrets';
 import { Loot } from '../world/Loot';
-import { BELLS, MEMORIES, OFFERS, PAGES, RELICS } from '../world/lore';
+import { BELLS, FORGE, MATERIALS, MEMORIES, NUN, OFFERS, PAGES, RELICS, SMITH } from '../world/lore';
 import { TILE_ONEWAY } from '../gfx/textures';
 import { ui } from '../ui/ui';
 import { pad } from '../systems/Pad';
@@ -70,6 +73,15 @@ interface WeaponDrop {
 
 const PASSED = 15;
 
+// quem nasce de cada letra do mapa
+const SPAWNERS: Record<string, (s: GameScene, x: number, y: number) => Enemy> = {
+  c: (s, x, y) => new Crawler(s, x, y),
+  g: (s, x, y) => new Guard(s, x, y),
+  v: (s, x, y) => new Crow(s, x, y - 10),
+  a: (s, x, y) => new Archer(s, x, y),
+  i: (s, x, y) => new Censer(s, x, y),
+};
+
 export class GameScene extends Phaser.Scene {
   controls!: Controls;
   level!: Level;
@@ -80,6 +92,7 @@ export class GameScene extends Phaser.Scene {
   arrows: Arrow[] = [];
   props!: Props;
   fixtures!: Fixtures;
+  npcs!: Npcs;
   loot!: Loot;
   boss: Boss | null = null;
   private bossFrac = -1;
@@ -111,6 +124,7 @@ export class GameScene extends Phaser.Scene {
   private gold!: Phaser.GameObjects.Particles.ParticleEmitter;
   private waterFx!: Phaser.GameObjects.Particles.ParticleEmitter;
   private wisps!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private smoke!: Phaser.GameObjects.Particles.ParticleEmitter;
   // inimigos já atravessados no dash atual (um sopro por inimigo) e os que já deixaram moedas
   private passed = new Set<Enemy>();
   private passDash = -1;
@@ -161,6 +175,7 @@ export class GameScene extends Phaser.Scene {
     const fresh = data.from === 'memory' && !progress.seen.has('memory:vale');
     this.props = new Props(this, room.id !== 'catacumbas' || (progress.seen.has('memory:vale') && !fresh));
     this.fixtures = new Fixtures(this);
+    this.npcs = new Npcs(this);
 
     // as laterais com saída e o fundo do abismo (ou do buraco que leva para baixo) não seguram o jogador
     const W = this.level.widthPx;
@@ -197,11 +212,12 @@ export class GameScene extends Phaser.Scene {
         this.placeBoss(s.x, s.y);
         continue;
       }
-      if (s.kind !== 'c' && s.kind !== 'g' && s.kind !== 'v') continue;
+      const make = SPAWNERS[s.kind];
+      if (!make) continue;
       // trecho vencido e já descansado: as criaturas dali viraram cinza
       const key = `${room.id}:${s.tx}:${s.ty}`;
       if (progress.seen.has(`clear:${key}`)) continue;
-      const e = s.kind === 'c' ? new Crawler(this, s.x, s.y) : s.kind === 'g' ? new Guard(this, s.x, s.y) : new Crow(this, s.x, s.y - 10);
+      const e = make(this, s.x, s.y);
       this.enemies.push(e);
       this.tracks.push({ key, e, hx: s.x, hy: s.y - 16, f: progress.seen.has(`pass:${key}`) ? PASSED : 0 });
     }
@@ -436,6 +452,17 @@ export class GameScene extends Phaser.Scene {
       tint: this.room.theme === 'memory' ? [0xffffff, 0xf2ecdf] : [0xc8d4f0, 0x8a9cc8, 0x4a5678],
       emitting: false,
     }).setDepth(DEPTH.slash);
+    // incenso: fumaça cinza que sobe devagar e se espalha
+    this.smoke = this.add.particles(0, 0, 'smoke', {
+      lifespan: { min: 900, max: 1700 },
+      speedX: { min: -7, max: 7 },
+      speedY: { min: -16, max: -5 },
+      rotate: { min: 0, max: 360 },
+      scale: { start: 0.16, end: 0.5 },
+      alpha: { start: 0.5, end: 0 },
+      tint: [0x9c96a4, 0x7e7888, 0xb6b0bc],
+      emitting: false,
+    }).setDepth(DEPTH.enemy + 0.5);
     // cinza das criaturas que se desfazem no descanso
     this.ash = this.add.particles(0, 0, 'px', {
       lifespan: { min: 700, max: 1500 },
@@ -500,6 +527,7 @@ export class GameScene extends Phaser.Scene {
     this.updateWeaponDrop(dt);
     this.props.update(time, p);
     this.fixtures.update(time, dt);
+    this.npcs.update(dt);
     this.trackVisit(dt);
     this.bossFight();
     this.updateArrows(dt);
@@ -522,11 +550,19 @@ export class GameScene extends Phaser.Scene {
       const box = p.attackBox();
       let hit = false;
       let blocked = false;
+      // aparar vem antes do dano: o golpe que encontra o ataque do inimigo na hora só rebate
+      let parried: { x: number; y: number } | null = null;
+      for (const e of this.enemies) {
+        if (!e.alive || p.hitSet.has(e) || !e.parry?.(box, p.x)) continue;
+        p.hitSet.add(e);
+        const c = Phaser.Geom.Rectangle.Intersection(box, e.rect);
+        parried = c.width > 0 ? { x: c.centerX, y: c.centerY } : { x: (p.x + e.zone.x) / 2, y: box.centerY };
+      }
       for (const e of this.enemies) {
         if (!e.alive || p.hitSet.has(e)) continue;
         if (!overlap(box, e.rect)) continue;
         p.hitSet.add(e);
-        const r = e.hit(p.x, p.weapon.dmg * progress.dmgMul, p.atkDir);
+        const r = e.hit(p.x, p.weapon.dmg * progress.dmgFor(p.weapon.id), p.atkDir);
         const c = Phaser.Geom.Rectangle.Intersection(box, e.rect);
         if (r === 'blocked') {
           // escudo: faíscas frias, o golpe volta e empurra o cavaleiro
@@ -540,6 +576,11 @@ export class GameScene extends Phaser.Scene {
         this.sparks.explode(10, c.centerX, c.centerY);
         this.sfx(e.alive ? 'hit' : 'kill');
         if (!e.alive) this.onKill(e);
+      }
+      if (parried) {
+        this.onParry(parried.x, parried.y, true);
+        hit = false;
+        blocked = false;
       }
       if (blocked && !hit) {
         p.onBlocked();
@@ -605,6 +646,7 @@ export class GameScene extends Phaser.Scene {
     if (this.looted.has(e)) return;
     this.looted.add(e);
     this.loot.drop(e.kind, e.zone.x, e.zone.y);
+    progress.kill(e.kind);
     const t = this.tracks.find((k) => k.e === e);
     if (t && t.f !== PASSED) this.markPassed(t);
   }
@@ -732,7 +774,7 @@ export class GameScene extends Phaser.Scene {
       for (const e of this.enemies) {
         if (!e.alive || q.hit.has(e) || !overlap(box, e.rect)) continue;
         q.hit.add(e);
-        const r = e.hit(q.x - q.dir * 20, QUAKE.dmg * progress.dmgMul, 'quake');
+        const r = e.hit(q.x - q.dir * 20, QUAKE.dmg * progress.dmgFor('badalo'), 'quake');
         if (r !== 'hit') continue;
         this.sparks.explode(8, q.x, q.y - 6);
         this.sfx(e.alive ? 'hit' : 'kill', 0.8, 0.8);
@@ -748,19 +790,65 @@ export class GameScene extends Phaser.Scene {
   }
 
   spawnArrow(x: number, y: number, dx: number, dy: number, dmg: number) {
-    this.arrows.push(new Arrow(this, x, y, dx, dy, dmg * progress.dmgMul));
+    this.arrows.push(new Arrow(this, x, y, dx, dy, dmg * progress.dmgFor('bow')));
+  }
+
+  // flecha do arqueiro da sacada (machuca o cavaleiro até ser rebatida)
+  spawnEnemyArrow(x: number, y: number, dx: number, dy: number) {
+    this.arrows.push(new Arrow(this, x, y, dx, dy, 1, { hostile: true, speed: ARCHER.arrowSpeed, life: ARCHER.arrowLife }));
+    this.sfx('bow', 0.75, 0.8);
+  }
+
+  // incenso subindo (do incensário e das nuvens no chão)
+  incense(x: number, y: number, n: number) {
+    this.smoke.emitParticle(n, x, y);
+  }
+
+  // aparou: tinido, clarão e um instante parado. Rebater uma flecha é mais leve
+  onParry(x: number, y: number, stun: boolean) {
+    this.sfx('parry', stun ? 1 : 0.8);
+    this.sparks.explode(stun ? 22 : 12, x, y);
+    this.clangs.explode(stun ? 14 : 8, x, y);
+    const g = this.add.image(x, y, 'glow').setTint(0xfff1d0).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.slash + 1).setScale(0.4).setAlpha(1);
+    this.tweens.add({ targets: g, scale: stun ? 3 : 1.8, alpha: 0, duration: 280, ease: 'Quad.easeOut', onComplete: () => g.destroy() });
+    this.hitstop(stun ? PARRY.hitstop : 0.06);
+    this.cameras.main.shake(stun ? 140 : 80, stun ? 0.006 : 0.003);
+    if (stun) this.cameras.main.flash(70, 60, 54, 40);
+    pad.rumble(0.35, 0.8, stun ? 140 : 80);
+    this.player.onAttackHit();
+    this.onPlayerAction('parry');
+    if (!progress.seen.has('parry:first')) {
+      progress.seen.add('parry:first');
+      this.time.delayedCall(500, () => ui.thought(stun ? 'Bem na hora. O golpe voltou e ele ficou aberto.' : 'A flecha voltou para quem atirou.', 4200));
+    }
   }
 
   private updateArrows(dt: number) {
+    const p = this.player;
     for (const a of this.arrows) {
       if (a.dead) continue;
       if (a.update(dt, this.level) === 'wall') {
         this.sparks.explode(4, a.tip.x, a.tip.y);
-        this.sfx('thunk');
-        this.fixtures.arrow(a.rect, a.tip, a.x - a.dx * 20);
+        this.sfx('thunk', a.hostile ? 0.6 : 1);
+        if (!a.hostile) this.fixtures.arrow(a.rect, a.tip, a.x - a.dx * 20);
         continue;
       }
       if (a.dead || a.stuck) continue;
+      if (a.hostile) {
+        // golpe na flecha: rebate de volta pelo mesmo caminho
+        if (p.attacking && overlap(a.rect, p.attackBox())) {
+          a.deflect(-a.dx, -a.dy, ARCHER.backSpeed, ARCHER.backDmg * progress.dmgFor(p.weapon.id));
+          this.onParry(a.x, a.y, false);
+          continue;
+        }
+        // o dash fantasma atravessa a flecha
+        if (p.dead || p.ghost || this.respawning || this.transitioning || !overlap(a.rect, p.rect)) continue;
+        if (p.hurt(a.x - a.dx * 20)) {
+          a.destroy();
+          this.onHurt();
+        }
+        continue;
+      }
       if (this.fixtures.arrow(a.rect, a.tip, a.x - a.dx * 20)) {
         a.destroy();
         continue;
@@ -893,7 +981,7 @@ export class GameScene extends Phaser.Scene {
     if (!hint && !this.cinematic && !this.transitioning && !p.dead) {
       this.props.touch(p);
       this.fixtures.touch(p);
-      const near = this.props.nearby(p) ?? this.fixtures.nearby(p);
+      const near = this.props.nearby(p) ?? this.fixtures.nearby(p) ?? this.npcs.nearby(p);
       if (near) {
         hint = near.hint;
         if (this.controls.pressed.up) {
@@ -1050,6 +1138,120 @@ export class GameScene extends Phaser.Scene {
       progress.seen.add('page:first');
       this.time.delayedCall(4000, () => ui.thought('Alguém escrevia sobre esta cidade. Guardo comigo.', 3800));
     }
+  }
+
+  // ---------- gente da cidade ----------
+  talkTo(n: Npc) {
+    if (n.kind === 'smith') this.openForge(n);
+    else if (n.kind === 'nun') this.talkNun(n);
+    else {
+      const lines = this.room.npcs?.[n.i] ?? ['...'];
+      const line = lines[n.line % lines.length];
+      n.line++;
+      this.talk(n.look === 'shawl' ? 'Esquecida' : 'Esquecido', [line], n);
+    }
+  }
+
+  // conversa: o jogo para e a caixa de fala aparece embaixo (after roda quando ela fecha)
+  private talk(name: string, lines: string[], n: Npc | null, after?: () => void) {
+    if (ui.open || this.transitioning) return;
+    ui.hint(null);
+    if (n) this.npcs.talking(n, true);
+    this.scene.pause();
+    ui.talk({
+      name,
+      lines,
+      onDone: () => {
+        if (n) this.npcs.talking(n, false);
+        this.resumeGame();
+        after?.();
+      },
+    });
+  }
+
+  // a irmã Luzia: dá o diário, pede os três sinos e recompensa quando todos tocam
+  private talkNun(n: Npc) {
+    const rung = BELLS.filter((k) => progress.seen.has(k)).length;
+    if (!progress.seen.has('quest:sinos')) {
+      this.talk(NUN.name, NUN.first, n, () => {
+        progress.seen.add('quest:sinos');
+        progress.seen.add('journal');
+        progress.save();
+        this.sfx('page');
+        this.gold.explode(12, this.player.x, this.player.body.center.y);
+        ui.banner('Diário da irmã Luzia', 'Páginas, criaturas e lugares · veja na pausa', 4200);
+      });
+    } else if (progress.seen.has('quest:sinos:done')) {
+      this.talk(NUN.name, [NUN.after[n.line++ % NUN.after.length]], n);
+    } else if (rung < BELLS.length) {
+      this.talk(NUN.name, [NUN.waiting(BELLS.length - rung)], n);
+    } else this.talk(NUN.name, NUN.reward, n, () => this.nunReward(n));
+  }
+
+  private nunReward(n: Npc) {
+    progress.seen.add('quest:sinos:done');
+    progress.upgrades.add('beads');
+    const on = progress.toggle('beads') === 'on';
+    progress.memories.add('praca:freira');
+    progress.save();
+    this.applyProgress();
+    this.sfx('chime');
+    this.glowBurst(n.x, n.y - 30, 0xfff0c8, 4);
+    // as moedas vão direto para a bolsa (com a chuva de moedas de enfeite)
+    progress.coins += 30;
+    progress.save();
+    this.registry.set('coins', progress.coins);
+    this.sfx('coinrain', 0.8);
+    const item = OFFERS.find((o) => o.id === 'beads')!;
+    ui.banner(item.name, on ? item.text : 'Guardado no inventário: equipe na pausa.', 4400);
+    this.time.delayedCall(4800, () => {
+      const m = MEMORIES['praca:freira'];
+      this.sfx('chime', 0.7, 1.2);
+      ui.banner(m.title, m.text, 4600);
+    });
+  }
+
+  // Brás, o ferreiro: na primeira vez conversa, depois abre a forja
+  private openForge(n: Npc) {
+    if (!progress.seen.has('smith:met')) {
+      this.talk(SMITH.name, SMITH.first, n, () => {
+        progress.seen.add('smith:met');
+        progress.save();
+        this.openForge(n);
+      });
+      return;
+    }
+    if (ui.open || this.transitioning) return;
+    ui.hint(null);
+    this.npcs.talking(n, true);
+    this.scene.pause();
+    ui.forge({
+      first: false,
+      quote: SMITH.quotes[Math.floor(Math.random() * SMITH.quotes.length)],
+      upgrade: (w) => {
+        const lv = progress.level(w);
+        if (lv >= MAX_LEVEL) return false;
+        const c = FORGE[lv];
+        const mat = c.material ? MATERIALS[c.material] : null;
+        if (progress.coins < c.coins || (mat && !progress.seen.has(mat.has))) return false;
+        progress.coins -= c.coins;
+        progress.levels.set(w, lv + 1);
+        progress.save();
+        this.registry.set('coins', progress.coins);
+        audio.sfx('anvil');
+        window.setTimeout(() => audio.sfx('anvil', { rate: 1.06 }), 260);
+        return SMITH.done[lv % SMITH.done.length];
+      },
+      onClose: () => {
+        this.npcs.talking(n, false);
+        this.resumeGame();
+      },
+    });
+  }
+
+  // faísca da bigorna a cada martelada do ferreiro
+  forgeSpark(x: number, y: number) {
+    this.sparks.explode(6, x, y);
   }
 
   private follow(dt: number) {
@@ -1449,6 +1651,7 @@ export class GameScene extends Phaser.Scene {
       onResume: () => this.resumeGame(),
       onMap: MAP_POS[this.room.id] ? () => this.openMap(true) : undefined,
       onInventory: () => ui.inventory({ toggle: (id) => this.toggleItem(id), onBack: () => ui.pop() }),
+      onJournal: progress.seen.has('journal') ? () => ui.journal({ onBack: () => ui.pop() }) : undefined,
       onWeapon: () =>
         ui.weapons({
           current: settings.data.weapon,

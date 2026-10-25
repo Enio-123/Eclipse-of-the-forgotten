@@ -62,3 +62,89 @@ export const OFFERS: { id: Upgrade; name: string; text: string; cost: number; pa
 ];
 // espaços do inventário
 export const SLOTS = 3;
+
+// ---------- gente da Cidade-Catedral ----------
+// Irmã Luzia, a freira cega dos degraus da praça: dá o diário e pede para tocar os três sinos
+export const NUN = {
+  name: 'Irmã Luzia',
+  first: [
+    'Passos de ferro. Você não é daqui.',
+    'Sou a irmã Luzia. Nasci cega, então o eclipse não teve o que levar de mim. Lembro de tudo.',
+    'Leve este diário. Eu escrevia o que a cidade esquecia. As páginas se espalharam com o vento.',
+    'E me faça um favor: toque os três sinos da cidade. O da torre, nos telhados, o do claustro e o da nave. Quero ouvir a cidade lembrar.',
+  ],
+  waiting: (left: number) =>
+    left === 3
+      ? 'Os três sinos ainda dormem. A torre fica nos telhados; o claustro e a nave, dentro da catedral.'
+      : `Ouvi um. Faltam ${left === 1 ? 'um' : 'dois'}. Bata com força, o bronze é velho.`,
+  reward: [
+    'Eu ouvi. Os três. Por um instante a cidade inteira lembrou.',
+    'Tome as minhas contas. Com elas a gente sente o que está escondido atrás das paredes.',
+    'E isto também. Eu cantei num casamento, há muito tempo. Acho que era o seu.',
+  ],
+  after: [
+    'O Arcebispo conta moedas no altar, lá no alto da galeria. Ele não erra a conta.',
+    'Se precisar descansar, a vela do cadafalso nunca apaga.',
+    'Embaixo da cidade tem uma prisão. Ouço correntes quando chove.',
+  ],
+};
+
+// Brás, o ferreiro: melhora as armas em três níveis (moedas e, nos dois últimos, um material raro
+// que os chefes deixam; o material não se gasta)
+export const SMITH = {
+  name: 'Brás, o ferreiro',
+  first: [
+    'Cuidado com a brasa.',
+    'Sou o Brás. Conserto o que o dízimo quebra. Minha máscara rachou e eu colei com ouro. A sua também, pelo visto.',
+    'Traga moedas que eu deixo a sua arma mais forte. Para o fim do serviço preciso de material que só os grandes carregam.',
+  ],
+  quotes: ['Ferro bom não esquece a forma.', 'O Sineiro tinha bronze no peito. O Arcebispo tem ouro no bolso.', 'Bate, esquenta, bate de novo. Igual lembrar.'],
+  done: ['Pronto. Sente o peso certo agora?', 'Esse fio corta até lembrança.', 'Mais firme que no dia em que foi feita.'],
+};
+
+export const MATERIALS = {
+  bronze: { name: 'Bronze do Sineiro', has: 'boss:sineiro', how: 'vença o Sineiro' },
+  ouro: { name: 'Ouro do Dízimo', has: 'boss:arcebispo', how: 'vença o Arcebispo' },
+} as const;
+
+// custo de cada nível do ferreiro (o índice é o nível atual da arma)
+export const FORGE: { coins: number; material?: keyof typeof MATERIALS }[] = [{ coins: 30 }, { coins: 60, material: 'bronze' }, { coins: 100, material: 'ouro' }];
+
+// Bestiário do diário (aparece depois do primeiro derrotado de cada tipo)
+export const BESTIARY: { kind: string; name: string; text: string; tip: string }[] = [
+  {
+    kind: 'crawler', name: 'Penitente rastejante',
+    text: 'Pagou o próprio rosto e passou a usar o que a ordem deu. Rasteja pelos caminhos que ninguém usa mais.',
+    tip: 'Machuca só de encostar. Pule por cima ou bata de longe.',
+  },
+  {
+    kind: 'crow', name: 'Corvo do Dízimo',
+    text: 'Ave da ordem. Vigia as catacumbas e mergulha em quem passa sem pagar.',
+    tip: 'O olho acende antes do mergulho. Saia da linha e bata quando ele ficar preso no chão.',
+  },
+  {
+    kind: 'guard', name: 'Guarda do Dízimo',
+    text: 'Cobra o tributo com espada e escudo. O escudo para tudo o que vem pela frente.',
+    tip: 'Agache no corte alto, pule o golpe de escudo, apare a espada ou derrube deslizando nas pernas.',
+  },
+  {
+    kind: 'archer', name: 'Arqueiro da Sacada',
+    text: 'Vigia os balcões da cidade. Atira em quem anda de cabeça erguida.',
+    tip: 'A fenda da máscara acende antes do tiro. Golpeie a flecha na hora e ela volta para ele.',
+  },
+  {
+    kind: 'censer', name: 'Penitente do Incensário',
+    text: 'Leva o incenso das procissões. O cheiro faz a cidade esquecer o que viu.',
+    tip: 'Ele ergue o incensário antes de bater. Apare quando descer; a fumaça no chão queima por um tempo.',
+  },
+  {
+    kind: 'boss:sineiro', name: 'O Sineiro',
+    text: 'Tocava o sino a cada memória paga, até esquecer o próprio nome. Guardava o último sino das catacumbas.',
+    tip: 'Fuja da onda da pancada pulando e bata nas costas depois da investida.',
+  },
+  {
+    kind: 'boss:arcebispo', name: 'O Arcebispo do Dízimo',
+    text: 'Contava tudo o que a cidade pagava. Um dia quis cobrar o tempo, e o céu escureceu.',
+    tip: 'O incensário dele também se apara. Quando o vitral cair, fuja dos fachos de luz.',
+  },
+];

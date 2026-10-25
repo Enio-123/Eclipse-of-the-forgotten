@@ -1,0 +1,33 @@
+{
+ "frameWidth": 64,
+ "frameHeight": 76,
+ "originX": 0.46875,
+ "originY": 0.9605263157894737,
+ "columns": 4,
+ "anims": {
+  "idle-shawl": {
+   "start": 0,
+   "count": 4,
+   "fps": 3,
+   "loop": true
+  },
+  "talk-shawl": {
+   "start": 4,
+   "count": 2,
+   "fps": 3,
+   "loop": true
+  },
+  "idle-hat": {
+   "start": 8,
+   "count": 4,
+   "fps": 3,
+   "loop": true
+  },
+  "talk-hat": {
+   "start": 12,
+   "count": 2,
+   "fps": 3,
+   "loop": true
+  }
+ }
+}

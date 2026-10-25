@@ -5,7 +5,7 @@ import type Phaser from 'phaser';
 export type HitDir = 'side' | 'up' | 'down' | 'low' | 'arrow' | 'quake';
 export type HitResult = 'hit' | 'blocked' | 'ignored';
 // quem é (decide as moedas e a vida que deixa ao morrer)
-export type EnemyKind = 'crawler' | 'crow' | 'guard' | 'boss';
+export type EnemyKind = 'crawler' | 'crow' | 'guard' | 'archer' | 'censer' | 'boss';
 
 // O que a cena precisa saber de qualquer inimigo
 export interface Enemy {
@@ -21,6 +21,8 @@ export interface Enemy {
   harms(pr: Phaser.Geom.Rectangle, sliding: boolean): boolean;
   // o cavaleiro deslizando por baixo dele
   slideInto?(pr: Phaser.Geom.Rectangle, fromX: number): void;
+  // aparar: o golpe do cavaleiro encontrou o ataque dele bem na hora (fica tonto e devolve true)
+  parry?(box: Phaser.Geom.Rectangle, fromX: number): boolean;
   // descanso na vela: some do trecho já vencido (devolve o desenho para virar cinza)
   vanish?(): Phaser.GameObjects.Sprite | null;
   destroy?(): void;

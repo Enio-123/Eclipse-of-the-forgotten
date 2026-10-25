@@ -21,6 +21,7 @@ export function buildTextures(scene: Phaser.Scene) {
   add(tex, 'rain-far', makeRain(256, 256, 170, 5, 9, 0.2, 0.42, 11));
   add(tex, 'rain-near', makeRain(256, 256, 44, 13, 22, 0.32, 0.62, 12));
   add(tex, 'glow', makeGlow(64));
+  add(tex, 'smoke', makeSmoke(32));
   add(tex, 'ripple', makeRipple());
   add(tex, 'petal-a', makePetal(0xf2a7c3, 0xffd9e6));
   add(tex, 'petal-b', makePetal(0xe58bb0, 0xf7c4d8));
@@ -161,6 +162,41 @@ function makeGlow(s: number) {
       const lo = Math.floor(lv);
       const q = (lo + (dither(x, y, lv - lo) ? 1 : 0)) / steps;
       if (q > 0) r.set(x, y, 0xffffff, Math.round(255 * q));
+    }
+  }
+  commit();
+  return canvas;
+}
+
+// Bolo de fumaça (incenso): bolhas que se juntam, claras em cima e escuras embaixo, com a borda
+// pontilhada. Fica branco para ser tingido.
+function makeSmoke(s: number) {
+  const { canvas, r, commit } = canvasRaster(s, s);
+  const c = s / 2;
+  const blobs: [number, number, number][] = [
+    [c, c + 1, s * 0.3],
+    [c - s * 0.17, c + s * 0.06, s * 0.22],
+    [c + s * 0.18, c + s * 0.08, s * 0.2],
+    [c - s * 0.04, c - s * 0.16, s * 0.21],
+    [c + s * 0.1, c - s * 0.08, s * 0.17],
+  ];
+  for (let y = 0; y < s; y++) {
+    for (let x = 0; x < s; x++) {
+      let v = 0;
+      for (const [bx, by, br] of blobs) {
+        const d = Math.hypot(x + 0.5 - bx, y + 0.5 - by) / br;
+        if (d < 1) v = Math.max(v, 1 - d * d);
+      }
+      if (v <= 0) continue;
+      const a = Math.min(1, v * 1.6);
+      const steps = 4;
+      const lv = a * steps;
+      const lo = Math.floor(lv);
+      const q = (lo + (dither(x, y, lv - lo) ? 1 : 0)) / steps;
+      if (q <= 0) continue;
+      // luz de cima e da esquerda
+      const lit = (c - y) * 0.7 + (c - x) * 0.4 > s * 0.06 ? 0xffffff : (c - y) * 0.7 + (c - x) * 0.4 < -s * 0.14 ? 0xb8b8c0 : 0xdcdce2;
+      r.set(x, y, lit, Math.round(255 * q * 0.9));
     }
   }
   commit();

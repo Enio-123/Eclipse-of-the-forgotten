@@ -94,6 +94,12 @@
    "count": 4,
    "fps": 8,
    "loop": false
+  },
+  "stagger": {
+   "start": 90,
+   "count": 2,
+   "fps": 6,
+   "loop": false
   }
  }
 }

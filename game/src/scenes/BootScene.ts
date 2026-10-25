@@ -19,7 +19,7 @@ interface SlashMeta {
 }
 
 // Folhas de personagens geradas pelas ferramentas de arte (arte/gerador)
-const SHEETS = ['knight-scythe', 'knight-sword', 'knight-daggers', 'knight-bow', 'knight-badalo', 'penitent', 'figure', 'guard', 'crow', 'cobrador', 'sineiro'];
+const SHEETS = ['knight-scythe', 'knight-sword', 'knight-daggers', 'knight-bow', 'knight-badalo', 'penitent', 'figure', 'guard', 'crow', 'cobrador', 'sineiro', 'archer', 'censer', 'nun', 'smith', 'folk'];
 const IMAGES = [
   'title-sky', 'title-land', 'title-rim', 'clouds-far', 'clouds-near',
   'bridge-sky', 'bridge-far', 'bridge-far-rim', 'bridge-mid', 'bridge-mid-rim', 'bridge-fg', 'cat-far', 'cat-mid', 'mem-sky', 'mem-far', 'mem-mid',

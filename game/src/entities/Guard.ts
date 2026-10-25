@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GUARD as C } from '../config';
+import { GUARD as C, PARRY } from '../config';
 import type { GameScene } from '../scenes/GameScene';
 import { isGround, isSolid } from '../world/Level';
 import { overlap, type Enemy, type HitDir, type HitResult } from './Enemy';
@@ -8,15 +8,17 @@ type State =
   | 'patrol' | 'guard' | 'turn' | 'block' | 'hurt'
   | 'windup' | 'strike' | 'recover'
   | 'bashwind' | 'bash' | 'bashrec'
-  | 'trip' | 'down' | 'getup';
+  | 'trip' | 'down' | 'getup' | 'stagger';
 
 // estados em que o escudo não está na frente do corpo
-const OPEN: State[] = ['strike', 'recover', 'trip', 'down', 'getup', 'hurt'];
+const OPEN: State[] = ['strike', 'recover', 'trip', 'down', 'getup', 'hurt', 'stagger'];
 const FLOORED: State[] = ['trip', 'down', 'getup'];
 
 // Guarda do Dízimo. Pedra, papel e tesoura com o jogador:
 // corte alto (espada levantada) -> agache ou deslize; escudo baixo (agachado atrás do escudo) -> pule;
 // parado de guarda -> deslize nas pernas para derrubar, ou vá pelas costas antes que ele se vire.
+// O corte alto também dá para aparar: golpear quando a espada desce joga a espada para trás e
+// deixa ele tonto, de escudo aberto.
 export class Guard implements Enemy {
   readonly kind = 'guard' as const;
   readonly zone: Phaser.GameObjects.Zone;
@@ -207,6 +209,14 @@ export class Guard implements Enemy {
           this.go('guard', 'idle');
         }
         break;
+      case 'stagger':
+        b.velocity.x *= Math.pow(0.86, dt * 60);
+        this.stopAtEdge();
+        if (this.t > PARRY.stagger) {
+          this.atkCd = 0.5;
+          this.go('guard', 'idle');
+        }
+        break;
       case 'trip':
         b.velocity.x *= Math.pow(0.9, dt * 60);
         if (this.t > 0.26) {
@@ -243,7 +253,8 @@ export class Guard implements Enemy {
     if (!this.alive) return false;
     if (this.state === 'strike' && this.t < C.strikeActive && overlap(pr, this.swordBox)) return true;
     if (this.state === 'bash' && overlap(pr, this.bashBox)) return true;
-    if (sliding || FLOORED.includes(this.state)) return false;
+    // tonto, ele não empurra ninguém: dá para chegar perto e bater
+    if (sliding || FLOORED.includes(this.state) || this.state === 'stagger') return false;
     return overlap(pr, this.rect);
   }
 
@@ -257,8 +268,23 @@ export class Guard implements Enemy {
     this.atkCd = 0.6;
   }
 
+  // aparar o corte alto: no fim da preparação ou enquanto a espada desce, golpeando pela frente
+  parry(box: Phaser.Geom.Rectangle, fromX: number) {
+    if (!this.alive) return false;
+    const late = this.state === 'windup' && this.t > C.windup - PARRY.early;
+    const swing = this.state === 'strike' && this.t < C.strikeActive;
+    if (!late && !swing) return false;
+    if ((Math.sign(fromX - this.zone.x) || this.facing) !== this.facing) return false;
+    if (!overlap(box, this.swordBox) && !overlap(box, this.rect)) return false;
+    this.go('stagger', 'stagger');
+    this.body.velocity.x = -this.facing * 70;
+    this.atkCd = 0.6;
+    return true;
+  }
+
   hit(fromX: number, dmg: number, dir: HitDir): HitResult {
     if (!this.alive) return 'ignored';
+    if (this.state === 'stagger') dmg *= PARRY.bonus;
     const front = (Math.sign(fromX - this.zone.x) || this.facing) === this.facing;
     if (front && dir !== 'down' && dir !== 'quake' && !OPEN.includes(this.state)) {
       if (this.state === 'guard' || this.state === 'patrol' || this.state === 'turn' || this.state === 'block') this.go('block', 'block');

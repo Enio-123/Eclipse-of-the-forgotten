@@ -132,6 +132,7 @@
           <button data-cmd="resume">Continuar</button>
           <button data-cmd="map">Mapa</button>
           <button data-cmd="inventory">Inventário</button>
+          <button data-cmd="journal" hidden>Diário</button>
           <button data-cmd="weapon">Trocar arma</button>
           <button data-cmd="settings">Configurações</button>
           <button data-cmd="title">Voltar ao título</button>
@@ -193,6 +194,47 @@
           <section><h3>Relíquias</h3><ul class="inv-relics"></ul></section>
         </div>
         <div class="row">
+          <button data-cmd="back" class="primary">Voltar</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-talk" class="screen talk">
+      <div class="talk-box" role="dialog" aria-live="polite">
+        <h3 class="talk-name"></h3>
+        <p class="talk-text"></p>
+        <div class="talk-row">
+          <span class="talk-step"></span>
+          <button data-cmd="next" class="talk-next">Continuar</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-forge" class="screen dim">
+      <div class="panel shop-panel forge-panel">
+        <h2>Brás, o ferreiro</h2>
+        <p class="quote"></p>
+        <p class="sub">Você tem <b class="forge-coins">0 moedas</b>. Cada arma sobe até o nível 3. O material raro não se gasta: serve para todas.</p>
+        <nav class="forge-list"></nav>
+        <div class="row">
+          <button data-cmd="close" class="primary">Ir embora</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-journal" class="screen dim">
+      <div class="panel journal-panel">
+        <h2>Diário da irmã Luzia</h2>
+        <div class="tabs" role="tablist">
+          <button role="tab" data-tab="story" aria-selected="true">História</button>
+          <button role="tab" data-tab="beasts" aria-selected="false">Bestiário</button>
+          <button role="tab" data-tab="places" aria-selected="false">Lugares</button>
+        </div>
+        <div class="tab-panel" data-panel="story"><p class="j-count"></p><div class="j-list"></div></div>
+        <div class="tab-panel" data-panel="beasts" hidden><p class="j-count"></p><div class="j-list"></div></div>
+        <div class="tab-panel" data-panel="places" hidden><p class="j-count"></p><div class="j-list"></div></div>
+        <div class="row">
+          <span class="keys-note kbd-only">Q e E trocam a aba</span>
           <button data-cmd="back" class="primary">Voltar</button>
         </div>
       </div>

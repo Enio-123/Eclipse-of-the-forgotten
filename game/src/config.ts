@@ -150,12 +150,58 @@ export const CROW = {
   cooldown: 1.5,
 };
 
+// Arqueiro da sacada: fica no balcão, mira devagar (a fenda da máscara acende) e solta uma flecha
+// mirada no cavaleiro. Um golpe na flecha bem na hora rebate ela de volta.
+export const ARCHER = {
+  bodyW: 16,
+  bodyH: 46,
+  hp: 3,
+  sight: 300,
+  draw: 0.8,
+  cooldown: 1.6,
+  arrowSpeed: 270,
+  arrowLife: 2.4,
+  // flecha rebatida: volta mais rápida e machuca quem atirou
+  backSpeed: 560,
+  backDmg: 2,
+};
+
+// Penitente do incensário: anda devagar, ergue o incensário (os furos acendem) e bate na frente.
+// Onde o incensário cai fica uma nuvem de incenso que machuca por um tempo.
+export const CENSER = {
+  bodyW: 20,
+  bodyH: 50,
+  hp: 5,
+  walk: 40,
+  sight: 190,
+  keep: 50,
+  reach: 70,
+  windup: 0.62,
+  active: 0.22,
+  recover: 0.7,
+  atkCd: 1.2,
+  smoke: 1.6,
+  smokeW: 40,
+  smokeH: 24,
+};
+
+// Aparar: golpear no fim da preparação ou no golpe do inimigo rebate o ataque e deixa ele tonto.
+// Enquanto está tonto, os golpes entram com bônus.
+export const PARRY = {
+  early: 0.2,
+  stagger: 1.4,
+  bonus: 1.5,
+  hitstop: 0.12,
+};
+
 // O que cada inimigo solta ao morrer: moedas (mín, máx) e quanto vale para a próxima lasca de
 // vida (a cada 1 completo cai uma, se o cavaleiro estiver ferido)
 export const LOOT = {
   crawler: { coins: [2, 4], life: 0.5 },
   crow: { coins: [3, 5], life: 0.5 },
   guard: { coins: [7, 10], life: 1 },
+  archer: { coins: [3, 5], life: 0.5 },
+  censer: { coins: [4, 7], life: 0.75 },
   boss: { coins: [40, 40], life: 2 },
   magnet: 56,
   pickupDelay: 0.35,

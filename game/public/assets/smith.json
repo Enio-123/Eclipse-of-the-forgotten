@@ -1,0 +1,27 @@
+{
+ "frameWidth": 112,
+ "frameHeight": 84,
+ "originX": 0.39285714285714285,
+ "originY": 0.9642857142857143,
+ "columns": 4,
+ "anims": {
+  "work": {
+   "start": 0,
+   "count": 4,
+   "fps": 6,
+   "loop": true
+  },
+  "idle": {
+   "start": 4,
+   "count": 2,
+   "fps": 2,
+   "loop": true
+  },
+  "talk": {
+   "start": 8,
+   "count": 2,
+   "fps": 3,
+   "loop": true
+  }
+ }
+}

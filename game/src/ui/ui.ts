@@ -4,12 +4,12 @@ import { raw } from '../systems/RawInput';
 import { ACTIONS, ACTION_LABEL, PAD_ACTIONS, codeName, settings, type Action } from '../systems/Settings';
 import { audio } from '../systems/Audio';
 import { BRAND_LABEL, BTN, buttonGlyph, buttonName, pad, stickGlyph, type PadBrand } from '../systems/Pad';
-import { progress, type Upgrade } from '../systems/Save';
-import { MEMORIES, MEMORY_TOTAL, OFFERS, RELICS, SLOTS } from '../world/lore';
-import { ROOMS, type Ability } from '../world/rooms';
+import { LEVEL_MUL, MAX_LEVEL, progress, type Upgrade } from '../systems/Save';
+import { BESTIARY, FORGE, MATERIALS, MEMORIES, MEMORY_TOTAL, OFFERS, PAGES, PAGE_IDS, RELICS, SLOTS } from '../world/lore';
+import { MAP_POS, ROOMS, type Ability, type RoomId } from '../world/rooms';
 import { drawMarker, renderMap, type MapHere } from './mapview';
 
-type ScreenId = 'loading' | 'intro' | 'menu' | 'erase' | 'weapons' | 'settings' | 'pause' | 'end' | 'map' | 'shop' | 'inventory';
+type ScreenId = 'loading' | 'intro' | 'menu' | 'erase' | 'weapons' | 'settings' | 'pause' | 'end' | 'map' | 'shop' | 'inventory' | 'talk' | 'forge' | 'journal';
 
 const COBRADOR_LINES = [
   'Voltou. Sempre voltam.',
@@ -148,6 +148,20 @@ class UI {
       return;
     }
     if (this.top === 'intro') return;
+    // na conversa, atacar, pular ou cima também passam a fala
+    if (this.top === 'talk') {
+      const next = ['attack', 'jump', 'up'].some((a) => settings.codesFor(a as Action).includes(e.code));
+      if (next && !e.repeat) {
+        e.preventDefault();
+        $<HTMLButtonElement>('#screen-talk [data-cmd="next"]').click();
+      }
+      return;
+    }
+    if (this.top === 'journal' && (e.code === 'KeyQ' || e.code === 'KeyE')) {
+      e.preventDefault();
+      this.switchTab(e.code === 'KeyQ' ? -1 : 1);
+      return;
+    }
     const active = document.activeElement as HTMLElement | null;
     if (active?.tagName === 'INPUT' && (active as HTMLInputElement).type === 'range') return;
     const dir = { ArrowUp: -1, ArrowDown: 1, ArrowLeft: -1, ArrowRight: 1, KeyW: -1, KeyS: 1, KeyA: -1, KeyD: 1 }[e.code];
@@ -559,8 +573,11 @@ class UI {
   }
 
   // ---------- pausa e fim ----------
-  pause(o: { onResume: () => void; onMap?: () => void; onInventory: () => void; onWeapon: () => void; onTitle: () => void }) {
+  pause(o: { onResume: () => void; onMap?: () => void; onInventory: () => void; onJournal?: () => void; onWeapon: () => void; onTitle: () => void }) {
     const s = $('#screen-pause');
+    const jBtn = $<HTMLButtonElement>('[data-cmd="journal"]', s);
+    jBtn.hidden = !o.onJournal;
+    jBtn.onclick = () => o.onJournal?.();
     $<HTMLButtonElement>('[data-cmd="resume"]', s).onclick = () => o.onResume();
     const mapBtn = $<HTMLButtonElement>('[data-cmd="map"]', s);
     mapBtn.hidden = !o.onMap;
@@ -788,6 +805,168 @@ class UI {
     };
     render();
     this.push('shop', o.onClose);
+  }
+
+  // ---------- conversa ----------
+  // as falas aparecem letra por letra; o botão (ou atacar, pular, cima) completa a fala ou passa
+  // para a próxima. Esc pula a conversa inteira.
+  private typeTimer = 0;
+
+  talk(o: { name: string; lines: string[]; onDone: () => void }) {
+    const s = $('#screen-talk');
+    const text = $('.talk-text', s);
+    const step = $('.talk-step', s);
+    const next = $<HTMLButtonElement>('[data-cmd="next"]', s);
+    $('.talk-name', s).textContent = o.name;
+    let i = 0;
+    let shown = 0;
+    let done = false;
+    const line = () => o.lines[i] ?? '';
+    const show = () => {
+      shown = 0;
+      text.textContent = '';
+      step.textContent = o.lines.length > 1 ? `${i + 1} / ${o.lines.length}` : '';
+      next.textContent = i < o.lines.length - 1 ? 'Continuar' : 'Fechar';
+      clearInterval(this.typeTimer);
+      this.typeTimer = window.setInterval(() => {
+        shown = Math.min(line().length, shown + 2);
+        text.textContent = line().slice(0, shown);
+        if (shown >= line().length) clearInterval(this.typeTimer);
+      }, 26);
+    };
+    const finish = () => {
+      if (done) return;
+      done = true;
+      clearInterval(this.typeTimer);
+      s.onpointerdown = null;
+      this.stack = this.stack.filter((e) => e.id !== 'talk');
+      this.refresh();
+      o.onDone();
+    };
+    next.onclick = (e) => {
+      e.stopPropagation();
+      if (shown < line().length) {
+        clearInterval(this.typeTimer);
+        shown = line().length;
+        text.textContent = line();
+        return;
+      }
+      if (++i >= o.lines.length) {
+        finish();
+        return;
+      }
+      audio.sfx('ui');
+      show();
+    };
+    // tocar na caixa também passa
+    s.onpointerdown = (e) => {
+      if ((e.target as HTMLElement).closest('.talk-box')) next.click();
+    };
+    this.push('talk', finish);
+    show();
+  }
+
+  // ---------- ferreiro ----------
+  // upgrade: true quando subiu de nível (o jogo cobra e grava)
+  forge(o: { first: boolean; quote: string; upgrade: (w: WeaponId) => string | false; onClose: () => void }) {
+    const s = $('#screen-forge');
+    const quote = $('.quote', s);
+    quote.textContent = o.quote;
+    $<HTMLButtonElement>('[data-cmd="close"]', s).onclick = () => o.onClose();
+    const list = $('.forge-list', s);
+    const render = (focusId?: WeaponId) => {
+      $('.forge-coins', s).textContent = plural(progress.coins, 'moeda', 'moedas');
+      list.replaceChildren();
+      for (const id of WEAPON_ORDER) {
+        if (!progress.hasWeapon(id)) continue;
+        const W = WEAPONS[id];
+        const lv = progress.level(id);
+        const b = el('button', 'offer forge-row') as HTMLButtonElement;
+        b.dataset.id = id;
+        const pips = el('span', 'pips');
+        pips.setAttribute('aria-label', `Nível ${lv} de ${MAX_LEVEL}`);
+        for (let k = 0; k < MAX_LEVEL; k++) pips.append(el('i', k < lv ? 'on' : ''));
+        const what = el('span', 'what');
+        let can = false;
+        let cost: HTMLElement | null = null;
+        if (lv >= MAX_LEVEL) what.textContent = `Nível máximo: dano +${Math.round((LEVEL_MUL[lv] - 1) * 100)}%.`;
+        else {
+          const c = FORGE[lv];
+          const mat = c.material ? MATERIALS[c.material] : null;
+          const hasMat = !mat || progress.seen.has(mat.has);
+          can = hasMat && progress.coins >= c.coins;
+          what.textContent = `Nível ${lv + 1}: dano +${Math.round((LEVEL_MUL[lv + 1] - 1) * 100)}%. `;
+          if (mat) what.append(el('span', hasMat ? '' : 'need', hasMat ? `Usa o ${mat.name}.` : `Precisa do ${mat.name}: ${mat.how}.`));
+          cost = el('span', 'cost coins');
+          cost.append(el('i'), el('span', '', String(c.coins)));
+        }
+        b.disabled = !can;
+        b.append(el('b', '', W.name), pips, what);
+        if (cost) b.append(cost);
+        b.onclick = () => {
+          const r = o.upgrade(id);
+          if (!r) return;
+          quote.textContent = r;
+          render(id);
+        };
+        list.append(b);
+      }
+      if (focusId) {
+        const again = list.querySelector<HTMLButtonElement>(`[data-id="${focusId}"]:not([disabled])`);
+        (again ?? list.querySelector<HTMLButtonElement>('button:not([disabled])') ?? $<HTMLButtonElement>('[data-cmd="close"]', s)).focus({ preventScroll: true });
+      }
+    };
+    render();
+    this.push('forge', o.onClose);
+  }
+
+  // ---------- diário ----------
+  journal(o: { onBack: () => void }) {
+    const s = $('#screen-journal');
+    const tabs = [...s.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+    const show = (name: string) => {
+      tabs.forEach((t) => t.setAttribute('aria-selected', String(t.dataset.tab === name)));
+      s.querySelectorAll<HTMLElement>('.tab-panel').forEach((p) => (p.hidden = p.dataset.panel !== name));
+    };
+    tabs.forEach((t) => (t.onclick = () => show(t.dataset.tab!)));
+    const entry = (title: string, text?: string, tip?: string, tag?: string, unknown = false) => {
+      const b = el('button', unknown ? 'j-entry unknown' : 'j-entry') as HTMLButtonElement;
+      b.type = 'button';
+      if (tag) b.append(el('span', 'j-tag', tag));
+      b.append(el('b', '', title));
+      if (text) b.append(el('span', 'j-text', text));
+      if (tip) b.append(el('span', 'j-tip', tip));
+      return b;
+    };
+    const panel = (name: string) => s.querySelector<HTMLElement>(`.tab-panel[data-panel="${name}"]`)!;
+    // história: as páginas na ordem do caminho
+    const found = PAGE_IDS.filter((id) => progress.seen.has(`page:${id}`));
+    $('.j-count', panel('story')).textContent = `Páginas: ${found.length} de ${PAGE_IDS.length}`;
+    $('.j-list', panel('story')).replaceChildren(
+      ...PAGE_IDS.map((id) => (progress.seen.has(`page:${id}`) ? entry(PAGES[id].title, PAGES[id].text) : entry('Página perdida', undefined, undefined, undefined, true))),
+    );
+    // bestiário: quem já foi derrotado (chefes contam pela vitória)
+    const beasts = BESTIARY.map((b) => {
+      const boss = b.kind.startsWith('boss:');
+      const n = boss ? (progress.seen.has(b.kind) ? 1 : 0) : progress.kills.get(b.kind) ?? 0;
+      return { b, n, boss };
+    });
+    $('.j-count', panel('beasts')).textContent = `Conhecidos: ${beasts.filter((x) => x.n > 0).length} de ${beasts.length}`;
+    $('.j-list', panel('beasts')).replaceChildren(
+      ...beasts.map(({ b, n, boss }) =>
+        n > 0 ? entry(b.name, b.text, b.tip, boss ? 'Chefe vencido' : `Derrotados: ${n}`) : entry('Ainda não encontrado', undefined, undefined, undefined, true),
+      ),
+    );
+    // lugares: as salas do mapa já visitadas
+    const rooms = (Object.keys(MAP_POS) as RoomId[]).filter((id) => MAP_POS[id]);
+    const visited = rooms.filter((id) => progress.visited.has(id));
+    $('.j-count', panel('places')).textContent = `Lugares: ${visited.length} de ${rooms.length}`;
+    $('.j-list', panel('places')).replaceChildren(
+      ...rooms.map((id) => (progress.visited.has(id) ? entry(ROOMS[id].title, ROOMS[id].subtitle) : entry('Lugar ainda não visitado', undefined, undefined, undefined, true))),
+    );
+    show('story');
+    $<HTMLButtonElement>('[data-cmd="back"]', s).onclick = () => o.onBack();
+    this.push('journal', o.onBack);
   }
 
   // ---------- textos sobre o jogo ----------

@@ -18,7 +18,21 @@ export interface SaveData {
   coins: number;
   // itens ligados no inventário (null num save antigo, de antes do inventário)
   equipped: string[] | null;
+  // inimigos derrotados por tipo (bestiário do diário) e nível de cada arma no ferreiro
+  kills: Record<string, number>;
+  levels: Record<string, number>;
 }
+
+// dano de cada nível do ferreiro (0 = como veio)
+export const LEVEL_MUL = [1, 1.15, 1.3, 1.5];
+export const MAX_LEVEL = LEVEL_MUL.length - 1;
+
+const counts = (v: unknown) => {
+  const out: Record<string, number> = {};
+  if (!v || typeof v !== 'object') return out;
+  for (const [k, n] of Object.entries(v as Record<string, unknown>)) if (typeof n === 'number' && Number.isFinite(n) && n > 0) out[k] = Math.floor(n);
+  return out;
+};
 
 export type Upgrade = 'mask' | 'blade' | 'breath' | 'purse' | 'shard' | 'whetstone' | 'beads';
 const UPGRADES: Upgrade[] = ['mask', 'blade', 'breath', 'purse', 'shard', 'whetstone', 'beads'];
@@ -53,6 +67,8 @@ export function loadSave(): SaveData | null {
       visited: d.visited && typeof d.visited === 'object' ? (d.visited as Record<string, number[]>) : {},
       coins: typeof d.coins === 'number' && Number.isFinite(d.coins) ? Math.max(0, Math.floor(d.coins)) : 0,
       equipped: Array.isArray(d.equipped) ? strs(d.equipped) : null,
+      kills: counts(d.kills),
+      levels: counts(d.levels),
     };
   } catch {
     return null;
@@ -93,6 +109,8 @@ export const progress = {
   // pedaços do mapa já vistos em cada sala (células de 4x4 tiles)
   visited: new Map<string, Set<number>>(),
   coins: 0,
+  kills: new Map<string, number>(),
+  levels: new Map<WeaponId, number>(),
   // quanto falta para a próxima lasca de vida cair de um inimigo (não é gravado)
   lifeAcc: 0,
 
@@ -109,6 +127,8 @@ export const progress = {
     this.equipped = new Set();
     this.visited = new Map();
     this.coins = 0;
+    this.kills = new Map();
+    this.levels = new Map();
     this.lifeAcc = 0;
     clearSave();
   },
@@ -132,7 +152,27 @@ export const progress = {
     }
     this.visited = new Map(Object.entries(d.visited).map(([k, v]) => [k, new Set(Array.isArray(v) ? v : [])]));
     this.coins = d.coins;
+    this.kills = new Map(Object.entries(d.kills));
+    this.levels = new Map(
+      Object.entries(d.levels)
+        .filter(([k]) => WEAPON_IDS.includes(k as WeaponId))
+        .map(([k, v]) => [k as WeaponId, Math.min(MAX_LEVEL, v)]),
+    );
     this.lifeAcc = 0;
+  },
+
+  // ---------- diário e ferreiro ----------
+  kill(kind: string) {
+    this.kills.set(kind, (this.kills.get(kind) ?? 0) + 1);
+  },
+
+  level(w: WeaponId) {
+    return this.levels.get(w) ?? 0;
+  },
+
+  // dano de uma arma com as melhorias ligadas e o nível do ferreiro
+  dmgFor(w: WeaponId) {
+    return this.dmgMul * LEVEL_MUL[this.level(w)];
   },
 
   // ---------- inventário ----------
@@ -186,6 +226,7 @@ export const progress = {
       room: this.room, entry: this.entry, weapon: this.weapon, kintsugi: this.kintsugi, prologueDone: this.prologueDone,
       seen: [...this.seen], abilities: [...this.abilities], memories: [...this.memories], traded: [...this.traded],
       upgrades: [...this.upgrades], visited, coins: this.coins, equipped: [...this.equipped],
+      kills: Object.fromEntries(this.kills), levels: Object.fromEntries(this.levels),
     });
   },
 
