@@ -12,7 +12,8 @@ from paint import Layer, banded, fbm, rgb, quantize_alpha
 
 puppet.RAMPS['statue'] = [0x141823, 0x222836, 0x323a4d, 0x465068, 0x5f6b86]
 puppet.RAMPS['scarlet'] = [0x3a0b12, 0x6b1420, 0x9e2230, 0xcc3a3e, 0xeb6356]
-puppet.RAMPS['linen'] = [0x6b5f55, 0x9c8f80, 0xc8bba6, 0xe6dccb, 0xfaf3e6]
+# linho mais quente do vestido da figura (nome próprio: 'linen' é o dos outros bonecos)
+puppet.RAMPS['dress'] = [0x6b5f55, 0x9c8f80, 0xc8bba6, 0xe6dccb, 0xfaf3e6]
 puppet.RAMPS['skin'] = [0x6e4436, 0x9c6450, 0xc98a6e, 0xe5ad8e, 0xf6cdb0]
 puppet.RAMPS['hair'] = [0x22150f, 0x3a2418, 0x573823, 0x744d30, 0x92653f]
 puppet.RIM_MATS |= {'statue', 'scarlet'}
@@ -369,53 +370,63 @@ def trees(out):
         L.save(f'{out}/deco-{name}.png')
 
 
-def figure(out):
+FIGURE_W, FIGURE_H = 36, 52
+FIGURE_FEET = (18, 50)
+
+
+def figure_build(p):
     """A pessoa amada: pequena figura de capa vermelha (capuz escondendo o rosto)."""
-    W, H = 36, 52
-    FE = (18, 50)
+    prims, decals = [], []
+    hx, hy = 18 + p.get('hx', 0), 21 + p.get('hy', 0)
+    sway = p.get('sway', 0)
+    # botas e vestido
+    prims.append(Capsule('boot', 'leather', 1.0, (15, 46), (16, 50), 1.6, 1.4))
+    prims.append(Capsule('boot', 'leather', 1.5, (20, 46), (21, 50), 1.6, 1.4))
+    prims.append(Poly('dress', 'dress', 2.0, [(14, 32), (22, 32), (24, 47), (12, 47)], nf=lambda x, y: norm(((x - 18) / 12, -0.2, 0.9))))
+    # capa longa
+    cape = [(13, 26), (23, 26), (26 + sway * 0.5, 40), (27 + sway, 48), (22, 47), (18, 48.5), (13, 47), (9 + sway * 0.5, 48), (10, 38)]
+    prims.append(Poly('cape', 'scarlet', 3.0, cape, nf=lambda x, y: norm(((x - 18) / 14 + 0.3 * math.sin(x * 1.1 + y * 0.2), -0.15, 0.85))))
+    # braço (aceno)
+    arm = p.get('arm')
+    if arm:
+        sh = (21, 28)
+        el = (sh[0] + arm[0], sh[1] + arm[1])
+        hd = (el[0] + arm[2], el[1] + arm[3])
+        prims.append(Capsule('sleeve', 'scarlet', 3.5, sh, el, 1.6, 1.4))
+        prims.append(Capsule('forearm', 'dress', 3.6, el, hd, 1.3, 1.2))
+        prims.append(Ellipse('hand', 'skin', 3.7, hd, 1.4, 1.4))
+    # capuz e rosto na sombra
+    prims.append(Ellipse('hood', 'scarlet', 4.0, (hx, hy), 7.2, 7.6, bulge=0.9))
+    prims.append(Poly('hoodtip', 'scarlet', 3.9, [(hx - 5, hy - 5), (hx - 9, hy + 1), (hx - 10 - sway * 0.3, hy + 6), (hx - 5, hy + 3)],
+                      nf=lambda x, y: norm((-0.4, -0.5, 0.75))))
+    face = p.get('face', 1)
+    fx = hx + 3.0 * face
+    prims.append(Ellipse('face', 'void', 4.1, (fx, hy + 1.5), 3.8, 4.6, flat=1))
+    prims.append(Ellipse('cheek', 'skin', 4.2, (fx + 1.2 * face, hy + 3.6), 2.2, 1.8))
+    prims.append(Ellipse('hair', 'hair', 4.15, (fx - 0.6 * face, hy - 0.8), 3.2, 1.8))
+    return prims, decals
 
-    def build(p):
-        prims, decals = [], []
-        hx, hy = 18 + p.get('hx', 0), 21 + p.get('hy', 0)
-        sway = p.get('sway', 0)
-        # botas e vestido
-        prims.append(Capsule('boot', 'leather', 1.0, (15, 46), (16, 50), 1.6, 1.4))
-        prims.append(Capsule('boot', 'leather', 1.5, (20, 46), (21, 50), 1.6, 1.4))
-        prims.append(Poly('dress', 'linen', 2.0, [(14, 32), (22, 32), (24, 47), (12, 47)], nf=lambda x, y: norm(((x - 18) / 12, -0.2, 0.9))))
-        # capa longa
-        cape = [(13, 26), (23, 26), (26 + sway * 0.5, 40), (27 + sway, 48), (22, 47), (18, 48.5), (13, 47), (9 + sway * 0.5, 48), (10, 38)]
-        prims.append(Poly('cape', 'scarlet', 3.0, cape, nf=lambda x, y: norm(((x - 18) / 14 + 0.3 * math.sin(x * 1.1 + y * 0.2), -0.15, 0.85))))
-        # braço (aceno)
-        arm = p.get('arm')
-        if arm:
-            sh = (21, 28)
-            el = (sh[0] + arm[0], sh[1] + arm[1])
-            hd = (el[0] + arm[2], el[1] + arm[3])
-            prims.append(Capsule('sleeve', 'scarlet', 3.5, sh, el, 1.6, 1.4))
-            prims.append(Capsule('forearm', 'linen', 3.6, el, hd, 1.3, 1.2))
-            prims.append(Ellipse('hand', 'skin', 3.7, hd, 1.4, 1.4))
-        # capuz e rosto na sombra
-        prims.append(Ellipse('hood', 'scarlet', 4.0, (hx, hy), 7.2, 7.6, bulge=0.9))
-        prims.append(Poly('hoodtip', 'scarlet', 3.9, [(hx - 5, hy - 5), (hx - 9, hy + 1), (hx - 10 - sway * 0.3, hy + 6), (hx - 5, hy + 3)],
-                          nf=lambda x, y: norm((-0.4, -0.5, 0.75))))
-        face = p.get('face', 1)
-        fx = hx + 3.0 * face
-        prims.append(Ellipse('face', 'void', 4.1, (fx, hy + 1.5), 3.8, 4.6, flat=1))
-        prims.append(Ellipse('cheek', 'skin', 4.2, (fx + 1.2 * face, hy + 3.6), 2.2, 1.8))
-        prims.append(Ellipse('hair', 'hair', 4.15, (fx - 0.6 * face, hy - 0.8), 3.2, 1.8))
-        return prims, decals
 
-    frames = {
-        'idle': [dict(), dict(hy=0.6, sway=1)],
-        'turn': [dict(face=0.3, hx=-0.5), dict(face=-1, hx=-1)],
-        'wave': [dict(face=-1, hx=-1, arm=(-1, -5, -1, -5)), dict(face=-1, hx=-1, arm=(-1, -5, -3, -4)), dict(face=-1, hx=-1, arm=(-1, -5, 1, -5))],
-    }
+FIGURE_FRAMES = {
+    'idle': [dict(), dict(hy=0.6, sway=1)],
+    'turn': [dict(face=0.3, hx=-0.5), dict(face=-1, hx=-1)],
+    'wave': [dict(face=-1, hx=-1, arm=(-1, -5, -1, -5)), dict(face=-1, hx=-1, arm=(-1, -5, -3, -4)), dict(face=-1, hx=-1, arm=(-1, -5, 1, -5))],
+}
+FIGURE_FPS = {'idle': 2, 'turn': 6, 'wave': 6}
+# no formato das outras folhas: nome -> (poses, fps, repete)
+FIGURE_ANIMS = {k: (v, FIGURE_FPS[k], k != 'turn') for k, v in FIGURE_FRAMES.items()}
+
+
+def figure(out):
+    W, H = FIGURE_W, FIGURE_H
+    FE = FIGURE_FEET
+    frames = FIGURE_FRAMES
     cols = 3
     sheet = Image.new('RGBA', (cols * W, len(frames) * H), (0, 0, 0, 0))
     meta = {'frameWidth': W, 'frameHeight': H, 'originX': FE[0] / W, 'originY': FE[1] / H, 'columns': cols, 'anims': {}}
     for row, (name, poses) in enumerate(frames.items()):
         for i, pz in enumerate(poses):
-            prims, decals = build(pz)
+            prims, decals = figure_build(pz)
             px, _ = render(prims, decals, W, H)
             sheet.alpha_composite(to_image(px, W, H, outline_col=0x2a0c10), (i * W, row * H))
         meta['anims'][name] = {'start': row * cols, 'count': len(poses), 'fps': {'idle': 2, 'turn': 6, 'wave': 6}[name], 'loop': name != 'turn'}

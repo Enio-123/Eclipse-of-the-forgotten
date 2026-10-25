@@ -3,6 +3,7 @@ import { TILE, VIEW_H, VIEW_W } from '../config';
 import { audio } from '../systems/Audio';
 import type { Level } from './Level';
 import type { Point } from './Decor';
+import { screenOrigin } from '../gfx/view';
 
 export interface WeatherOpts {
   rain: boolean;
@@ -57,9 +58,12 @@ export class Weather {
   private lastSX = 0;
   private lastSY = 0;
   private time = 0;
+  // canto da tela na câmera com zoom (o que fica preso na tela começa aqui)
+  private so: { x: number; y: number };
 
   constructor(private scene: Phaser.Scene, private level: Level | null, private o: WeatherOpts) {
     const cam = scene.cameras.main;
+    this.so = screenOrigin(cam);
     this.lastSX = cam.scrollX;
     this.lastSY = cam.scrollY;
     if (o.rain) this.makeRain();
@@ -71,8 +75,8 @@ export class Weather {
 
   private makeRain() {
     const s = this.scene;
-    this.rainFar = s.add.tileSprite(0, 0, VIEW_W, VIEW_H, 'rain-far').setOrigin(0).setScrollFactor(0).setDepth(-9).setAlpha(0.55);
-    this.rainNear = s.add.tileSprite(0, 0, VIEW_W, VIEW_H, 'rain-near').setOrigin(0).setScrollFactor(0).setDepth(20).setAlpha(0.7);
+    this.rainFar = s.add.tileSprite(this.so.x, this.so.y, VIEW_W, VIEW_H, 'rain-far').setOrigin(0).setScrollFactor(0).setDepth(-9).setAlpha(0.55);
+    this.rainNear = s.add.tileSprite(this.so.x, this.so.y, VIEW_W, VIEW_H, 'rain-near').setOrigin(0).setScrollFactor(0).setDepth(20).setAlpha(0.7);
     this.splash = s.add.particles(0, 0, 'px', {
       lifespan: { min: 150, max: 300 },
       speedX: { min: -38, max: 38 },
@@ -94,9 +98,9 @@ export class Weather {
 
   private makeLightning() {
     const s = this.scene;
-    this.flash = s.add.rectangle(0, 0, VIEW_W, VIEW_H, 0xdfe6ff).setOrigin(0).setScrollFactor(0).setDepth(40).setAlpha(0);
+    this.flash = s.add.rectangle(this.so.x, this.so.y, VIEW_W, VIEW_H, 0xdfe6ff).setOrigin(0).setScrollFactor(0).setDepth(40).setAlpha(0);
     this.flash.setBlendMode(Phaser.BlendModes.ADD);
-    this.bolt = s.add.graphics().setScrollFactor(0).setDepth(this.o.boltDepth ?? -19);
+    this.bolt = s.add.graphics().setScrollFactor(0).setPosition(this.so.x, this.so.y).setDepth(this.o.boltDepth ?? -19);
   }
 
   private makeDrips(n: number) {
@@ -336,7 +340,7 @@ export class Weather {
       if (f.x < -20) f.x += VIEW_W + 40;
       if (f.y > VIEW_H + 10) f.y -= VIEW_H + 20;
       if (f.y < -10) f.y += VIEW_H + 20;
-      f.img.setPosition(Math.round(f.x), Math.round(f.y));
+      f.img.setPosition(this.so.x + Math.round(f.x), this.so.y + Math.round(f.y));
       if (petal) f.img.rotation += f.spin * dt;
       else f.img.alpha = f.base * (0.6 + 0.4 * Math.sin(t * 1.7 + f.phase));
     }

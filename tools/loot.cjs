@@ -192,6 +192,9 @@ let fails = 0;
     const s = window.__scene;
     const cr = s.enemies.filter((e) => e.kind === 'crawler')[0];
     cr.knockT = 0;
+    // vindo de frente: depois do dash ele segue para o outro lado (sem isso, metade das vezes ele
+    // nasce andando para a direita, alcança o cavaleiro parado depois do dash e o teste falha)
+    cr.dir = -1;
     const p = s.player;
     p.teleport(cr.zone.x + dx, cr.body.bottom);
     p.facing = 1;

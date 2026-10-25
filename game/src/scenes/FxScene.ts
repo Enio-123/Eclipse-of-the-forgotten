@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { VIEW_H, VIEW_W } from '../config';
 import { audio } from '../systems/Audio';
+import { RES, fixedCamera } from '../gfx/view';
 
 type V = Phaser.Math.Vector2;
 const v = (x: number, y: number) => new Phaser.Math.Vector2(x, y);
@@ -107,6 +108,7 @@ export class FxScene extends Phaser.Scene {
   }
 
   create() {
+    fixedCamera(this);
     // grão de filme por cima de tudo, como no Limbo: muda de lugar a cada poucos quadros
     this.grain = this.add.tileSprite(0, 0, VIEW_W, VIEW_H, 'grain').setOrigin(0).setAlpha(0.09).setDepth(5);
     this.white = this.add.rectangle(0, 0, VIEW_W, VIEW_H, 0xfffaf0).setOrigin(0).setAlpha(0).setDepth(10);
@@ -158,7 +160,8 @@ export class FxScene extends Phaser.Scene {
         for (let k = 0; k + 1 < radii.length; k++) {
           const poly = k === 0 ? [v(cx, cy), P(a0, radii[1]), P(a1, radii[1])] : [P(a0, radii[k]), P(a1, radii[k]), P(a1, radii[k + 1]), P(a0, radii[k + 1])];
           const c = poly.reduce((s, p) => s.add(p), v(0, 0)).scale(1 / poly.length);
-          const piece = this.add.image(c.x, c.y, 'snap').setOrigin(c.x / VIEW_W, c.y / VIEW_H).setDepth(15);
+          // a foto da tela tem RES pixels por pixel do mundo
+          const piece = this.add.image(c.x, c.y, 'snap').setOrigin(c.x / VIEW_W, c.y / VIEW_H).setScale(1 / RES).setDepth(15);
           const g = this.make.graphics({ x: c.x, y: c.y }, false);
           g.fillStyle(0xffffff);
           g.fillPoints(poly.map((p) => v(p.x - c.x, p.y - c.y)), true);
@@ -171,7 +174,7 @@ export class FxScene extends Phaser.Scene {
             x: c.x + dir.x * dist,
             y: c.y + dir.y * dist + 160 + Math.random() * 120,
             rotation: spin,
-            scale: 0.9,
+            scale: 0.9 / RES,
             alpha: 0,
             delay: k * 40 + Math.random() * 60,
             duration: 1100 + Math.random() * 400,
@@ -179,7 +182,7 @@ export class FxScene extends Phaser.Scene {
             onUpdate: () => {
               g.setPosition(piece.x, piece.y);
               g.setRotation(piece.rotation);
-              g.setScale(piece.scaleX, piece.scaleY);
+              g.setScale(piece.scaleX * RES, piece.scaleY * RES);
             },
             onComplete: () => {
               piece.destroy();

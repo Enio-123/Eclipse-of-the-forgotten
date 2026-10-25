@@ -546,22 +546,24 @@ def galeria():
 
 
 def altar():
-    """Altar do Dízimo: arena do Arcebispo. A grade fecha atrás do cavaleiro; tablados de
-    madeira para fugir da chuva de moedas."""
-    W, H = 60, 30
+    """Altar do Dízimo: arena do Arcebispo. A grade fecha atrás do cavaleiro. O altar e a rosácea
+    ficam no meio; os tablados de baixo seguram a chuva de moedas e fazem sombra para a luz do vitral
+    quebrado, e os dois do alto ficam fora do alcance dela. Duas linhas de pedra embaixo do chão
+    para a câmera não deixar a luta colada na borda da tela."""
+    W, H = 60, 32
     g = Grid(W, H, '#')
     g.fill(2, 3, 57, 28, '.')
     g.fill(0, 25, 1, 28, '.')
     for y in range(25, 29):
         g.put(1, y, '|')
-    for (x0, x1, y) in [(14, 19, 22), (40, 45, 22), (27, 32, 16)]:
+    for (x0, x1, y) in [(12, 18, 22), (41, 47, 22), (20, 24, 16), (35, 39, 16)]:
         for x in range(x0, x1 + 1):
             g.put(x, y, '-')
     r = 28
     g.put(3, r, '1')
-    g.put(46, r, 'X')
-    g.put(53, r, 'A')
-    for x in (8, 22, 37, 50):
+    g.put(26, r, 'X')
+    g.put(30, r, 'A')
+    for x in (8, 22, 37, 51):
         g.put(x, r, 'C')
     return g.rows()
 

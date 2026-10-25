@@ -3,6 +3,7 @@ import type { FxScene } from './FxScene';
 import { VIEW_H, VIEW_W } from '../config';
 import { audio } from '../systems/Audio';
 import { ui } from '../ui/ui';
+import { fixedCamera } from '../gfx/view';
 import type { GameInit } from './GameScene';
 
 // Texto da abertura, uma frase por vez embaixo da cena
@@ -35,6 +36,7 @@ export class IntroScene extends Phaser.Scene {
   }
 
   create() {
+    fixedCamera(this);
     this.leaving = false;
     (this.scene.get('fx') as FxScene | null)?.setGrain(0.09);
     this.drift = [];

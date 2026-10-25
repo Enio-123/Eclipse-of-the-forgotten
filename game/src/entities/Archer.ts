@@ -3,6 +3,7 @@ import { ARCHER as C, TILE } from '../config';
 import type { GameScene } from '../scenes/GameScene';
 import { isSolid } from '../world/Level';
 import { overlap, type Enemy, type HitResult } from './Enemy';
+import { face, hd } from '../gfx/flip';
 
 type State = 'watch' | 'draw' | 'shoot' | 'hurt';
 // altura da mira: reto, para baixo ou para cima (cada uma tem o seu desenho)
@@ -38,7 +39,7 @@ export class Archer implements Enemy {
     this.body = this.zone.body as Phaser.Physics.Arcade.Body;
     this.body.setMaxVelocity(200, 600);
     const o = scene.registry.get('archer-origin') as { x: number; y: number };
-    this.sprite = scene.add.sprite(x, feetY, 'archer', 0).setOrigin(o.x, o.y).setDepth(8);
+    this.sprite = hd(scene.add.sprite(x, feetY, 'archer', 0).setOrigin(o.x, o.y).setDepth(8));
     this.points = (scene.cache.json.get('archer-meta') as SheetPoints).points;
     this.facing = scene.player && scene.player.x > x ? 1 : -1;
     this.sprite.play({ key: 'archer-idle', startFrame: Math.floor(Math.random() * 4) });
@@ -151,7 +152,7 @@ export class Archer implements Enemy {
       if (this.flashT <= 0) this.sprite.clearTint();
     }
     this.sprite.setPosition(Math.round(this.zone.x), Math.round(b.bottom));
-    this.sprite.setFlipX(this.facing < 0);
+    face(this.sprite, this.facing < 0);
   }
 
   // solta a flecha no cavaleiro (o arco não vira mais que 60 graus para cima ou para baixo)

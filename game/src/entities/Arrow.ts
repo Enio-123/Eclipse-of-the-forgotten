@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { ARROW } from '../config';
 import type { Level } from '../world/Level';
 import { isSolid } from '../world/Level';
+import { hd } from '../gfx/flip';
 
 export interface ArrowOpts {
   // flecha inimiga: machuca o cavaleiro (e pode ser rebatida)
@@ -26,7 +27,7 @@ export class Arrow {
     this.hostile = !!opts.hostile;
     this.speed = opts.speed ?? ARROW.speed;
     this.life = opts.life ?? ARROW.life;
-    this.img = scene.add.image(x, y, 'arrow').setDepth(11).setOrigin(0.85, 0.5);
+    this.img = hd(scene.add.image(x, y, 'arrow').setDepth(11).setOrigin(0.85, 0.5));
     this.img.setRotation(Math.atan2(dy, dx));
     if (this.hostile) {
       // a flecha do inimigo vem avermelhada, com um brilho fraco para dar tempo de reagir

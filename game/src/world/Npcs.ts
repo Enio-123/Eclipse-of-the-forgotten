@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import type { GameScene } from '../scenes/GameScene';
 import type { Player } from '../entities/Player';
 import { DEPTH } from './Decor';
+import { face, hd } from '../gfx/flip';
 
 export type NpcKind = 'nun' | 'smith' | 'folk';
 
@@ -64,7 +65,7 @@ export class Npcs {
     const look = i % 2 ? 'hat' : 'shawl';
     const o = s.registry.get(`${key}-origin`) as { x: number; y: number };
     const idle = kind === 'folk' ? `folk-idle-${look}` : kind === 'smith' ? 'smith-work' : 'nun-idle';
-    const sprite = s.add.sprite(x, y, key, 0).setOrigin(o.x, o.y).setDepth(DEPTH.enemy - 0.5);
+    const sprite = hd(s.add.sprite(x, y, key, 0).setOrigin(o.x, o.y).setDepth(DEPTH.enemy - 0.5));
     sprite.play({ key: idle, startFrame: Math.floor(Math.random() * 2) });
     const n: Npc = { kind, i, x, y, sprite, look, line: 0 };
     this.list.push(n);
@@ -85,11 +86,9 @@ export class Npcs {
     const o = s.registry.get('censer-origin') as { x: number; y: number };
     for (let k = 0; k < 4; k++) {
       const x = x0 + k * 26;
-      const sprite = s.add
-        .sprite(x, y - 4, 'censer', 0)
+      const sprite = hd(s.add.sprite(x, y - 4, 'censer', 0), 0.86)
         .setOrigin(o.x, o.y)
         .setDepth(DEPTH.prop - 0.5)
-        .setScale(0.86)
         .setTint(0x45404e)
         .setAlpha(0.9);
       sprite.play({ key: 'censer-walk', startFrame: k % 6 });
@@ -103,14 +102,14 @@ export class Npcs {
     for (const n of this.list) {
       if (n.kind === 'smith') continue;
       // vira para quem chega perto (a freira pelo som dos passos)
-      if (Math.abs(p.x - n.x) < 140) n.sprite.setFlipX(p.x < n.x);
+      if (Math.abs(p.x - n.x) < 140) face(n.sprite, p.x < n.x);
     }
     if (this.glow) this.glow.setAlpha(0.32 + Math.random() * 0.12);
     for (const w of this.walkers) {
       w.x += w.dir * 16 * dt;
       if (w.x > w.x1) w.dir = -1;
       else if (w.x < w.x0) w.dir = 1;
-      w.sprite.setPosition(Math.round(w.x), w.sprite.y).setFlipX(w.dir < 0);
+      face(w.sprite.setPosition(Math.round(w.x), w.sprite.y), w.dir < 0);
       w.puffT -= dt;
       if (w.puffT <= 0) {
         w.puffT = 0.35 + Math.random() * 0.3;

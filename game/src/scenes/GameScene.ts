@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { ARCHER, PAL, PARRY, QUAKE, TILE, VIEW_H, WEAPONS, WEAPON_IDS, type WeaponId } from '../config';
+import { ARCHER, INCENSE, PAL, PARRY, QUAKE, TILE, VIEW_H, WEAPONS, WEAPON_IDS, type WeaponId } from '../config';
 import { Player, type PlayerAction } from '../entities/Player';
 import { Crawler } from '../entities/Crawler';
 import { Guard } from '../entities/Guard';
@@ -7,17 +7,19 @@ import { Crow } from '../entities/Crow';
 import { Archer } from '../entities/Archer';
 import { Censer } from '../entities/Censer';
 import { Boss } from '../entities/Boss';
-import { overlap, type Enemy } from '../entities/Enemy';
+import { Arcebispo } from '../entities/Arcebispo';
+import { overlap, type BossFoe, type Enemy } from '../entities/Enemy';
+import { SmokeField } from '../entities/Smoke';
 import { Arrow } from '../entities/Arrow';
 import { Controls } from '../systems/Controls';
-import { audio, type SfxName } from '../systems/Audio';
+import { audio, type SfxName, type TrackId } from '../systems/Audio';
 import { settings } from '../systems/Settings';
 import { MAX_LEVEL, progress, type Upgrade } from '../systems/Save';
 import { Level, isGround, isSolid } from '../world/Level';
 import { Decor, DEPTH } from '../world/Decor';
 import { Backdrop } from '../world/Backdrop';
 import { Weather } from '../world/Weather';
-import { MAP_POS, ROOMS, type Exit, type RoomDef, type RoomId, type Side } from '../world/rooms';
+import { MAP_POS, ROOMS, type BossId, type Exit, type RoomDef, type RoomId, type Side } from '../world/rooms';
 import { Props, type MemoryOrb, type Relic, type Shrine } from '../world/Props';
 import { Fixtures, type Door } from '../world/Fixtures';
 import { Npcs, type Npc } from '../world/Npcs';
@@ -28,6 +30,8 @@ import { TILE_ONEWAY } from '../gfx/textures';
 import { ui } from '../ui/ui';
 import { pad } from '../systems/Pad';
 import type { FxScene } from './FxScene';
+import { face, hd } from '../gfx/flip';
+import { RES, screenOrigin } from '../gfx/view';
 
 export type Arrival = 'new' | 'continue' | 'door' | 'mirror' | 'memory' | 'death';
 
@@ -73,6 +77,76 @@ interface WeaponDrop {
 
 const PASSED = 15;
 
+// cada chefe: a luta, a memória que deixa, onde caem a memória e a arma (pela frente dele, a partir
+// dos pés) e o que o cavaleiro pensa quando acaba
+interface BossInfo {
+  make: (s: GameScene, x: number, y: number) => BossFoe;
+  sheet: string;
+  name: string;
+  title: string;
+  music: TrackId;
+  memory: string;
+  // passou desta coluna: a grade fecha e ele acorda
+  wakeX: number;
+  orb: number;
+  drop: number;
+  // o corpo que fica na sala depois (quadro e para onde olha)
+  corpse: string;
+  corpseFacing: 1 | -1;
+  after: [string, string];
+}
+
+const BOSSES: Record<BossId, BossInfo> = {
+  sineiro: {
+    make: (s, x, y) => new Boss(s, x, y),
+    sheet: 'sineiro',
+    name: 'O Sineiro',
+    title: 'Guardião do último sino',
+    music: 'boss',
+    memory: 'cripta:boss',
+    wakeX: 10,
+    orb: 12,
+    drop: -40,
+    corpse: 'death',
+    corpseFacing: -1,
+    after: ['O sino parou. Pela primeira vez, silêncio.', 'Atrás dele, outra grade subiu. Há degraus que sobem.'],
+  },
+  arcebispo: {
+    make: (s, x, y) => new Arcebispo(s, x, y),
+    sheet: 'arcebispo',
+    name: 'O Arcebispo do Dízimo',
+    title: 'Ele não erra a conta',
+    music: 'boss2',
+    memory: 'altar:boss',
+    wakeX: 10,
+    orb: -30,
+    drop: 114,
+    corpse: 'corpse',
+    corpseFacing: -1,
+    after: ['As moedas pararam de cair. Pela primeira vez, ninguém conta.', 'O que ele cobrou não ficou aqui. Desceu para algum lugar embaixo da cidade.'],
+  },
+};
+
+// fim de cada capítulo (a memória do chefe fecha o capítulo)
+const CHAPTERS: Record<string, { title: string; text: string }> = {
+  'cripta:boss': {
+    title: 'Fim do primeiro capítulo',
+    text: 'O último sino das catacumbas ficou em silêncio. Ele lembrou de um altar e de alguém esperando. Ainda falta lembrar quem.',
+  },
+  'altar:boss': {
+    title: 'Fim do segundo capítulo',
+    text: 'A conta do Arcebispo fechou. Ele cobrou a memória dela antes da cerimônia, e ela o esqueceu no caminho do altar. O que foi cobrado desceu para a prisão, embaixo da cidade.',
+  },
+};
+
+// a rosácea atrás do altar (quebra na segunda fase do Arcebispo)
+export interface Rose {
+  x: number;
+  y: number;
+  img: Phaser.GameObjects.Image;
+  glow: Phaser.GameObjects.Image;
+}
+
 // quem nasce de cada letra do mapa
 const SPAWNERS: Record<string, (s: GameScene, x: number, y: number) => Enemy> = {
   c: (s, x, y) => new Crawler(s, x, y),
@@ -94,8 +168,13 @@ export class GameScene extends Phaser.Scene {
   fixtures!: Fixtures;
   npcs!: Npcs;
   loot!: Loot;
-  boss: Boss | null = null;
+  boss: BossFoe | null = null;
   private bossFrac = -1;
+  rose: Rose | null = null;
+  // quem o chefe chamou para a luta (viram cinza quando ele cai)
+  private summons: Enemy[] = [];
+  // nuvens que o incensário do cavaleiro deixa (queimam cada inimigo uma vez)
+  private censerClouds!: SmokeField;
   private backdrop!: Backdrop;
   private weather!: Weather;
   private figure: Phaser.GameObjects.Sprite | null = null;
@@ -105,6 +184,10 @@ export class GameScene extends Phaser.Scene {
   clock = 0;
   private respawning = false;
   private transitioning = false;
+  // o jogo rodando de verdade, sem troca de sala (a resolução automática só mede aqui)
+  get live() {
+    return !!this.player && !this.transitioning && !this.respawning;
+  }
   private cinematic = false;
   private lookX = 36;
   // quanto a câmera fica acima do cavaleiro (no vale, mais céu e menos terra)
@@ -150,6 +233,8 @@ export class GameScene extends Phaser.Scene {
     this.weaponDrop = null;
     this.boss = null;
     this.bossFrac = -1;
+    this.rose = null;
+    this.summons = [];
     this.figure = null;
     this.figureState = 'idle';
     this.respawning = false;
@@ -161,6 +246,8 @@ export class GameScene extends Phaser.Scene {
     document.body.classList.add('playing');
 
     const room = this.room;
+    // a tela tem RES pixels por pixel do mundo; o zoom vem antes de tudo o que fica preso na tela
+    this.cameras.main.setZoom(RES);
     this.level = new Level(this, room.map, room.theme, room.id, (id) => progress.seen.has(id));
     this.level.layer.setDepth(DEPTH.tiles);
     // terreno pintado da sala: os tiles continuam só para a física
@@ -169,7 +256,7 @@ export class GameScene extends Phaser.Scene {
       this.add.image(0, 0, terrain).setOrigin(0).setDepth(DEPTH.tiles);
       this.level.layer.setVisible(false);
     }
-    this.backdrop = new Backdrop(this, this.level);
+    this.backdrop = new Backdrop(this, this.level, room.id);
     this.decor = new Decor(this, this.level, room);
     // na volta da memória o ouro novo só aparece depois do efeito (e a grade abre na frente do jogador)
     const fresh = data.from === 'memory' && !progress.seen.has('memory:vale');
@@ -209,7 +296,7 @@ export class GameScene extends Phaser.Scene {
 
     for (const s of this.level.spawns) {
       if (s.kind === 'X') {
-        this.placeBoss(s.x, s.y);
+        if (room.boss) this.placeBoss(room.boss, s.x, s.y);
         continue;
       }
       const make = SPAWNERS[s.kind];
@@ -224,12 +311,13 @@ export class GameScene extends Phaser.Scene {
     const f = this.decor.figureSpawn;
     if (f) {
       const o = this.registry.get('figure-origin') as { x: number; y: number };
-      this.figure = this.add.sprite(f.x, f.y, 'figure', 0).setOrigin(o.x, o.y).setDepth(DEPTH.enemy).play('figure-idle');
+      this.figure = hd(this.add.sprite(f.x, f.y, 'figure', 0)).setOrigin(o.x, o.y).setDepth(DEPTH.enemy).play('figure-idle');
     }
     this.physics.add.collider(this.player.zone, this.level.layer, undefined, this.oneWayFilter, this);
     for (const e of this.enemies) this.physics.add.collider(e.zone, this.level.layer);
 
     this.makeParticles();
+    this.censerClouds = new SmokeField(this, [0xa8906e, 0xcab58f], DEPTH.player - 0.5);
     this.loot = new Loot(this);
     this.passed.clear();
     this.weather = new Weather(this, this.level, {
@@ -243,12 +331,13 @@ export class GameScene extends Phaser.Scene {
       floorAt: this.rainFloor(),
       listener: () => ({ x: this.player.x, y: this.player.body.bottom }),
     });
+    const so = screenOrigin(this.cameras.main);
     if (room.theme !== 'memory') {
       const dark = { bridge: 0.5, catacomb: 0.9, city: 0.55, nave: 0.8 }[room.theme];
-      this.add.image(0, 0, 'vignette').setOrigin(0).setScrollFactor(0).setDepth(29).setAlpha(dark);
+      this.add.image(so.x, so.y, 'vignette').setOrigin(0).setScrollFactor(0).setDepth(29).setAlpha(dark);
     }
     if (room.theme === 'bridge') {
-      this.add.tileSprite(0, VIEW_H - 120, 640, 140, 'fog').setOrigin(0).setScrollFactor(0).setDepth(30).setAlpha(0.35).setName('fog-front');
+      this.add.tileSprite(so.x, so.y + VIEW_H - 120, 640, 140, 'fog').setOrigin(0).setScrollFactor(0).setDepth(30).setAlpha(0.35).setName('fog-front');
     }
 
     const cam = this.cameras.main;
@@ -258,7 +347,8 @@ export class GameScene extends Phaser.Scene {
     this.lookX = this.player.facing * 36;
     this.camY = room.theme === 'memory' ? 72 : 26;
     document.body.classList.toggle('bright', room.theme === 'memory');
-    this.fx.setGrain(room.theme === 'memory' ? 0.035 : 0.09);
+    // nos fundos lisos da Cidade-Catedral o grão é mais leve (o traço não some no ruído)
+    this.fx.setGrain({ bridge: 0.09, catacomb: 0.09, memory: 0.035, city: 0.07, nave: 0.07 }[room.theme]);
     cam.setFollowOffset(-this.lookX, this.camY);
 
     if (!this.scene.isActive('hud')) this.scene.launch('hud');
@@ -311,7 +401,7 @@ export class GameScene extends Phaser.Scene {
       this.cinematic = true;
       this.player.kneel();
       cam.stopFollow();
-      cam.setScroll(this.player.x + 560 - 320, this.player.zone.y - this.camY - 180);
+      cam.centerOn(this.player.x + 560, this.player.zone.y - this.camY);
       cam.fadeIn(1800, 0, 0, 0);
       this.time.delayedCall(900, showBanner);
       cam.pan(this.player.x + this.lookX, this.player.zone.y - this.camY, 5200, 'Sine.easeInOut', true, (_c, p) => {
@@ -324,7 +414,7 @@ export class GameScene extends Phaser.Scene {
     } else if (from === 'memory') {
       this.cinematic = true;
       this.player.frozen = true;
-      this.fx.heal(this.player.x - cam.scrollX, this.player.body.center.y - cam.scrollY);
+      this.fx.heal(this.player.x - cam.worldView.x, this.player.body.center.y - cam.worldView.y);
       const first = !progress.seen.has('memory:vale');
       progress.seen.add('memory:vale');
       // o prólogo concluído fica gravado mesmo se o jogo fechar no cartão do fim
@@ -524,6 +614,7 @@ export class GameScene extends Phaser.Scene {
     for (const e of this.enemies) e.update(dt);
     this.trackPasses();
     this.updateQuakes(dt);
+    this.updateCenserClouds(dt);
     this.updateWeaponDrop(dt);
     this.props.update(time, p);
     this.fixtures.update(time, dt);
@@ -615,7 +706,7 @@ export class GameScene extends Phaser.Scene {
     // deslizando, o cavaleiro passa por baixo; nas pernas do guarda ele derruba
     if (p.sliding) for (const e of this.enemies) if (e.alive) e.slideInto?.(pr, p.x);
     for (const e of this.enemies) {
-      if (e.alive && e.harms(pr, p.untouchable) && p.hurt(e.zone.x)) {
+      if (e.alive && e.harms(pr, p.untouchable) && p.hurt(e.harmFrom ?? e.zone.x)) {
         this.onHurt();
         break;
       }
@@ -715,11 +806,13 @@ export class GameScene extends Phaser.Scene {
       if (sound) this.sfx('ash', 0.8);
       spr.setTintFill(0xfff1d6);
       this.time.delayedCall(70, () => spr.active && spr.setTint(0x8f8a84));
-      const fw = spr.frame.width;
-      const fh = spr.frame.height;
-      const top0 = spr.y - spr.displayOriginY;
-      const from = Phaser.Math.Clamp(rect.y - top0 - 8, 0, fh);
-      const to = Phaser.Math.Clamp(rect.bottom - top0 + 4, 0, fh);
+      // o recorte conta pixels da folha; nas folhas no traço liso há mais deles que no mundo
+      const k = 1 / spr.scaleY;
+      const fw = spr.frame.realWidth;
+      const fh = spr.frame.realHeight;
+      const top0 = spr.y - spr.displayOriginY / k;
+      const from = Phaser.Math.Clamp((rect.y - top0 - 8) * k, 0, fh);
+      const to = Phaser.Math.Clamp((rect.bottom - top0 + 4) * k, 0, fh);
       const cut = { v: from };
       this.tweens.add({
         targets: cut,
@@ -730,7 +823,7 @@ export class GameScene extends Phaser.Scene {
         onUpdate: () => {
           const c = Math.floor(cut.v);
           spr.setCrop(0, c, fw, fh - c);
-          for (let i = 0; i < 3; i++) this.ash.emitParticle(1, rect.x + Math.random() * rect.width, top0 + c);
+          for (let i = 0; i < 3; i++) this.ash.emitParticle(1, rect.x + Math.random() * rect.width, top0 + c / k);
         },
         onComplete: () => spr.destroy(),
       });
@@ -783,6 +876,32 @@ export class GameScene extends Phaser.Scene {
       }
     }
     this.quakes = this.quakes.filter((q) => q.t <= QUAKE.life);
+  }
+
+  // ---------- incensário do cavaleiro ----------
+  incenseCloud(x: number, y: number) {
+    this.censerClouds.spawn(x, y, INCENSE.w, INCENSE.h, INCENSE.life);
+    this.sfx('smoke', 0.45, 1.25);
+  }
+
+  private updateCenserClouds(dt: number) {
+    const f = this.censerClouds;
+    f.update(dt);
+    for (const c of f.list) {
+      // queima um instante depois do golpe (o dano do golpe e o da brasa não se confundem)
+      if (c.t < 0.22 || !f.burning(c)) continue;
+      const r = f.rect(c);
+      for (const e of this.enemies) {
+        if (!e.alive || c.hit.has(e) || !overlap(r, e.rect)) continue;
+        c.hit.add(e);
+        if (e.hit(c.x, INCENSE.dmg * progress.dmgFor('incensario'), 'smoke') !== 'hit') continue;
+        const hx = Phaser.Math.Clamp(c.x, e.rect.x, e.rect.right);
+        this.sparks.explode(5, hx, Math.max(r.y + 6, e.rect.y + 8));
+        this.incense(hx, e.rect.centerY, 3);
+        this.sfx(e.alive ? 'hit' : 'kill', 0.45, 1.3);
+        if (!e.alive) this.onKill(e);
+      }
+    }
   }
 
   markDirty() {
@@ -1026,7 +1145,7 @@ export class GameScene extends Phaser.Scene {
     const cam = this.cameras.main;
     cam.shake(1100, 0.0035);
     pad.rumble(0.35, 0.8, 1000);
-    this.fx.shatter(m.x - cam.scrollX, m.y - 42 - cam.scrollY, () => {
+    this.fx.shatter(m.x - cam.worldView.x, m.y - 42 - cam.worldView.y, () => {
       this.scene.restart({ room: 'memoria', entry: '1', from: 'mirror' } satisfies GameInit);
     });
   }
@@ -1337,25 +1456,34 @@ export class GameScene extends Phaser.Scene {
     this.sfx('chime');
     this.applyProgress();
     if (info) ui.banner(info.title, info.text, 4600);
-    if (m.id === 'cripta:boss') this.chapterEnd();
+    if (CHAPTERS[m.id]) this.chapterEnd(m.id);
   }
 
-  // ---------- o Sineiro ----------
-  private placeBoss(x: number, y: number) {
-    if (!progress.seen.has('boss:sineiro')) {
-      const b = new Boss(this, x, y);
-      b.onDefeat = () => this.onBossDefeat();
+  // ---------- chefes ----------
+  private placeBoss(id: BossId, x: number, y: number) {
+    const info = BOSSES[id];
+    const done = progress.seen.has(`boss:${id}`);
+    if (id === 'arcebispo') this.placeRose(done);
+    if (!done) {
+      const b = info.make(this, x, y);
+      b.onDefeat = () => this.onBossDefeat(id);
       this.boss = b;
       this.enemies.push(b);
       return;
     }
-    // já vencido: o corpo continua caído no fundo da cripta
-    const a = this.anims.get('sineiro-death');
-    const o = this.registry.get('sineiro-origin') as { x: number; y: number };
-    this.add.image(x, y, 'sineiro', a.frames[a.frames.length - 1].textureFrame).setOrigin(o.x, o.y).setDepth(DEPTH.prop).setFlipX(true).setTint(0x9a948c);
-    if (!progress.memories.has('cripta:boss')) this.props.addMemory('cripta:boss', x - 40, y - 26);
-    const w = this.bossWeapon('sineiro');
-    if (w) this.dropWeapon(w, x + 44, y, false);
+    // já vencido: o corpo continua caído onde ele lutava
+    const f = info.corpseFacing;
+    const a = this.anims.get(`${info.sheet}-${info.corpse}`);
+    const o = this.registry.get(`${info.sheet}-origin`) as { x: number; y: number };
+    face(hd(this.add.image(x, y, info.sheet, a.frames[a.frames.length - 1].textureFrame)).setOrigin(o.x, o.y).setDepth(DEPTH.prop).setTint(0x9a948c), f < 0);
+    if (!progress.memories.has(info.memory)) this.props.addMemory(info.memory, this.bossX(x + f * info.orb), y - 26);
+    const w = this.bossWeapon(id);
+    if (w) this.dropWeapon(w, this.bossX(x + f * info.drop), y, false);
+  }
+
+  // longe das paredes, para dar para pegar o que o chefe deixa
+  private bossX(x: number) {
+    return Phaser.Math.Clamp(x, 5 * TILE, (this.level.w - 5) * TILE);
   }
 
   // arma que um chefe deixa (cada chefe tem a sua)
@@ -1366,16 +1494,18 @@ export class GameScene extends Phaser.Scene {
 
   private bossFight() {
     const b = this.boss;
-    if (!b) return;
+    const id = this.room.boss;
+    if (!b || !id) return;
+    const info = BOSSES[id];
     const p = this.player;
-    if (b.state === 'sleep') {
-      if (!p.dead && !this.transitioning && p.x > 10 * TILE) {
-        // a grade fecha atrás do cavaleiro e o sineiro acorda
+    if (b.sleeping) {
+      if (!p.dead && !this.transitioning && p.x > info.wakeX * TILE) {
+        // a grade fecha atrás do cavaleiro e o chefe acorda
         this.props.setGates(false, true);
         this.sfx('clang', 1);
-        audio.music('boss', 0.4);
+        audio.music(info.music, 0.4);
         b.wake();
-        this.time.delayedCall(1600, () => ui.banner('O Sineiro', 'Guardião do último sino', 2800));
+        this.time.delayedCall(1600, () => ui.banner(info.name, info.title, 2800));
       }
       return;
     }
@@ -1383,35 +1513,105 @@ export class GameScene extends Phaser.Scene {
     const frac = b.hp / b.maxHp;
     if (frac !== this.bossFrac) {
       this.bossFrac = frac;
-      ui.bossBar('O Sineiro', frac);
+      ui.bossBar(info.name, frac);
     }
   }
 
-  private onBossDefeat() {
+  private onBossDefeat(id: BossId) {
     const b = this.boss!;
-    progress.seen.add('boss:sineiro');
+    const info = BOSSES[id];
+    progress.seen.add(`boss:${id}`);
     progress.save();
     audio.music('none', 1.5);
-    ui.bossBar('O Sineiro', 0);
+    ui.bossBar(info.name, 0);
     this.time.delayedCall(1400, () => ui.bossBar(null));
+    this.releaseSummons();
+    const x = b.zone.x;
+    const f = b.facing;
     this.time.delayedCall(2600, () => {
-      // sai do corpo caído, sempre longe das paredes para dar para pegar
-      const x = Phaser.Math.Clamp(b.zone.x + b.facing * 12, 5 * TILE, (this.level.w - 5) * TILE);
-      this.props.addMemory('cripta:boss', x, b.body.bottom - 28, true);
+      // a memória sai do corpo caído
+      this.props.addMemory(info.memory, this.bossX(x + f * info.orb), b.body.bottom - 28, true);
       this.sfx('chime');
       this.props.setGates(true, true);
-      this.fixtures.openLocks('boss:sineiro', true);
-      ui.thought('O sino parou. Pela primeira vez, silêncio.', 4600);
-      this.time.delayedCall(5200, () => ui.thought('Atrás dele, outra grade subiu. Há degraus que sobem.', 4600));
+      this.fixtures.openLocks(`boss:${id}`, true);
+      ui.thought(info.after[0], 4600);
+      this.time.delayedCall(5200, () => ui.thought(info.after[1], 4600));
     });
-    // e a arma dele cai do outro lado do corpo
-    const w = this.bossWeapon('sineiro');
+    // e a arma dele cai do outro lado (o incensário sai do chão onde rolou)
+    const w = this.bossWeapon(id);
     if (w) {
       this.time.delayedCall(3300, () => {
-        const x = Phaser.Math.Clamp(b.zone.x - b.facing * 40, 5 * TILE, (this.level.w - 5) * TILE);
-        this.dropWeapon(w, x, b.body.bottom, true);
+        if (info.corpse !== 'death' && b.sprite.active) b.sprite.play(`${info.sheet}-${info.corpse}`);
+        this.dropWeapon(w, this.bossX(x + f * info.drop), b.body.bottom, true);
       });
     }
+  }
+
+  // ---------- a luta do altar ----------
+  private placeRose(broken: boolean) {
+    // em cima do altar, alto o bastante para a luz cair em leque
+    const altar = this.level.spawns.find((s) => s.kind === 'A');
+    const x = altar?.x ?? this.level.widthPx / 2;
+    const y = 216;
+    const glow = this.add
+      .image(x, y, 'glow')
+      .setScale(broken ? 3.4 : 2.6)
+      .setTint(broken ? 0xffe8c0 : 0xffc890)
+      .setAlpha(broken ? 0.32 : 0.16)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(DEPTH.rail - 0.1);
+    const img = hd(this.add.image(x, y, broken ? 'deco-rose-broken' : 'deco-rose').setDepth(DEPTH.rail));
+    this.rose = { x, y, img, glow };
+  }
+
+  // segunda fase: o vitral estoura e a luz entra pelos buracos
+  shatterRose() {
+    const r = this.rose;
+    if (!r) return;
+    r.img.setTexture('deco-rose-broken');
+    r.glow.setTint(0xffe8c0);
+    this.tweens.add({ targets: r.glow, alpha: 0.32, scale: 3.4, duration: 600, ease: 'Quad.easeOut' });
+    for (let i = 0; i < 5; i++) {
+      this.time.delayedCall(i * 60, () => this.glassFx.explode(16, r.x + (Math.random() - 0.5) * 96, r.y + (Math.random() - 0.5) * 96));
+    }
+    this.sfx('glass', 1.2, 0.8);
+    this.sfx('crack', 0.9, 0.7);
+    this.time.delayedCall(700, () => this.sfx('shard', 0.7, 0.8));
+    const cam = this.cameras.main;
+    cam.flash(260, 255, 236, 200);
+    cam.shake(500, 0.008);
+    pad.rumble(0.6, 0.8, 400);
+  }
+
+  // o chefe chama ajuda: nasce como os do mapa, mas não conta como trecho do caminho
+  summon(kind: string, x: number, y: number) {
+    const make = SPAWNERS[kind];
+    if (!make || this.transitioning || !this.boss?.alive) return null;
+    const e = make(this, x, y);
+    this.enemies.push(e);
+    this.summons.push(e);
+    this.physics.add.collider(e.zone, this.level.layer);
+    return e;
+  }
+
+  private releaseSummons() {
+    let first = true;
+    for (const e of this.summons) {
+      if (!e.alive) continue;
+      const rect = Phaser.Geom.Rectangle.Clone(e.rect);
+      const spr = e.vanish?.();
+      if (!spr) continue;
+      this.toAsh(spr, rect, 700, first);
+      first = false;
+    }
+    this.summons = [];
+  }
+
+  // moeda do dízimo batendo no chão
+  coinSplash(x: number, y: number) {
+    this.sparks.explode(5, x, y - 2);
+    this.gold.explode(3, x, y - 4);
+    this.dust.explode(2, x, y - 1);
   }
 
   // ---------- armas de chefe ----------
@@ -1419,7 +1619,7 @@ export class GameScene extends Phaser.Scene {
     if (this.weaponDrop || progress.hasWeapon(id)) return;
     const y = floorY - 16;
     const glow = this.add.image(x, y, 'glow').setScale(2).setTint(0xffc46a).setAlpha(0.5).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.front);
-    const sprite = this.add.image(x, y, `item-${id}`).setDepth(DEPTH.enemy + 0.5);
+    const sprite = hd(this.add.image(x, y, `item-${id}`).setDepth(DEPTH.enemy + 0.5));
     const d: WeaponDrop = { id, x, y, t: 0, sprite, glow, ready: !animate };
     this.weaponDrop = d;
     if (!animate) return;
@@ -1499,18 +1699,17 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  private chapterEnd(wait = 5200) {
+  private chapterEnd(memory: string, wait = 5200) {
     this.time.delayedCall(wait, () => {
       if (this.transitioning) return;
       // não corta a cena de pegar a arma do chefe
       if (this.cinematic || ui.open) {
-        this.chapterEnd(600);
+        this.chapterEnd(memory, 600);
         return;
       }
       this.scene.pause();
       ui.end({
-        title: 'Fim do primeiro capítulo',
-        text: 'O último sino das catacumbas ficou em silêncio. Ele lembrou de um altar e de alguém esperando. Ainda falta lembrar quem.',
+        ...CHAPTERS[memory],
         onExplore: () => {
           ui.closeAll();
           this.controls.reset();
@@ -1709,6 +1908,7 @@ export class GameScene extends Phaser.Scene {
     const g = this.add
       .image(src.x, src.y, src.texture.key, src.frame.name)
       .setOrigin(src.originX, src.originY)
+      .setScale(src.scaleX, src.scaleY)
       .setFlipX(src.flipX)
       .setDepth(9)
       .setTintFill(this.room.theme === 'memory' ? 0xffffff : 0x7d8fb8)

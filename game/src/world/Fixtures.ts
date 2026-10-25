@@ -5,6 +5,7 @@ import type { Player } from '../entities/Player';
 import { overlap } from '../entities/Enemy';
 import { progress } from '../systems/Save';
 import { DEPTH } from './Decor';
+import { hd, hdScale } from '../gfx/flip';
 import type { Breakable } from './secrets';
 import type { DoorDef } from './rooms';
 
@@ -129,7 +130,7 @@ export class Fixtures {
 
   private prop(key: string, x: number, y: number) {
     const k = this.ensure(key, 48, 40, (g) => g.fillStyle(0x2a2e3d).fillRect(0, 8, 48, 32));
-    this.scene.add.image(x, y, k).setOrigin(0.5, 1).setDepth(DEPTH.prop);
+    hd(this.scene.add.image(x, y, k).setOrigin(0.5, 1).setDepth(DEPTH.prop));
   }
 
   // ---------- portas ----------
@@ -139,7 +140,7 @@ export class Fixtures {
       g.fillStyle(0x3a2a1c).fillRect(3, 10, 26, 46).fillEllipse(16, 12, 26, 16);
       g.fillStyle(0x6b6f7c).fillRect(3, 24, 26, 2).fillRect(3, 42, 26, 2).fillRect(22, 32, 3, 3);
     });
-    const sprite = this.scene.add.image(x, y, key).setOrigin(0.5, 1).setDepth(DEPTH.prop);
+    const sprite = hd(this.scene.add.image(x, y, key).setOrigin(0.5, 1).setDepth(DEPTH.prop));
     this.doors.push({ i, x, y, def, sprite });
   }
 
@@ -175,7 +176,8 @@ export class Fixtures {
   // ---------- paredes falsas e vitrais ----------
   private addWall(b: Breakable) {
     const s = this.scene;
-    const pad = TILE;
+    // a pintura do véu some aos poucos até 2 tiles em volta da passagem
+    const pad = TILE * 2;
     const x = Math.max(0, b.x0 * TILE - pad);
     const y = Math.max(0, b.y0 * TILE - pad);
     const w = Math.min(s.level.widthPx, (b.x1 + 1) * TILE + pad) - x;
@@ -252,7 +254,7 @@ export class Fixtures {
       g.fillStyle(0x6e5a32).fillTriangle(13, 0, 0, 26, 26, 26).fillRect(0, 22, 26, 6);
       g.fillStyle(0xb08d4a).fillTriangle(13, 3, 4, 24, 13, 24);
     });
-    const top = bottom - s.textures.getFrame(key).height;
+    const top = bottom - s.textures.getFrame(key).height * hdScale(s, key);
     const tx = Math.floor(x / TILE);
     const ceil = L.ceilingAbove(tx, Math.floor(top / TILE) - 1);
     if (ceil >= 0 && Math.floor(top / TILE) - ceil <= 30) {
@@ -266,7 +268,7 @@ export class Fixtures {
       for (const dx of [-17, 17]) s.add.tileSprite(x + dx, beam, 6, gy - beam, 'deco-post').setOrigin(0.5, 0).setDepth(DEPTH.support);
       s.add.tileSprite(x, beam - 2, 44, 6, 'deco-post').setOrigin(0.5, 0).setAngle(0).setDepth(DEPTH.support);
     }
-    const sprite = s.add.image(x, top, key).setOrigin(0.5, 0).setDepth(DEPTH.prop + 0.2);
+    const sprite = hd(s.add.image(x, top, key).setOrigin(0.5, 0).setDepth(DEPTH.prop + 0.2));
     this.bells.push({ i, x, top, sprite, angle: 0, vel: 0, rung: progress.seen.has(this.bellKey(i)) });
   }
 
@@ -275,7 +277,7 @@ export class Fixtures {
   }
 
   private bellRect(b: Bell) {
-    const h = b.sprite.height;
+    const h = b.sprite.displayHeight;
     return new Phaser.Geom.Rectangle(b.x - 14, b.top, 28, h + 2);
   }
 
@@ -305,7 +307,7 @@ export class Fixtures {
       g.fillStyle(0x4a3a26).fillRect(1, 9, 22, 8);
       g.fillStyle(0x1a140e).fillRect(2, 0, 20, 7);
     }) : shut;
-    const sprite = s.add.image(x, y + 1, key).setOrigin(0.5, 1).setDepth(DEPTH.prop + 0.2);
+    const sprite = hd(s.add.image(x, y + 1, key).setOrigin(0.5, 1).setDepth(DEPTH.prop + 0.2));
     this.caches.push({ i, x, y, sprite, hp: 3, open, baseX: x, shakeT: 0 });
   }
 
@@ -341,7 +343,7 @@ export class Fixtures {
     });
     const py = y - 18;
     const glow = s.add.image(x, py, 'glow').setScale(1.1).setTint(0xfff1d6).setAlpha(0.4).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.front);
-    const sprite = s.add.image(x, py, key).setDepth(DEPTH.enemy + 0.4);
+    const sprite = hd(s.add.image(x, py, key).setDepth(DEPTH.enemy + 0.4));
     this.pages.push({ id, x, y: py, sprite, glow, phase: Math.random() * 6, taken: false });
   }
 
@@ -413,7 +415,7 @@ export class Fixtures {
       if (Math.abs(p.x - pg.x) < 14 && pg.y > b.top - 8 && pg.y < b.bottom + 6) {
         pg.taken = true;
         this.scene.takePage(pg.id, pg.x, pg.y);
-        this.scene.tweens.add({ targets: pg.sprite, scale: 1.8, alpha: 0, duration: 380, onComplete: () => pg.sprite.destroy() });
+        this.scene.tweens.add({ targets: pg.sprite, scale: pg.sprite.scale * 1.8, alpha: 0, duration: 380, onComplete: () => pg.sprite.destroy() });
         this.scene.tweens.add({ targets: pg.glow, scale: 4, alpha: 0, duration: 520, onComplete: () => pg.glow.destroy() });
       }
     }

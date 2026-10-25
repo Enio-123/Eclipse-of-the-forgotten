@@ -1,7 +1,9 @@
-"""Ícones do inventário (24x24) e o Badalo do Sineiro caído no chão (32x32).
+"""Ícones do inventário (24x24) e as armas de chefe caídas no chão (32x32): o Badalo do Sineiro e o
+Incensário do Arcebispo.
 
 Os ícones aparecem na tela de inventário, no mapa e na loja do Cobrador; o badalo é o que o
-chefe deixa cair quando morre. Tudo em pixel art com o mesmo renderizador dos personagens.
+chefe deixa cair quando morre. Com HD = 0 sai em pixel art; com HD = s sai no traço liso (ink.py),
+com s pixels por pixel do desenho (ink_sheets.py usa esse modo).
 
 uso: python3 items.py <pasta_assets> [preview.png]
 """
@@ -16,11 +18,33 @@ puppet.SHINY.setdefault('bronze', (0.5, 9))
 puppet.RAMPS['mist'] = [0x1e2740, 0x3a4a6e, 0x6a7fae, 0xa8bce0, 0xe6eefa]
 puppet.RAMPS['whet'] = [0x17191f, 0x2b2f39, 0x434957, 0x5f6676, 0x838b9c]
 OUT = 0x06070c
+# pixels por pixel do desenho no traço liso (0: pixel art)
+HD = 0
 
 
 def img(prims, decals, W, H, rim=True):
+    if HD:
+        import numpy as np
+        import ink
+        a = ink.render_frame(prims, decals, W, H, s=HD, style=ink.HK, rim=rim)
+        return Image.fromarray((np.clip(a, 0, 1) * 255 + 0.5).astype(np.uint8), 'RGBA')
     px, _ = render(prims, decals, W, H)
     return to_image(px, W, H, outline_col=OUT, rim=rim)
+
+
+def sparks(im, pts):
+    """Pontos de luz por cima do desenho: um pixel na pixel art, uma bolinha suave no traço liso."""
+    if not HD:
+        for (x, y), c in pts:
+            im.putpixel((x, y), c)
+        return
+    from PIL import ImageDraw, ImageFilter
+    glow = Image.new('RGBA', im.size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(glow)
+    for (x, y), c in pts:
+        cx, cy, r = (x + 0.5) * HD, (y + 0.5) * HD, 0.62 * HD
+        d.ellipse((cx - r, cy - r, cx + r, cy + r), fill=c)
+    im.alpha_composite(glow.filter(ImageFilter.GaussianBlur(HD * 0.18)))
 
 
 def breath():
@@ -156,9 +180,35 @@ def whetstone():
         return None
     im = img(prims, [Decal('stone', wet)], 24, 24)
     # faíscas
-    for x, y in ((18, 15), (20, 13), (19, 18), (21, 16)):
-        im.putpixel((x, y), (255, 226, 150, 255))
-    im.putpixel((20, 15), (255, 250, 220, 255))
+    sparks(im, [((x, y), (255, 226, 150, 255)) for x, y in ((18, 15), (20, 13), (19, 18), (21, 16))] + [((20, 15), (255, 250, 220, 255))])
+    return im
+
+
+def beads():
+    """Contas da Irmã: o terço da freira cega, contas de osso num cordão, e a medalha de vidro que
+    acende perto das passagens escondidas."""
+    cx, cy, rx, ry = 12.0, 8.2, 7.2, 5.4
+    n = 13
+    # o laço começa e termina embaixo, onde fica o nó
+    loop = [(cx + math.cos(math.pi / 2 + (i + 1) / n * 2 * math.pi) * rx,
+             cy + math.sin(math.pi / 2 + (i + 1) / n * 2 * math.pi) * ry) for i in range(n - 1)]
+    knot = (cx, cy + ry)
+    tail = [(cx + 0.2, knot[1] + 2.4), (cx + 0.5, knot[1] + 4.6)]
+    medal = (cx + 0.7, knot[1] + 7.6)
+    prims = []
+    path = [knot] + loop + [knot] + tail + [medal]
+    for a, b in zip(path, path[1:]):
+        prims.append(Capsule('cord', 'leather', 0.5, a, b, 0.32, 0.32))
+    for i, c in enumerate(loop):
+        big = i % 4 == 1
+        prims.append(Ellipse('bead', 'wood' if big else 'bone', 2.0, c, 1.55 if big else 1.25, 1.55 if big else 1.25, bulge=0.9))
+    for c in tail:
+        prims.append(Ellipse('bead', 'bone', 2.0, c, 1.2, 1.2, bulge=0.9))
+    prims.append(Ellipse('knot', 'gold', 2.2, knot, 1.3, 1.0))
+    prims.append(Ellipse('medal', 'gold', 3.0, medal, 2.9, 2.9, bulge=0.8))
+    prims.append(Ellipse('glass', 'mist', 3.1, medal, 1.6, 1.6, bulge=0.9))
+    im = img(prims, [], 24, 24)
+    sparks(im, [((int(medal[0]) - 1, int(medal[1]) - 1), (236, 244, 255, 255))])
     return im
 
 
@@ -186,7 +236,52 @@ def badalo():
     return img(prims, [Decal('ball', band)], W, H)
 
 
-ICONS = {'breath': breath, 'mask': mask, 'blade': blade, 'purse': purse, 'shard': shard, 'whetstone': whetstone}
+def incensario():
+    """O Incensário do Arcebispo deitado: a bola de ouro furada (a brasa aparece pelos furos), a tampa
+    cônica e a corrente até a argola de segurar."""
+    W = H = 32
+    cc = (17.5, 20.5)
+    axis = (-0.55, -0.83)
+    side = (-axis[1], axis[0])
+    add = lambda a, b, k: (a[0] + b[0] * k, a[1] + b[1] * k)
+    body = Ellipse('ball', 'gold', 3.0, cc, 6.6, 6.6, bulge=0.95)
+    base = add(cc, axis, 5.0)
+    tip = add(cc, axis, 10.8)
+    lid = [add(base, side, -4.6), add(base, side, 4.6), add(tip, side, 0.9), add(tip, side, -0.9)]
+    ring = add(cc, axis, 12.4)
+    prims = [body, Poly('lid', 'gold', 3.1, lid, nf=lambda x, y: (-0.45, -0.65, 0.6), shade=0.86),
+             Ellipse('ring', 'gold', 3.2, ring, 1.7, 1.7), Ellipse('ringhole', 'void', 3.3, ring, 0.7, 0.7),
+             Ellipse('foot', 'gold', 2.9, add(cc, axis, -6.3), 3.0, 1.6, ang=math.atan2(side[1], side[0]), shade=0.75)]
+    # corrente: da argola sobe em curva até a argola de segurar, no canto
+    grip = (27.0, 4.6)
+    ctl = (18.0, 1.0)
+    prev = ring
+    n = 11
+    for i in range(1, n + 1):
+        t = i / n
+        q = ((1 - t) ** 2 * ring[0] + 2 * (1 - t) * t * ctl[0] + t * t * grip[0],
+             (1 - t) ** 2 * ring[1] + 2 * (1 - t) * t * ctl[1] + t * t * grip[1])
+        c = ((prev[0] + q[0]) / 2, (prev[1] + q[1]) / 2)
+        ang = math.atan2(q[1] - prev[1], q[0] - prev[0])
+        prims.append(Ellipse('link', 'steel', 1.0, c, 1.25 if i % 2 else 0.9, 0.75 if i % 2 else 0.5, ang=ang, flat=3 if i % 2 else 1))
+        prev = q
+    prims.append(Ellipse('grip', 'gold', 1.2, grip, 2.1, 2.1))
+    prims.append(Ellipse('griphole', 'void', 1.3, grip, 0.9, 0.9))
+
+    def holes(x, y, cur):
+        lx = (x - cc[0]) * side[0] + (y - cc[1]) * side[1]
+        ly = (x - cc[0]) * axis[0] + (y - cc[1]) * axis[1]
+        if abs(ly + 0.6) < 1.1 and abs(lx) < 5.4:
+            return ('gold', 4) if int(lx + 10.5) % 2 == 0 else ('void', 1)
+        if abs(ly + 3.4) < 0.5 and abs(lx) < 5.0:
+            return ('gold', 1)
+        if abs(ly - 3.1) < 0.5 and abs(lx) < 5.4:
+            return ('gold', 1)
+        return None
+    return img(prims, [Decal('ball', holes)], W, H)
+
+
+ICONS = {'breath': breath, 'mask': mask, 'blade': blade, 'purse': purse, 'shard': shard, 'whetstone': whetstone, 'beads': beads}
 
 
 def main(out, preview=None):
@@ -196,15 +291,18 @@ def main(out, preview=None):
         ims[k].save(f'{out}/item-{k}.png')
     b = badalo()
     b.save(f'{out}/item-badalo.png')
+    inc = incensario()
+    inc.save(f'{out}/item-incensario.png')
     if preview:
         S = 8
-        sheet = Image.new('RGBA', ((24 * 6 + 32 + 8 * 7) * S, 40 * S), (40, 38, 44, 255))
+        sheet = Image.new('RGBA', ((32 * len(ICONS) + 32 + 8) * S, 40 * S), (40, 38, 44, 255))
         x = 8
         for k in ICONS:
             sheet.alpha_composite(ims[k].resize((24 * S, 24 * S), Image.NEAREST), (x * S, 8 * S))
             x += 32
         sheet.alpha_composite(b.resize((32 * S, 32 * S), Image.NEAREST), (x * S, 4 * S))
         sheet.save(preview)
+        inc.resize((32 * S, 32 * S), Image.NEAREST).save(preview.replace('.png', '-incensario.png'))
 
 
 if __name__ == '__main__':

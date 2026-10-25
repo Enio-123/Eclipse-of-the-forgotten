@@ -2,7 +2,6 @@
 export const VIEW_W = 640;
 export const VIEW_H = 360;
 export const TILE = 16;
-
 // Ajustes de movimento e combate do cavaleiro (px, px/s, px/s², segundos)
 export const PLAYER = {
   bodyW: 14,
@@ -45,8 +44,8 @@ export const PLAYER = {
   knockY: 230,
 };
 
-export type WeaponId = 'sword' | 'scythe' | 'daggers' | 'bow' | 'badalo';
-export const WEAPON_IDS: WeaponId[] = ['sword', 'scythe', 'daggers', 'bow', 'badalo'];
+export type WeaponId = 'sword' | 'scythe' | 'daggers' | 'bow' | 'badalo' | 'incensario';
+export const WEAPON_IDS: WeaponId[] = ['sword', 'scythe', 'daggers', 'bow', 'badalo', 'incensario'];
 
 export interface WeaponDef {
   id: WeaponId;
@@ -68,6 +67,8 @@ export interface WeaponDef {
   boss?: { id: string; name: string; art: 'o' | 'a'; found: string };
   // pancada no chão que solta uma onda (o badalo)
   quake?: boolean;
+  // onde o golpe passa fica uma nuvem de incenso que queima os inimigos (o incensário)
+  smoke?: boolean;
   stats: { dano: number; velocidade: number; alcance: number; corrida: number };
 }
 
@@ -98,7 +99,17 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
     boss: { id: 'sineiro', name: 'Sineiro', art: 'o', found: 'Pesado como um sino. Dá para usar em Trocar arma, no menu de pausa.' }, quake: true,
     stats: { dano: 5, velocidade: 1, alcance: 4, corrida: 1 },
   },
+  incensario: {
+    id: 'incensario', name: 'Incensário do Arcebispo', summary: 'Golpe largo pela corrente. Onde passa, fica incenso que queima.',
+    dmg: 1.8, cooldown: 0.55, windup: 0.12, active: 0.12, reach: 72, height: 56, recoil: 80, moveMul: 0.55, ranged: false, speed: 0.95,
+    boss: { id: 'arcebispo', name: 'Arcebispo', art: 'o', found: 'Ainda quente. Onde ele passa, o incenso fica e queima. Dá para usar em Trocar arma, no menu de pausa.' },
+    smoke: true,
+    stats: { dano: 4, velocidade: 2, alcance: 4, corrida: 3 },
+  },
 };
+
+// nuvem do incensário: fica onde o golpe passou e queima cada inimigo uma vez
+export const INCENSE = { life: 1.3, w: 44, h: 34, dmg: 0.6 };
 
 // onda do badalo: corre rente ao chão para a frente e acerta cada inimigo uma vez
 export const QUAKE = { speed: 300, life: 0.4, dmg: 1, height: 16 };
@@ -229,6 +240,44 @@ export const BOSS = {
   stunTime: 1.9,
   bellEvery: 2.6,
   bellWarn: 0.85,
+};
+
+// O Arcebispo do Dízimo, segundo chefe (tempos em segundos)
+export const ARCEBISPO = {
+  bodyW: 32,
+  bodyH: 108,
+  hp: 44,
+  glide: 58,
+  // abaixo desta fração da vida o vitral quebra
+  phase2: 0.5,
+  think: 0.7,
+  // incensário por cima da cabeça até o chão na frente (dá para aparar)
+  swingWind: 0.74,
+  swingActive: 0.2,
+  swingRec: 0.8,
+  swingReach: 112,
+  stagger: 1.9,
+  // arremesso rente ao chão: vai, deixa a nuvem e volta pela corrente
+  tossWind: 0.6,
+  tossRange: 236,
+  tossOut: 470,
+  tossBack: 300,
+  // chuva do dízimo: sombras no chão antes das moedas caírem (os tablados protegem)
+  titheWind: 0.55,
+  titheWarn: 0.9,
+  titheGap: 0.7,
+  // some na fumaça e reaparece perto do cavaleiro
+  vanish: 0.45,
+  hidden: 0.65,
+  // nuvem que o incensário deixa no chão
+  cloud: 2.2,
+  cloudW: 52,
+  cloudH: 28,
+  // fachos de luz do vitral quebrado (beamEvery: pausa depois que um facho some)
+  beamEvery: 4.2,
+  beamWarn: 0.95,
+  beamSpeed: 175,
+  beamHalf: 8,
 };
 
 // Paleta do mundo presente (dark fantasy frio)

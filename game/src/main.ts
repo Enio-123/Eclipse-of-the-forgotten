@@ -1,6 +1,7 @@
 import { progress } from './systems/Save';
 import Phaser from 'phaser';
 import { PLAYER, VIEW_H, VIEW_W } from './config';
+import { RES, watchSpeed } from './gfx/view';
 import { BootScene } from './scenes/BootScene';
 import { TitleScene } from './scenes/TitleScene';
 import { IntroScene } from './scenes/IntroScene';
@@ -18,8 +19,8 @@ settings.onChange((d) => (pad.vibration = d.vibration));
 const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game',
-  width: VIEW_W,
-  height: VIEW_H,
+  width: VIEW_W * RES,
+  height: VIEW_H * RES,
   backgroundColor: '#07080d',
   pixelArt: true,
   roundPixels: true,
@@ -33,5 +34,10 @@ const game = new Phaser.Game({
 });
 
 ui.init(game);
+// resolução automática: desce um nível se o jogo ficar lento (só conta com o cavaleiro andando)
+watchSpeed(game, () => {
+  const g = game.scene.getScene('game') as GameScene | null;
+  return !!g && g.scene.isActive() && g.live;
+});
 // acesso para os testes automatizados
-Object.assign(window as object, { __game: game, __ui: ui, __progress: progress, __settings: settings });
+Object.assign(window as object, { __game: game, __ui: ui, __progress: progress, __settings: settings, __res: () => RES });

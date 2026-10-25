@@ -96,6 +96,7 @@
           <button role="tab" data-tab="controls" aria-selected="true">Teclado e mouse</button>
           <button role="tab" data-tab="pad" aria-selected="false">Controle</button>
           <button role="tab" data-tab="audio" aria-selected="false">Áudio</button>
+          <button role="tab" data-tab="video" aria-selected="false">Imagem</button>
         </div>
         <div class="tab-panel" data-panel="controls">
           <fieldset class="scheme">
@@ -118,6 +119,15 @@
           <label class="slider">Volume geral <input type="range" min="0" max="100" data-vol="volume" /></label>
           <label class="slider">Música <input type="range" min="0" max="100" data-vol="music" /></label>
           <label class="slider">Efeitos e ambiente <input type="range" min="0" max="100" data-vol="sfx" /></label>
+        </div>
+        <div class="tab-panel" data-panel="video" hidden>
+          <fieldset class="scheme three">
+            <legend>Resolução</legend>
+            <label><input type="radio" name="quality" value="auto" /> <span>Automática<small>Nítida quando o aparelho aguenta; fica mais leve sozinha se o jogo ficar lento</small></span></label>
+            <label><input type="radio" name="quality" value="high" /> <span>Nítida<small>Personagens e fundos em alta resolução, mesmo se o aparelho for fraco</small></span></label>
+            <label><input type="radio" name="quality" value="low" /> <span>Leve<small>Menos pixels na tela: para celular mais fraco ou computador sem placa de vídeo</small></span></label>
+          </fieldset>
+          <p class="note quality-note"></p>
         </div>
         <div class="row">
           <button data-cmd="back" class="primary">Voltar</button>

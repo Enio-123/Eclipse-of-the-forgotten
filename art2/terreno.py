@@ -565,7 +565,10 @@ def grass_blades(room, L, M, dtop, GD, GM, GL, GS):
                  0.2, 0.1, taper=0.9, clip=clip)
 
 
-THEMES = {'ponte': bridge, 'catacumbas': catacomb, 'memoria': memory, 'sinos': catacomb, 'cripta': catacomb}
+THEMES = {'ponte': bridge, 'catacumbas': catacomb, 'memoria': memory, 'sinos': catacomb, 'cripta': catacomb, 'escadaria': catacomb}
+
+
+SEEDS = {'ponte': 5, 'catacumbas': 7, 'memoria': 9, 'sinos': 11, 'cripta': 13, 'escadaria': 15}
 
 
 def downsample(L, M, room):
@@ -588,7 +591,7 @@ if __name__ == '__main__':
     out = sys.argv[2] if len(sys.argv) > 2 else os.path.join(HERE, 'hd')
     os.makedirs(out, exist_ok=True)
     t0 = time.time()
-    room = Room(name, load_maps()[name], seed={'ponte': 5, 'catacumbas': 7, 'memoria': 9, 'sinos': 11, 'cripta': 13}[name])
+    room = Room(name, load_maps()[name], seed=SEEDS[name])
     L, M = THEMES[name](room)
     L.image().save(f'{out}/terreno-{name}-2x.png')
     small = downsample(L, M, room)

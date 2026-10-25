@@ -3,6 +3,7 @@ import { CROW as C, TILE } from '../config';
 import type { GameScene } from '../scenes/GameScene';
 import { isSolid } from '../world/Level';
 import { overlap, type Enemy, type HitResult } from './Enemy';
+import { face, hd } from '../gfx/flip';
 
 type State = 'hover' | 'windup' | 'dive' | 'stuck' | 'recover' | 'hurt';
 
@@ -33,7 +34,7 @@ export class Crow implements Enemy {
     this.body.setAllowGravity(false);
     this.body.setMaxVelocity(500, 500);
     const o = scene.registry.get('crow-origin') as { x: number; y: number };
-    this.sprite = scene.add.sprite(x, y, 'crow', 0).setOrigin(o.x, o.y).setDepth(8);
+    this.sprite = hd(scene.add.sprite(x, y, 'crow', 0).setOrigin(o.x, o.y).setDepth(8));
     this.sprite.play({ key: 'crow-fly', startFrame: Math.floor(Math.random() * 4) });
     this.anim = 'fly';
   }
@@ -142,7 +143,7 @@ export class Crow implements Enemy {
       if (this.flashT <= 0) this.sprite.clearTint();
     }
     if (this.state !== 'stuck') this.sprite.setPosition(Math.round(this.zone.x), Math.round(this.zone.y + 7));
-    this.sprite.setFlipX(this.facing < 0);
+    face(this.sprite, this.facing < 0);
     this.sprite.setRotation(rot);
   }
 

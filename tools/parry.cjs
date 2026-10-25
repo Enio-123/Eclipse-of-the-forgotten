@@ -119,7 +119,8 @@ const URL = process.argv[3] || 'http://localhost:8765/index.html';
   check(await seen('used:parry'), 'aparar fica registrado (a dica some)');
   let e0 = await enemy();
   await waitGame(0.1);
-  // chega perto (o tranco do aparar afasta um pouco) e bate
+  // chega perto (o tranco do aparar afasta um pouco) e bate, já sem a espera do golpe de aparar
+  await page.waitForFunction(() => window.__scene.player.atkCd <= 0, null, { timeout: 5000, polling: 'raf' });
   await page.evaluate(() => { const s = window.__scene; s.player.teleport(window.__e.zone.x - 34, s.player.body.bottom); s.player.facing = 1; });
   await tap('KeyJ');
   await waitGame(0.2);

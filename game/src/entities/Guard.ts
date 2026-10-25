@@ -3,6 +3,7 @@ import { GUARD as C, PARRY } from '../config';
 import type { GameScene } from '../scenes/GameScene';
 import { isGround, isSolid } from '../world/Level';
 import { overlap, type Enemy, type HitDir, type HitResult } from './Enemy';
+import { face, hd } from '../gfx/flip';
 
 type State =
   | 'patrol' | 'guard' | 'turn' | 'block' | 'hurt'
@@ -44,7 +45,7 @@ export class Guard implements Enemy {
     this.body = this.zone.body as Phaser.Physics.Arcade.Body;
     this.body.setMaxVelocity(400, 600);
     const o = scene.registry.get('guard-origin') as { x: number; y: number };
-    this.sprite = scene.add.sprite(x, feetY, 'guard', 0).setOrigin(o.x, o.y).setDepth(8);
+    this.sprite = hd(scene.add.sprite(x, feetY, 'guard', 0).setOrigin(o.x, o.y).setDepth(8));
     this.facing = scene.player && scene.player.x > x ? 1 : -1;
     this.play('idle');
   }
@@ -246,7 +247,7 @@ export class Guard implements Enemy {
       if (this.flashT <= 0) this.sprite.clearTint();
     }
     this.sprite.setPosition(Math.round(this.zone.x), Math.round(b.bottom));
-    this.sprite.setFlipX(this.facing < 0);
+    face(this.sprite, this.facing < 0);
   }
 
   harms(pr: Phaser.Geom.Rectangle, sliding: boolean) {
@@ -286,7 +287,7 @@ export class Guard implements Enemy {
     if (!this.alive) return 'ignored';
     if (this.state === 'stagger') dmg *= PARRY.bonus;
     const front = (Math.sign(fromX - this.zone.x) || this.facing) === this.facing;
-    if (front && dir !== 'down' && dir !== 'quake' && !OPEN.includes(this.state)) {
+    if (front && dir !== 'down' && dir !== 'quake' && dir !== 'smoke' && !OPEN.includes(this.state)) {
       if (this.state === 'guard' || this.state === 'patrol' || this.state === 'turn' || this.state === 'block') this.go('block', 'block');
       return 'blocked';
     }

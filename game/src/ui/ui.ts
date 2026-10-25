@@ -1,13 +1,14 @@
 import type Phaser from 'phaser';
 import { WEAPONS, WEAPON_IDS, type WeaponId } from '../config';
 import { raw } from '../systems/RawInput';
-import { ACTIONS, ACTION_LABEL, PAD_ACTIONS, codeName, settings, type Action } from '../systems/Settings';
+import { ACTIONS, ACTION_LABEL, PAD_ACTIONS, codeName, settings, type Action, type Quality } from '../systems/Settings';
 import { audio } from '../systems/Audio';
 import { BRAND_LABEL, BTN, buttonGlyph, buttonName, pad, stickGlyph, type PadBrand } from '../systems/Pad';
 import { LEVEL_MUL, MAX_LEVEL, progress, type Upgrade } from '../systems/Save';
 import { BESTIARY, FORGE, MATERIALS, MEMORIES, MEMORY_TOTAL, OFFERS, PAGES, PAGE_IDS, RELICS, SLOTS } from '../world/lore';
 import { MAP_POS, ROOMS, type Ability, type RoomId } from '../world/rooms';
 import { drawMarker, renderMap, type MapHere } from './mapview';
+import { RES, applyRes, resFor } from '../gfx/view';
 
 type ScreenId = 'loading' | 'intro' | 'menu' | 'erase' | 'weapons' | 'settings' | 'pause' | 'end' | 'map' | 'shop' | 'inventory' | 'talk' | 'forge' | 'journal';
 
@@ -31,9 +32,13 @@ interface Entry {
 interface SheetMeta {
   columns: number;
   anims: Record<string, { start: number; count: number; fps: number }>;
+  // folha no traço liso: quadros recortados num atlas, `scale` pixels da folha por pixel do mundo
+  frames?: Record<string, { frame: { x: number; y: number; w: number; h: number }; spriteSourceSize: { x: number; y: number } }>;
+  meta?: { size: { w: number; h: number } };
+  scale?: number;
 }
 
-const WEAPON_ORDER: WeaponId[] = ['scythe', 'sword', 'daggers', 'bow', 'badalo'];
+const WEAPON_ORDER: WeaponId[] = ['scythe', 'sword', 'daggers', 'bow', 'badalo', 'incensario'];
 const TAGS: Partial<Record<WeaponId, string>> = { scythe: 'Arma do carrasco · recomendada' };
 const TOUCH_LABEL: Record<Action, string> = {
   left: 'Analógico', right: 'Analógico', up: 'Analógico para cima', down: 'Analógico para baixo',
@@ -361,7 +366,7 @@ class UI {
     const cards = $('.cards', s);
     cards.innerHTML = '';
     let sel: WeaponId = o.has(o.current) ? o.current : 'scythe';
-    const items: { id: WeaponId; card: HTMLButtonElement; sprite: HTMLElement; meta: SheetMeta; t0: number }[] = [];
+    const items: { id: WeaponId; card: HTMLButtonElement; sprite: HTMLElement; cel: HTMLElement; meta: SheetMeta; t0: number }[] = [];
     for (const id of WEAPON_ORDER) {
       const W = WEAPONS[id];
       const locked = !o.has(id);
@@ -371,7 +376,8 @@ class UI {
       card.disabled = locked;
       const view = card.appendChild(el('div', 'view'));
       const sprite = view.appendChild(el('div', 'sprite'));
-      sprite.style.backgroundImage = `url(assets/knight-${id}.png)`;
+      // o quadro do atlas fica num pedaço do tamanho dele, no lugar que ocupava no quadro inteiro
+      const cel = sprite.appendChild(el('i'));
       card.appendChild(el('h3', '', W.name));
       const b = W.boss;
       card.appendChild(el('p', 'tag', b ? (locked ? `Vença ${b.art} ${b.name}` : `Arma d${b.art} ${b.name}`) : TAGS[id] ?? ''));
@@ -393,7 +399,9 @@ class UI {
       card.ondblclick = () => !locked && o.onConfirm(sel);
       cards.appendChild(card);
       const meta = this.game!.cache.json.get(`knight-${id}-meta`) as SheetMeta;
-      items.push({ id, card, sprite, meta, t0: 0 });
+      (meta.frames ? cel : sprite).style.backgroundImage = `url(assets/knight-${id}.png)`;
+      sprite.classList.toggle('hd', !!meta.frames);
+      items.push({ id, card, sprite, cel, meta, t0: 0 });
     }
     const sync = () => {
       for (const it of items) {
@@ -415,8 +423,21 @@ class UI {
           const ph = (t - it.t0) % (atkDur + 1.1);
           f = ph < atkDur ? atk.start + Math.floor(ph * atk.fps) : idle.start + (Math.floor((ph - atkDur) * idle.fps) % idle.count);
         } else f = idle.start + (Math.floor(t * idle.fps) % idle.count);
-        const cols = it.meta.columns;
-        it.sprite.style.backgroundPosition = `${-(f % cols) * 288}px ${-Math.floor(f / cols) * 240}px`;
+        const fr = it.meta.frames?.[String(f)];
+        if (fr) {
+          // a prévia mostra o mundo em dobro (288x240 para um quadro de 144x120)
+          const k = 2 / (it.meta.scale ?? 1);
+          const st = it.cel.style;
+          st.left = `${fr.spriteSourceSize.x * k}px`;
+          st.top = `${fr.spriteSourceSize.y * k}px`;
+          st.width = `${fr.frame.w * k}px`;
+          st.height = `${fr.frame.h * k}px`;
+          st.backgroundSize = `${it.meta.meta!.size.w * k}px auto`;
+          st.backgroundPosition = `${-fr.frame.x * k}px ${-fr.frame.y * k}px`;
+        } else {
+          const cols = it.meta.columns;
+          it.sprite.style.backgroundPosition = `${-(f % cols) * 288}px ${-Math.floor(f / cols) * 240}px`;
+        }
       }
       this.cardLoop = requestAnimationFrame(tick);
     };
@@ -462,6 +483,16 @@ class UI {
       settings.resetPad();
       this.renderPad();
     };
+    s.querySelectorAll<HTMLInputElement>('input[name="quality"]').forEach((r) => {
+      r.checked = r.value === settings.data.quality;
+      r.onchange = () => {
+        settings.data.quality = r.value as Quality;
+        settings.save();
+        if (this.game) applyRes(this.game, resFor(settings.data.quality));
+        this.renderQuality();
+      };
+    });
+    this.renderQuality();
     const vib = $<HTMLInputElement>('input[data-opt="vibration"]', s);
     vib.checked = settings.data.vibration;
     vib.onchange = () => {
@@ -473,6 +504,12 @@ class UI {
     this.renderBinds();
     this.renderPad();
     this.push('settings', () => this.pop());
+  }
+
+  // resolução em uso agora (a automática pode ter baixado sozinha)
+  private renderQuality() {
+    const note = $('#screen-settings .quality-note');
+    note.textContent = RES === 1 ? 'Agora a tela está na resolução leve.' : `Agora a tela está nítida (${RES} pixels por pixel do jogo).`;
   }
 
   private renderBinds() {

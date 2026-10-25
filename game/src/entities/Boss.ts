@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import { BOSS as C, TILE } from '../config';
 import type { GameScene } from '../scenes/GameScene';
-import { overlap, type Enemy, type HitResult } from './Enemy';
+import { overlap, type BossFoe, type HitResult } from './Enemy';
+import { face, hd } from '../gfx/flip';
 
 type State =
   | 'sleep' | 'rise' | 'roar' | 'idle' | 'walk'
@@ -35,7 +36,7 @@ interface Bell {
 // O Sineiro: dorme ajoelhado no fundo da cripta. Martelada (com onda no chão), varredura na
 // altura do peito (agache ou deslize), investida até a parede (fica tonto: é a hora de bater)
 // e, com metade da vida, urra e faz os sinos caírem do teto.
-export class Boss implements Enemy {
+export class Boss implements BossFoe {
   readonly kind = 'boss' as const;
   readonly zone: Phaser.GameObjects.Zone;
   readonly body: Phaser.Physics.Arcade.Body;
@@ -65,9 +66,9 @@ export class Boss implements Enemy {
     this.body = this.zone.body as Phaser.Physics.Arcade.Body;
     this.body.setMaxVelocity(600, 700);
     const o = scene.registry.get('sineiro-origin') as { x: number; y: number };
-    this.sprite = scene.add.sprite(x, feetY, 'sineiro', 0).setOrigin(o.x, o.y).setDepth(8);
+    this.sprite = hd(scene.add.sprite(x, feetY, 'sineiro', 0).setOrigin(o.x, o.y).setDepth(8));
     this.play('kneel');
-    this.sprite.setFlipX(true);
+    face(this.sprite, true);
   }
 
   get rect() {
@@ -77,6 +78,10 @@ export class Boss implements Enemy {
 
   get awake() {
     return this.state !== 'sleep' && this.state !== 'dead';
+  }
+
+  get sleeping() {
+    return this.state === 'sleep';
   }
 
   private get speedMul() {
@@ -271,7 +276,7 @@ export class Boss implements Enemy {
 
   private sync() {
     this.sprite.setPosition(Math.round(this.zone.x), Math.round(this.body.bottom));
-    this.sprite.setFlipX(this.facing < 0);
+    face(this.sprite, this.facing < 0);
   }
 
   private toIdle() {
@@ -318,7 +323,7 @@ export class Boss implements Enemy {
     for (const x0 of xs) {
       const x = Phaser.Math.Clamp(x0, minX, maxX);
       const top = 3 * TILE;
-      const sprite = s.add.image(x, top - 20, 'bell-drop').setOrigin(0.5, 1).setDepth(9);
+      const sprite = hd(s.add.image(x, top - 20, 'bell-drop').setOrigin(0.5, 1).setDepth(9));
       const shadow = s.add.ellipse(x, this.floorY - 1, 30, 7, 0x000000, 0.0).setDepth(7);
       s.tweens.add({ targets: shadow, fillAlpha: 0.55, duration: C.bellWarn * 1000 });
       this.bells.push({ x, y: top - 20, vy: 0, t: 0, falling: false, sprite, shadow, done: false });

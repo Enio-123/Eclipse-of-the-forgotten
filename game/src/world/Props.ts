@@ -5,6 +5,7 @@ import type { Player } from '../entities/Player';
 import { progress } from '../systems/Save';
 import { DEPTH } from './Decor';
 import type { Ability } from './rooms';
+import { face, hd } from '../gfx/flip';
 
 // pavios das cinco velas do altar (em relação ao pé do desenho)
 const WICKS: [number, number][] = [[-9, -41], [-4, -46], [1, -50], [6, -44], [11, -40]];
@@ -155,7 +156,7 @@ export class Props {
   private addCobrador(x: number, y: number) {
     const s = this.scene;
     const o = s.registry.get('cobrador-origin') as { x: number; y: number };
-    const sprite = s.add.sprite(x, y, 'cobrador', 0).setOrigin(o.x, o.y).setDepth(DEPTH.enemy).play('cobrador-idle');
+    const sprite = hd(s.add.sprite(x, y, 'cobrador', 0)).setOrigin(o.x, o.y).setDepth(DEPTH.enemy).play('cobrador-idle');
     const light = s.add.image(x + 23, y - 22, 'glow').setScale(1.1).setTint(0xffd98a).setAlpha(0.55).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.front);
     this.flickers.push({ img: light, base: 0.55, phase: 3 });
     this.cobrador = { x, y, sprite, light };
@@ -287,7 +288,7 @@ export class Props {
     const c = this.cobrador;
     if (c) {
       const left = p.x < c.x;
-      c.sprite.setFlipX(left);
+      face(c.sprite, left);
       c.light.x = c.x + (left ? -23 : 23);
     }
   }

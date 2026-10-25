@@ -1,7 +1,9 @@
 """Etapa final dos cenários: reduz as pinturas 2x para os pixels do jogo com uma paleta única por
 tema (o fundo, o terreno e os enfeites saem com as mesmas cores) e grava em game/public/assets.
 
-uso: python3 finaliza.py <tema> [pasta_hd] [cores]
+uso: python3 finaliza.py <tema> [pasta_hd] [cores] [--keep=camada,camada]
+--keep refaz só as camadas pedidas, com as cores que as imagens já prontas do tema usam (o que
+já foi aprovado fica igual, byte por byte).
 """
 import os
 import sys
@@ -15,8 +17,9 @@ ASSETS = os.path.join(HERE, '..', 'game', 'public', 'assets')
 GOLD = [hexc(0xb4702e), hexc(0xe7ad55), hexc(0xfff0c8)]
 WIN = [hexc(0xd9772e), hexc(0xffc46e)]
 
-# tipo de cada camada: 'opaque' (sem transparência), 'soft' (alfa suave em 16 níveis) ou
-# 'exact' (já está em 1x com o alfa certo, como o terreno, que segue a física)
+# tipo de cada camada: 'opaque' (sem transparência), 'soft' (alfa suave em 16 níveis), 'exact'
+# (já está em 1x com o alfa certo, como o terreno, que segue a física) ou 'veil' (já em 1x, alfa
+# suave: a pedra que cobre as passagens secretas e some aos poucos em volta delas)
 THEMES = {
     'bridge': dict(
         layers={
@@ -35,11 +38,36 @@ THEMES = {
     'catacomb': dict(
         layers={
             'cat-far': 'opaque', 'cat-mid': 'soft', 'terreno-catacumbas': 'exact', 'terreno-sinos': 'exact', 'terreno-cripta': 'exact',
+            'terreno-escadaria': 'exact',
             **{f'decos/{n}': 'soft1x' for n in ['deco-candles', 'deco-tufts-catacomb', 'deco-shrine', 'deco-pedestal', 'deco-portcullis']},
         },
-        rename={'terreno-catacumbas': 'terrain-catacumbas', 'terreno-sinos': 'terrain-sinos', 'terreno-cripta': 'terrain-cripta'},
+        rename={'terreno-catacumbas': 'terrain-catacumbas', 'terreno-sinos': 'terrain-sinos', 'terreno-cripta': 'terrain-cripta',
+                'terreno-escadaria': 'terrain-escadaria'},
         accents=[hexc(0xffa64e), hexc(0xffd08a), hexc(0x040509), hexc(0x6e665a)],
         colors=80,
+    ),
+    # Cidade-Catedral: só o terreno sai em pixel (os fundos e os enfeites são no traço liso)
+    'city': dict(
+        layers={
+            'terreno-praca': 'exact', 'terreno-rua': 'exact', 'terreno-telhados': 'exact', 'terreno-claustro': 'exact',
+            'terreno-rua-secret': 'veil', 'terreno-telhados-secret': 'veil', 'terreno-claustro-secret': 'veil',
+        },
+        rename={n: n.replace('terreno', 'terrain') for n in [
+            'terreno-praca', 'terreno-rua', 'terreno-telhados', 'terreno-claustro', 'terreno-rua-secret', 'terreno-telhados-secret',
+            'terreno-claustro-secret']},
+        accents=GOLD + WIN + [hexc(0xc8652a), hexc(0xffe4a8), hexc(0xc3cee0), hexc(0x8a9ac0), hexc(0x06070c)],
+        colors=96,
+    ),
+    'nave': dict(
+        layers={
+            'terreno-nave': 'exact', 'terreno-galeria': 'exact', 'terreno-altar': 'exact',
+            'terreno-nave-secret': 'veil', 'terreno-galeria-secret': 'veil',
+        },
+        rename={n: n.replace('terreno', 'terrain') for n in [
+            'terreno-nave', 'terreno-galeria', 'terreno-altar', 'terreno-nave-secret', 'terreno-galeria-secret']},
+        accents=[hexc(0xd9a54e), hexc(0xffa64e), hexc(0xd8dce8), hexc(0x9e989b), hexc(0x34303b), hexc(0x05060b),
+                 hexc(0x2a4e9a), hexc(0x9c2a2c), hexc(0xc99a3a), hexc(0x2f7a4a), hexc(0x5a3a8a)],
+        colors=96,
     ),
     'forest': dict(
         layers={'intro-back': 'opaque', 'intro-near': 'soft', 'intro-fore': 'soft', 'intro-beams': 'soft'},
@@ -99,21 +127,45 @@ def quantize(rgb, pal):
     return np.asarray(img.quantize(palette=pal, dither=Image.Dither.NONE).convert('RGB'))
 
 
+def palette_of(paths):
+    """Paleta com as cores que as imagens finais já usam (elas já saíram de uma paleta só)."""
+    cols = set()
+    for f in paths:
+        a = np.asarray(Image.open(f).convert('RGBA'))
+        rgb = a[..., :3][a[..., 3] > 0]
+        cols.update(map(tuple, np.unique(rgb.reshape(-1, 3), axis=0).tolist()))
+    cols = sorted(cols)
+    assert len(cols) <= 256, len(cols)
+    pal = [v for c in cols for v in c]
+    pal += pal[:3] * (256 - len(cols))
+    p = Image.new('P', (1, 1))
+    p.putpalette(pal)
+    return p, len(cols)
+
+
 def main():
-    theme = sys.argv[1]
-    hd = sys.argv[2] if len(sys.argv) > 2 else os.path.join(HERE, 'hd')
+    args = [a for a in sys.argv[1:] if not a.startswith('--')]
+    keep = next((a[7:].split(',') for a in sys.argv if a.startswith('--keep=')), None)
+    theme = args[0]
+    hd = args[1] if len(args) > 1 else os.path.join(HERE, 'hd')
     cfg = THEMES[theme]
-    colors = int(sys.argv[3]) if len(sys.argv) > 3 else cfg['colors']
+    colors = int(args[2]) if len(args) > 2 else cfg['colors']
     reduced = {}
     samples = []
     rng = np.random.default_rng(0)
+    if keep:
+        done = [os.path.join(ASSETS, cfg.get('rename', {}).get(n, os.path.basename(n)) + '.png') for n in cfg['layers'] if n not in keep]
+        pal, k = palette_of([f for f in done if os.path.exists(f)])
+        print('paleta das imagens prontas:', k, 'cores')
     for name, kind in cfg['layers'].items():
+        if keep and name not in keep:
+            continue
         path = os.path.join(hd, name + '.png')
         if not os.path.exists(path):
             print('falta', name)
             continue
         im = Image.open(path).convert('RGBA')
-        if kind in ('exact', 'soft1x'):
+        if kind in ('exact', 'soft1x', 'veil'):
             arr = np.asarray(im, np.float32) / 255
             rgb, am = arr[..., :3], arr[..., 3]
         else:
@@ -128,8 +180,9 @@ def main():
         if len(pix) > 400000:
             pix = pix[rng.choice(len(pix), 400000, replace=False)]
         samples.append(pix)
-    pal, k = palette(samples, colors, cfg['accents'])
-    print('paleta', k, 'cores')
+    if not keep:
+        pal, k = palette(samples, colors, cfg['accents'])
+        print('paleta', k, 'cores')
     for name, (rgb, am, kind) in reduced.items():
         if name in cfg.get('own', {}):
             own, _ = palette([rgb[am > 0.25]], cfg['own'][name], cfg['accents'])

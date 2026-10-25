@@ -3,19 +3,13 @@ import { CENSER as C, PARRY } from '../config';
 import type { GameScene } from '../scenes/GameScene';
 import { isGround, isSolid } from '../world/Level';
 import { overlap, type Enemy, type HitDir, type HitResult } from './Enemy';
+import { SmokeField } from './Smoke';
+import { face, hd } from '../gfx/flip';
 
 type State = 'patrol' | 'chase' | 'windup' | 'swing' | 'recover' | 'stagger' | 'hurt';
 
 interface SheetPoints {
   points: Record<string, [number, number][]>;
-}
-
-// nuvem de incenso que fica no chão onde o incensário bateu
-interface Cloud {
-  x: number;
-  y: number;
-  t: number;
-  puffs: Phaser.GameObjects.Image[];
 }
 
 // Penitente do incensário: anda devagar soltando incenso. Perto do cavaleiro ergue o incensário
@@ -36,18 +30,20 @@ export class Censer implements Enemy {
   private flashT = 0;
   private puffT = 0;
   private anim = '';
-  private clouds: Cloud[] = [];
+  // nuvens de incenso que ficam no chão onde o incensário bateu
+  private readonly smoke: SmokeField;
   private readonly homeX: number;
   private readonly points: Record<string, [number, number][]>;
 
   constructor(private scene: GameScene, x: number, feetY: number) {
     this.homeX = x;
+    this.smoke = new SmokeField(scene);
     this.zone = scene.add.zone(x, feetY - C.bodyH / 2, C.bodyW, C.bodyH);
     scene.physics.add.existing(this.zone);
     this.body = this.zone.body as Phaser.Physics.Arcade.Body;
     this.body.setMaxVelocity(300, 600);
     const o = scene.registry.get('censer-origin') as { x: number; y: number };
-    this.sprite = scene.add.sprite(x, feetY, 'censer', 0).setOrigin(o.x, o.y).setDepth(8);
+    this.sprite = hd(scene.add.sprite(x, feetY, 'censer', 0).setOrigin(o.x, o.y).setDepth(8));
     this.points = (scene.cache.json.get('censer-meta') as SheetPoints).points;
     this.facing = Math.random() < 0.5 ? 1 : -1;
     this.sprite.play({ key: 'censer-walk', startFrame: Math.floor(Math.random() * 6) });
@@ -57,6 +53,10 @@ export class Censer implements Enemy {
   get rect() {
     const b = this.body;
     return new Phaser.Geom.Rectangle(b.x, b.y, b.width, b.height);
+  }
+
+  get clouds() {
+    return this.smoke.list;
   }
 
   // o arco do incensário: de cima da cabeça até o chão na frente
@@ -96,7 +96,7 @@ export class Censer implements Enemy {
   }
 
   update(dt: number) {
-    this.updateClouds(dt);
+    this.smoke.update(dt);
     if (!this.alive) return;
     const b = this.body;
     const p = this.scene.player;
@@ -185,7 +185,7 @@ export class Censer implements Enemy {
       if (this.flashT <= 0) this.sprite.clearTint();
     }
     this.sprite.setPosition(Math.round(this.zone.x), Math.round(b.bottom));
-    this.sprite.setFlipX(this.facing < 0);
+    face(this.sprite, this.facing < 0);
   }
 
   // o incensário bate no chão na frente e deixa a nuvem
@@ -205,47 +205,12 @@ export class Censer implements Enemy {
   }
 
   private spawnCloud(x: number, y: number) {
-    const puffs: Phaser.GameObjects.Image[] = [];
-    for (let i = 0; i < 6; i++) {
-      const px = x + (i - 2.5) * (C.smokeW / 6) + (Math.random() - 0.5) * 4;
-      const py = y - 5 - Math.random() * 12;
-      const img = this.scene.add
-        .image(px, py, 'smoke')
-        .setTint(i % 2 ? 0x7a7484 : 0x9a94a2)
-        .setDepth(10.5)
-        .setAlpha(0)
-        .setAngle(Math.random() * 360)
-        .setScale(0.5 + Math.random() * 0.2);
-      puffs.push(img);
-    }
-    this.clouds.push({ x, y, t: 0, puffs });
-  }
-
-  private updateClouds(dt: number) {
-    if (!this.clouds.length) return;
-    for (const c of this.clouds) {
-      c.t += dt;
-      const k = c.t / C.smoke;
-      c.puffs.forEach((img, i) => {
-        const grow = Math.min(1, c.t * 5);
-        const fade = k > 0.7 ? (1 - k) / 0.3 : 1;
-        img.setAlpha(0.78 * grow * Math.max(0, fade));
-        img.setScale((0.55 + 0.6 * grow + k * 0.35) * (i % 3 === 0 ? 1.15 : 1));
-        img.y -= dt * (4 + i);
-        img.angle += dt * (i % 2 ? 12 : -9);
-      });
-      if (Math.random() < 0.3) this.scene.incense(c.x + (Math.random() - 0.5) * C.smokeW, c.y - 4 - Math.random() * 10, 1);
-    }
-    for (const c of this.clouds) if (c.t >= C.smoke) c.puffs.forEach((img) => img.destroy());
-    this.clouds = this.clouds.filter((c) => c.t < C.smoke);
+    this.smoke.spawn(x, y, C.smokeW, C.smokeH, C.smoke);
   }
 
   harms(pr: Phaser.Geom.Rectangle, sliding: boolean) {
     // a nuvem queima enquanto está densa (no fim ela já não machuca)
-    for (const c of this.clouds) {
-      if (c.t > C.smoke - 0.3) continue;
-      if (overlap(pr, new Phaser.Geom.Rectangle(c.x - C.smokeW / 2, c.y - C.smokeH, C.smokeW, C.smokeH))) return true;
-    }
+    if (this.smoke.harms(pr)) return true;
     if (!this.alive) return false;
     if (this.state === 'swing' && this.t <= C.active && overlap(pr, this.swingBox)) return true;
     if (sliding || this.state === 'stagger') return false;
@@ -290,8 +255,7 @@ export class Censer implements Enemy {
   }
 
   destroy() {
-    for (const c of this.clouds) c.puffs.forEach((img) => img.destroy());
-    this.clouds = [];
+    this.smoke.clear();
   }
 
   private die() {

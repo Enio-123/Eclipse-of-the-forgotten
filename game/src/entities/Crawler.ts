@@ -3,6 +3,7 @@ import { CRAWLER as C } from '../config';
 import type { GameScene } from '../scenes/GameScene';
 import { isGround, isSolid } from '../world/Level';
 import { overlap, type Enemy, type HitResult } from './Enemy';
+import { face, hd } from '../gfx/flip';
 
 // Penitente rastejante: patrulha, vira em paredes e bordas, dano por contato
 export class Crawler implements Enemy {
@@ -26,7 +27,7 @@ export class Crawler implements Enemy {
     this.body = this.zone.body as Phaser.Physics.Arcade.Body;
     this.body.setMaxVelocity(600, 560);
     const o = scene.registry.get('penitent-origin') as { x: number; y: number };
-    this.sprite = scene.add.sprite(x, feetY, 'penitent', 0).setOrigin(o.x, o.y).setDepth(8);
+    this.sprite = hd(scene.add.sprite(x, feetY, 'penitent', 0).setOrigin(o.x, o.y).setDepth(8));
     if (Math.random() < 0.5) this.dir = 1;
     this.sprite.play({ key: 'penitent-crawl', startFrame: Math.floor(Math.random() * 6) });
   }
@@ -59,7 +60,7 @@ export class Crawler implements Enemy {
       if (this.flashT <= 0) this.sprite.clearTint();
     }
     this.sprite.setPosition(Math.round(this.zone.x), Math.round(b.bottom));
-    this.sprite.setFlipX(this.dir < 0);
+    face(this.sprite, this.dir < 0);
   }
 
   harms(pr: Phaser.Geom.Rectangle, sliding: boolean) {

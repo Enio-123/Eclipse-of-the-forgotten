@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { PAL, PLAYER } from '../config';
 import { progress } from '../systems/Save';
+import { fixedCamera } from '../gfx/view';
 
 // Interface do jogo: a máscara (memórias seladas com ouro), os fragmentos de vida, as memórias
 // guardadas (as trocadas com o Cobrador ficam apagadas) e as moedas (texto em HTML, nítido em qualquer tela)
@@ -15,6 +16,7 @@ export class HudScene extends Phaser.Scene {
   }
 
   create() {
+    fixedCamera(this);
     this.shards = [];
     this.mems = [];
     this.root = this.add.container(0, 0);

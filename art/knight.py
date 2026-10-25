@@ -1,6 +1,6 @@
 """Modelo do Cavaleiro de Máscara Partida (o carrasco de Vespera) para o renderizador de esqueleto.
 
-Armas: espada, foice, adagas duplas, arco e o badalo do Sineiro (liberado ao vencer o chefe). A mão de trás pode usar cinemática inversa
+Armas: espada, foice, adagas duplas, arco, o badalo do Sineiro e o incensário do Arcebispo (liberados ao vencer cada chefe). A mão de trás pode usar cinemática inversa
 para segurar o cabo da foice ou puxar a corda do arco.
 """
 import math
@@ -31,6 +31,7 @@ DEFAULT = dict(
     zB=0.5,        # profundidade do braço de trás
     cape=dict(lift=8.0, wave=4.0, phase=0.0, length=1.0, flare=0.0),
     hoodtip=(0.0, 0.0), mask='partida', glow=False,
+    hot=False,     # incensário: os furos acesos no golpe
 )
 
 
@@ -243,6 +244,35 @@ def build(pose, weapon='sword'):
         decals.append(Decal('ball', ball_decal))
         if p['ikB'] and p['ikB'][0] == 'staff':
             back_target = add(handF, sd, p['ikB'][1])
+
+    elif weapon == 'incensario':
+        # o incensário do Arcebispo: corrente curta na mão e o incensário de ouro na ponta
+        L = 12.0
+        ring = add(handF, sd, L)
+        cc = add(ring, sd, 5.4)
+        n = 6
+        prev = handF
+        for i in range(1, n + 1):
+            q = add(handF, sd, L * i / n)
+            prims.append(Ellipse('link', 'steel', 6.42, ((prev[0] + q[0]) / 2, (prev[1] + q[1]) / 2), 1.2, 0.6,
+                                 ang=math.atan2(q[1] - prev[1], q[0] - prev[0]), flat=3 if i % 2 else 1))
+            prev = q
+        prims.append(Ellipse('cring', 'gold', 6.5, ring, 1.1, 1.1))
+        side = (sd[1], -sd[0])
+        lid = [add(add(cc, sd, -1.8), side, -3.7), add(add(cc, sd, -1.8), side, 3.7), add(add(cc, sd, -5.2), side, 0.7), add(add(cc, sd, -5.2), side, -0.7)]
+        prims.append(Poly('clid', 'gold', 6.55, lid, nf=lambda x, y: norm((-0.35, -0.55, 0.75)), shade=0.92))
+        ball = Ellipse('cball', 'gold', 6.52, add(cc, sd, 0.9), 4.2, 4.2, bulge=0.95)
+        prims.append(ball)
+        bc = add(cc, sd, 0.9)
+
+        def holes(x, y, cur, bc=bc, sd=sd, side=side, hot=p['hot']):
+            lx = (x - bc[0]) * side[0] + (y - bc[1]) * side[1]
+            ly = (x - bc[0]) * sd[0] + (y - bc[1]) * sd[1]
+            if abs(ly) < 0.9 and abs(lx) < 3.4 and int(lx + 10) % 2 == 0:
+                return ('gold', 4) if hot else ('void', 0)
+            return None
+
+        decals.append(Decal('cball', holes))
 
     # ---------- braço de trás ----------
     if back_target is None and p['ikB'] and isinstance(p['ikB'][0], (int, float)):

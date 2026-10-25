@@ -6,6 +6,8 @@ import { audio } from '../systems/Audio';
 import { loadSave, progress } from '../systems/Save';
 import { Weather } from '../world/Weather';
 import { ui } from '../ui/ui';
+import { fixedCamera } from '../gfx/view';
+import { hd } from '../gfx/flip';
 import type { GameInit } from './GameScene';
 
 // Tela de título: o castelo de Vespera sob o eclipse, na chuva, e o cavaleiro no penhasco
@@ -23,6 +25,7 @@ export class TitleScene extends Phaser.Scene {
   }
 
   create() {
+    fixedCamera(this);
     this.leaving = false;
     (this.scene.get('fx') as FxScene | null)?.setGrain(0.09);
     const add = this.add;
@@ -56,7 +59,7 @@ export class TitleScene extends Phaser.Scene {
   // o cavaleiro no penhasco segura a arma escolhida
   private showKnight(w: WeaponId) {
     const o = this.registry.get(`knight-${w}-origin`) as { x: number; y: number };
-    this.knight.setTexture(`knight-${w}`, 0).setOrigin(o.x, o.y).play(`knight-${w}-idle`);
+    hd(this.knight.setTexture(`knight-${w}`, 0).setOrigin(o.x, o.y)).play(`knight-${w}-idle`);
   }
 
   private showMenu(notice?: string) {

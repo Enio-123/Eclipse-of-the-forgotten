@@ -5,6 +5,7 @@ import type { GameScene } from '../scenes/GameScene';
 import { isGround, isSolid } from '../world/Level';
 import { TILE_ONEWAY } from '../gfx/textures';
 import { DEPTH } from '../world/Decor';
+import { hd } from '../gfx/flip';
 
 export type AttackDir = 'side' | 'up' | 'down' | 'low';
 // ações que o jogador já descobriu (as dicas somem quando ele usa)
@@ -13,7 +14,7 @@ export type PlayerAction = 'move' | 'attack' | 'jump' | 'dash' | 'slide' | 'pogo
 const approach = (v: number, target: number, step: number) =>
   v < target ? Math.min(v + step, target) : Math.max(v - step, target);
 
-const SLASH_KEY: Record<WeaponId, string | null> = { sword: 'slash', scythe: 'slash-big', daggers: 'slash-small', bow: null, badalo: 'slash-heavy' };
+const SLASH_KEY: Record<WeaponId, string | null> = { sword: 'slash', scythe: 'slash-big', daggers: 'slash-small', bow: null, badalo: 'slash-heavy', incensario: 'slash-censer' };
 // velocidade em que a animação de corrida foi desenhada (acima disso as pernas aceleram junto)
 const RUN_ANIM_SPEED = 192;
 
@@ -23,6 +24,7 @@ interface SlashMeta {
   ox: number;
   frames: number;
   fps: number;
+  scale?: number;
 }
 
 export class Player {
@@ -83,6 +85,8 @@ export class Player {
   private curAnim = '';
   private moveTarget: number | null = null;
   private slashOx = 0.2;
+  // corte no traço liso: a folha tem mais pixels que o mundo e é reduzida
+  private slashK = 1;
   // lado da parede em que está escorregando (0 = nenhuma)
   private wallDir: -1 | 0 | 1 = 0;
   private wallCoyote = 0;
@@ -107,12 +111,13 @@ export class Player {
   setWeapon(id: WeaponId) {
     this.weapon = WEAPONS[id];
     const o = this.scene.registry.get(`knight-${id}-origin`) as { x: number; y: number };
-    this.sprite.setTexture(`knight-${id}`, 0).setOrigin(o.x, o.y);
+    hd(this.sprite.setTexture(`knight-${id}`, 0).setOrigin(o.x, o.y));
     const key = SLASH_KEY[id];
     if (key) {
       const meta = (this.scene.registry.get('slashes') as Record<string, SlashMeta>)[key];
       this.slash.setTexture(key, 0);
       this.slashOx = meta.ox;
+      this.slashK = 1 / (meta.scale ?? 1);
     }
     this.cancelAttack();
     this.curAnim = '';
@@ -465,7 +470,10 @@ export class Player {
     this.hitSet.clear();
     if (W.windup <= 0) this.showSlash();
     if (W.quake) this.scene.sfx('heavy', 1, 0.7);
-    else this.scene.sfx(W.id === 'scythe' ? 'heavy' : W.id === 'daggers' ? 'stab' : W.ranged ? 'bow' : 'slash');
+    else if (W.smoke) {
+      this.scene.sfx('censer', 0.8, 1.15);
+      this.scene.sfx('heavy', 0.6, 0.9);
+    } else this.scene.sfx(W.id === 'scythe' ? 'heavy' : W.id === 'daggers' ? 'stab' : W.ranged ? 'bow' : 'slash');
     this.scene.onPlayerAction('attack');
   }
 
@@ -488,12 +496,23 @@ export class Player {
           // o badalo bate no chão na frente e solta a onda
           const b = this.body;
           if (this.weapon.quake && this.atkDir === 'side' && b.blocked.down) this.scene.quake(b.center.x + this.facing * 40, b.bottom, this.facing);
+          // o incensário deixa a nuvem onde o golpe termina
+          if (this.weapon.smoke) this.leaveIncense();
         }
       }
     } else if (this.atkT > 0) {
       this.atkT -= dt;
     }
     if (this.slash.visible) this.placeSlash();
+  }
+
+  private leaveIncense() {
+    const b = this.body;
+    const box = this.attackBox();
+    const d = this.atkDir;
+    if (d === 'side' || d === 'low') this.scene.incenseCloud(box.centerX + this.facing * 10, b.blocked.down ? b.bottom : box.bottom - 4);
+    else if (d === 'up') this.scene.incenseCloud(box.centerX, box.y + 34);
+    else this.scene.incenseCloud(box.centerX, box.bottom);
   }
 
   private shoot() {
@@ -525,10 +544,10 @@ export class Player {
       const y = this.atkDir === 'low' ? b.bottom - 10 : b.center.y - 4;
       s.setPosition(b.center.x + this.facing * 2, y).setAngle(0).setFlipY(this.weapon.id === 'daggers' && this.altHand);
       s.setFlipX(this.facing < 0).setOrigin(this.facing < 0 ? 1 - ox : ox, 0.5);
-      s.setScale(1, this.atkDir === 'low' ? 0.5 : 1);
+      s.setScale(this.slashK, this.slashK * (this.atkDir === 'low' ? 0.5 : 1));
     } else {
       const up = this.atkDir === 'up';
-      s.setScale(1, 1);
+      s.setScale(this.slashK);
       s.setPosition(b.center.x, up ? b.top + 8 : b.bottom - 6).setFlipX(false).setOrigin(ox, 0.5);
       s.setAngle(up ? -90 : 90).setFlipY(up ? this.facing < 0 : this.facing > 0);
     }

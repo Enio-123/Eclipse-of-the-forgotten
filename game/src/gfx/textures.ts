@@ -30,6 +30,7 @@ export function buildTextures(scene: Phaser.Scene) {
   add(tex, 'drop', makeDrop());
   add(tex, 'puddle', makePuddle());
   add(tex, 'beam', makeBeam());
+  add(tex, 'shaft', makeShaft());
   add(tex, 'water', makeWater());
   for (let n = 0; n <= 3; n++) add(tex, `mask-icon-${n}`, makeMaskIcon(n));
   add(tex, 'shard-drop', makeShardDrop());
@@ -290,6 +291,21 @@ function makeBeam() {
       const q = (lo + (dither(x, y, lv - lo) ? 1 : 0)) / 5;
       if (q > 0) r.set(x, y, 0xffffff, Math.round(255 * q));
     }
+  }
+  commit();
+  return canvas;
+}
+
+// Facho do vitral quebrado: claro no meio e esmaecendo nas bordas, igual em toda a altura
+// (é esticado do vitral até o chão e girado)
+function makeShaft() {
+  const W = 48;
+  const { canvas, r, commit } = canvasRaster(W, 1);
+  // sem pontilhado: esticado e girado, o pontilhado viraria listras tremendo
+  for (let x = 0; x < W; x++) {
+    const e = 1 - Math.abs(x + 0.5 - W / 2) / (W / 2);
+    const v = Math.round(Math.min(1, e * 1.6) ** 1.4 * 12) / 12;
+    if (v > 0) r.set(x, 0, 0xffffff, Math.round(255 * v));
   }
   commit();
   return canvas;

@@ -4,6 +4,9 @@ import { RESERVED } from './Pad';
 export type Action = 'left' | 'right' | 'up' | 'down' | 'jump' | 'attack' | 'dash' | 'crouch';
 export const ACTIONS: Action[] = ['left', 'right', 'up', 'down', 'jump', 'attack', 'dash', 'crouch'];
 export type Scheme = 'keyboard' | 'click';
+// resolução da tela: automática (nítida, e mais leve sozinha se o jogo ficar lento), nítida ou leve
+export type Quality = 'auto' | 'high' | 'low';
+export const QUALITIES: Quality[] = ['auto', 'high', 'low'];
 
 export const ACTION_LABEL: Record<Action, string> = {
   left: 'Andar para a esquerda',
@@ -50,12 +53,13 @@ export interface SettingsData {
   music: number;
   sfx: number;
   weapon: WeaponId;
+  quality: Quality;
 }
 
 const KEY = 'eclipse-ajustes-v1';
 
 function defaults(): SettingsData {
-  return { scheme: 'keyboard', binds: structuredClone(DEFAULT_BINDS), pad: structuredClone(DEFAULT_PAD), vibration: true, volume: 0.8, music: 0.6, sfx: 0.8, weapon: 'scythe' };
+  return { scheme: 'keyboard', binds: structuredClone(DEFAULT_BINDS), pad: structuredClone(DEFAULT_PAD), vibration: true, volume: 0.8, music: 0.6, sfx: 0.8, weapon: 'scythe', quality: 'auto' };
 }
 
 const clamp01 = (v: unknown, d: number) => (typeof v === 'number' && isFinite(v) ? Math.max(0, Math.min(1, v)) : d);
@@ -85,6 +89,7 @@ function load(): SettingsData {
       music: clamp01(parsed.music, d.music),
       sfx: clamp01(parsed.sfx, d.sfx),
       weapon: WEAPON_IDS.includes(parsed.weapon as WeaponId) ? (parsed.weapon as WeaponId) : d.weapon,
+      quality: QUALITIES.includes(parsed.quality as Quality) ? (parsed.quality as Quality) : d.quality,
     };
   } catch {
     return d;

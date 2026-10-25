@@ -81,7 +81,7 @@ let fails = 0;
   });
   console.log(`chão reto: ${flat.run} tiles a partir de ${flat.tx0}, linha ${flat.ty}`);
   const speeds = {};
-  for (const w of ['daggers', 'bow', 'sword', 'scythe', 'badalo']) {
+  for (const w of ['daggers', 'bow', 'sword', 'scythe', 'badalo', 'incensario']) {
     await page.evaluate(([w, x, y]) => {
       const s = window.__scene;
       s.player.setWeapon(w);
@@ -94,7 +94,7 @@ let fails = 0;
     const run = log.filter((l) => /-run$/.test(l.anim || ''));
     speeds[w] = { vx: Math.max(...log.map((l) => l.vx)), ts: run.length ? run[run.length - 1].ts : 0 };
   }
-  const want = { daggers: 246.4, bow: 235.2, sword: 224, scythe: 210.56, badalo: 192.64 };
+  const want = { daggers: 246.4, bow: 235.2, sword: 224, scythe: 210.56, badalo: 192.64, incensario: 212.8 };
   for (const [w, v] of Object.entries(want)) {
     ok(Math.abs(speeds[w].vx - v) < 1.5, `corrida com ${w}: ${speeds[w].vx.toFixed(1)} px/s (esperado ${v}); passo da animação x${speeds[w].ts.toFixed(2)}`);
   }
@@ -223,7 +223,7 @@ let fails = 0;
   const hp2 = await st();
   ok(hp.max === 5 && hp.hp === 5 && hp2.max === 6 && hp2.hp === 5, `máscara: desligada vida ${hp.hp}/${hp.max}, ligada de novo ${hp2.hp}/${hp2.max} (sem cura de graça)`);
   const weaponsList = await page.evaluate(() => [...document.querySelectorAll('#screen-inventory .inv-weapons li')].map((l) => l.textContent));
-  ok(weaponsList.length === 5 && /trancada/.test(weaponsList[4]) && /Sineiro/.test(weaponsList[4]), `armas no inventário: ${weaponsList.join(' | ')}`);
+  ok(weaponsList.length === 6 && /trancada/.test(weaponsList[4]) && /Sineiro/.test(weaponsList[4]) && /Arcebispo/.test(weaponsList[5]), `armas no inventário: ${weaponsList.join(' | ')}`);
   await page.keyboard.press('Escape');
   await page.waitForTimeout(200);
   const top = await page.evaluate(() => window.__ui.top);
@@ -293,7 +293,7 @@ let fails = 0;
     const c = document.querySelector('#screen-weapons .card[data-w="badalo"]');
     return { n: document.querySelectorAll('#screen-weapons .card').length, dis: c.disabled, locked: c.classList.contains('locked'), tag: c.querySelector('.tag').textContent, stats: c.querySelectorAll('.stats dt').length };
   });
-  ok(lock.n === 5 && lock.dis && lock.locked && lock.tag === 'Vença o Sineiro' && lock.stats === 4, `Trocar arma: 5 armas, o Badalo trancado ("${lock.tag}"), 4 atributos com Corrida`);
+  ok(lock.n === 6 && lock.dis && lock.locked && lock.tag === 'Vença o Sineiro' && lock.stats === 4, `Trocar arma: 6 armas, o Badalo trancado ("${lock.tag}"), 4 atributos com Corrida`);
   await page.screenshot({ path: `${OUT}/armas-trancada.png` });
   await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
