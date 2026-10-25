@@ -42,15 +42,17 @@ macros.push({ name: 'descer', keys: [[DN, 0, 10], [J, 2, 4]] });
 
   for (const job of JOBS) {
     const t0 = Date.now();
-    await page.evaluate(([room, entry]) => {
+    await page.evaluate(([room, entry, ab]) => {
       const g = window.__game;
       if (window.__ex) window.__ex.stop();
       window.__ui.closeAll();
+      // EXPLORE_AB=wall,double: explora com essas habilidades
+      if (ab) window.__progress.abilities = new Set(ab.split(','));
       const t = g.scene.getScene('title');
       if (t && t.scene.isActive()) t.scene.stop();
       g.loop.wake();
       g.scene.start('game', { room, entry, from: 'continue' });
-    }, [job.room, job.entry]);
+    }, [job.room, job.entry, process.env.EXPLORE_AB || '']);
     await page.waitForFunction((room) => { const s = window.__scene; return s && s.player && s.room.id === room && s.scene.isActive() && !s.cinematic; }, job.room, { timeout: 20000 });
     await page.waitForTimeout(300);
 

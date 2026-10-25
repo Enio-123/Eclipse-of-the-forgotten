@@ -20,7 +20,7 @@ from brush import Layer, hexc, mix, sstep, value_noise
 from terreno import Room, fields, masonry, planks, spikes, downsample, load_maps, S, T
 from cidade import hrand, breakables, chip, shade_masonry, strokes, lights, cornice, moss, cracks, downsample_soft
 
-SEEDS = {'poco': 41, 'celas': 43, 'correntes': 45, 'guarita': 47, 'fuga': 49, 'arena': 51, 'mascara': 53}
+SEEDS = {'poco': 41, 'celas': 43, 'correntes': 45, 'guarita': 47, 'fuga': 49, 'arena': 51, 'mascara': 53, 'fosso': 55, 'abismo': 57}
 
 PRISON = dict(
     ST_D=hexc(0x050607),
@@ -36,6 +36,23 @@ PRISON = dict(
     MOSS=(hexc(0x131e1a), hexc(0x213326), hexc(0x3a5234)),
     IRON=(hexc(0x14171d), hexc(0x262b35), hexc(0x3d4452), hexc(0x9aa6ba)),
 )
+
+
+# o Fosso e o Leito do Abismo: a mesma pedra, mais funda e tingida de tinta. Em vez de água, a tinta
+# preta escorre das bordas; o brilho molhado é lilás e o musgo vira crosta roxa
+ABYSS_P = dict(
+    PRISON,
+    ST_D=hexc(0x050408),
+    STONES=[hexc(0x25212d), hexc(0x2a2532), hexc(0x201d29), hexc(0x2d2736), hexc(0x24202b)],
+    MORTAR=hexc(0x08060c),
+    DAMP=hexc(0x0c0614),
+    COLD=hexc(0x8f74c4),
+    RUST=hexc(0x40184a),
+    SHEEN=hexc(0xc7b2ea),
+    SLAB=[hexc(0x302b38), hexc(0x2b2731), hexc(0x352f3d), hexc(0x2d2935), hexc(0x28242f)],
+    MOSS=(hexc(0x170c22), hexc(0x2c1544), hexc(0x55307e)),
+)
+PALETTES = {'fosso': ABYSS_P, 'abismo': ABYSS_P}
 
 
 def streaks(H, W, rng, cell=7, stretch=18):
@@ -119,7 +136,7 @@ def iron_plates(col, iron, xx, yy, dleft, dright, dbot, seed, P, vstreak):
 
 def prison(room, extra=None, glass=None):
     """A pedra da prisão (ver o começo do arquivo)."""
-    P = PRISON
+    P = PALETTES.get(room.name, PRISON)
     seed = SEEDS[room.name]
     rf = np.random.default_rng(seed)
     H, W = room.H, room.W
@@ -158,7 +175,11 @@ def prison(room, extra=None, glass=None):
     col *= (1 - 0.28 * pits)[..., None]
     # água escorrendo das bordas de cima: faixas escuras e esverdeadas que somem para baixo
     run = sstep(0.56, 0.74, drip) * (0.35 + 0.65 * np.exp(-dtop / (34 * S)))
-    col = mix(col, P['DAMP'], (run * 0.55)[..., None])
+    col = mix(col, P['DAMP'], (run * (0.8 if P is ABYSS_P else 0.55))[..., None])
+    if P is ABYSS_P:
+        # a borda roxa dos escorridos de tinta, onde a luz pega
+        rim = sstep(0.52, 0.56, drip) * sstep(0.6, 0.56, drip) * np.exp(-dtop / (24 * S))
+        col = mix(col, hexc(0x5a2a8e), (rim * 0.35)[..., None])
     # o miolo da parede afunda no escuro
     dt = d / T
     k = np.maximum(0.16, 1 - np.maximum(0, dt - 0.5) * 0.45)

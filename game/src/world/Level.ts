@@ -30,7 +30,8 @@ export const isGround = (i: number) => i >= TILE_SOLID || i === TILE_ONEWAY;
 // Constrói o tilemap a partir de um mapa ASCII:
 // '#' pedra, '-' plataforma atravessável, '^' espinhos, '~' água, '|' grade, 'Y' grade com chave,
 // '%' parede falsa, 'V' vitral quebrável; na prisão: '+' ferro liso (as garras escorregam),
-// '=' alçapão, ':' grade de cela e '!' grade do alarme (aberta até cair); letras e números são objetos
+// '=' alçapão, ':' grade de cela e '!' grade do alarme (aberta até cair); '&' membrana abissal (como a
+// grade de cela, só o Véu Abissal atravessa); letras e números são objetos
 export class Level {
   readonly map: Phaser.Tilemaps.Tilemap;
   readonly layer: Phaser.Tilemaps.TilemapLayer;
@@ -39,6 +40,7 @@ export class Level {
   readonly locks: { x: number; y: number }[] = [];
   readonly traps: { x: number; y: number }[] = [];
   readonly bars: { x: number; y: number }[] = [];
+  readonly membranes: { x: number; y: number }[] = [];
   readonly alarms: { x: number; y: number }[] = [];
   // paredes falsas e vitrais ainda de pé (os já quebrados viram vão no grid)
   readonly breakables: Breakable[] = [];
@@ -90,6 +92,9 @@ export class Level {
         } else if (c === ':') {
           row.push(BLOCK);
           this.bars.push({ x, y });
+        } else if (c === '&') {
+          row.push(BLOCK);
+          this.membranes.push({ x, y });
         } else if (c === '!') {
           row.push(-1);
           this.alarms.push({ x, y });
@@ -145,6 +150,37 @@ export class Level {
   // parede de ferro liso: as garras não seguram
   slickCell(x: number, y: number) {
     return this.ch(x, y) === '+';
+  }
+
+  // grade de cela ou membrana abissal: sólida para tudo, menos para o Véu
+  veilCell(x: number, y: number) {
+    const c = this.ch(x, y);
+    return c === ':' || c === '&';
+  }
+
+  // tiles sólidos que um retângulo (em pixels do mundo) toca, separados entre os do Véu e os outros
+  private touched(x: number, y: number, w: number, h: number, veil: boolean) {
+    const x0 = Math.floor(x / TILE);
+    const x1 = Math.floor((x + w - 0.01) / TILE);
+    const y0 = Math.floor(y / TILE);
+    const y1 = Math.floor((y + h - 0.01) / TILE);
+    for (let ty = y0; ty <= y1; ty++) {
+      for (let tx = x0; tx <= x1; tx++) {
+        const t = this.layer.getTileAt(tx, ty, true);
+        if (!t || !isSolid(t.index)) continue;
+        if (this.veilCell(tx, ty) === veil) return true;
+      }
+    }
+    return false;
+  }
+
+  overlapsVeil(x: number, y: number, w: number, h: number) {
+    return this.touched(x, y, w, h, true);
+  }
+
+  // pedra de verdade (ou grade, alçapão e ferro): o que nem o Véu atravessa
+  overlapsRock(x: number, y: number, w: number, h: number) {
+    return this.touched(x, y, w, h, false);
   }
 
   // célula vazia de verdade (sem chão, plataforma ou espinho)

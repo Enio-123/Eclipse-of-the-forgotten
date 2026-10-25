@@ -124,8 +124,16 @@ const check = (name, ok, extra = '') => {
   await page.evaluate(() => window.__btn(0, false));
   check('botão de baixo pula', vy < -50, `vy=${Math.round(vy)}`);
   await page.waitForTimeout(900);
+  // o dash dura 0,2 s: quem confere é o próprio jogo, quadro a quadro (o navegador pode demorar a responder)
+  await page.evaluate(() => {
+    const s = window.__scene;
+    window.__dashed = false;
+    const f = () => { if (s.player.dashT > 0) window.__dashed = true; };
+    s.events.on('postupdate', f);
+    window.__undash = () => s.events.off('postupdate', f);
+  });
   await tap(7, 60);
-  const dashed = await page.evaluate(() => window.__scene.player.dashT > 0 || Math.abs(window.__scene.player.body.velocity.x) > 300);
+  const dashed = await page.evaluate(() => { window.__undash(); return window.__dashed; });
   check('R2 dá dash', dashed);
   await page.waitForTimeout(600);
   const fmt = await page.evaluate(() => window.__ui.format('{jump} pular, {attack} atacar'));

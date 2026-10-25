@@ -93,6 +93,8 @@ export interface Trapdoor {
   leaves: Phaser.GameObjects.Image[];
   // cedendo sob os pés (o do cadafalso)
   giveT: number;
+  // laje de pedra (look 'stone'): pedaços do chão pintado, cada um com a altura de onde saiu
+  stone?: boolean;
 }
 
 // grade do alarme: escondida no teto até o alarme derrubar
@@ -137,6 +139,8 @@ export class Fixtures {
   readonly trapdoors: Trapdoor[] = [];
   readonly alarms: AlarmGate[] = [];
   readonly rings: Ring[] = [];
+  // membranas abissais: a pele de tinta escorre devagar e a luz roxa respira atrás
+  readonly membranes: { skin: Phaser.GameObjects.TileSprite; glow: Phaser.GameObjects.Image; k: number; x: number; y: number; h: number; ph: number }[] = [];
   keys: Keys | null = null;
 
   constructor(private scene: GameScene) {
@@ -167,6 +171,7 @@ export class Fixtures {
     }
     this.addTrapdoors();
     this.addBars();
+    this.addMembranes();
     this.addAlarms();
     // cada coluna de 'Y' é uma grade com a sua chave
     const cols = new Map<number, number[]>();
@@ -471,12 +476,73 @@ export class Fixtures {
       const w = (g.x1 - g.x0 + 1) * TILE;
       const half = w / 2;
       const y = g.y * TILE;
+      const def = s.room.trapdoors?.[i] ?? null;
+      if (def?.look === 'stone') {
+        const t: Trapdoor = { i, x0: g.x0, x1: g.x1, y: g.y, def, open: false, leaves: this.stoneSlab(g, i), giveT: 0, stone: true };
+        this.trapdoors.push(t);
+        if (progress.seen.has(def.key)) this.openTrapdoor(t, false);
+        return;
+      }
       const left = s.add.image(g.x0 * TILE, y, key).setOrigin(0, 0).setDisplaySize(half, TILE).setDepth(DEPTH.tiles + 0.5);
       const right = s.add.image((g.x1 + 1) * TILE, y, key).setOrigin(1, 0).setDisplaySize(half, TILE).setDepth(DEPTH.tiles + 0.5).setFlipX(true);
-      const t: Trapdoor = { i, x0: g.x0, x1: g.x1, y: g.y, def: s.room.trapdoors?.[i] ?? null, open: false, leaves: [left, right], giveT: 0 };
+      const t: Trapdoor = { i, x0: g.x0, x1: g.x1, y: g.y, def, open: false, leaves: [left, right], giveT: 0 };
       this.trapdoors.push(t);
-      if (t.def && progress.seen.has(t.def.key)) this.openTrapdoor(t, false);
+      if (def && progress.seen.has(def.key)) this.openTrapdoor(t, false);
     });
+  }
+
+  // A laje que cede: copia um trecho do chão pintado ali do lado (do tampo até o fundo da sala) e
+  // cobre o buraco com ele, em pedaços de um tile, com uma rachadura fina por cima
+  private stoneSlab(g: { x0: number; x1: number; y: number }, i: number) {
+    const s = this.scene;
+    const L = s.level;
+    const cols = g.x1 - g.x0 + 1;
+    const rows = L.h - g.y;
+    const key = `slab-${s.room.id}-${i}`;
+    const terrain = `terrain-${s.room.id}`;
+    if (!s.textures.exists(key)) {
+      const ct = s.textures.createCanvas(key, cols * TILE, rows * TILE)!;
+      const c = ct.context;
+      if (s.textures.exists(terrain)) {
+        // o trecho de chão inteiro mais perto à esquerda, fora do buraco
+        const src = s.textures.get(terrain).getSourceImage() as HTMLImageElement | HTMLCanvasElement;
+        const sx = Math.max(0, g.x0 - cols - 5) * TILE;
+        c.drawImage(src, sx, g.y * TILE, cols * TILE, rows * TILE, 0, 0, cols * TILE, rows * TILE);
+      } else {
+        c.fillStyle = '#2c3335';
+        c.fillRect(0, 0, cols * TILE, rows * TILE);
+      }
+      // a rachadura que a luta abriu
+      c.strokeStyle = 'rgba(5,6,7,0.9)';
+      c.lineWidth = 1;
+      c.beginPath();
+      c.moveTo(1, 3);
+      let x = 1;
+      let y = 3;
+      while (x < cols * TILE - 2) {
+        x += 3 + Math.random() * 4;
+        y = Phaser.Math.Clamp(y + (Math.random() - 0.5) * 4, 1, 8);
+        c.lineTo(x, y);
+      }
+      c.stroke();
+      c.strokeStyle = 'rgba(160,170,180,0.25)';
+      c.beginPath();
+      c.moveTo(4, 1);
+      c.lineTo(7, 5);
+      c.lineTo(6, 9);
+      c.stroke();
+      ct.refresh();
+      for (let yy = 0; yy < rows; yy++) for (let xx = 0; xx < cols; xx++) ct.add(yy * cols + xx, 0, xx * TILE, yy * TILE, TILE, TILE);
+    }
+    const out: Phaser.GameObjects.Image[] = [];
+    for (let yy = 0; yy < rows; yy++) {
+      for (let xx = 0; xx < cols; xx++) {
+        const px = (g.x0 + xx) * TILE + TILE / 2;
+        const py = (g.y + yy) * TILE + TILE / 2;
+        out.push(s.add.image(px, py, key, yy * cols + xx).setDepth(DEPTH.tiles + 0.5).setData('y0', py));
+      }
+    }
+    return out;
   }
 
   openTrapdoor(t: Trapdoor, animate: boolean) {
@@ -484,6 +550,32 @@ export class Fixtures {
     t.open = true;
     const s = this.scene;
     for (let x = t.x0; x <= t.x1; x++) s.level.setBlock(x, t.y, false);
+    if (t.stone) {
+      // a laje racha e os pedaços despencam girando no escuro
+      if (!animate) {
+        for (const l of t.leaves) l.destroy();
+        return;
+      }
+      s.sfx('crack', 1.1, 0.6);
+      s.sfx('quake', 0.6, 1.3);
+      s.cameras.main.shake(220, 0.006);
+      t.leaves.forEach((l, k) => {
+        const delay = (k % (t.x1 - t.x0 + 1)) * 40 + Math.floor(k / (t.x1 - t.x0 + 1)) * 25;
+        s.tweens.add({
+          targets: l,
+          y: l.y + 260 + Math.random() * 80,
+          x: l.x + (Math.random() - 0.5) * 30,
+          angle: (Math.random() - 0.5) * 260,
+          alpha: 0,
+          delay,
+          duration: 900 + Math.random() * 300,
+          ease: 'Quad.easeIn',
+          onComplete: () => l.destroy(),
+        });
+      });
+      s.dustBurst((t.x0 + t.x1 + 1) * TILE * 0.5, t.y * TILE, 16);
+      return;
+    }
     const [left, right] = t.leaves;
     if (!animate) {
       left.setAngle(90);
@@ -512,9 +604,9 @@ export class Fixtures {
       if (t.open || !d?.auto || !progress.seen.has(d.auto)) continue;
       if (t.giveT > 0) {
         t.giveT -= dt;
-        for (const l of t.leaves) l.y = t.y * TILE + (Math.random() < 0.5 ? 1 : 0);
+        for (const l of t.leaves) l.y = ((l.getData('y0') as number | undefined) ?? t.y * TILE) + (Math.random() < 0.5 ? 1 : 0);
         if (t.giveT <= 0) {
-          for (const l of t.leaves) l.y = t.y * TILE;
+          for (const l of t.leaves) l.y = (l.getData('y0') as number | undefined) ?? t.y * TILE;
           progress.seen.add(d.key);
           s.markDirty();
           this.openTrapdoor(t, true);
@@ -523,6 +615,8 @@ export class Fixtures {
         continue;
       }
       const tx = p.x / TILE;
+      // não cede no meio de uma cena (pegando a arma do chefe, lendo uma memória)
+      if (s.cinematic || p.frozen) continue;
       if (p.onGround && tx > t.x0 - 0.2 && tx < t.x1 + 1.2 && Math.abs(p.body.bottom - t.y * TILE) < 3) {
         t.giveT = 0.55;
         s.sfx('crack', 0.9, 0.7);
@@ -547,6 +641,32 @@ export class Fixtures {
       // a folha no traço liso tem mais pixels que o tile: reduz a repetição para o tamanho do mundo
       const k = hdScale(s, key);
       s.add.tileSprite(x * TILE, top * TILE, TILE, h, key).setOrigin(0).setTileScale(k, k).setDepth(DEPTH.tiles + 0.4);
+    }
+  }
+
+  // ---------- membranas abissais (só o Véu passa) ----------
+  private addMembranes() {
+    const s = this.scene;
+    const L = s.level;
+    if (!L.membranes.length) return;
+    const cols = new Map<number, number[]>();
+    for (const c of L.membranes) cols.set(c.x, [...(cols.get(c.x) ?? []), c.y]);
+    const k = hdScale(s, 'membrane');
+    for (const [x, ys] of cols) {
+      ys.sort((a, b) => a - b);
+      // cada trecho seguido da coluna vira uma pele só
+      let y0 = ys[0];
+      for (let i = 1; i <= ys.length; i++) {
+        if (i < ys.length && ys[i] === ys[i - 1] + 1) continue;
+        const y1 = ys[i - 1];
+        const h = (y1 - y0 + 1) * TILE;
+        const cx = x * TILE + TILE / 2;
+        const glow = s.add.image(cx, y0 * TILE + h / 2, 'glow').setTint(0x7029b8).setBlendMode(Phaser.BlendModes.ADD)
+          .setDisplaySize(TILE * 3.2, h * 1.25).setAlpha(0.22).setDepth(DEPTH.tiles + 0.35);
+        const skin = s.add.tileSprite(x * TILE, y0 * TILE, TILE, h, 'membrane').setOrigin(0).setTileScale(k, k).setDepth(DEPTH.tiles + 0.4);
+        this.membranes.push({ skin, glow, k, x: cx, y: y0 * TILE, h, ph: Math.random() * 6 });
+        if (i < ys.length) y0 = ys[i];
+      }
     }
   }
 
@@ -729,6 +849,13 @@ export class Fixtures {
 
   update(time: number, dt: number) {
     this.updateTrapdoors(dt);
+    for (const m of this.membranes) {
+      // a tinta desce sem parar e a pele ondula um pouco
+      m.skin.tilePositionY -= (dt * 9) / m.k;
+      m.skin.tilePositionX = Math.sin(time * 0.0016 + m.ph) * 0.6 / m.k;
+      m.glow.setAlpha(0.18 + 0.07 * Math.sin(time * 0.0021 + m.ph));
+      if (Math.random() < dt * 1.6) this.scene.echoMotes(m.x + (Math.random() - 0.5) * 10, m.y + Math.random() * m.h, Math.random() < 0.35);
+    }
     for (const r of this.rings) {
       const target = r.lit ? 0.5 + Math.sin(time * 0.008) * 0.12 : 0;
       r.glow.alpha += (target - r.glow.alpha) * Math.min(1, dt * 12);

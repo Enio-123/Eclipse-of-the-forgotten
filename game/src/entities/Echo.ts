@@ -7,7 +7,8 @@ import { face, hd } from '../gfx/flip';
 import { DEPTH } from '../world/Decor';
 
 // cores do abismo (as mesmas do Véu Abissal)
-export const ABYSS = { ink: 0x09070d, purple: 0x7029b8, magenta: 0xb52a9b, lilac: 0xd8b7ff };
+import { ABYSS } from '../gfx/veil';
+export { ABYSS };
 
 type State = 'wait' | 'drift' | 'wind' | 'strike' | 'recover' | 'hurt' | 'stagger' | 'home';
 

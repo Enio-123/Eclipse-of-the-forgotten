@@ -155,7 +155,7 @@ export function renderMap(cssW: number, cssH: number, dpr: number, here: MapHere
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
         const c = rows[y][x];
-        if (!'RKJUmXMOBNb'.includes(c)) continue;
+        if (!'RKJUwmXMOBNb'.includes(c)) continue;
         const idx = c === 'R' ? ri++ : c === 'm' ? mi++ : c === 'b' ? bi++ : 0;
         if (!seen(x, y) || hidden.has(y * W + x)) continue;
         const p = at(r.id, x + 0.5, y + 0.5);
@@ -163,6 +163,7 @@ export function renderMap(cssW: number, cssH: number, dpr: number, here: MapHere
         else if (c === 'K') markers.push({ kind: 'cobrador', ...p, on: true });
         else if (c === 'J' && !progress.abilities.has('wall')) markers.push({ kind: 'relic', ...p, on: true });
         else if (c === 'U' && !progress.abilities.has('double')) markers.push({ kind: 'relic', ...p, on: true });
+        else if (c === 'w' && !progress.abilities.has('hook')) markers.push({ kind: 'relic', ...p, on: true });
         else if (c === 'm' && !progress.memories.has(`${r.id}:${idx}`)) markers.push({ kind: 'memory', ...p, on: true });
         else if (c === 'X' && def.boss && !progress.seen.has(`boss:${def.boss}`)) markers.push({ kind: 'boss', ...p, on: true });
         else if (c === 'M') markers.push({ kind: 'mirror', ...p, on: true });

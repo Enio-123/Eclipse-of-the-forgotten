@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { buildTextures, coinIconUrl } from '../gfx/textures';
+import { buildVeilTextures } from '../gfx/veil';
 import { ui } from '../ui/ui';
 
 interface SheetMeta {
@@ -24,7 +25,7 @@ interface SlashMeta {
 }
 
 // Folhas de personagens geradas pelas ferramentas de arte (arte/gerador)
-const SHEETS = ['knight-scythe', 'knight-sword', 'knight-daggers', 'knight-bow', 'knight-badalo', 'knight-incensario', 'knight-corrente', 'penitent', 'figure', 'guard', 'crow', 'cobrador', 'sineiro', 'archer', 'censer', 'nun', 'smith', 'folk', 'arcebispo', 'jailer', 'carcereira', 'prisoner'];
+const SHEETS = ['knight-scythe', 'knight-sword', 'knight-daggers', 'knight-bow', 'knight-badalo', 'knight-incensario', 'knight-corrente', 'penitent', 'figure', 'guard', 'crow', 'cobrador', 'sineiro', 'archer', 'censer', 'nun', 'smith', 'folk', 'arcebispo', 'jailer', 'carcereira', 'prisoner', 'sombra'];
 const IMAGES = [
   'title-sky', 'title-land', 'title-rim', 'clouds-far', 'clouds-near',
   'bridge-sky', 'bridge-far', 'bridge-far-rim', 'bridge-mid', 'bridge-mid-rim', 'bridge-fg', 'cat-far', 'cat-mid', 'mem-sky', 'mem-far', 'mem-mid',
@@ -43,6 +44,8 @@ const IMAGES = [
   'deco-lever-base', 'deco-lever-handle', 'deco-trapdoor', 'deco-cellbars', 'deco-ring', 'item-keys', 'deco-anvil', 'cage',
   'relic-hook', 'item-corrente', 'item-elo', 'prison-far', 'prison-mid',
   'terrain-poco', 'terrain-celas', 'terrain-correntes', 'terrain-guarita', 'terrain-fuga', 'terrain-arena', 'terrain-mascara', 'terrain-celas-secret',
+  // o Fosso e o Leito do Abismo
+  'fosso-far', 'fosso-mid', 'terrain-fosso', 'terrain-abismo',
 ];
 // tiras de quadros pequenos: [largura, altura] de cada quadro
 const STRIPS: Record<string, [number, number]> = {
@@ -79,6 +82,7 @@ export class BootScene extends Phaser.Scene {
 
   create() {
     buildTextures(this);
+    buildVeilTextures(this);
     for (const key of SHEETS) {
       const meta = this.cache.json.get(`${key}-meta`) as SheetMeta;
       for (const [name, a] of Object.entries(meta.anims)) {

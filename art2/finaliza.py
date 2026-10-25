@@ -82,6 +82,14 @@ THEMES = {
                  hexc(0x050607)],
         colors=96,
     ),
+    # Fosso dos Esquecidos e Leito do Abismo: a pedra da prisão tingida de tinta (paleta própria, roxa)
+    'abyss': dict(
+        layers={'terreno-fosso': 'exact', 'terreno-abismo': 'exact'},
+        rename={'terreno-fosso': 'terrain-fosso', 'terreno-abismo': 'terrain-abismo'},
+        accents=[hexc(0xd8b7ff), hexc(0x7029b8), hexc(0xb52a9b), hexc(0xc7b2ea), hexc(0xff9a44), hexc(0xffd890), hexc(0x55307e),
+                 hexc(0x050408)],
+        colors=96,
+    ),
     'forest': dict(
         layers={'intro-back': 'opaque', 'intro-near': 'soft', 'intro-fore': 'soft', 'intro-beams': 'soft'},
         accents=[hexc(0x2e0a0c), hexc(0x5e1517), hexc(0x8a231e), hexc(0xb2382b), hexc(0x3b2219), hexc(0x66412f), hexc(0xd9e4c8)],

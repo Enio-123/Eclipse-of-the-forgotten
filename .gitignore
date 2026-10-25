@@ -12,3 +12,4 @@ audio_in/
 audio_out/
 art/out_*/
 maps.bak.ts
+maps.prev*.ts

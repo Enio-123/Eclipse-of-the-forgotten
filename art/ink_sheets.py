@@ -19,7 +19,7 @@ ICON_S = 4   # ícones do inventário: 24 -> 96 (a tela mostra com 48)
 
 
 def sheets():
-    import anims, knight, guard, crow, archer, censer, sineiro, arcebispo, townsfolk, enemy, props, deco, jailer, carcereira
+    import anims, knight, guard, crow, archer, censer, sineiro, arcebispo, townsfolk, enemy, props, deco, jailer, carcereira, sombra
     out = {}
     for w in anims.WEAPONS:
         out[f'knight-{w}'] = dict(anims=anims.anims_for(w), mod='knight', W=knight.W, H=knight.H, feet=knight.FEET,
@@ -40,6 +40,9 @@ def sheets():
                          meta_extra={'points': {n: [jailer.points(p) for p in poses] for n, (poses, _, _) in jailer.ANIMS.items()}})
     out['carcereira'] = dict(anims=carcereira.ANIMS, mod='carcereira', W=carcereira.W, H=carcereira.H, feet=carcereira.FEET,
                              meta_extra={'points': {n: [carcereira.points(p) for p in poses] for n, (poses, _, _) in carcereira.ANIMS.items()}})
+    # Sombra do Carrasco: a mão e a ponta do machado em cada quadro (o respingo da machadada)
+    out['sombra'] = dict(anims=sombra.ANIMS, mod='sombra', W=sombra.W, H=sombra.H, feet=sombra.FEET,
+                         meta_extra={'points': {n: [sombra.points(p) for p in poses] for n, (poses, _, _) in sombra.ANIMS.items()}})
     out['nun'] = dict(anims=townsfolk.NUN_ANIMS, mod='townsfolk', W=townsfolk.NUN_W, H=townsfolk.NUN_H, feet=townsfolk.NUN_FEET, extra={'build': 'nun'})
     out['smith'] = dict(anims=townsfolk.SMITH_ANIMS, mod='townsfolk', W=townsfolk.SMITH_W, H=townsfolk.SMITH_H, feet=townsfolk.SMITH_FEET, extra={'build': 'smith'})
     out['folk'] = dict(anims=townsfolk.FOLK_ANIMS, mod='townsfolk', W=townsfolk.FOLK_W, H=townsfolk.FOLK_H, feet=townsfolk.FOLK_FEET, extra={'build': 'folk'})

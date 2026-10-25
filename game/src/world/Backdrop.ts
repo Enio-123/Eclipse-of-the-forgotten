@@ -192,6 +192,10 @@ export class Backdrop {
   // Prisão Subterrânea: a parede do fundo com celas e arcos de tijolo, pilares e correntes mais
   // perto e a luz das tochas respirando nas pedras
   private prison() {
+    if ((this.room === 'fosso' || this.room === 'abismo') && this.scene.textures.exists('fosso-far')) {
+      this.abyss();
+      return;
+    }
     if (!this.scene.textures.exists('prison-far')) {
       this.catacomb();
       return;
@@ -220,6 +224,35 @@ export class Backdrop {
         .setTint(0xc9b8a0).setBlendMode(add).setScrollFactor(0.25, 0.1).setDepth(BG.beams);
       this.layers.push({ o: beam, update: (_sx, _sy, t) => void (beam.alpha = a * (0.75 + 0.25 * Math.sin(t * 0.0006 + x))) });
     }
+  }
+
+  // Fosso dos Esquecidos: o outro lado do abismo (rocha roxa, fios de tinta, montes de máscaras) e,
+  // mais perto, paredões que pingam e correntes com máscaras; as duas camadas repetem na vertical,
+  // porque o fosso é um poço fundo, e andam devagar quando a câmera desce
+  private abyss() {
+    const far = this.hdTile('fosso-far', BG.far, VIEW_H);
+    const mid = this.hdTile('fosso-mid', BG.mid, VIEW_H);
+    this.layers.push(
+      {
+        o: far,
+        update: (sx, sy) => {
+          far.tilePositionX = (sx * 0.12) / far.tileScaleX;
+          far.tilePositionY = (sy * 0.1) / far.tileScaleY;
+        },
+      },
+      {
+        o: mid,
+        update: (sx, sy) => {
+          mid.tilePositionX = (sx * 0.34) / mid.tileScaleX;
+          mid.tilePositionY = (sy * 0.3) / mid.tileScaleY;
+        },
+      },
+    );
+    // a luz roxa que sobe do fundo
+    const add = Phaser.BlendModes.ADD;
+    const glow = this.scene.add.image(this.so.x + VIEW_W / 2, this.so.y + VIEW_H + 30, 'glow').setScale(14, 5).setTint(0x7029b8).setAlpha(0.1)
+      .setBlendMode(add).setScrollFactor(0).setDepth(BG.fog);
+    this.layers.push({ o: glow, update: (_sx, _sy, t) => void (glow.alpha = 0.08 + 0.03 * Math.sin(t * 0.0007)) });
   }
 
   private memory() {

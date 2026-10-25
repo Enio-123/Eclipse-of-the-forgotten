@@ -647,7 +647,7 @@ class UI {
     // relíquias, memórias e trocas
     const rel = $('.map-relics', s);
     rel.replaceChildren();
-    for (const a of ['wall', 'double'] as Ability[]) {
+    for (const a of ['wall', 'double', 'hook', 'veil'] as Ability[]) {
       const li = el('li');
       if (progress.abilities.has(a)) {
         li.append(el('b', '', RELICS[a].name), el('span', 'how'));
@@ -781,7 +781,7 @@ class UI {
     }
     const rel = $('.inv-relics', s);
     rel.replaceChildren();
-    for (const a of ['wall', 'double'] as Ability[]) {
+    for (const a of ['wall', 'double', 'hook', 'veil'] as Ability[]) {
       const li = el('li');
       if (progress.abilities.has(a)) {
         li.append(el('b', '', RELICS[a].name), el('span', 'how'));

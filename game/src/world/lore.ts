@@ -13,6 +13,8 @@ export const MEMORIES: Record<string, { title: string; text: string }> = {
   'altar:boss': { title: 'O dízimo do casamento', text: 'O Arcebispo cobrou antes da cerimônia: a memória dela. Ela me esqueceu no caminho.' },
   'celas:0': { title: 'O capuz preto', text: 'Eu usava o capuz para não ver os rostos. Um dia vi um rosto mesmo assim, e parei.' },
   'mascara:boss': { title: 'A máscara de ferro', text: 'Ela fechou o ferro no meu rosto e leu a sentença. Não ouvi o crime. Só lembro das minhas mãos: numa versão, limpas. Na outra, não.' },
+  'fosso:0': { title: 'Os nomes no bolso', text: 'Me davam o nome de cada condenado num papel. Eu nunca lia. Guardava no bolso, e o bolso foi ficando pesado.' },
+  'abismo:boss': { title: 'O machado', text: 'Ergui o machado sobre alguém ajoelhado no tablado. Numa versão, ele desceu. Na outra, caiu da minha mão, e a praça inteira ficou em silêncio.' },
 };
 export const MEMORY_TOTAL = Object.keys(MEMORIES).length;
 
@@ -57,7 +59,7 @@ export const RELICS: Record<Ability, { name: string; text: string; how: string }
   veil: {
     name: 'Véu Abissal',
     text: 'Um pedaço da sombra dele. Pesa como um pano molhado e passa por onde a pedra não deixa.',
-    how: 'O {dash} atravessa grades e golpes',
+    how: 'O {dash} vira tinta: atravessa golpes, grades de cela e membranas abissais',
   },
 };
 

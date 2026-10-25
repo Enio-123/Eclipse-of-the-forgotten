@@ -8,7 +8,7 @@ export type SfxName =
   | 'clang' | 'caw' | 'swoosh' | 'thud' | 'chime' | 'bell' | 'rest' | 'coin' | 'roar' | 'tink' | 'mend' | 'ghost'
   | 'ash' | 'quake' | 'equip' | 'erase'
   | 'parry' | 'break' | 'glass' | 'page' | 'anvil' | 'smoke' | 'coinrain' | 'door' | 'locked' | 'censer' | 'draw' | 'gate'
-  | 'echo' | 'echo-die';
+  | 'echo' | 'echo-die' | 'veil' | 'veil-form';
 export type TrackId = 'title' | 'bridge' | 'crypt' | 'memory' | 'boss' | 'city' | 'nave' | 'boss2' | 'boss3' | FileTrackId | 'none';
 export type AmbienceId = 'rain' | 'crypt' | 'wind' | 'city' | 'nave' | 'prison' | 'none';
 // faixas gravadas, em arquivo (as trilhas que o Enio escolheu)
@@ -1118,6 +1118,24 @@ class AudioEngine {
         });
         break;
       }
+      case 'veil': {
+        // o corpo vira tinta: um gole fundo, o líquido rasgando o ar e bolhas que estalam
+        this.tone(out, t, 0.2, 'sine', 150 * r, 55 * r, 0.32);
+        this.nz(out, t, 0.24, 'bandpass', 900 * r, 2600 * r, 0.3, 2.4);
+        this.nz(out, t + 0.03, 0.18, 'lowpass', 1400, 260, 0.22, 0.9);
+        for (let k = 0; k < 4; k++) {
+          const tt = t + 0.02 + Math.random() * 0.16;
+          const f = (520 + Math.random() * 700) * r;
+          this.tone(out, tt, 0.045, 'sine', f, f * 1.9, 0.035);
+        }
+        break;
+      }
+      case 'veil-form':
+        // a tinta volta a ser gente: um respingo que sobe e assenta
+        this.nz(out, t, 0.14, 'bandpass', 1700 * r, 600 * r, 0.16, 2);
+        this.tone(out, t, 0.12, 'sine', 90 * r, 170 * r, 0.16);
+        this.tone(out, t + 0.05, 0.05, 'sine', 980 * r, 1500 * r, 0.025);
+        break;
       case 'echo-die':
         // a sombra se desfaz: um respiro que se solta, vidro escuro e um sino pequeno
         this.nz(out, t, 0.8, 'bandpass', 1400 * r, 260 * r, 0.32, 2);

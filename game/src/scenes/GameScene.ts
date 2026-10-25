@@ -10,6 +10,7 @@ import { Boss } from '../entities/Boss';
 import { Arcebispo } from '../entities/Arcebispo';
 import { Jailer } from '../entities/Jailer';
 import { Carcereira } from '../entities/Carcereira';
+import { Sombra } from '../entities/Sombra';
 import { ABYSS, Echo } from '../entities/Echo';
 import { overlap, type BossFoe, type Enemy } from '../entities/Enemy';
 import { SmokeField } from '../entities/Smoke';
@@ -22,7 +23,7 @@ import { Level, isGround, isSolid } from '../world/Level';
 import { Decor, DEPTH } from '../world/Decor';
 import { Backdrop } from '../world/Backdrop';
 import { Weather } from '../world/Weather';
-import { MAP_POS, ROOMS, type BossId, type Exit, type RoomDef, type RoomId, type Side } from '../world/rooms';
+import { MAP_POS, ROOMS, type Ability, type BossId, type Exit, type RoomDef, type RoomId, type Side } from '../world/rooms';
 import { Props, type MemoryOrb, type Relic, type Shrine } from '../world/Props';
 import { Fixtures, type Door, type Ring } from '../world/Fixtures';
 import { Npcs, type Npc } from '../world/Npcs';
@@ -104,6 +105,8 @@ interface BossInfo {
   corpse: string;
   corpseFacing: 1 | -1;
   after: [string, string];
+  // o que ele devolve ao cavaleiro além da memória (a Sombra vira o Véu Abissal)
+  relic?: Ability;
 }
 
 const BOSSES: Record<BossId, BossInfo> = {
@@ -149,6 +152,21 @@ const BOSSES: Record<BossId, BossInfo> = {
     corpseFacing: -1,
     after: ['As correntes caíram no chão. Pela primeira vez, ninguém vigia.', 'Embaixo da bigorna, a pedra rachou. Lá de baixo vem um eco.'],
   },
+  sombra: {
+    make: (s, x, y) => new Sombra(s, x, y),
+    sheet: 'sombra',
+    name: 'A Sombra do Carrasco',
+    title: 'Tudo o que ele não quis lembrar',
+    music: 'shadow',
+    memory: 'abismo:boss',
+    wakeX: 12,
+    orb: 30,
+    drop: 0,
+    corpse: 'gone',
+    corpseFacing: -1,
+    after: ['A tinta voltou para dentro de mim. Pesa como pano molhado, e é minha.', 'Agora ela passa onde a pedra não deixa: grade de cela, pele de tinta.'],
+    relic: 'veil',
+  },
 };
 
 // fim de cada capítulo (a memória do chefe fecha o capítulo)
@@ -160,6 +178,10 @@ const CHAPTERS: Record<string, { title: string; text: string }> = {
   'altar:boss': {
     title: 'Fim do segundo capítulo',
     text: 'A conta do Arcebispo fechou. Ele cobrou a memória dela antes da cerimônia, e ela o esqueceu no caminho do altar. O que foi cobrado desceu para a prisão, embaixo da cidade.',
+  },
+  'abismo:boss': {
+    title: 'Fim do terceiro capítulo',
+    text: 'No fundo da prisão, a sombra dele esperava com o machado. Ela voltou para o corpo, e com ela o peso de uma sentença. Ainda há duas versões da mesma manhã. Mais fundo, nas minas, alguém cava atrás da verdadeira.',
   },
 };
 
@@ -213,7 +235,8 @@ export class GameScene extends Phaser.Scene {
   get live() {
     return !!this.player && !this.transitioning && !this.respawning;
   }
-  private cinematic = false;
+  // cena parada (relíquia, morte de chefe, fim de capítulo): o jogo espera e as armadilhas não mexem
+  cinematic = false;
   private lookX = 36;
   // quanto a câmera fica acima do cavaleiro (no vale, mais céu e menos terra)
   private camY = 26;
@@ -679,6 +702,8 @@ export class GameScene extends Phaser.Scene {
 
   private oneWayFilter(_obj: unknown, tile: unknown) {
     const t = tile as Phaser.Tilemaps.Tile;
+    // no Véu a tinta escorre por entre as barras da cela e atravessa a membrana abissal
+    if (this.player.veiling && this.level.veilCell(t.x, t.y)) return false;
     if (t.index !== TILE_ONEWAY) return true;
     if (this.player.dropT > 0) return false;
     const b = this.player.body;
@@ -733,6 +758,7 @@ export class GameScene extends Phaser.Scene {
     this.combat();
     this.loot.update(dt);
     this.hazards();
+    this.veilThoughts();
     this.water();
     this.story();
     this.exits();
@@ -833,7 +859,11 @@ export class GameScene extends Phaser.Scene {
       if (!e.alive || this.passed.has(e) || !overlap(pr, e.rect)) continue;
       this.passed.add(e);
       const c = Phaser.Geom.Rectangle.Intersection(pr, e.rect);
-      this.wisps.explode(12, c.centerX, c.centerY);
+      if (p.veiling) {
+        // a tinta passa por dentro do inimigo e respinga do outro lado
+        this.abyssDrips.explode(7, c.centerX, c.centerY);
+        this.abyssMotes.explode(4, c.centerX, c.centerY);
+      } else this.wisps.explode(12, c.centerX, c.centerY);
       this.sfx('ghost', 0.55, 0.9 + Math.random() * 0.2);
       if (!progress.seen.has('ghost:first')) {
         progress.seen.add('ghost:first');
@@ -1104,7 +1134,8 @@ export class GameScene extends Phaser.Scene {
 
   private hazards() {
     const p = this.player;
-    if (this.respawning || p.dead || this.transitioning) return;
+    // no Véu nem os espinhos tocam o corpo (só na janela do dash)
+    if (this.respawning || p.dead || this.transitioning || p.veiling) return;
     const b = p.body;
     const spiked = this.level.touchesSpikes(b.x + 1, b.y, b.width - 2, b.height);
     const fell = this.room.pit && b.top > this.level.heightPx + 8;
@@ -1368,6 +1399,29 @@ export class GameScene extends Phaser.Scene {
       }
       p.hookBounce();
       break;
+    }
+  }
+
+  // membranas abissais e grades de cela: o primeiro encontro vira pensamento, com e sem o Véu
+  private veilThoughts() {
+    const p = this.player;
+    const L = this.level;
+    if (!L.membranes.length && !L.bars.length) return;
+    const b = p.body;
+    if (p.veiling) {
+      if (!progress.seen.has('veil:pass') && L.overlapsVeil(b.x, b.y, b.width, b.height)) {
+        progress.seen.add('veil:pass');
+        this.markDirty();
+        ui.thought('A tinta passou por onde a pedra não deixa. Do outro lado, eu de novo.', 4200);
+      }
+      return;
+    }
+    if (!L.membranes.length || progress.seen.has('membrane:first') || p.canVeil) return;
+    // encostado numa membrana sem o Véu
+    if (L.overlapsVeil(b.x - 3, b.y + 4, b.width + 6, b.height - 8)) {
+      progress.seen.add('membrane:first');
+      this.markDirty();
+      ui.thought('Uma pele de tinta preta, quente como gente. Cede um pouco e volta. Não é para mim. Ainda.', 4600);
     }
   }
 
@@ -1801,6 +1855,7 @@ export class GameScene extends Phaser.Scene {
     p.canWall = progress.abilities.has('wall');
     p.canDouble = progress.abilities.has('double');
     p.canHook = progress.abilities.has('hook');
+    p.canVeil = progress.abilities.has('veil');
     document.body.classList.toggle('has-hook', p.canHook);
     p.dashCdMul = progress.on('breath') ? 0.55 : 1;
     this.registry.set('maxhp', progress.maxHp);
@@ -2034,6 +2089,11 @@ export class GameScene extends Phaser.Scene {
     const b = this.boss!;
     const info = BOSSES[id];
     progress.seen.add(`boss:${id}`);
+    // o que ele devolve já fica gravado (a cena só mostra a tinta voltando para o cavaleiro)
+    if (info.relic) {
+      progress.abilities.add(info.relic);
+      progress.seen.add(`relic:${info.relic}`);
+    }
     progress.save();
     audio.music('none', 1.5);
     ui.bossBar(info.name, 0);
@@ -2041,15 +2101,9 @@ export class GameScene extends Phaser.Scene {
     this.releaseSummons();
     const x = b.zone.x;
     const f = b.facing;
-    this.time.delayedCall(2600, () => {
-      // a memória sai do corpo caído
-      this.props.addMemory(info.memory, this.bossX(x + f * info.orb), b.body.bottom - 28, true);
-      this.sfx('chime');
-      this.props.setGates(true, true);
-      this.fixtures.openLocks(`boss:${id}`, true);
-      ui.thought(info.after[0], 4600);
-      this.time.delayedCall(5200, () => ui.thought(info.after[1], 4600));
-    });
+    const bottom = b.body.bottom;
+    if (info.relic && b instanceof Sombra) this.time.delayedCall(2400, () => this.absorbShadow(b, info.relic!, () => this.bossAfter(id, x, f, bottom, 5600)));
+    else this.time.delayedCall(2600, () => this.bossAfter(id, x, f, bottom));
     // e a arma dele cai do outro lado (o incensário sai do chão onde rolou)
     const w = this.bossWeapon(id);
     if (w) {
@@ -2058,6 +2112,102 @@ export class GameScene extends Phaser.Scene {
         this.dropWeapon(w, this.bossX(x + f * info.drop), b.body.bottom, true);
       });
     }
+  }
+
+  // depois da luta: a memória sai do corpo caído, as grades abrem e ele pensa no que aconteceu
+  private bossAfter(id: BossId, x: number, f: number, bottom: number, thoughtDelay = 0) {
+    const info = BOSSES[id];
+    this.props.addMemory(info.memory, this.bossX(x + f * info.orb), bottom - 28, true);
+    this.sfx('chime');
+    this.props.setGates(true, true);
+    this.fixtures.openLocks(`boss:${id}`, true);
+    this.time.delayedCall(thoughtDelay, () => ui.thought(info.after[0], 4600));
+    this.time.delayedCall(thoughtDelay + 5200, () => ui.thought(info.after[1], 4600));
+  }
+
+  // a Sombra vencida: a tinta da poça salta num fio até o cavaleiro e entra nele (vira o Véu)
+  private absorbShadow(b: Sombra, kind: Ability, done: () => void) {
+    const p = this.player;
+    const info = RELICS[kind];
+    this.cinematic = true;
+    ui.hint(null);
+    p.frozen = true;
+    p.body.setVelocity(0, 0);
+    const src = b.puddle;
+    const g = this.add.graphics().setDepth(DEPTH.player - 0.05);
+    this.sfx('veil', 1, 0.6);
+    this.time.delayedCall(700, () => this.sfx('veil', 0.8, 0.8));
+    const st = { k: 0 };
+    let dripT = 0;
+    this.tweens.add({
+      targets: st,
+      k: 1,
+      duration: 1900,
+      ease: 'Sine.easeInOut',
+      onUpdate: () => {
+        const k = st.k;
+        b.drain(k);
+        g.clear();
+        // o fio de tinta: curva da poça até os pés do cavaleiro; a ponta corre na frente e o resto vem atrás
+        const ax = src.x;
+        const ay = src.y - 2;
+        const bx = p.x;
+        const by = p.body.bottom - 6;
+        const cx = (ax + bx) / 2;
+        const cy = Math.min(ay, by) - 34 - Math.abs(bx - ax) * 0.12;
+        const at = (t: number) => {
+          const u = 1 - t;
+          return new Phaser.Math.Vector2(u * u * ax + 2 * u * t * cx + t * t * bx, u * u * ay + 2 * u * t * cy + t * t * by);
+        };
+        const head = Math.min(1, k * 1.35);
+        const tail = Math.max(0, k * 1.35 - 0.5);
+        if (head - tail < 0.01) return;
+        const top: Phaser.Math.Vector2[] = [];
+        const bot: Phaser.Math.Vector2[] = [];
+        const n = 18;
+        for (let i = 0; i <= n; i++) {
+          const t = tail + (head - tail) * (i / n);
+          const q = at(t);
+          const w = 2.2 + 3.4 * Math.sin(Math.PI * (i / n)) + Math.sin(this.clock * 30 + i) * 0.5;
+          top.push(new Phaser.Math.Vector2(q.x, q.y - w));
+          bot.push(new Phaser.Math.Vector2(q.x, q.y + w * 0.7));
+        }
+        g.fillStyle(ABYSS.ink, 0.95).fillPoints([...top, ...[...bot].reverse()], true);
+        g.lineStyle(1.2, ABYSS.purple, 0.9).strokePoints(top, false);
+        g.lineStyle(0.8, ABYSS.magenta, 0.55).strokePoints(bot, false);
+        dripT -= 1;
+        if (dripT <= 0) {
+          dripT = 3;
+          const q = at(tail + (head - tail) * Math.random());
+          this.echoMotes(q.x, q.y, Math.random() < 0.6);
+        }
+      },
+      onComplete: () => {
+        g.destroy();
+        b.absorbed();
+        // a tinta entra: o cavaleiro escurece e se refaz
+        this.sfx('veil-form', 1.1, 0.8);
+        this.sfx('bell', 0.7, 0.6);
+        this.abyssDrips.explode(18, p.x, p.body.center.y);
+        this.abyssMotes.explode(26, p.x, p.body.center.y);
+        this.glowBurst(p.x, p.body.center.y, ABYSS.lilac, 6);
+        const cam = this.cameras.main;
+        cam.flash(260, 112, 41, 184);
+        cam.shake(300, 0.004);
+        pad.rumble(0.4, 0.7, 320);
+        p.sprite.setTint(0x3b2457);
+        this.time.delayedCall(900, () => p.sprite.clearTint());
+        this.applyProgress();
+        this.time.delayedCall(350, () => ui.banner(info.name, info.text, 4200));
+        this.time.delayedCall(4400, () => {
+          p.frozen = false;
+          this.cinematic = false;
+          audio.music(this.room.music);
+          ui.thought(ui.format(info.how), 5200, true);
+          done();
+        });
+      },
+    });
   }
 
   // ---------- a luta do altar ----------

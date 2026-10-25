@@ -1,14 +1,15 @@
 import type { Theme } from './Level';
 import {
-  MAP_ALTAR, MAP_ARENA, MAP_CATACUMBAS, MAP_CELAS, MAP_CLAUSTRO, MAP_CORRENTES, MAP_CRIPTA, MAP_ESCADARIA, MAP_FUGA, MAP_GALERIA,
-  MAP_GUARITA, MAP_MASCARA, MAP_MEMORIA, MAP_NAVE, MAP_POCO, MAP_PONTE, MAP_PRACA, MAP_RUA, MAP_SINOS, MAP_TELHADOS,
+  MAP_ABISMO, MAP_ALTAR, MAP_ARENA, MAP_CATACUMBAS, MAP_CELAS, MAP_CLAUSTRO, MAP_CORRENTES, MAP_CRIPTA, MAP_ESCADARIA, MAP_FOSSO,
+  MAP_FUGA, MAP_GALERIA, MAP_GUARITA, MAP_MASCARA, MAP_MEMORIA, MAP_NAVE, MAP_POCO, MAP_PONTE, MAP_PRACA, MAP_RUA, MAP_SINOS,
+  MAP_TELHADOS,
 } from './maps';
 import type { AmbienceId, TrackId } from '../systems/Audio';
 
 export type RoomId =
   | 'ponte' | 'catacumbas' | 'memoria' | 'sinos' | 'cripta'
   | 'escadaria' | 'praca' | 'rua' | 'telhados' | 'nave' | 'claustro' | 'galeria' | 'altar'
-  | 'poco' | 'celas' | 'correntes' | 'guarita' | 'fuga' | 'arena' | 'mascara';
+  | 'poco' | 'celas' | 'correntes' | 'guarita' | 'fuga' | 'arena' | 'mascara' | 'fosso' | 'abismo';
 export type Ability = 'wall' | 'double' | 'hook' | 'veil';
 export type Side = 'left' | 'right' | 'up' | 'down';
 
@@ -31,7 +32,7 @@ export interface DoorDef {
   bar?: boolean;
 }
 
-export type BossId = 'sineiro' | 'arcebispo' | 'carcereira';
+export type BossId = 'sineiro' | 'arcebispo' | 'carcereira' | 'sombra';
 
 // alçapão (cada grupo de '=' do mapa, de cima para baixo e da esquerda para a direita): sólido até a
 // marca existir. auto: com esta outra marca, ele cai sozinho quando o cavaleiro chega perto
@@ -40,6 +41,8 @@ export interface TrapdoorDef {
   key: string;
   auto?: string;
   thought?: string;
+  // 'stone': não é tampa de madeira, é a laje do chão que racha e despenca
+  look?: 'stone';
 }
 
 // Dica de controle mostrada quando o cavaleiro passa por um trecho (em tiles)
@@ -380,7 +383,7 @@ const CHAPTER2: Record<'escadaria' | 'praca' | 'rua' | 'telhados' | 'nave' | 'cl
 // ---------- capítulo 3: a Prisão Subterrânea ----------
 const PRISON: Pick<RoomDef, 'pit' | 'rain' | 'lightning' | 'petals' | 'motes'> = { pit: false, rain: false, lightning: false, petals: false, motes: true };
 
-const CHAPTER3: Record<'poco' | 'celas' | 'correntes' | 'guarita' | 'fuga' | 'arena' | 'mascara', RoomDef> = {
+const CHAPTER3: Record<'poco' | 'celas' | 'correntes' | 'guarita' | 'fuga' | 'arena' | 'mascara' | 'fosso' | 'abismo', RoomDef> = {
   poco: {
     id: 'poco',
     map: MAP_POCO,
@@ -512,15 +515,53 @@ const CHAPTER3: Record<'poco' | 'celas' | 'correntes' | 'guarita' | 'fuga' | 'ar
     theme: 'prison',
     title: 'Sala da Máscara',
     subtitle: 'Onde lhe deram um rosto novo',
-    exits: [],
+    exits: [{ side: 'down', to: 'fosso', entry: '1', range: [54, 57] }],
     doors: [{ to: 'fuga', entry: 'O0' }],
     boss: 'carcereira',
+    // com a Corrente já na mão, a laje ao pé da bigorna cede quando o cavaleiro pisa nela
+    trapdoors: [{ key: 'fosso:aberto', auto: 'weapon:corrente', look: 'stone', thought: 'A pedra cedeu ao pé da bigorna. Lá embaixo, alguém respira no escuro.' }],
     ...PRISON,
     drips: 8,
     music: 'prison',
     ambience: 'prison',
     hints: [],
     thoughts: [{ x: 9, text: 'Eu já estive aqui. Do outro lado da bigorna.' }],
+  },
+  fosso: {
+    id: 'fosso',
+    map: MAP_FOSSO,
+    theme: 'prison',
+    title: 'Fosso dos Esquecidos',
+    subtitle: 'Onde caía o que a prisão arrancava',
+    exits: [
+      { side: 'up', to: 'mascara', entry: '2', range: [34, 37] },
+      { side: 'right', to: 'abismo', entry: '1', range: [73, 77] },
+    ],
+    ...PRISON,
+    drips: 34,
+    music: 'fosso',
+    ambience: 'prison',
+    hints: [],
+    thoughts: [
+      { x: 40, y: 27, text: 'Máscaras quebradas, aos montes. Jogavam aqui o que sobrava de cada condenado.' },
+      { x: 30, y: 52, text: 'As luzes que sobem não são vaga-lumes. São lembranças. Algumas são minhas.' },
+      { x: 46, y: 77, text: 'Lá adiante, uma luz roxa. E passos iguais aos meus.' },
+    ],
+  },
+  abismo: {
+    id: 'abismo',
+    map: MAP_ABISMO,
+    theme: 'prison',
+    title: 'Leito do Abismo',
+    subtitle: 'O fundo de tudo o que ele esqueceu',
+    exits: [{ side: 'left', to: 'fosso', entry: '2', range: [23, 27] }],
+    boss: 'sombra',
+    ...PRISON,
+    drips: 12,
+    music: 'fosso',
+    ambience: 'prison',
+    hints: [],
+    thoughts: [{ x: 4, text: 'Um lago de tinta. Alguma coisa embaixo dele respira no meu ritmo.' }],
   },
 };
 
@@ -547,4 +588,6 @@ export const MAP_POS: Partial<Record<RoomId, { x: number; y: number }>> = {
   fuga: { x: 620, y: 35 },
   arena: { x: 470, y: 35 },
   mascara: { x: 600, y: 61 },
+  fosso: { x: 620, y: 93 },
+  abismo: { x: 676, y: 143 },
 };

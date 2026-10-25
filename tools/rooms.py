@@ -845,6 +845,79 @@ def mascara():
     g.put(60, r, '*')
     for x in (12, 28, 42, 58):
         g.put(x, r, 'C')
+    # o chão ao pé da bigorna cede depois da Carcereira e leva ao Fosso dos Esquecidos
+    for x in range(54, 58):
+        g.put(x, 28, '=')
+    g.fill(54, 29, 57, 31, '.')
+    # quem volta do Fosso sobe pelo buraco e pisa ao lado dele
+    g.put(59, r, '2')
+    return g.rows()
+
+
+def fosso():
+    """Fosso dos Esquecidos: embaixo da Sala da Máscara, onde a prisão jogava o que arrancava dos
+    condenados. Cai-se pelo buraco ao pé da bigorna num poço estreito até a laje das máscaras
+    quebradas; tábuas e prateleiras descem em zigue-zague até o fundo, onde a vela de descanso
+    espera antes do Leito do Abismo (à direita). Na prateleira da esquerda, uma membrana abissal
+    tapa uma câmara na parede (só o Véu passa). Para voltar, cada degrau fica a cinco tiles do
+    outro; da laje, a argola embaixo do poço puxa até ele, e as garras sobem por dentro."""
+    W, H = 56, 84
+    g = Grid(W, H, '#')
+    g.fill(34, 0, 37, 13, '.')
+    g.fill(9, 14, 52, 77, '.')
+    # laje de pouso, presa na parede da direita
+    g.fill(26, 28, 52, 31, '#')
+    # descida para a esquerda
+    plank(g, 17, 22, 33)
+    plank(g, 10, 15, 38)
+    # prateleira da esquerda e a câmara da membrana na parede
+    g.fill(9, 43, 20, 46, '#')
+    g.fill(3, 39, 7, 42, '.')
+    for y in range(39, 43):
+        g.put(8, y, '&')
+    # para a direita e de volta, até o fundo
+    plank(g, 25, 30, 48)
+    plank(g, 35, 40, 53)
+    g.fill(41, 58, 52, 61, '#')
+    plank(g, 29, 34, 63)
+    plank(g, 17, 22, 68)
+    plank(g, 25, 30, 73)
+    # saída para o Leito do Abismo, no fundo à direita
+    g.fill(53, 73, 55, 77, '.')
+    g.put(35, 2, '1')
+    g.put(54, 77, '2')
+    g.put(46, 77, 'R')
+    g.put(35, 19, 'o')
+    g.put(4, 42, '$')
+    g.put(6, 40, 'm')
+    g.put(40, 27, 'c')
+    g.put(14, 42, 'c')
+    g.put(34, 77, 'c')
+    g.put(22, 24, 'v')
+    g.put(46, 50, 'v')
+    return g.rows()
+
+
+def abismo():
+    """Leito do Abismo: o fundo do Fosso, um lago raso de tinta. A Sombra do Carrasco espera
+    afundada no meio; a grade fecha atrás do cavaleiro. Tábuas dos dois lados e uma no alto. Na
+    parede do fundo, uma membrana abissal tapa um nicho: o primeiro lugar onde o Véu passa."""
+    W, H = 70, 32
+    g = Grid(W, H, '#')
+    g.fill(2, 3, 61, 27, '.')
+    g.fill(0, 23, 1, 27, '.')
+    for y in range(23, 28):
+        g.put(7, y, '|')
+    plank(g, 15, 21, 21)
+    plank(g, 42, 48, 21)
+    plank(g, 27, 36, 15)
+    # o nicho atrás da membrana
+    g.fill(63, 24, 67, 27, '.')
+    for y in range(24, 28):
+        g.put(62, y, '&')
+    g.put(66, 27, '$')
+    g.put(1, 27, '1')
+    g.put(44, 27, 'X')
     return g.rows()
 
 
@@ -854,7 +927,7 @@ if __name__ == '__main__':
             'escadaria': escadaria(), 'praca': praca(), 'rua': rua(), 'telhados': telhados(), 'nave': nave(),
             'claustro': claustro(), 'galeria': galeria(), 'altar': altar(),
             'poco': poco(), 'celas': celas(), 'correntes': correntes(), 'guarita': guarita(), 'fuga': fuga(),
-            'arena': arena(), 'mascara': mascara()}
+            'arena': arena(), 'mascara': mascara(), 'fosso': fosso(), 'abismo': abismo()}
     lines = ['// Gerado por ferramentas/rooms.py: não edite à mão', '']
     for k, rows in maps.items():
         lines.append(f'export const MAP_{k.upper()} = [')

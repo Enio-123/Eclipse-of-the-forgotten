@@ -6,6 +6,7 @@ import { isGround, isSolid } from '../world/Level';
 import { TILE_ONEWAY } from '../gfx/textures';
 import { DEPTH } from '../world/Decor';
 import { hd } from '../gfx/flip';
+import { VeilFx } from '../gfx/veil';
 
 export type AttackDir = 'side' | 'up' | 'down' | 'low';
 // ações que o jogador já descobriu (as dicas somem quando ele usa)
@@ -63,6 +64,8 @@ export class Player {
   canWall = false;
   canDouble = false;
   canHook = false;
+  // Véu Abissal: o dash vira tinta viva e atravessa grades de cela e membranas abissais
+  canVeil = false;
   hook: HookState | null = null;
   // Fôlego (troca com o Cobrador): o dash recarrega mais rápido
   dashCdMul = 1;
@@ -79,6 +82,10 @@ export class Player {
   private airDash = true;
   private dashDir: 1 | -1 = 1;
   private dashX0 = 0;
+  // este dash é o do Véu (decidido quando começa) e quanto já passou do alcance dentro de uma grade
+  private veilDash = false;
+  private veilOver = 0;
+  private veilFx: VeilFx | null = null;
   private slideT = 0;
   private atkCd = 0;
   private atkBuffer = 0;
@@ -153,6 +160,14 @@ export class Player {
   }
   get dashing() {
     return this.dashT > 0;
+  }
+  // no meio do Véu: intangível, não toma dano nem esbarra em grade de cela ou membrana
+  get veiling() {
+    return this.dashT > 0 && this.veilDash;
+  }
+  // etapa do Véu na tela (dissolve, flow, form ou off), para os testes
+  get veilStage() {
+    return this.veilFx?.stage ?? 'off';
   }
   // dash fantasma: atravessa inimigos e golpes sem levar dano (espinhos ainda machucam)
   get ghost() {
@@ -234,17 +249,31 @@ export class Player {
     } else if (this.dashT > 0) {
       this.dashT -= dt;
       b.setVelocity(this.dashDir * C.dashSpeed, 0);
-      this.ghostT -= dt;
-      if (this.ghostT <= 0) {
-        this.ghostT = 0.028;
-        this.scene.spawnGhost(this.sprite);
+      if (!this.veilDash) {
+        this.ghostT -= dt;
+        if (this.ghostT <= 0) {
+          this.ghostT = 0.028;
+          this.scene.spawnGhost(this.sprite);
+        }
       }
       const hitWall = this.dashDir > 0 ? b.blocked.right : b.blocked.left;
       // termina pelo tempo ou pela distância: com o jogo lento (quadros longos) o dash não passa do
       // alcance certo; volta pelo caminho que já fez, então nunca entra em parede
       const reach = C.dashSpeed * C.dashTime;
-      if (Math.abs(b.x - this.dashX0) > reach) b.x = this.dashX0 + this.dashDir * reach;
-      if (this.dashT <= 0 || hitWall || Math.abs(b.x - this.dashX0) >= reach - 0.01) this.endDash();
+      const L = this.scene.level;
+      if (this.veilDash && L.overlapsVeil(b.x, b.y, b.width, b.height)) {
+        // o Véu não para no meio da grade: segue mais um pouco até sair do outro lado; se não
+        // der (pedra logo atrás, ou grossa demais), volta pelo caminho até o lugar livre
+        if (this.dashT <= 0 || Math.abs(b.x - this.dashX0) >= reach - 0.01) {
+          this.veilOver += dt;
+          this.dashT = Math.max(this.dashT, 1e-4);
+        }
+        if (hitWall || this.veilOver > C.veilOver || L.overlapsRock(b.x, b.y, b.width, b.height)) this.endDash();
+      } else {
+        if (Math.abs(b.x - this.dashX0) > reach && this.veilOver <= 0) b.x = this.dashX0 + this.dashDir * reach;
+        if (this.veilDash && L.overlapsRock(b.x, b.y, b.width, b.height)) this.endDash();
+        else if (this.dashT <= 0 || hitWall || Math.abs(b.x - this.dashX0) >= reach - 0.01) this.endDash();
+      }
     } else {
       this.control(dt, input, onGround);
     }
@@ -648,16 +677,57 @@ export class Player {
     this.body.setVelocity(this.dashDir * C.dashSpeed, 0);
     this.ghostT = 0;
     this.cancelAttack();
-    this.scene.dustBurst(this.zone.x - this.dashDir * 6, this.body.bottom, 6);
-    this.scene.sfx('dash');
+    this.veilDash = this.canVeil;
+    this.veilOver = 0;
+    if (this.veilDash) {
+      // o corpo se desfaz em tinta na hora (a mesma direção e a mesma velocidade do dash)
+      this.veilFx ??= new VeilFx(this.scene);
+      this.veilFx.begin(this.sprite, this.body.center.x, this.body.bottom, this.dashDir);
+      this.scene.sfx('veil');
+    } else {
+      this.scene.dustBurst(this.zone.x - this.dashDir * 6, this.body.bottom, 6);
+      this.scene.sfx('dash');
+    }
     this.scene.onPlayerAction('dash');
   }
 
   private endDash() {
+    if (this.veilDash) {
+      this.unstickVeil();
+      this.veilFx?.finish(this.body.center.x, this.body.bottom);
+      this.scene.sfx('veil-form');
+      this.veilDash = false;
+    }
     this.dashT = 0;
     this.graceT = C.ghostGrace;
     this.body.setAllowGravity(true);
     this.body.velocity.x = this.dashDir * this.runSpeed;
+  }
+
+  // o Véu nunca termina dentro de grade, membrana ou pedra: um empurrão para a frente, se já
+  // estiver saindo, ou de volta pelo caminho que fez até o primeiro lugar livre
+  private unstickVeil() {
+    const b = this.body;
+    const L = this.scene.level;
+    const free = (x: number) => !L.overlapsVeil(x, b.y, b.width, b.height) && !L.overlapsRock(x, b.y, b.width, b.height);
+    if (free(b.x)) return;
+    for (let k = 1; k <= 12; k++) {
+      const x = b.x + this.dashDir * k;
+      if (free(x)) {
+        b.x = x;
+        return;
+      }
+    }
+    const back = -this.dashDir;
+    const n = Math.ceil(Math.abs(b.x - this.dashX0)) + 1;
+    for (let k = 1; k <= n; k++) {
+      const x = b.x + back * k;
+      if (free(x)) {
+        b.x = x;
+        return;
+      }
+    }
+    b.x = this.dashX0;
   }
 
   private startSlide(dir: number) {
@@ -828,7 +898,8 @@ export class Player {
   }
 
   hurt(fromX: number) {
-    if (this.dead || this.invuln > 0) return false;
+    // no meio do Véu nada machuca (só a janela do dash; o respiro depois é o mesmo do dash comum)
+    if (this.dead || this.invuln > 0 || this.veiling) return false;
     this.hp -= 1;
     this.invuln = C.invuln;
     this.hurtT = C.hurtLock;
@@ -905,8 +976,8 @@ export class Player {
     } else this.stepT = 0.06;
     s.setPosition(Math.round(this.zone.x), Math.round(b.bottom));
     s.setFlipX(this.facing < 0);
-    // no dash o cavaleiro fica translúcido e frio, como um fantasma
-    const ghost = this.dashT > 0;
+    // no dash o cavaleiro fica translúcido e frio, como um fantasma (no Véu, vira tinta)
+    const ghost = this.dashT > 0 && !this.veilDash;
     if (ghost !== this.ghostLook) {
       this.ghostLook = ghost;
       if (ghost) s.setTint(0xb4c2e8);
@@ -914,6 +985,7 @@ export class Player {
     }
     const blink = this.invuln > 0 && !this.dead && Math.floor(this.invuln * 18) % 2 === 0;
     s.setAlpha(blink ? 0.3 : ghost ? 0.55 : 1);
+    if (this.veilFx?.active) this.veilFx.update(dt, s, b.center.x, b.bottom);
   }
 
   play(name: string) {

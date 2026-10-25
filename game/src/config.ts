@@ -29,6 +29,9 @@ export const PLAYER = {
   dashTime: 0.204,
   dashCooldown: 0.42,
   ghostGrace: 0.08,
+  // Véu Abissal: quanto tempo o dash ainda segue, além do alcance, para sair do outro lado de uma
+  // grade de cela ou de uma membrana (depois disso volta pelo caminho até o lugar livre)
+  veilOver: 0.16,
   slideSpeed: 360,
   slideTime: 0.34,
   pogoVel: 400,
@@ -211,6 +214,40 @@ export const CARCEREIRA = {
   yankCd: 6,
   cageWarn: 0.95,
   stagger: 1.8,
+};
+
+// A Sombra do Carrasco: tinta viva com a forma dele de antes. Machadada (dá para aparar), mergulho
+// na poça com gêiser embaixo do cavaleiro, investida líquida rente ao chão (pule), tentáculos que
+// sobem do chão com aviso de bolhas e gotas arremessadas em arco. Na segunda fase tudo emenda.
+export const SOMBRA = {
+  bodyW: 34,
+  bodyH: 104,
+  hp: 60,
+  glide: 96,
+  phase2: 0.5,
+  think: 0.6,
+  cleaveReach: 104,
+  cleaveWind: 0.62,
+  cleaveActive: 0.16,
+  cleaveRec: 0.8,
+  waveSpeed: 250,
+  waveRange: 230,
+  sink: 0.4,
+  diveSpeed: 300,
+  diveTime: 1.2,
+  geyserWarn: 0.5,
+  geyserActive: 0.24,
+  geyserH: 156,
+  emerge: 0.9,
+  rushWind: 0.55,
+  rushSpeed: 470,
+  rushRec: 0.75,
+  tentWarn: 0.6,
+  tentUp: 0.42,
+  tentH: 124,
+  throwWind: 0.38,
+  globSpeed: 300,
+  stagger: 1.7,
 };
 
 // Corvo do Dízimo: paira, avisa com o olho aceso e mergulha em linha reta

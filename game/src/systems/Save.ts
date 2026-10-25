@@ -65,7 +65,7 @@ const KEY = 'eclipse-progresso-v1';
 const ROOM_IDS: RoomId[] = [
   'ponte', 'catacumbas', 'memoria', 'sinos', 'cripta',
   'escadaria', 'praca', 'rua', 'telhados', 'nave', 'claustro', 'galeria', 'altar',
-  'poco', 'celas', 'correntes', 'guarita', 'fuga', 'arena', 'mascara',
+  'poco', 'celas', 'correntes', 'guarita', 'fuga', 'arena', 'mascara', 'fosso', 'abismo',
 ];
 const ABILITIES: Ability[] = ['wall', 'double', 'hook', 'veil'];
 

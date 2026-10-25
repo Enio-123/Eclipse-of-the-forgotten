@@ -146,7 +146,7 @@ const URL = process.argv[3] || 'http://localhost:8765/index.html';
   const jc = await page.evaluate(() => [...document.querySelectorAll('#screen-journal .j-count')].map((e) => e.textContent));
   check(/1 de 14/.test(jc[0]), `história conta as páginas (${jc[0]})`);
   check(/Conhecidos: 2/.test(jc[1]), `bestiário conta os conhecidos (${jc[1]})`);
-  check(/Lugares: \d+ de 19/.test(jc[2]), `lugares (${jc[2]})`);
+  check(/Lugares: \d+ de 21/.test(jc[2]), `lugares (${jc[2]})`);
   await shot('n3-diario');
   await page.click('#screen-journal [data-tab="beasts"]');
   await page.waitForTimeout(250);
