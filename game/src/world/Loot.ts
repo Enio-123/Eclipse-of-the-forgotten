@@ -88,6 +88,13 @@ export class Loot {
     }
   }
 
+  // punhado de moedas (cofre do dízimo, chuva do Arcebispo): sem lasca de vida
+  coins(n: number, x: number, y: number, wide = false) {
+    const big = n >= 7 ? Math.floor((n - 2) / 5) : 0;
+    for (let i = 0; i < big; i++) this.spawn('coin', 5, x, y, wide);
+    for (let i = 0; i < n - big * 5; i++) this.spawn('coin', 1, x, y, wide);
+  }
+
   private spawn(kind: 'coin' | 'life', value: number, x: number, y: number, wide: boolean) {
     const s = this.scene;
     const L = s.level;

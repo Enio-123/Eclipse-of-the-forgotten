@@ -20,15 +20,18 @@ export interface SaveData {
   equipped: string[] | null;
 }
 
-export type Upgrade = 'mask' | 'blade' | 'breath' | 'purse' | 'shard' | 'whetstone';
-const UPGRADES: Upgrade[] = ['mask', 'blade', 'breath', 'purse', 'shard', 'whetstone'];
+export type Upgrade = 'mask' | 'blade' | 'breath' | 'purse' | 'shard' | 'whetstone' | 'beads';
+const UPGRADES: Upgrade[] = ['mask', 'blade', 'breath', 'purse', 'shard', 'whetstone', 'beads'];
 // num save antigo as melhorias eram fixas: entram ligadas, na ordem de quem mais ajuda a sobreviver
 const MIGRATE_ORDER: Upgrade[] = ['mask', 'shard', 'breath', 'whetstone', 'blade', 'purse'];
 const slotCost = (u: Upgrade) => OFFERS.find((o) => o.id === u)?.slots ?? 1;
 const strs = (v: unknown) => (Array.isArray(v) ? v.filter((s) => typeof s === 'string') : []) as string[];
 
 const KEY = 'eclipse-progresso-v1';
-const ROOM_IDS: RoomId[] = ['ponte', 'catacumbas', 'memoria', 'sinos', 'cripta'];
+const ROOM_IDS: RoomId[] = [
+  'ponte', 'catacumbas', 'memoria', 'sinos', 'cripta',
+  'escadaria', 'praca', 'rua', 'telhados', 'nave', 'claustro', 'galeria', 'altar',
+];
 
 export function loadSave(): SaveData | null {
   try {

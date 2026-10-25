@@ -131,7 +131,7 @@ export class Decor {
   // ---------- musgo pendurado nos tetos ----------
   private moss() {
     const L = this.level;
-    const p = L.theme === 'catacomb' ? 0.55 : 0.4;
+    const p = { bridge: 0.4, catacomb: 0.55, memory: 0, city: 0.3, nave: 0.22 }[L.theme];
     for (let y = 0; y < L.h; y++) {
       for (let x = 0; x < L.w; x++) {
         if (!L.ceilingCell(x, y)) continue;
@@ -155,8 +155,9 @@ export class Decor {
   // ---------- tufos de mato e flores no chão ----------
   private tufts() {
     const L = this.level;
-    const key = `deco-tufts-${L.theme}`;
-    const p = { bridge: 0.3, catacomb: 0.45, memory: 0.8 }[L.theme];
+    const own = `deco-tufts-${L.theme}`;
+    const key = this.scene.textures.exists(own) ? own : 'deco-tufts-catacomb';
+    const p = { bridge: 0.3, catacomb: 0.45, memory: 0.8, city: 0.28, nave: 0.1 }[L.theme];
     for (let y = 1; y < L.h; y++) {
       for (let x = 0; x < L.w; x++) {
         if (!L.floorCell(x, y) || this.rand() > p) continue;

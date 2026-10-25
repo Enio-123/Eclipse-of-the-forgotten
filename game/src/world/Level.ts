@@ -1,8 +1,12 @@
 import Phaser from 'phaser';
 import { TILE } from '../config';
 import { SOLID_VARIANTS, TILE_ONEWAY, TILE_SOLID, TILE_SPIKE } from '../gfx/textures';
+import { findBreakables, type Breakable } from './secrets';
 
-export type Theme = 'bridge' | 'catacomb' | 'memory';
+export type Theme = 'bridge' | 'catacomb' | 'memory' | 'city' | 'nave';
+
+// bloco liso usado nas grades, nas paredes falsas e nos vitrais (sólidos enquanto fechados)
+const BLOCK = TILE_SOLID + 15 * SOLID_VARIANTS;
 
 export interface Spawn {
   kind: string;
@@ -24,22 +28,34 @@ export const isSolid = (i: number) => i >= TILE_SOLID;
 export const isGround = (i: number) => i >= TILE_SOLID || i === TILE_ONEWAY;
 
 // Constrói o tilemap a partir de um mapa ASCII:
-// '#' pedra, '-' plataforma atravessável, '^' espinhos, '~' água; letras e números são objetos
+// '#' pedra, '-' plataforma atravessável, '^' espinhos, '~' água, '|' grade, 'Y' grade com chave,
+// '%' parede falsa, 'V' vitral quebrável; letras e números são objetos
 export class Level {
   readonly map: Phaser.Tilemaps.Tilemap;
   readonly layer: Phaser.Tilemaps.TilemapLayer;
   readonly spawns: Spawn[] = [];
   readonly gates: { x: number; y: number }[] = [];
+  readonly locks: { x: number; y: number }[] = [];
+  // paredes falsas e vitrais ainda de pé (os já quebrados viram vão no grid)
+  readonly breakables: Breakable[] = [];
   readonly widthPx: number;
   readonly heightPx: number;
   readonly w: number;
   readonly h: number;
   readonly grid: string[];
 
-  constructor(scene: Phaser.Scene, rows: string[], readonly theme: Theme) {
+  constructor(scene: Phaser.Scene, rows: string[], readonly theme: Theme, room = '', broken: (id: string) => boolean = () => false) {
     const h = rows.length;
     const w = Math.max(...rows.map((r) => r.length));
     const grid = rows.map((r) => r.padEnd(w, '.'));
+    // o que já foi quebrado neste progresso é vão desde o começo
+    for (const b of findBreakables(room, grid)) {
+      if (!broken(b.id)) {
+        this.breakables.push(b);
+        continue;
+      }
+      for (const [x, y] of b.cells) grid[y] = grid[y].slice(0, x) + '.' + grid[y].slice(x + 1);
+    }
     this.grid = grid;
     this.w = w;
     this.h = h;
@@ -58,9 +74,13 @@ export class Level {
           row.push(TILE_SOLID + mask * SOLID_VARIANTS + (v % SOLID_VARIANTS));
         } else if (c === '|') {
           // grade de ferro: sólida enquanto estiver fechada
-          row.push(TILE_SOLID + 15 * SOLID_VARIANTS);
+          row.push(BLOCK);
           this.gates.push({ x, y });
-        } else if (c === '-') row.push(TILE_ONEWAY);
+        } else if (c === 'Y') {
+          row.push(BLOCK);
+          this.locks.push({ x, y });
+        } else if (c === '%' || c === 'V') row.push(BLOCK);
+        else if (c === '-') row.push(TILE_ONEWAY);
         else if (c === '^') row.push(TILE_SPIKE);
         else {
           row.push(-1);
@@ -71,7 +91,7 @@ export class Level {
     }
 
     this.map = scene.make.tilemap({ data, tileWidth: TILE, tileHeight: TILE });
-    const key = `tiles-${theme}`;
+    const key = scene.textures.exists(`tiles-${theme}`) ? `tiles-${theme}` : 'tiles-catacomb';
     const tiles = this.map.addTilesetImage(key, key, TILE, TILE, 0, 0)!;
     this.layer = this.map.createLayer(0, tiles, 0, 0)!;
     this.widthPx = w * TILE;
@@ -114,8 +134,8 @@ export class Level {
   }
 
   spawn(kind: string) {
-    // R0, R1...: a vela de descanso de número n (na ordem do mapa)
-    if (kind.length > 1 && kind[0] === 'R') return this.spawns.filter((s) => s.kind === 'R')[Number(kind.slice(1))];
+    // R0, R1...: a vela de descanso de número n; O0, O1...: a porta de número n (na ordem do mapa)
+    if (kind.length > 1 && (kind[0] === 'R' || kind[0] === 'O')) return this.spawns.filter((s) => s.kind === kind[0])[Number(kind.slice(1))];
     return this.spawns.find((s) => s.kind === kind);
   }
 
@@ -123,8 +143,27 @@ export class Level {
   setGates(open: boolean) {
     for (const g of this.gates) {
       if (open) this.layer.removeTileAt(g.x, g.y);
-      else this.layer.putTileAt(TILE_SOLID + 15 * SOLID_VARIANTS, g.x, g.y);
+      else this.layer.putTileAt(BLOCK, g.x, g.y);
     }
+  }
+
+  // abre ou fecha a grade com chave da coluna x
+  setLock(x: number, open: boolean) {
+    for (const l of this.locks) {
+      if (l.x !== x) continue;
+      if (open) this.layer.removeTileAt(l.x, l.y);
+      else this.layer.putTileAt(BLOCK, l.x, l.y);
+    }
+  }
+
+  // a parede falsa (ou o vitral) cai: as células viram vão
+  breakOpen(b: Breakable) {
+    for (const [x, y] of b.cells) {
+      this.layer.removeTileAt(x, y);
+      this.grid[y] = this.grid[y].slice(0, x) + '.' + this.grid[y].slice(x + 1);
+    }
+    const i = this.breakables.indexOf(b);
+    if (i >= 0) this.breakables.splice(i, 1);
   }
 
   // Trechos contínuos de um tipo de célula que obedecem a um teste

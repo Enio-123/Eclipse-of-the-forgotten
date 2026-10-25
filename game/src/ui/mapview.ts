@@ -1,5 +1,6 @@
 import { progress } from '../systems/Save';
-import { MAP_POS, ROOMS, type RoomId } from '../world/rooms';
+import { MAP_POS, ROOMS, type Exit, type RoomId, type Side } from '../world/rooms';
+import { findBreakables } from '../world/secrets';
 
 const CELL = 4;
 const INK = 'rgba(232, 228, 218, 0.78)';
@@ -69,12 +70,29 @@ export function renderMap(cssW: number, cssH: number, dpr: number, here: MapHere
     const rows = ROOMS[r.id].map;
     const H = rows.length;
     const W = rows[0].length;
-    const ch = (x: number, y: number) => (x < 0 || y < 0 || x >= W || y >= H ? '#' : rows[y][x]);
+    const def = ROOMS[r.id];
+    // paredes falsas e vitrais de pé contam como pedra, e o que está atrás deles não aparece
+    // (com as Contas da Irmã, os esconderijos aparecem brilhando)
+    const hidden = new Set<number>();
+    const secret = new Set<number>();
+    const beads = progress.on('beads');
+    for (const b of findBreakables(r.id, rows)) {
+      if (progress.seen.has(b.id)) continue;
+      for (const [x, y] of b.cells) hidden.add(y * W + x);
+      for (const [x, y] of b.veil) (beads ? secret : hidden).add(y * W + x);
+      if (beads) for (const [x, y] of b.cells) secret.add(y * W + x);
+    }
+    const ch = (x: number, y: number) => (x < 0 || y < 0 || x >= W || y >= H || hidden.has(y * W + x) ? '#' : rows[y][x]);
     const seen = (x: number, y: number) => r.seen.has(Math.floor(y / CELL) * r.cw + Math.floor(x / CELL));
-    const open = (c: string) => c !== '#';
-    const exits = ROOMS[r.id].exits;
-    // fora da sala, pelas laterais com saída, o mapa continua aberto
-    const outside = (x: number, y: number) => (x < 0 && exits.some((e) => e.side === 'left')) || (x >= W && exits.some((e) => e.side === 'right')) || y < 0;
+    const open = (c: string) => c !== '#' && c !== '%' && c !== 'V';
+    const exits = def.exits;
+    // fora da sala, pelas bordas com saída, o mapa continua aberto
+    const leaves = (e: Exit, side: Side, v: number) => e.side === side && (!e.range || (v >= e.range[0] && v <= e.range[1]));
+    const outside = (x: number, y: number) =>
+      (x < 0 && exits.some((e) => leaves(e, 'left', y))) || (x >= W && exits.some((e) => leaves(e, 'right', y))) ||
+      y < 0 || (y >= H && exits.some((e) => leaves(e, 'down', x)));
+    const lockCols = [...new Set(rows.flatMap((row, y) => [...row].map((c, x) => (c === 'Y' ? x : -1)).filter((x) => x >= 0 && y >= 0)))].sort((a, b) => a - b);
+    const lockKey = (x: number) => def.locks?.[lockCols.indexOf(x)] ?? 'never';
     ctx.fillStyle = r.id === here.room ? HERE_FLOOR : FLOOR;
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
@@ -116,32 +134,41 @@ export function renderMap(cssW: number, cssH: number, dpr: number, here: MapHere
         } else if (c === '~') {
           ctx.fillStyle = 'rgba(120, 170, 220, 0.4)';
           ctx.fillRect(p.x, p.y, s, s);
-        } else if (c === '|') {
-          const shut = r.id === 'catacumbas' ? !progress.seen.has('memory:vale') : false;
+        } else if (c === '|' || c === 'Y') {
+          const shut = c === 'Y' ? !progress.seen.has(lockKey(x)) : r.id === 'catacumbas' ? !progress.seen.has('memory:vale') : false;
           if (shut) {
             ctx.fillStyle = 'rgba(232, 228, 218, 0.6)';
             ctx.fillRect(p.x + s * 0.3, p.y, s * 0.4, s);
           }
         }
+        if (secret.has(y * W + x)) {
+          ctx.fillStyle = 'rgba(214, 162, 74, 0.28)';
+          ctx.fillRect(p.x, p.y, s + 0.5, s + 0.5);
+        }
       }
     }
-    // objetos marcados
+    // objetos marcados (o que está escondido atrás de parede falsa só aparece com as contas)
     let ri = 0;
     let mi = 0;
+    let bi = 0;
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
         const c = rows[y][x];
-        if (!'RKJUmXM'.includes(c)) continue;
-        const idx = c === 'R' ? ri++ : c === 'm' ? mi++ : 0;
-        if (!seen(x, y)) continue;
+        if (!'RKJUmXMOBNb'.includes(c)) continue;
+        const idx = c === 'R' ? ri++ : c === 'm' ? mi++ : c === 'b' ? bi++ : 0;
+        if (!seen(x, y) || hidden.has(y * W + x)) continue;
         const p = at(r.id, x + 0.5, y + 0.5);
         if (c === 'R') markers.push({ kind: 'rest', ...p, on: progress.seen.has(`rest:${r.id}:${idx}`) });
         else if (c === 'K') markers.push({ kind: 'cobrador', ...p, on: true });
         else if (c === 'J' && !progress.abilities.has('wall')) markers.push({ kind: 'relic', ...p, on: true });
         else if (c === 'U' && !progress.abilities.has('double')) markers.push({ kind: 'relic', ...p, on: true });
         else if (c === 'm' && !progress.memories.has(`${r.id}:${idx}`)) markers.push({ kind: 'memory', ...p, on: true });
-        else if (c === 'X' && !progress.seen.has('boss:sineiro')) markers.push({ kind: 'boss', ...p, on: true });
+        else if (c === 'X' && def.boss && !progress.seen.has(`boss:${def.boss}`)) markers.push({ kind: 'boss', ...p, on: true });
         else if (c === 'M') markers.push({ kind: 'mirror', ...p, on: true });
+        else if (c === 'O') markers.push({ kind: 'door', ...p, on: true });
+        else if (c === 'B') markers.push({ kind: 'forge', ...p, on: true });
+        else if (c === 'N') markers.push({ kind: 'nun', ...p, on: true });
+        else if (c === 'b') markers.push({ kind: 'bell', ...p, on: !progress.seen.has(`bell:${r.id}:${idx}`) });
       }
     }
   }
@@ -195,6 +222,38 @@ export function drawMarker(ctx: CanvasRenderingContext2D, kind: string, x: numbe
       ctx.closePath();
       ctx.fill();
       ctx.fillRect(-k * 0.2, k * 0.7, k * 0.4, k * 0.35);
+      break;
+    case 'door':
+      // arco de porta
+      ctx.strokeStyle = 'rgba(232, 228, 218, 0.85)';
+      ctx.beginPath();
+      ctx.moveTo(-k * 0.5, k * 0.8);
+      ctx.lineTo(-k * 0.5, -k * 0.1);
+      ctx.arc(0, -k * 0.1, k * 0.5, Math.PI, 0);
+      ctx.lineTo(k * 0.5, k * 0.8);
+      ctx.stroke();
+      break;
+    case 'forge':
+      // bigorna
+      ctx.fillStyle = GOLD;
+      ctx.fillRect(-k * 0.8, -k * 0.45, k * 1.6, k * 0.4);
+      ctx.fillRect(-k * 0.3, -k * 0.05, k * 0.6, k * 0.5);
+      ctx.fillRect(-k * 0.6, k * 0.45, k * 1.2, k * 0.3);
+      break;
+    case 'nun':
+      // cruz pequena
+      ctx.fillStyle = '#f2ede2';
+      ctx.fillRect(-k * 0.12, -k * 0.8, k * 0.24, k * 1.6);
+      ctx.fillRect(-k * 0.5, -k * 0.4, k, k * 0.22);
+      break;
+    case 'bell':
+      ctx.fillStyle = on ? GOLD : 'rgba(232, 228, 218, 0.35)';
+      ctx.beginPath();
+      ctx.moveTo(-k * 0.6, k * 0.5);
+      ctx.quadraticCurveTo(-k * 0.5, -k * 0.7, 0, -k * 0.7);
+      ctx.quadraticCurveTo(k * 0.5, -k * 0.7, k * 0.6, k * 0.5);
+      ctx.closePath();
+      ctx.fill();
       break;
     case 'mirror':
       ctx.strokeStyle = GOLD;

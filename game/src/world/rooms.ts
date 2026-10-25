@@ -1,16 +1,36 @@
 import type { Theme } from './Level';
-import { MAP_CATACUMBAS, MAP_CRIPTA, MAP_MEMORIA, MAP_PONTE, MAP_SINOS } from './maps';
+import {
+  MAP_ALTAR, MAP_CATACUMBAS, MAP_CLAUSTRO, MAP_CRIPTA, MAP_ESCADARIA, MAP_GALERIA, MAP_MEMORIA, MAP_NAVE, MAP_PONTE,
+  MAP_PRACA, MAP_RUA, MAP_SINOS, MAP_TELHADOS,
+} from './maps';
 import type { AmbienceId, TrackId } from '../systems/Audio';
 
-export type RoomId = 'ponte' | 'catacumbas' | 'memoria' | 'sinos' | 'cripta';
+export type RoomId =
+  | 'ponte' | 'catacumbas' | 'memoria' | 'sinos' | 'cripta'
+  | 'escadaria' | 'praca' | 'rua' | 'telhados' | 'nave' | 'claustro' | 'galeria' | 'altar';
 export type Ability = 'wall' | 'double';
-export type Side = 'left' | 'right';
+export type Side = 'left' | 'right' | 'up' | 'down';
 
 export interface Exit {
   side: Side;
   to: RoomId;
   entry: string;
+  // trecho da borda que é saída, em tiles: linhas (esquerda e direita) ou colunas (cima e baixo)
+  range?: [number, number];
 }
+
+// porta (cada 'O' do mapa, na ordem): entra apertando para cima
+export interface DoorDef {
+  to: RoomId;
+  entry: string;
+  // trancada até esta marca existir no progresso; locked é o que o cavaleiro pensa ao tentar
+  key?: string;
+  locked?: string;
+  // tranca por dentro: deste lado, abrir tira a tranca (grava a marca para sempre)
+  bar?: boolean;
+}
+
+export type BossId = 'sineiro' | 'arcebispo';
 
 // Dica de controle mostrada quando o cavaleiro passa por um trecho (em tiles)
 export interface HintDef {
@@ -23,9 +43,10 @@ export interface HintDef {
   needs?: Ability;
 }
 
-// Pensamento do cavaleiro, mostrado uma única vez
+// Pensamento do cavaleiro, mostrado uma única vez (y: só perto desta linha)
 export interface ThoughtDef {
   x: number;
+  y?: number;
   text: string;
 }
 
@@ -47,9 +68,16 @@ export interface RoomDef {
   noAttack?: boolean;
   hints: HintDef[];
   thoughts: ThoughtDef[];
+  doors?: DoorDef[];
+  // marca que abre cada coluna de 'Y' (na ordem das colunas)
+  locks?: string[];
+  // falas de cada esquecido 'E' (na ordem do mapa): ele repete a última
+  npcs?: string[][];
+  boss?: BossId;
 }
 
-export const ROOMS: Record<RoomId, RoomDef> = {
+// salas do prólogo
+const PROLOGUE: Record<'ponte' | 'catacumbas' | 'sinos' | 'cripta' | 'memoria', RoomDef> = {
   ponte: {
     id: 'ponte',
     map: MAP_PONTE,
@@ -135,7 +163,9 @@ export const ROOMS: Record<RoomId, RoomDef> = {
     theme: 'catacomb',
     title: 'Cripta do Sineiro',
     subtitle: 'O fim das catacumbas',
-    exits: [{ side: 'left', to: 'sinos', entry: '2' }],
+    exits: [{ side: 'left', to: 'sinos', entry: '2' }, { side: 'right', to: 'escadaria', entry: '1', range: [16, 19] }],
+    locks: ['boss:sineiro'],
+    boss: 'sineiro',
     pit: false,
     rain: false,
     lightning: false,
@@ -173,10 +203,173 @@ export const ROOMS: Record<RoomId, RoomDef> = {
   },
 };
 
+// ---------- capítulo 2: a Cidade-Catedral ----------
+const CITY: Pick<RoomDef, 'pit' | 'rain' | 'lightning' | 'petals' | 'motes'> = { pit: false, rain: false, lightning: false, petals: false, motes: true };
+
+const CHAPTER2: Record<'escadaria' | 'praca' | 'rua' | 'telhados' | 'nave' | 'claustro' | 'galeria' | 'altar', RoomDef> = {
+  escadaria: {
+    id: 'escadaria',
+    map: MAP_ESCADARIA,
+    theme: 'catacomb',
+    title: 'Escadaria dos Penitentes',
+    subtitle: 'A subida para a cidade',
+    exits: [{ side: 'left', to: 'cripta', entry: '2', range: [32, 35] }, { side: 'right', to: 'praca', entry: '1', range: [7, 10] }],
+    ...CITY,
+    drips: 16,
+    music: 'crypt',
+    ambience: 'crypt',
+    hints: [],
+    thoughts: [
+      { x: 6, y: 35, text: 'Degraus gastos de joelhos. Muita gente subiu por aqui e não voltou.' },
+      { x: 17, y: 12, text: 'Lá em cima tem luz. E sinos.' },
+    ],
+  },
+  praca: {
+    id: 'praca',
+    map: MAP_PRACA,
+    theme: 'city',
+    title: 'Praça do Cadafalso',
+    subtitle: 'Cidade-Catedral de Vespera',
+    exits: [{ side: 'left', to: 'escadaria', entry: '2', range: [25, 28] }, { side: 'right', to: 'rua', entry: '1', range: [25, 28] }],
+    doors: [{ to: 'nave', entry: 'O1', key: 'short:catedral', locked: 'Trancada por dentro. A catedral não abre para quem bate.' }],
+    npcs: [
+      ['Você também veio pagar? A fila anda devagar, mas anda.', 'Eu tinha uma filha. Ou um cachorro. Paguei os dois.', 'O Arcebispo conta tudo. Até o que a gente esqueceu.'],
+      ['Não olhe para o cadafalso. Ali penduram quem lembra demais.', 'Dizem que dá para entrar na catedral pelos telhados. Ninguém sobe mais.'],
+    ],
+    ...CITY,
+    drips: 0,
+    music: 'city',
+    ambience: 'city',
+    hints: [],
+    thoughts: [
+      { x: 8, text: 'Uma cidade inteira acordada. Ninguém lembra por quê.' },
+      { x: 56, text: 'Velas acesas no cadafalso. Alguém ainda cuida dele.' },
+    ],
+  },
+  rua: {
+    id: 'rua',
+    map: MAP_RUA,
+    theme: 'city',
+    title: 'Rua dos Penitentes',
+    subtitle: 'Onde o dízimo se paga de joelhos',
+    exits: [{ side: 'left', to: 'praca', entry: '2', range: [31, 34] }, { side: 'up', to: 'telhados', entry: '1', range: [121, 149] }],
+    npcs: [['Não pise nos incensários. A fumaça faz esquecer o caminho de casa.', 'Os arqueiros das sacadas atiram em quem anda de cabeça erguida.']],
+    ...CITY,
+    drips: 0,
+    music: 'city',
+    ambience: 'city',
+    hints: [
+      { x0: 22, x1: 34, text: 'Golpeie no instante do ataque inimigo para aparar', until: 'parry' },
+    ],
+    thoughts: [
+      { x: 5, text: 'As janelas estão acesas. Ninguém olha para fora.' },
+      { x: 118, text: 'A casa caiu em cima da rua. Só dá para seguir por cima.' },
+      { x: 135, y: 6, text: 'Os telhados ficam logo acima. Um pulo e outro no ar.' },
+    ],
+  },
+  telhados: {
+    id: 'telhados',
+    map: MAP_TELHADOS,
+    theme: 'city',
+    title: 'Telhados',
+    subtitle: 'Acima da cidade que esquece',
+    exits: [{ side: 'down', to: 'rua', entry: '3', range: [125, 146] }, { side: 'left', to: 'nave', entry: '1', range: [20, 24] }],
+    ...CITY,
+    drips: 0,
+    music: 'city',
+    ambience: 'wind',
+    hints: [],
+    thoughts: [
+      { x: 112, text: 'Daqui se vê a catedral inteira. E ela me vê.' },
+      { x: 58, y: 12, text: 'Um sino sem sineiro. Alguém ainda devia tocá-lo.' },
+      { x: 12, y: 24, text: 'O vitral está rachado. Do outro lado, a nave.' },
+    ],
+  },
+  nave: {
+    id: 'nave',
+    map: MAP_NAVE,
+    theme: 'nave',
+    title: 'Nave da Catedral',
+    subtitle: 'Onde o dízimo é contado',
+    exits: [{ side: 'right', to: 'telhados', entry: '2', range: [14, 18] }, { side: 'left', to: 'claustro', entry: '1', range: [32, 35] }],
+    doors: [
+      { to: 'galeria', entry: 'O0' },
+      { to: 'praca', entry: 'O0', key: 'short:catedral', bar: true },
+    ],
+    ...CITY,
+    drips: 10,
+    music: 'nave',
+    ambience: 'nave',
+    hints: [],
+    thoughts: [
+      { x: 110, y: 18, text: 'Bancos vazios. Todos rezam lá fora e ninguém entra.' },
+      { x: 60, y: 35, text: 'Um sino pendurado acima do lustre. Mudo há muito tempo.' },
+    ],
+  },
+  claustro: {
+    id: 'claustro',
+    map: MAP_CLAUSTRO,
+    theme: 'city',
+    title: 'Claustro',
+    subtitle: 'O jardim das irmãs',
+    exits: [{ side: 'right', to: 'nave', entry: '2', range: [32, 35] }],
+    npcs: [['As irmãs cantavam aqui. Agora só a cega canta, e ela canta lá fora.', 'Atrás da arcada guardavam o que não cabia no dízimo.']],
+    ...CITY,
+    drips: 0,
+    music: 'nave',
+    ambience: 'wind',
+    hints: [],
+    thoughts: [{ x: 45, text: 'A fonte ainda corre. A água não esquece o caminho.' }],
+  },
+  galeria: {
+    id: 'galeria',
+    map: MAP_GALERIA,
+    theme: 'nave',
+    title: 'Galeria dos Vitrais',
+    subtitle: 'A luz que sobrou',
+    exits: [{ side: 'right', to: 'altar', entry: '1', range: [23, 26] }, { side: 'down', to: 'nave', entry: '4', range: [40, 46] }],
+    doors: [{ to: 'nave', entry: 'O0' }],
+    ...CITY,
+    drips: 6,
+    music: 'nave',
+    ambience: 'nave',
+    hints: [],
+    thoughts: [
+      { x: 30, text: 'Cada vitral é alguém que pagou tudo. Ainda brilham.' },
+      { x: 104, text: 'Lá dentro alguém conta moedas. Alto.' },
+    ],
+  },
+  altar: {
+    id: 'altar',
+    map: MAP_ALTAR,
+    theme: 'nave',
+    title: 'Altar do Dízimo',
+    subtitle: 'O fim da cidade',
+    exits: [{ side: 'left', to: 'galeria', entry: '2', range: [25, 28] }],
+    boss: 'arcebispo',
+    ...CITY,
+    drips: 0,
+    music: 'nave',
+    ambience: 'nave',
+    hints: [],
+    thoughts: [{ x: 6, text: 'Um altar feito de moedas. Ele esperava por mim.' }],
+  },
+};
+
+export const ROOMS: Record<RoomId, RoomDef> = { ...PROLOGUE, ...CHAPTER2 };
+
 // Onde cada sala fica no mapa (em tiles). A memória do vale não aparece no mapa.
 export const MAP_POS: Partial<Record<RoomId, { x: number; y: number }>> = {
   ponte: { x: 0, y: 0 },
   catacumbas: { x: 180, y: 12 },
   sinos: { x: 290, y: -2 },
   cripta: { x: 386, y: -9 },
+  escadaria: { x: 434, y: -25 },
+  praca: { x: 470, y: -43 },
+  rua: { x: 590, y: -49 },
+  telhados: { x: 590, y: -89 },
+  nave: { x: 470, y: -83 },
+  claustro: { x: 380, y: -83 },
+  galeria: { x: 470, y: -117 },
+  altar: { x: 590, y: -119 },
 };

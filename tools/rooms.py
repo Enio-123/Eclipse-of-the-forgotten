@@ -7,6 +7,12 @@ T árvore grande  t árvore pequena  F figura de capa vermelha  ~ água
 R vela de descanso (cura e salva)  K o Cobrador  m fragmento de memória
 J Garras de Ferro (pulo na parede)  U Pena do Eclipse (pulo duplo)
 | grade de ferro (sólida enquanto fechada)  X onde o chefe aparece
+Cidade-Catedral:
+% parede falsa (quebra com golpes)  V vitral quebrável  Y grade com chave (RoomDef.locks)
+O porta (entra apertando para cima; RoomDef.doors na ordem do mapa)  $ baú de moedas
+b sino da freira  p página do diário  N freira cega  B ferreiro  E esquecido (fala; RoomDef.npcs)
+a arqueiro da sacada  i penitente do incensário  Z ponta do caminho da procissão
+H cadafalso grande (a vela fica em cima)  f fonte do claustro  A altar do dízimo
 """
 import sys
 
@@ -91,6 +97,8 @@ def ponte():
     g.put(113, 16, 'v')
     g.put(172, r, 'D')
     g.put(169, r, '2')
+    # página do diário na passarela baixa do desabamento
+    g.put(108, D + 4, 'p')
     return g.rows()
 
 
@@ -151,6 +159,8 @@ def catacumbas():
     g.put(12, 9, 'R')
     g.put(93, 43, 'R')
     g.put(58, 13, 'm')
+    # página do diário no fundo do poço da esquerda
+    g.put(30, 41, 'p')
     return g.rows()
 
 
@@ -233,6 +243,8 @@ def sinos():
         g.put(x, r1, 'C') if g.g[r1][x] == '.' else None
     g.put(58, r2, 'C')
     g.put(90, 8, 'C')
+    # página do diário na galeria de cima, antes do abismo
+    g.put(57, r2, 'p')
     return g.rows()
 
 
@@ -245,16 +257,320 @@ def cripta():
     g.fill(0, 15, 1, 19, '.')
     for y in range(15, 20):
         g.put(1, y, '|')
+    # passagem atrás do Sineiro para a Escadaria dos Penitentes (a grade sobe quando ele cai)
+    g.fill(46, 16, 47, 19, '.')
+    for y in range(16, 20):
+        g.put(46, y, 'Y')
     g.put(3, 19, '1')
+    g.put(44, 19, '2')
     g.put(36, 19, 'X')
     for x in (9, 16, 31, 40):
         g.put(x, 19, 'C')
     return g.rows()
 
 
+# ======================================================================================
+# Cidade-Catedral (capítulo 2). Posições no mapa em tools: ver world/rooms.ts (MAP_POS).
+# Alturas que ligam as salas: o chão da praça e da rua fica na mesma linha absoluta; a nave e
+# o claustro também; a galeria e o altar também.
+# ======================================================================================
+def escadaria():
+    """Escadaria dos Penitentes: o poço que sobe da cripta do Sineiro até a praça da cidade.
+    Entra embaixo, à esquerda; sai no alto, à direita. Degraus de 3 linhas: dá para subir com
+    o pulo comum, com os corvos atrapalhando."""
+    W, H = 36, 37
+    g = Grid(W, H, '#')
+    g.fill(1, 2, 34, 35, '.')
+    # passagem da cripta e saída para a praça
+    g.fill(0, 32, 0, 35, '.')
+    g.fill(35, 7, 35, 10, '.')
+    # claraboia: lá em cima já é a cidade
+    g.fill(13, 0, 21, 1, '.')
+    # patamares de pedra presos às paredes, alternando os lados, com tábuas no meio
+    for (x0, x1, y) in [(22, 34, 32), (1, 11, 27), (21, 34, 21), (1, 11, 15), (22, 35, 11)]:
+        g.fill(x0, y, x1, y, '#')
+    for (x0, x1, y) in [(15, 18, 30), (14, 17, 24), (15, 18, 18), (13, 17, 12)]:
+        for x in range(x0, x1 + 1):
+            g.put(x, y, '-')
+    g.put(2, 35, '1')
+    g.put(33, 10, '2')
+    g.put(28, 20, 'c')
+    g.put(26, 26, 'v')
+    g.put(8, 9, 'v')
+    g.put(4, 14, 'p')
+    g.put(3, 26, 'C')
+    g.put(9, 14, 'C')
+    g.put(31, 31, 'C')
+    g.put(30, 10, 'L')
+    return g.rows()
+
+
+def praca():
+    """Praça do Cadafalso: o centro da cidade. A vela fica em cima do cadafalso, o ferreiro
+    trabalha sob a arcada da esquerda e a freira cega espera na escadaria da catedral."""
+    W, H = 120, 34
+    g = Grid(W, H)
+    g.fill(0, 29, W - 1, H - 1, '#')
+    # muros nas pontas (as saídas ficam só na altura do chão)
+    g.fill(0, 0, 1, 24, '#')
+    g.fill(W - 2, 0, W - 1, 24, '#')
+    # arcada do ferreiro: o telhado é uma passarela de madeira
+    for x in range(3, 23):
+        g.put(x, 21, '-')
+    # cadafalso: o tablado fica 3 blocos acima do chão
+    for x in range(52, 61):
+        g.put(x, 26, '-')
+    # escadaria da catedral, com a porta no alto
+    g.fill(91, 28, 111, 28, '#')
+    g.fill(94, 27, 108, 27, '#')
+    g.fill(97, 26, 105, 26, '#')
+    r = 28
+    g.put(2, r, '1')
+    g.put(W - 3, r, '2')
+    g.put(101, 25, 'O')
+    g.put(12, r, 'B')
+    g.put(8, 20, 'p')
+    g.put(32, r, 'E')
+    g.put(78, r, 'E')
+    g.put(56, r, 'H')
+    g.put(56, 25, 'R')
+    g.put(24, r, 'Z')
+    g.put(88, r, 'Z')
+    g.put(92, 27, 'N')
+    for x in (28, 44, 72):
+        g.put(x, r, 'L')
+    g.put(40, 14, 'v')
+    g.put(84, 10, 'v')
+    return g.rows()
+
+
+def rua():
+    """Rua dos Penitentes: casas altas com sacadas (arqueiros nelas), penitentes do incensário
+    na rua e uma casa desabada no fim. Só se passa por cima: as sacadas levam ao alto do
+    entulho e de lá se pula para os telhados."""
+    W, H = 150, 40
+    g = Grid(W, H)
+    g.fill(0, 35, W - 1, H - 1, '#')
+    g.fill(0, 0, 1, 30, '#')
+    # caixote para alcançar a primeira sacada
+    g.fill(8, 33, 9, 34, '#')
+    # sacadas (tábuas presas às fachadas)
+    for (x0, x1, y) in [(11, 16, 29), (36, 41, 29), (44, 49, 23), (66, 71, 29), (75, 80, 23), (68, 73, 17),
+                        (98, 103, 29), (106, 111, 23), (98, 103, 17), (106, 111, 11), (115, 118, 9)]:
+        for x in range(x0, x1 + 1):
+            g.put(x, y, '-')
+    # a casa desabada fecha a rua; embaixo dela, o porão (parede falsa) com moedas e uma página
+    g.fill(121, 7, W - 1, 34, '#')
+    g.fill(123, 30, 129, 34, '.')
+    g.fill(121, 30, 122, 34, '%')
+    r = 34
+    g.put(2, r, '1')
+    g.put(135, 6, '3')
+    g.put(127, r, '$')
+    g.put(125, r, 'p')
+    g.put(14, 28, 'a')
+    g.put(78, 22, 'a')
+    g.put(100, 16, 'a')
+    g.put(28, r, 'i')
+    g.put(90, r, 'i')
+    g.put(58, r, 'g')
+    g.put(60, 18, 'v')
+    g.put(46, r, 'E')
+    g.put(30, r, 'Z')
+    g.put(110, r, 'Z')
+    for x in (20, 54, 86, 116):
+        g.put(x, r, 'L')
+    return g.rows()
+
+
+def telhados():
+    """Telhados: de casa em casa até a parede da catedral. A torre do sino (o primeiro da
+    freira) só se sobe pulando de parede; o vitral rachado no fim é a entrada da nave."""
+    W, H = 150, 40
+    g = Grid(W, H)
+    # parede da catedral, com o vão do vitral
+    g.fill(0, 0, 10, H - 1, '#')
+    g.fill(0, 20, 10, 24, '.')
+    for y in range(20, 25):
+        g.put(5, y, 'V')
+    # casas: telhado na linha dada, até o fundo; becos entre elas com chão no fundo
+    houses = [(11, 30, 25), (34, 48, 21), (68, 84, 26), (89, 112, 30), (116, 124, 34)]
+    for (x0, x1, top) in houses:
+        g.fill(x0, top, x1, H - 1, '#')
+    g.fill(11, H - 1, 124, H - 1, '#')
+    # torre do sino: corpo maciço, câmara aberta em cima com arcos dos dois lados
+    g.fill(52, 13, 64, H - 1, '#')
+    g.fill(52, 6, 53, 12, '#')
+    g.fill(63, 6, 64, 12, '#')
+    g.fill(51, 4, 65, 6, '#')
+    g.fill(52, 9, 53, 12, '.')
+    g.fill(63, 9, 64, 12, '.')
+    # sótão escondido debaixo de um alçapão no telhado (parede falsa no chão do telhado)
+    g.fill(74, 27, 80, 30, '.')
+    g.fill(76, 26, 77, 26, '%')
+    # buraco para a rua lá embaixo (saída para baixo) e a parede da direita
+    g.fill(147, 0, W - 1, H - 1, '#')
+    g.put(120, 33, '1')
+    g.put(2, 24, '2')
+    g.put(58, 9, 'b')
+    g.put(78, 30, 'p')
+    g.put(75, 30, '$')
+    g.put(40, 20, 'a')
+    g.put(100, 29, 'a')
+    g.put(72, 25, 'c')
+    g.put(30, 14, 'v')
+    g.put(70, 16, 'v')
+    g.put(104, 20, 'v')
+    return g.rows()
+
+
+def nave():
+    """Nave da catedral: bancos no chão, lustres pendurados no meio e as galerias dos lados.
+    O sino da nave fica pendurado acima do lustre do cruzeiro. A porta da praça está trancada
+    por dentro; a escada em caracol leva à Galeria dos Vitrais."""
+    W, H = 120, 40
+    g = Grid(W, H, '#')
+    g.fill(2, 3, 117, 35, '.')
+    # buraco na abóbada (quem cai da galeria entra por aqui)
+    g.fill(40, 0, 46, 2, '.')
+    # saídas: claustro à esquerda (no chão) e telhados à direita (na galeria de cima)
+    g.fill(0, 32, 1, 35, '.')
+    g.fill(118, 14, 119, 18, '.')
+    # galerias laterais (trifório)
+    g.fill(2, 19, 20, 19, '#')
+    g.fill(98, 19, 117, 19, '#')
+    # capela escondida debaixo da galeria da direita
+    g.fill(110, 20, 117, 35, '#')
+    g.fill(112, 31, 117, 35, '.')
+    g.fill(110, 31, 111, 35, '%')
+    # bancos
+    for (x0, x1) in [(26, 31), (36, 41), (74, 79), (84, 89)]:
+        g.fill(x0, 35, x1, 35, '#')
+    # mísulas de pedra para subir às galerias e lustres no meio
+    for (x0, x1, y) in [(86, 90, 31), (93, 97, 27), (86, 90, 23), (24, 28, 31), (17, 21, 27), (24, 28, 23)]:
+        g.fill(x0, y, x1, y, '#')
+    for (x0, x1, y) in [(84, 89, 17), (70, 75, 17), (56, 64, 14), (38, 48, 17), (28, 33, 17)]:
+        for x in range(x0, x1 + 1):
+            g.put(x, y, '-')
+    r = 35
+    g.put(116, 18, '1')
+    g.put(3, r, '2')
+    g.put(43, 3, '4')
+    # portas: a da escada em caracol (galeria) e a principal (praça, trancada por dentro)
+    g.put(14, r, 'O')
+    g.put(101, r, 'O')
+    g.put(60, 11, 'b')
+    g.put(115, r, 'm')
+    g.put(113, r, 'C')
+    g.put(117, r, 'C')
+    g.put(50, r, 'i')
+    g.put(68, r, 'i')
+    g.put(56, r, 'g')
+    g.put(8, 18, 'a')
+    g.put(102, 18, 'a')
+    # página na galeria lateral da esquerda, atrás do arqueiro
+    g.put(4, 18, 'p')
+    return g.rows()
+
+
+def claustro():
+    """Claustro: jardim aberto no meio, arcadas em volta com passarela por cima. A vela fica
+    junto da fonte; o sino do claustro, no campanário da direita. Atrás de uma parede da
+    arcada há um depósito esquecido."""
+    W, H = 90, 40
+    g = Grid(W, H, '#')
+    g.fill(9, 0, 87, 35, '.')
+    g.fill(88, 32, 89, 35, '.')
+    # depósito escondido na parede da esquerda
+    g.fill(2, 31, 7, 35, '.')
+    g.fill(8, 31, 8, 35, '%')
+    # telhados das arcadas (passarela de cima)
+    g.fill(9, 25, 22, 26, '#')
+    g.fill(66, 25, 87, 26, '#')
+    # escadas de madeira do jardim até as passarelas
+    for (x0, x1, y) in [(23, 26, 31), (27, 30, 28), (62, 65, 31), (58, 61, 28)]:
+        for x in range(x0, x1 + 1):
+            g.put(x, y, '-')
+    r = 35
+    g.put(86, r, '1')
+    g.put(45, r, 'f')
+    g.put(51, r, 'R')
+    g.put(80, 21, 'b')
+    g.put(4, r, 'p')
+    g.put(6, r, '$')
+    g.put(14, r, 'E')
+    g.put(36, r, 'g')
+    g.put(56, r, 'c')
+    g.put(16, 24, 'c')
+    g.put(45, 12, 'v')
+    g.put(70, 24, 'C')
+    return g.rows()
+
+
+def galeria():
+    """Galeria dos Vitrais: passarela no alto da nave, ao longo dos vitrais. O chão está
+    quebrado num trecho (quem cai volta para a nave); dois vitrais escondem nichos."""
+    W, H = 120, 30
+    g = Grid(W, H, '#')
+    g.fill(2, 2, 117, 26, '.')
+    g.fill(118, 23, 119, 26, '.')
+    # chão quebrado: cai na nave
+    g.fill(40, 27, 46, H - 1, '.')
+    for x in range(66, 73):
+        g.put(x, 26, '^')
+    for (x0, x1, y) in [(20, 26, 20), (54, 60, 20), (92, 98, 20), (34, 40, 14), (76, 82, 14), (93, 99, 13), (15, 19, 15)]:
+        for x in range(x0, x1 + 1):
+            g.put(x, y, '-')
+    # nicho atrás de um vitral, pendurado do teto à esquerda (página) e à direita (moedas)
+    g.fill(6, 2, 14, 15, '#')
+    g.fill(8, 11, 13, 14, '.')
+    for y in range(11, 15):
+        g.put(14, y, 'V')
+    g.fill(100, 2, 107, 13, '#')
+    g.fill(102, 9, 106, 12, '.')
+    for y in range(9, 13):
+        g.put(101, y, 'V')
+    r = 26
+    g.put(4, r, 'O')
+    g.put(116, r, '2')
+    g.put(108, r, 'R')
+    g.put(10, 14, 'p')
+    g.put(104, 12, '$')
+    g.put(28, r, 'i')
+    g.put(88, r, 'i')
+    g.put(95, r, 'g')
+    g.put(57, 19, 'a')
+    g.put(79, 13, 'a')
+    g.put(62, 8, 'v')
+    return g.rows()
+
+
+def altar():
+    """Altar do Dízimo: arena do Arcebispo. A grade fecha atrás do cavaleiro; tablados de
+    madeira para fugir da chuva de moedas."""
+    W, H = 60, 30
+    g = Grid(W, H, '#')
+    g.fill(2, 3, 57, 28, '.')
+    g.fill(0, 25, 1, 28, '.')
+    for y in range(25, 29):
+        g.put(1, y, '|')
+    for (x0, x1, y) in [(14, 19, 22), (40, 45, 22), (27, 32, 16)]:
+        for x in range(x0, x1 + 1):
+            g.put(x, y, '-')
+    r = 28
+    g.put(3, r, '1')
+    g.put(46, r, 'X')
+    g.put(53, r, 'A')
+    for x in (8, 22, 37, 50):
+        g.put(x, r, 'C')
+    return g.rows()
+
+
 if __name__ == '__main__':
     out = sys.argv[1]
-    maps = {'ponte': ponte(), 'catacumbas': catacumbas(), 'memoria': memoria(), 'sinos': sinos(), 'cripta': cripta()}
+    maps = {'ponte': ponte(), 'catacumbas': catacumbas(), 'memoria': memoria(), 'sinos': sinos(), 'cripta': cripta(),
+            'escadaria': escadaria(), 'praca': praca(), 'rua': rua(), 'telhados': telhados(), 'nave': nave(),
+            'claustro': claustro(), 'galeria': galeria(), 'altar': altar()}
     lines = ['// Gerado por ferramentas/rooms.py: não edite à mão', '']
     for k, rows in maps.items():
         lines.append(f'export const MAP_{k.upper()} = [')

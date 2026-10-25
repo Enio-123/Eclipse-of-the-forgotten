@@ -687,7 +687,7 @@ class UI {
         cost.setAttribute('aria-label', slotText(off.slots));
         for (let k = 0; k < off.slots; k++) cost.append(el('i'));
         const text = el('span', 'inv-text');
-        text.append(el('b', '', off.name), el('span', 'what', owned ? off.text : 'Ainda não tem. O Cobrador vende.'));
+        text.append(el('b', '', off.name), el('span', 'what', owned ? off.text : off.missing ?? 'Ainda não tem. O Cobrador vende.'));
         b.append(icon, text, cost, el('span', 'inv-state', !owned ? '' : on ? 'Equipado' : 'Guardado'));
         b.onclick = () => {
           const r = o.toggle(off.id);

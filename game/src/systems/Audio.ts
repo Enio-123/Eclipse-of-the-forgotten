@@ -6,9 +6,10 @@ export type SfxName =
   | 'slash' | 'heavy' | 'stab' | 'bow' | 'thunk' | 'dash' | 'jump' | 'land' | 'step'
   | 'hit' | 'hurt' | 'kill' | 'thunder' | 'drip' | 'crack' | 'shard' | 'splash' | 'ui' | 'ui-ok'
   | 'clang' | 'caw' | 'swoosh' | 'thud' | 'chime' | 'bell' | 'rest' | 'coin' | 'roar' | 'tink' | 'mend' | 'ghost'
-  | 'ash' | 'quake' | 'equip' | 'erase';
-export type TrackId = 'title' | 'bridge' | 'crypt' | 'memory' | 'boss' | 'none';
-export type AmbienceId = 'rain' | 'crypt' | 'wind' | 'none';
+  | 'ash' | 'quake' | 'equip' | 'erase'
+  | 'parry' | 'break' | 'glass' | 'page' | 'anvil' | 'smoke' | 'coinrain' | 'door' | 'locked' | 'censer' | 'draw' | 'gate';
+export type TrackId = 'title' | 'bridge' | 'crypt' | 'memory' | 'boss' | 'city' | 'nave' | 'boss2' | 'none';
+export type AmbienceId = 'rain' | 'crypt' | 'wind' | 'city' | 'nave' | 'none';
 export type StepKind = 'wet' | 'stone' | 'grass';
 
 const mtof = (m: number) => 440 * Math.pow(2, (m - 69) / 12);
@@ -32,6 +33,8 @@ interface TrackDef {
 // Acordes em MIDI (oitava 3) usados pelas faixas
 const DM = [50, 53, 57], BB = [46, 50, 53], GM = [43, 46, 50], AM = [45, 49, 52];
 const DMAJ = [50, 54, 57], BMIN = [47, 50, 54], GMAJ = [43, 47, 50], AMAJ = [45, 49, 52];
+// capítulo 2 (a cidade): mi menor, com o si maior da cadência
+const EM = [52, 55, 59], CMAJ = [48, 52, 55], AMIN = [45, 48, 52], BMAJ = [47, 51, 54];
 
 const chance = (p: number) => Math.random() < p;
 const pick = <T,>(a: T[]) => a[Math.floor(Math.random() * a.length)];
@@ -106,6 +109,68 @@ const TRACKS: Record<Exclude<TrackId, 'none'>, TrackDef> = {
       if (i === 0) e.bell(p.bus, t, [62, 61, 58, 57][bar % 4], 0.05);
       if (i === 0 && bar % 2 === 0) e.choir(p.bus, t, [r + 24, r + 27][bar % 4 === 0 ? 0 : 1], d * 14, 0.025);
       if (i === 4 && chance(0.5)) e.piano(p.bus, t, r + 24 + pick([0, 3, 7]), 0.06, d * 4);
+    },
+  },
+  // Cidade-Catedral: mi menor solene, sino da torre no começo de cada ciclo, coro de procissão
+  // ao longe e um piano que pergunta e não termina a frase
+  city: {
+    bpm: 58,
+    start(e, p) {
+      p.stop.push(e.drone(p.bus, 40, 0.03));
+    },
+    step(e, p, s, t, d) {
+      const prog = [EM, CMAJ, AMIN, BMAJ];
+      const bar = Math.floor(s / 8);
+      const ch = prog[Math.floor(bar / 2) % 4];
+      const i = s % 8;
+      if (i === 0 && bar % 2 === 0) e.pad(p.bus, t, ch.map((n) => n + 12), d * 16, 0.036, 700);
+      if (i === 0) e.piano(p.bus, t, ch[0] - 12, 0.1, d * 8);
+      if (s % 64 === 0) e.bell(p.bus, t, 64, 0.05);
+      if (s % 64 === 4) e.bell(p.bus, t, 59, 0.035);
+      // a procissão: duas notas longas do coro, como um canto que passa
+      if (bar % 8 === 4 && i === 0) e.choir(p.bus, t, ch[0] + 12, d * 10, 0.02);
+      if (bar % 8 === 5 && i === 4) e.choir(p.bus, t, ch[2] + 12, d * 10, 0.018);
+      if ((i === 3 || i === 6) && chance(0.35)) e.piano(p.bus, t, pick([ch[0] + 24, ch[1] + 24, ch[2] + 12, ch[1] + 12]), 0.06, d * 8);
+      if (bar % 4 === 3 && i === 0) e.piano(p.bus, t, ch[2] + 24, 0.08, d * 12);
+    },
+  },
+  // Nave: órgão (pad aberto e grave), coro de vozes longas e o eco da catedral
+  nave: {
+    bpm: 46,
+    start(e, p) {
+      p.stop.push(e.drone(p.bus, 28, 0.035), e.drone(p.bus, 40, 0.02));
+    },
+    step(e, p, s, t, d) {
+      const prog = [EM, AMIN, CMAJ, BMAJ];
+      const bar = Math.floor(s / 8);
+      const ch = prog[Math.floor(bar / 2) % 4];
+      const i = s % 8;
+      if (i === 0 && bar % 2 === 0) {
+        e.pad(p.bus, t, [ch[0], ...ch.map((n) => n + 12)], d * 16, 0.03, 1500);
+        e.choir(p.bus, t, ch[1] + 12, d * 15, 0.02);
+      }
+      if (i === 4 && bar % 2 === 1) e.choir(p.bus, t, ch[2] + 12, d * 10, 0.014);
+      if (chance(0.05)) e.bell(p.bus, t, pick([76, 79, 83, 88]), 0.025);
+      if (i === 0 && bar % 4 === 2) e.piano(p.bus, t, ch[0] + 24, 0.05, d * 14);
+    },
+  },
+  // Arcebispo do Dízimo: órgão em ostinato, sino em cada tempo forte e o coro que cresce
+  boss2: {
+    bpm: 108,
+    start(e, p) {
+      p.stop.push(e.drone(p.bus, 40, 0.05), e.drone(p.bus, 47, 0.025));
+    },
+    step(e, p, s, t, d) {
+      const bar = Math.floor(s / 8);
+      const i = s % 8;
+      const roots = [40, 40, 36, 35];
+      const r = roots[Math.floor(bar / 2) % 4];
+      const pat = [0, 12, 7, 12, 3, 12, 7, 15];
+      e.piano(p.bus, t, r + pat[i], i % 2 === 0 ? 0.11 : 0.07, d * 2);
+      if (i === 0) e.bell(p.bus, t, [64, 64, 60, 59][bar % 4], 0.05);
+      if (i === 0 && bar % 2 === 0) e.pad(p.bus, t, [r + 12, r + 19, r + 24], d * 16, 0.03, 1600);
+      if (i === 0 && bar % 4 === 0) e.choir(p.bus, t, r + 24, d * 14, 0.024);
+      if (i === 4 && bar % 4 === 2) e.choir(p.bus, t, r + 27, d * 12, 0.02);
     },
   },
   // Memória: ré maior, caixinha de música, pad quente e uma flauta
@@ -505,6 +570,44 @@ class AudioEngine {
       window.setTimeout(chirp, 1500);
       stops.push(() => (alive = false));
     }
+    if (id === 'city') {
+      // vento entre as casas, o murmúrio de uma cidade que reza baixo e um sino distante
+      const w = noise('bandpass', 520, 0.7, 0.045);
+      lfo(w.bf.frequency, 0.05, 180);
+      lfo(w.g.gain, 0.09, 0.02);
+      const crowd = noise('bandpass', 380, 3.5, 0.03);
+      lfo(crowd.bf.frequency, 0.13, 70);
+      lfo(crowd.g.gain, 0.21, 0.015);
+      noise('lowpass', 160, 0.6, 0.08);
+      let alive = true;
+      const toll = () => {
+        if (!alive) return;
+        this.bell(bus, ctx.currentTime, pick([52, 55, 59]), 0.03);
+        window.setTimeout(toll, 18000 + Math.random() * 22000);
+      };
+      window.setTimeout(toll, 6000 + Math.random() * 6000);
+      stops.push(() => (alive = false));
+    } else if (id === 'nave') {
+      // o ar parado de uma nave enorme: grave fundo, um chiado de velas e vozes que voltam do eco
+      noise('lowpass', 120, 0.6, 0.18);
+      const air = noise('bandpass', 900, 0.5, 0.012);
+      lfo(air.g.gain, 0.07, 0.006);
+      let alive = true;
+      const voice = () => {
+        if (!alive) return;
+        this.choir(bus, ctx.currentTime, pick([52, 55, 59, 64]), 4 + Math.random() * 3, 0.01);
+        window.setTimeout(voice, 9000 + Math.random() * 12000);
+      };
+      const crackle = () => {
+        if (!alive) return;
+        const now = ctx.currentTime;
+        for (let k = 0; k < 2 + Math.floor(Math.random() * 3); k++) this.nz(bus, now + k * 0.03 + Math.random() * 0.02, 0.012, 'highpass', 5200, 4200, 0.03, 1);
+        window.setTimeout(crackle, 700 + Math.random() * 2600);
+      };
+      window.setTimeout(voice, 3000);
+      window.setTimeout(crackle, 900);
+      stops.push(() => (alive = false));
+    }
     this.amb = { id, bus, stop: () => stops.forEach((f) => f()) };
   }
 
@@ -726,6 +829,104 @@ class AudioEngine {
         // progresso apagado: notas que descem e um sopro que leva tudo
         [784, 587, 440, 330].forEach((f, i) => this.tone(out, t + i * 0.11, 0.5, 'sine', f, f * 0.985, 0.06));
         this.nz(out, t, 1.2, 'bandpass', 1800, 300, 0.12, 0.8);
+        break;
+      case 'parry':
+        // aparar: um tinido limpo e alto que ecoa, diferente do escudo (mais agudo e brilhante)
+        this.nz(out, t, 0.04, 'highpass', 7000, 4500, 0.4, 1.2);
+        this.tone(out, t, 0.7, 'triangle', 2637 * r, 2600 * r, 0.14);
+        this.tone(out, t, 0.5, 'sine', 3951 * r, 3920 * r, 0.07);
+        this.tone(out, t + 0.012, 0.9, 'sine', 1318 * r, 1310 * r, 0.08);
+        this.tone(out, t, 0.12, 'sine', 220, 110, 0.25);
+        break;
+      case 'break':
+        // parede falsa caindo: pedra que racha, desaba e rola
+        this.nz(out, t, 0.04, 'highpass', 3600, 2400, 0.3, 1);
+        this.nz(out, t + 0.03, 0.55, 'lowpass', 1400 * r, 160, 0.5, 0.7);
+        this.tone(out, t + 0.02, 0.4, 'sine', 90, 40, 0.45);
+        for (let k = 0; k < 6; k++) this.nz(out, t + 0.12 + k * 0.07 + Math.random() * 0.05, 0.05, 'bandpass', 900 + Math.random() * 900, 400, 0.12, 2);
+        break;
+      case 'glass':
+        // vitral estilhaçando: estalo e uma chuva de cacos agudos que tilintam
+        this.nz(out, t, 0.06, 'highpass', 6000, 3500, 0.45, 1);
+        this.nz(out, t, 0.5, 'highpass', 4200, 2600, 0.12, 0.8);
+        for (let k = 0; k < 14; k++) {
+          const tt = t + 0.02 + Math.random() * 0.6;
+          const f = 2800 + Math.random() * 4200;
+          this.tone(out, tt, 0.18 + Math.random() * 0.2, 'sine', f * r, f * r * 0.99, 0.02 + Math.random() * 0.025);
+        }
+        break;
+      case 'page':
+        // página do diário: papel velho virando
+        this.nz(out, t, 0.12, 'bandpass', 2600, 4200, 0.12, 0.9);
+        this.nz(out, t + 0.1, 0.16, 'bandpass', 3400, 2100, 0.1, 0.9);
+        this.tone(out, t + 0.05, 0.6, 'sine', 1568, 1560, 0.035);
+        break;
+      case 'anvil':
+        // martelo na bigorna: pancada seca e o ferro cantando por um tempo
+        this.nz(out, t, 0.03, 'highpass', 5000, 3000, 0.35, 1);
+        this.tone(out, t, 1.2, 'triangle', 1190 * r, 1180 * r, 0.1);
+        this.tone(out, t, 0.9, 'sine', 2950 * r, 2930 * r, 0.05);
+        this.tone(out, t, 0.6, 'sine', 4410 * r, 4400 * r, 0.025);
+        this.tone(out, t, 0.08, 'sine', 180, 90, 0.3);
+        break;
+      case 'smoke':
+        // incenso soltando fumaça: um sopro abafado que cresce e some
+        {
+          const src = ctx.createBufferSource();
+          src.buffer = this.noise;
+          const lp = ctx.createBiquadFilter();
+          lp.type = 'lowpass';
+          lp.frequency.setValueAtTime(500 * r, t);
+          lp.frequency.exponentialRampToValueAtTime(180, t + 0.8);
+          const g = ctx.createGain();
+          g.gain.setValueAtTime(0, t);
+          g.gain.linearRampToValueAtTime(0.3, t + 0.12);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.9);
+          src.connect(lp).connect(g).connect(out);
+          src.start(t, Math.random());
+          src.stop(t + 0.95);
+        }
+        break;
+      case 'coinrain':
+        // chuva do dízimo: moedas batendo em toda parte
+        for (let k = 0; k < 16; k++) {
+          const tt = t + Math.random() * 0.9;
+          const f = 2300 + Math.random() * 1600;
+          this.tone(out, tt, 0.12, 'sine', f, f * 0.99, 0.03);
+          this.tone(out, tt, 0.03, 'square', f * 0.75, f * 0.74, 0.008);
+        }
+        break;
+      case 'door':
+        // porta pesada de madeira: rangido grave e o baque ao fechar
+        this.nz(out, t, 0.5, 'bandpass', 280 * r, 420 * r, 0.16, 6);
+        this.tone(out, t, 0.45, 'sawtooth', 92 * r, 70 * r, 0.04);
+        this.tone(out, t + 0.42, 0.25, 'sine', 90, 42, 0.4);
+        this.nz(out, t + 0.42, 0.12, 'lowpass', 700, 150, 0.25, 0.8);
+        break;
+      case 'locked':
+        // trinco que não cede: três batidas curtas de ferro
+        for (let k = 0; k < 3; k++) {
+          this.tone(out, t + k * 0.09, 0.06, 'square', 340, 300, 0.05);
+          this.nz(out, t + k * 0.09, 0.04, 'bandpass', 1600, 900, 0.16, 3);
+        }
+        break;
+      case 'censer':
+        // incensário girando na corrente: elos que chiam e o metal que tilinta
+        this.nz(out, t, 0.32, 'bandpass', 700 * r, 2400 * r, 0.22, 1.4);
+        for (let k = 0; k < 5; k++) this.tone(out, t + k * 0.05, 0.05, 'square', (2900 + k * 140) * r, 2800 * r, 0.012);
+        break;
+      case 'draw':
+        // corda do arco esticando
+        this.tone(out, t, 0.45, 'triangle', 160 * r, 260 * r, 0.05);
+        this.nz(out, t, 0.4, 'bandpass', 1800, 2600, 0.04, 4);
+        break;
+      case 'gate':
+        // grade de ferro subindo: corrente que range e roda
+        for (let k = 0; k < 10; k++) {
+          this.tone(out, t + k * 0.16, 0.08, 'square', 210 + (k % 2) * 30, 180, 0.03);
+          this.nz(out, t + k * 0.16, 0.07, 'bandpass', 1300, 700, 0.07, 3);
+        }
+        this.nz(out, t, 1.7, 'lowpass', 400, 200, 0.12, 0.7);
         break;
     }
   }

@@ -15,10 +15,12 @@ import { Level, isGround, isSolid } from '../world/Level';
 import { Decor, DEPTH } from '../world/Decor';
 import { Backdrop } from '../world/Backdrop';
 import { Weather } from '../world/Weather';
-import { MAP_POS, ROOMS, type Exit, type RoomDef, type RoomId } from '../world/rooms';
+import { MAP_POS, ROOMS, type Exit, type RoomDef, type RoomId, type Side } from '../world/rooms';
 import { Props, type MemoryOrb, type Relic, type Shrine } from '../world/Props';
+import { Fixtures, type Door } from '../world/Fixtures';
+import type { Breakable } from '../world/secrets';
 import { Loot } from '../world/Loot';
-import { MEMORIES, OFFERS, RELICS } from '../world/lore';
+import { BELLS, MEMORIES, OFFERS, PAGES, RELICS } from '../world/lore';
 import { TILE_ONEWAY } from '../gfx/textures';
 import { ui } from '../ui/ui';
 import { pad } from '../systems/Pad';
@@ -30,6 +32,8 @@ export interface GameInit {
   room: RoomId;
   entry: string;
   from: Arrival;
+  // por qual borda saiu da sala anterior (quem cai por um buraco chega caindo)
+  via?: Side;
 }
 
 // inimigo do mapa e por onde o cavaleiro já passou dele (bits: 1 esquerda, 2 direita, 4 acima, 8 abaixo;
@@ -75,6 +79,7 @@ export class GameScene extends Phaser.Scene {
   enemies: Enemy[] = [];
   arrows: Arrow[] = [];
   props!: Props;
+  fixtures!: Fixtures;
   loot!: Loot;
   boss: Boss | null = null;
   private bossFrac = -1;
@@ -99,6 +104,8 @@ export class GameScene extends Phaser.Scene {
   private dust!: Phaser.GameObjects.Particles.ParticleEmitter;
   private sparks!: Phaser.GameObjects.Particles.ParticleEmitter;
   private clangs!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private rubble!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private glassFx!: Phaser.GameObjects.Particles.ParticleEmitter;
   private feathers!: Phaser.GameObjects.Particles.ParticleEmitter;
   private shards!: Phaser.GameObjects.Particles.ParticleEmitter;
   private gold!: Phaser.GameObjects.Particles.ParticleEmitter;
@@ -140,7 +147,7 @@ export class GameScene extends Phaser.Scene {
     document.body.classList.add('playing');
 
     const room = this.room;
-    this.level = new Level(this, room.map, room.theme);
+    this.level = new Level(this, room.map, room.theme, room.id, (id) => progress.seen.has(id));
     this.level.layer.setDepth(DEPTH.tiles);
     // terreno pintado da sala: os tiles continuam só para a física
     const terrain = `terrain-${room.id}`;
@@ -153,16 +160,21 @@ export class GameScene extends Phaser.Scene {
     // na volta da memória o ouro novo só aparece depois do efeito (e a grade abre na frente do jogador)
     const fresh = data.from === 'memory' && !progress.seen.has('memory:vale');
     this.props = new Props(this, room.id !== 'catacumbas' || (progress.seen.has('memory:vale') && !fresh));
+    this.fixtures = new Fixtures(this);
 
-    // as laterais com saída e o fundo do abismo não seguram o jogador
+    // as laterais com saída e o fundo do abismo (ou do buraco que leva para baixo) não seguram o jogador
     const W = this.level.widthPx;
     const H = this.level.heightPx;
     const exitL = room.exits.some((e) => e.side === 'left');
     const exitR = room.exits.some((e) => e.side === 'right');
-    this.physics.world.setBounds(0, 0, W, H + (room.pit ? 400 : 0));
-    this.physics.world.setBoundsCollision(!exitL, !exitR, false, !room.pit);
+    const exitD = room.exits.some((e) => e.side === 'down');
+    this.physics.world.setBounds(0, 0, W, H + (room.pit || exitD ? 400 : 0));
+    this.physics.world.setBoundsCollision(!exitL, !exitR, false, !room.pit && !exitD);
 
     const spawn = this.level.spawn(data.entry) ?? this.level.spawn('P') ?? this.level.spawns[0];
+    // chegou por trás de uma parede ainda de pé (só acontece fora do caminho normal): ela já caiu
+    const hidden = this.fixtures.veiled(spawn.tx, spawn.ty);
+    if (hidden) this.fixtures.breakWall(hidden, false);
     // uma arma de chefe só vale se já foi ganha neste progresso
     if (!progress.hasWeapon(settings.data.weapon)) {
       settings.data.weapon = 'scythe';
@@ -171,6 +183,7 @@ export class GameScene extends Phaser.Scene {
     this.player = new Player(this, spawn.x, spawn.y, settings.data.weapon);
     this.player.facing = spawn.x < W / 2 ? 1 : -1;
     this.player.canAttack = !room.noAttack;
+    if (data.via === 'down') this.player.body.setVelocityY(220);
     this.applyProgress();
     const keepHp = data.from === 'door' ? (this.registry.get('hp') as number | undefined) : undefined;
     this.player.hp = keepHp && keepHp > 0 ? Math.min(keepHp, progress.maxHp) : progress.maxHp;
@@ -215,7 +228,8 @@ export class GameScene extends Phaser.Scene {
       listener: () => ({ x: this.player.x, y: this.player.body.bottom }),
     });
     if (room.theme !== 'memory') {
-      this.add.image(0, 0, 'vignette').setOrigin(0).setScrollFactor(0).setDepth(29).setAlpha(room.theme === 'catacomb' ? 0.9 : 0.5);
+      const dark = { bridge: 0.5, catacomb: 0.9, city: 0.55, nave: 0.8 }[room.theme];
+      this.add.image(0, 0, 'vignette').setOrigin(0).setScrollFactor(0).setDepth(29).setAlpha(dark);
     }
     if (room.theme === 'bridge') {
       this.add.tileSprite(0, VIEW_H - 120, 640, 140, 'fog').setOrigin(0).setScrollFactor(0).setDepth(30).setAlpha(0.35).setName('fog-front');
@@ -236,7 +250,8 @@ export class GameScene extends Phaser.Scene {
     audio.music(room.music);
     audio.ambience(room.ambience);
     audio.stepKind = room.theme === 'bridge' ? 'wet' : room.theme === 'memory' ? 'grass' : 'stone';
-    audio.space = room.theme === 'catacomb' ? 0.45 : 0.12;
+    // a nave ecoa mais que tudo; a cidade aberta quase nada
+    audio.space = { bridge: 0.12, catacomb: 0.45, memory: 0.12, city: 0.16, nave: 0.62 }[room.theme];
 
     // o ponto de retorno é a última vela acesa (no começo, a ponte); da memória volta-se para a vela do espelho
     if (data.from === 'new') progress.checkpoint(room.id, data.entry, settings.data.weapon);
@@ -372,6 +387,27 @@ export class GameScene extends Phaser.Scene {
       blendMode: Phaser.BlendModes.ADD,
       emitting: false,
     }).setDepth(12);
+    // pedra da parede falsa e cacos do vitral
+    this.rubble = this.add.particles(0, 0, 'px', {
+      lifespan: { min: 500, max: 1100 },
+      speed: { min: 50, max: 190 },
+      angle: { min: 190, max: 350 },
+      gravityY: 700,
+      scale: { start: 2, end: 0.8 },
+      tint: [0x3a3e50, 0x2a2e3d, 0x535a70, 0x1b1e29],
+      emitting: false,
+    }).setDepth(DEPTH.enemy + 2);
+    this.glassFx = this.add.particles(0, 0, 'px', {
+      lifespan: { min: 500, max: 1200 },
+      speed: { min: 60, max: 220 },
+      angle: { min: 180, max: 360 },
+      gravityY: 620,
+      rotate: { min: 0, max: 360 },
+      scale: { start: 1.6, end: 0.6 },
+      tint: [0xc9443c, 0x3f6fc9, 0xe0b04a, 0x4ea86a, 0xe8e0cc],
+      blendMode: Phaser.BlendModes.ADD,
+      emitting: false,
+    }).setDepth(DEPTH.enemy + 2);
     this.shards = this.add.particles(0, 0, 'px', {
       lifespan: { min: 400, max: 800 },
       speed: { min: 40, max: 160 },
@@ -463,6 +499,7 @@ export class GameScene extends Phaser.Scene {
     this.updateQuakes(dt);
     this.updateWeaponDrop(dt);
     this.props.update(time, p);
+    this.fixtures.update(time, dt);
     this.trackVisit(dt);
     this.bossFight();
     this.updateArrows(dt);
@@ -510,6 +547,7 @@ export class GameScene extends Phaser.Scene {
         this.cameras.main.shake(60, 0.003);
         pad.rumble(0.2, 0.3, 60);
       }
+      if (this.fixtures.strike(box, p)) hit = true;
       if (p.atkDir === 'down' && !p.hitSet.has('spikes') && this.level.touchesSpikes(box.x, box.y, box.width, box.height)) {
         p.hitSet.add('spikes');
         hit = true;
@@ -719,9 +757,14 @@ export class GameScene extends Phaser.Scene {
       if (a.update(dt, this.level) === 'wall') {
         this.sparks.explode(4, a.tip.x, a.tip.y);
         this.sfx('thunk');
+        this.fixtures.arrow(a.rect, a.tip, a.x - a.dx * 20);
         continue;
       }
       if (a.dead || a.stuck) continue;
+      if (this.fixtures.arrow(a.rect, a.tip, a.x - a.dx * 20)) {
+        a.destroy();
+        continue;
+      }
       for (const e of this.enemies) {
         if (!e.alive || !overlap(a.rect, e.rect)) continue;
         const r = e.hit(a.x - a.dx * 20, a.dmg, 'arrow');
@@ -824,9 +867,11 @@ export class GameScene extends Phaser.Scene {
     const p = this.player;
     const tx = p.x / TILE;
     if (!this.cinematic && !this.transitioning) {
+      const ty = p.body.bottom / TILE - 1;
       this.room.thoughts.forEach((t, i) => {
         const key = `thought:${this.room.id}:${i}`;
         if (progress.seen.has(key) || Math.abs(tx - t.x) > 1.5) return;
+        if (t.y !== undefined && Math.abs(ty - t.y) > 3) return;
         progress.seen.add(key);
         ui.thought(t.text);
       });
@@ -847,7 +892,8 @@ export class GameScene extends Phaser.Scene {
     }
     if (!hint && !this.cinematic && !this.transitioning && !p.dead) {
       this.props.touch(p);
-      const near = this.cinematic ? null : this.props.nearby(p);
+      this.fixtures.touch(p);
+      const near = this.props.nearby(p) ?? this.fixtures.nearby(p);
       if (near) {
         hint = near.hint;
         if (this.controls.pressed.up) {
@@ -911,21 +957,99 @@ export class GameScene extends Phaser.Scene {
   }
 
   private exits() {
-    if (this.transitioning) return;
+    if (this.transitioning || this.player.dead) return;
     const b = this.player.body;
     const W = this.level.widthPx;
-    const ex = this.room.exits.find((e) => (e.side === 'right' && b.center.x > W + 2) || (e.side === 'left' && b.center.x < -2));
+    const H = this.level.heightPx;
+    const col = b.center.x / TILE;
+    // nas saídas de cima e de baixo só vale o trecho do buraco (fora dele o cavaleiro volta a cair)
+    const inRange = (e: Exit) => !e.range || (col >= e.range[0] && col <= e.range[1] + 1);
+    const ex = this.room.exits.find(
+      (e) =>
+        (e.side === 'right' && b.center.x > W + 2) ||
+        (e.side === 'left' && b.center.x < -2) ||
+        (e.side === 'up' && b.center.y < -2 && inRange(e)) ||
+        (e.side === 'down' && b.center.y > H + 2 && inRange(e)),
+    );
     if (ex) this.goTo(ex);
   }
 
-  private goTo(ex: Exit) {
+  private goTo(ex: { to: RoomId; entry: string; side?: Side }) {
     this.transitioning = true;
     ui.hint(null);
     if (this.dirty) progress.save();
     this.registry.set('hp', this.player.hp);
     const cam = this.cameras.main;
     cam.fadeOut(260, 7, 8, 13);
-    cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => this.scene.restart({ room: ex.to, entry: ex.entry, from: 'door' } satisfies GameInit));
+    cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () =>
+      this.scene.restart({ room: ex.to, entry: ex.entry, from: 'door', via: ex.side } satisfies GameInit),
+    );
+  }
+
+  // ---------- portas, paredes falsas, sinos e páginas ----------
+  useDoor(d: Door) {
+    const key = d.def.key;
+    if (key && !progress.seen.has(key)) {
+      this.sfx('locked');
+      ui.thought(d.def.locked ?? 'Trancada.', 3600);
+      return;
+    }
+    this.sfx('door');
+    this.player.frozen = true;
+    this.player.body.setVelocity(0, 0);
+    this.goTo({ to: d.def.to, entry: d.def.entry });
+  }
+
+  // tirar a tranca por dentro: o atalho fica aberto para sempre
+  unbar(d: Door) {
+    const key = d.def.key;
+    if (!key) return;
+    progress.seen.add(key);
+    progress.save();
+    this.sfx('locked', 0.7);
+    this.time.delayedCall(240, () => this.sfx('door', 0.8, 1.1));
+    this.cameras.main.shake(120, 0.003);
+    ui.thought('A tranca cedeu. A porta da praça fica aberta daqui para frente.', 4200);
+  }
+
+  debris(x: number, y: number, kind: 'rock' | 'glass', n: number) {
+    (kind === 'glass' ? this.glassFx : this.rubble).explode(n, x, y);
+    if (kind === 'rock') this.dust.explode(Math.ceil(n / 2), x, y);
+  }
+
+  // parede falsa ou vitral caiu: o esconderijo aparece
+  onSecret(b: Breakable) {
+    if (!progress.seen.has('secret:first')) {
+      progress.seen.add('secret:first');
+      this.time.delayedCall(700, () => ui.thought(b.ch === 'V' ? 'Vidro antigo. Do outro lado, passagem.' : 'Parede oca. Esta cidade esconde coisas atrás das paredes.', 4200));
+    }
+  }
+
+  // sino da cidade tocado (os três da freira contam para a missão dela)
+  onBell(key: string, first: boolean) {
+    if (!first) return;
+    progress.seen.add(key);
+    progress.save();
+    const rung = BELLS.filter((k) => progress.seen.has(k)).length;
+    if (progress.seen.has('quest:sinos') && !progress.seen.has('quest:sinos:done')) {
+      this.time.delayedCall(1200, () =>
+        ui.thought(rung >= BELLS.length ? 'Os três sinos tocaram. A irmã Luzia deve ter ouvido.' : `O sino ecoa pela cidade. Faltam ${BELLS.length - rung}.`, 4200),
+      );
+    } else this.time.delayedCall(1200, () => ui.thought('O som corre por toda a cidade. Alguém lá embaixo parou para ouvir.', 4200));
+  }
+
+  takePage(id: string, x: number, y: number) {
+    progress.seen.add(`page:${id}`);
+    progress.save();
+    this.sfx('page');
+    this.gold.explode(10, x, y);
+    const info = PAGES[id];
+    const has = progress.seen.has('journal');
+    ui.banner(info?.title ?? 'Página solta', has ? 'Página do diário · veja na pausa' : 'Uma página solta, escrita à mão', 3800);
+    if (!has && !progress.seen.has('page:first')) {
+      progress.seen.add('page:first');
+      this.time.delayedCall(4000, () => ui.thought('Alguém escrevia sobre esta cidade. Guardo comigo.', 3800));
+    }
   }
 
   private follow(dt: number) {
@@ -1074,7 +1198,9 @@ export class GameScene extends Phaser.Scene {
       this.props.addMemory('cripta:boss', x, b.body.bottom - 28, true);
       this.sfx('chime');
       this.props.setGates(true, true);
+      this.fixtures.openLocks('boss:sineiro', true);
       ui.thought('O sino parou. Pela primeira vez, silêncio.', 4600);
+      this.time.delayedCall(5200, () => ui.thought('Atrás dele, outra grade subiu. Há degraus que sobem.', 4600));
     });
     // e a arma dele cai do outro lado do corpo
     const w = this.bossWeapon('sineiro');
