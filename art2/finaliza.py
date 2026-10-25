@@ -69,6 +69,19 @@ THEMES = {
                  hexc(0x2a4e9a), hexc(0x9c2a2c), hexc(0xc99a3a), hexc(0x2f7a4a), hexc(0x5a3a8a)],
         colors=96,
     ),
+    # Prisão Subterrânea: só o terreno sai em pixel (os fundos e os objetos são no traço liso)
+    'prison': dict(
+        layers={
+            'terreno-poco': 'exact', 'terreno-celas': 'exact', 'terreno-correntes': 'exact', 'terreno-guarita': 'exact',
+            'terreno-fuga': 'exact', 'terreno-arena': 'exact', 'terreno-mascara': 'exact', 'terreno-celas-secret': 'veil',
+        },
+        rename={n: n.replace('terreno', 'terrain') for n in [
+            'terreno-poco', 'terreno-celas', 'terreno-correntes', 'terreno-guarita', 'terreno-fuga', 'terreno-arena', 'terreno-mascara',
+            'terreno-celas-secret']},
+        accents=[hexc(0xff9a44), hexc(0xffd890), hexc(0xff7a2a), hexc(0x9aa6ba), hexc(0xb4c4c8), hexc(0x5e3522), hexc(0x3a5234),
+                 hexc(0x050607)],
+        colors=96,
+    ),
     'forest': dict(
         layers={'intro-back': 'opaque', 'intro-near': 'soft', 'intro-fore': 'soft', 'intro-beams': 'soft'},
         accents=[hexc(0x2e0a0c), hexc(0x5e1517), hexc(0x8a231e), hexc(0xb2382b), hexc(0x3b2219), hexc(0x66412f), hexc(0xd9e4c8)],

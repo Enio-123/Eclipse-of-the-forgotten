@@ -280,6 +280,119 @@ for k in ('shawl', 'hat'):
     FOLK_ANIMS[f'talk-{k}'] = ([dict(kind=k, tilt=-10, lean=3, armF=(50, 40)), dict(kind=k, tilt=-6, lean=4, armF=(60, 30), hip=(0, 0.3))], 3, True)
 
 
+
+# ======================= Tomé, o preso =======================
+# magro e curvado, túnica de linho rasgada até o joelho, calça puída, pés descalços, cabelo
+# embaraçado caindo pelos ombros, a máscara lisa dos esquecidos rachada e os pulsos presos por
+# algemas com um pedaço de corrente entre as mãos
+PRISONER_W, PRISONER_H = 64, 76
+PRISONER_FEET = (30, 73)
+
+
+def prisoner(pose):
+    p = dict(hip=(0.0, 0.0), lean=14.0, tilt=6.0, sway=0.0, armF=(34.0, 58.0), armB=(30.0, 62.0), chain=0.0)
+    p.update(pose)
+    prims, decals = [], []
+    hip = add((30.0, 53.0), p['hip'])
+    lean = math.radians(p['lean'])
+    u = (math.sin(lean), -math.cos(lean))
+    f = (math.cos(lean), math.sin(lean))
+    neck = add(hip, u, 13.0)
+    head = add(add(neck, u, 4.8), f, 3.2)
+
+    # pernas finas: calça puída até a canela, canela e pé descalços
+    def leg(root, th, kn, z, shade):
+        knee = add(root, dirv(th), 9.4)
+        ankle = add(knee, dirv(th - kn), 9.2)
+        torn = add(knee, dirv(th - kn), 4.6)
+        prims.append(Capsule('thigh', 'wool', z, root, knee, 2.6, 2.2, shade=shade))
+        prims.append(Capsule('pant', 'wool', z + 0.04, knee, torn, 2.2, 2.3, shade=shade))
+        prims.append(Capsule('shin', 'flesh', z + 0.02, torn, ankle, 1.5, 1.3, shade=shade * 0.78))
+        prims.append(Capsule('foot', 'flesh', z + 0.06, add(ankle, (-1.2, 0.4)), add(ankle, (3.8, 0.9)), 1.5, 1.1, shade=shade * 0.72))
+
+    leg(add(hip, f, -1.8), -8, 6, 1.5, 0.62)
+    leg(add(hip, f, 2.0), 10, 12, 2.0, 0.9)
+
+    # túnica rasgada: barra irregular na altura do joelho
+    sway = p['sway']
+    top = [add(neck, f, -4.6), add(add(neck, f, 3.8), u, -0.4), add(add(neck, f, 6.6), u, -5.6), add(add(hip, f, 5.6), u, 2.0)]
+    hem = []
+    jag = [0.0, 2.6, 0.4, 3.4, 1.0, 2.2, 0.0, 3.0]
+    for i in range(len(jag)):
+        t = i / (len(jag) - 1)
+        x = 6.2 + sway - t * (12.6 + sway * 0.4)
+        hem.append(add(add(hip, f, x), u, -9.6 - jag[i]))
+    back = [add(add(hip, f, -6.4), u, 2.4), add(add(neck, f, -6.0), u, -5.0)]
+
+    def nf(x, y):
+        nx = -(x - hip[0]) / 14 + 0.35 * math.sin(x * 1.1 + y * 0.2)
+        ny = -0.6 * max(0.0, 1 - (y - neck[1]) / 12)
+        return norm((nx, ny, 0.8))
+
+    prims.append(Poly('tunic', 'linen', 3.0, top + hem + back, nf=nf, shade=0.6))
+    # corda no lugar do cinto
+    prims.append(Capsule('rope', 'string', 3.2, add(add(hip, f, -5.8), u, 2.2), add(add(hip, f, 5.8), u, 1.6), 0.9, 0.9, shade=0.9))
+
+    # braço de trás (a mão encontra a da frente, presa na mesma corrente)
+    def limb(root, ang, z, shade):
+        up, el = ang
+        elbow = add(root, dirv(up), 7.2)
+        hand = add(elbow, dirv(up + el), 6.6)
+        prims.append(Capsule('upper', 'linen', z, root, elbow, 2.1, 1.8, shade=shade * 0.72))
+        prims.append(Capsule('fore', 'flesh', z + 0.05, elbow, hand, 1.6, 1.4, shade=shade * 0.8))
+        prims.append(Ellipse('hand', 'flesh', z + 0.1, hand, 1.5, 1.5, shade=shade * 0.8))
+        cuff = add(elbow, dirv(up + el), 5.0)
+        prims.append(Ellipse('cuff', 'steel', z + 0.12, cuff, 2.0, 2.3, ang=math.radians(-(up + el)), shade=shade))
+        return cuff
+
+    cB = limb(add(add(neck, f, -2.6), u, -2.4), p['armB'], 2.6, 0.7)
+
+    # cabelo embaraçado atrás da cabeça e caindo nos ombros
+    tilt = math.radians(p['tilt'])
+    hl = lambda q: add(head, rot(q, lean + tilt))
+    hair = [hl((-5.8, -3.4)), hl((-1.0, -6.4)), hl((3.8, -5.6)), hl((5.6, -2.4)), hl((4.2, 1.2)), hl((2.6, 2.0)), hl((-1.8, 6.6)),
+            hl((-4.4, 9.4)), hl((-6.6, 7.0)), hl((-7.4, 2.2))]
+    prims.append(Poly('hair', 'wool', 4.6, hair, nf=lambda x, y: norm((0.35 * math.sin(y * 1.6 + x * 0.3), -0.35, 0.86)), shade=0.95))
+    prims.append(Ellipse('head', 'flesh', 4.8, head, 4.4, 4.9, ang=lean + tilt, bulge=0.85, shade=0.8))
+    # barba rala embaixo da máscara
+    beard = [hl((0.6, 2.4)), hl((4.6, 2.0)), hl((3.6, 5.6)), hl((1.2, 6.4))]
+    prims.append(Poly('beard', 'wool', 5.0, beard, nf=lambda x, y: norm((0.2 * math.sin(y * 1.8), -0.1, 0.95)), shade=1.1))
+    mask = Ellipse('mask', 'porcelain', 5.3, hl((2.6, -0.4)), 2.7, 3.6, ang=lean + tilt, bulge=0.6, shade=0.86)
+    prims.append(mask)
+
+    def mask_decal(x, y, cur):
+        lx, ly = mask.local(x, y)
+        if -1.4 < ly < -0.6 and (0.5 < lx < 1.6 or -1.8 < lx < -0.9):
+            return ('void', 0)
+        # rachadura escura atravessando a máscara (sem ouro: ninguém consertou)
+        if abs(lx - (-0.4 + ly * 0.55)) < 0.3 and -3.4 < ly < 1.6:
+            return ('void', 1)
+        return None
+
+    decals.append(Decal('mask', mask_decal))
+    # mechas na frente do ombro
+    for k, (a, b) in enumerate((((-2.6, 1.2), (-3.4, 8.0)), ((-0.6, 2.2), (-1.0, 7.4)))):
+        prims.append(Capsule('lock', 'wool', 5.4 + k * 0.01, hl(a), hl(b), 0.9, 0.6, shade=1.05))
+
+    cF = limb(add(add(neck, f, 2.6), u, -2.6), p['armF'], 5.6, 1.0)
+    # a corrente curta entre as algemas, com barriga
+    n = 4
+    for i in range(1, n):
+        t = i / n
+        x = cB[0] + (cF[0] - cB[0]) * t
+        y = cB[1] + (cF[1] - cB[1]) * t + math.sin(t * math.pi) * (2.2 + p['chain'])
+        prims.append(Ellipse('link', 'steel', 5.7, (x, y), 1.0, 0.8, ang=math.radians(40 * (i % 2)), shade=0.95))
+    return prims, decals
+
+
+PRISONER_ANIMS = {
+    # respira curvado, a corrente balança um pouco entre as mãos
+    'idle': ([dict(hip=(0, b), sway=b * 0.5, tilt=6 + b * 2, chain=b * 0.6, armF=(34 - b * 2, 58), armB=(30 - b * 2, 62)) for b in (0.0, 0.4, 0.8, 0.4)], 3, True),
+    # falando: ergue as mãos presas e levanta o rosto
+    'talk': ([dict(tilt=-8, lean=9, armF=(58, 44), armB=(52, 48), chain=0.4), dict(tilt=-4, lean=10, armF=(64, 38), armB=(58, 42), hip=(0, 0.3), chain=1.0)], 3, True),
+}
+
+
 if __name__ == '__main__':
     out = sys.argv[1] if len(sys.argv) > 1 else '.'
     s, _ = build_sheet('nun', NUN_ANIMS, nun, NUN_W, NUN_H, NUN_FEET, out, preview='nun_preview.png', scale=4)
@@ -288,3 +401,5 @@ if __name__ == '__main__':
     print('smith', s.size)
     s, _ = build_sheet('folk', FOLK_ANIMS, folk, FOLK_W, FOLK_H, FOLK_FEET, out, preview='folk_preview.png', scale=4)
     print('folk', s.size)
+    s, _ = build_sheet('prisoner', PRISONER_ANIMS, prisoner, PRISONER_W, PRISONER_H, PRISONER_FEET, out, preview='prisoner_preview.png', scale=4)
+    print('prisoner', s.size)

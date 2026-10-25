@@ -23,7 +23,7 @@ export function findBreakables(room: string, rows: string[]): Breakable[] {
   const ch = (x: number, y: number) => rows[y]?.[x] ?? '.';
   const inside = (x: number, y: number) => x >= 0 && y >= 0 && x < w && y < h;
   // por onde se anda com tudo fechado (grades contam como abertas: um dia abrem)
-  const open = (x: number, y: number) => inside(x, y) && !'#%V'.includes(ch(x, y));
+  const open = (x: number, y: number) => inside(x, y) && !'#+%V'.includes(ch(x, y));
   const N4: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
   const groups: { ch: '%' | 'V'; cells: [number, number][] }[] = [];

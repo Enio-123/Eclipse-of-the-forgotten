@@ -32,6 +32,7 @@ DEFAULT = dict(
     cape=dict(lift=8.0, wave=4.0, phase=0.0, length=1.0, flare=0.0),
     hoodtip=(0.0, 0.0), mask='partida', glow=False,
     hot=False,     # incensário: os furos acesos no golpe
+    lash=False,    # corrente: lá fora no golpe (o jogo desenha), na mão só a volta enrolada
 )
 
 
@@ -273,6 +274,32 @@ def build(pose, weapon='sword'):
             return None
 
         decals.append(Decal('cball', holes))
+
+    elif weapon == 'corrente':
+        # a corrente da Carcereira: voltas enroladas no antebraço e um palmo pendurado com o gancho
+        fx, fy = handF[0] - elbowF[0], handF[1] - elbowF[1]
+        fl = math.hypot(fx, fy) or 1.0
+        fore = (fx / fl, fy / fl)
+        for i in range(2):
+            c = add(elbowF, fore, 2.2 + i * 2.0)
+            prims.append(Ellipse('coil', 'steel', 7.07 + i * 0.01, c, 0.9, 2.5, ang=math.atan2(fore[1], fore[0]), flat=3 if i % 2 else 2))
+        if not p['lash']:
+            L = 13.0
+            n = 6
+            prev = handF
+            for i in range(1, n + 1):
+                q = add(handF, sd, L * i / n)
+                prims.append(Ellipse('link', 'steel', 6.42, ((prev[0] + q[0]) / 2, (prev[1] + q[1]) / 2), 1.2, 0.6,
+                                     ang=math.atan2(q[1] - prev[1], q[0] - prev[0]), flat=3 if i % 2 else 1))
+                prev = q
+            side = sp if sp[1] <= 0 else (-sp[0], -sp[1])
+            tip = add(prev, sd, 3.6)
+            prims.append(Ellipse('hring', 'steel', 6.44, prev, 1.0, 1.0))
+            prims.append(Capsule('hshaft', 'steel', 6.45, prev, tip, 0.8, 0.7))
+            bend = add(add(tip, side, 2.2), sd, -0.8)
+            prims.append(Capsule('hbend', 'steel', 6.46, tip, bend, 0.7, 0.55))
+            barb = add(add(bend, side, 0.3), sd, -2.0)
+            prims.append(Capsule('hbarb', 'steel', 6.47, bend, barb, 0.55, 0.3))
 
     # ---------- braço de trás ----------
     if back_target is None and p['ikB'] and isinstance(p['ikB'][0], (int, float)):

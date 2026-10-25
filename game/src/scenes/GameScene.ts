@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { ARCHER, INCENSE, PAL, PARRY, QUAKE, TILE, VIEW_H, WEAPONS, WEAPON_IDS, type WeaponId } from '../config';
+import { ARCHER, INCENSE, PAL, PARRY, PLAYER, QUAKE, TILE, VIEW_H, WEAPONS, WEAPON_IDS, type WeaponId } from '../config';
 import { Player, type PlayerAction } from '../entities/Player';
 import { Crawler } from '../entities/Crawler';
 import { Guard } from '../entities/Guard';
@@ -8,6 +8,8 @@ import { Archer } from '../entities/Archer';
 import { Censer } from '../entities/Censer';
 import { Boss } from '../entities/Boss';
 import { Arcebispo } from '../entities/Arcebispo';
+import { Jailer } from '../entities/Jailer';
+import { Carcereira } from '../entities/Carcereira';
 import { ABYSS, Echo } from '../entities/Echo';
 import { overlap, type BossFoe, type Enemy } from '../entities/Enemy';
 import { SmokeField } from '../entities/Smoke';
@@ -22,11 +24,11 @@ import { Backdrop } from '../world/Backdrop';
 import { Weather } from '../world/Weather';
 import { MAP_POS, ROOMS, type BossId, type Exit, type RoomDef, type RoomId, type Side } from '../world/rooms';
 import { Props, type MemoryOrb, type Relic, type Shrine } from '../world/Props';
-import { Fixtures, type Door } from '../world/Fixtures';
+import { Fixtures, type Door, type Ring } from '../world/Fixtures';
 import { Npcs, type Npc } from '../world/Npcs';
 import type { Breakable } from '../world/secrets';
 import { Loot } from '../world/Loot';
-import { BELLS, FORGE, MATERIALS, MEMORIES, NUN, OFFERS, PAGES, RELICS, SMITH } from '../world/lore';
+import { ARENA_WAVES, BELLS, ELO, FORGE, LEVERS, MATERIALS, MEMORIES, NUN, OFFERS, PAGES, PRISONER, RELICS, SMITH } from '../world/lore';
 import { TILE_ONEWAY } from '../gfx/textures';
 import { ui } from '../ui/ui';
 import { pad } from '../systems/Pad';
@@ -78,6 +80,13 @@ interface WeaponDrop {
 
 const PASSED = 15;
 
+// fuga com alarme: quando cada grade cai (segundos depois da queda na galeria, da direita para a
+// esquerda) e quando o alarme acaba sozinho
+const ALARM_AT = [3.5, 6.5, 10, 13.5, 17, 21];
+const ALARM_END = 40;
+// a corrente puxa só os leves
+const LIGHT = new Set(['crawler', 'crow', 'archer', 'censer']);
+
 // cada chefe: a luta, a memória que deixa, onde caem a memória e a arma (pela frente dele, a partir
 // dos pés) e o que o cavaleiro pensa quando acaba
 interface BossInfo {
@@ -126,6 +135,20 @@ const BOSSES: Record<BossId, BossInfo> = {
     corpseFacing: -1,
     after: ['As moedas pararam de cair. Pela primeira vez, ninguém conta.', 'O que ele cobrou não ficou aqui. Desceu para algum lugar embaixo da cidade.'],
   },
+  carcereira: {
+    make: (s, x, y) => new Carcereira(s, x, y),
+    sheet: 'carcereira',
+    name: 'A Carcereira',
+    title: 'Ela guarda as chaves de todos',
+    music: 'boss3',
+    memory: 'mascara:boss',
+    wakeX: 12,
+    orb: -40,
+    drop: 70,
+    corpse: 'death',
+    corpseFacing: -1,
+    after: ['As correntes caíram no chão. Pela primeira vez, ninguém vigia.', 'Embaixo da bigorna, a pedra rachou. Lá de baixo vem um eco.'],
+  },
 };
 
 // fim de cada capítulo (a memória do chefe fecha o capítulo)
@@ -155,6 +178,7 @@ const SPAWNERS: Record<string, (s: GameScene, x: number, y: number) => Enemy> = 
   v: (s, x, y) => new Crow(s, x, y - 10),
   a: (s, x, y) => new Archer(s, x, y),
   i: (s, x, y) => new Censer(s, x, y),
+  W: (s, x, y) => new Jailer(s, x, y),
 };
 
 export class GameScene extends Phaser.Scene {
@@ -202,6 +226,7 @@ export class GameScene extends Phaser.Scene {
   private sparks!: Phaser.GameObjects.Particles.ParticleEmitter;
   private clangs!: Phaser.GameObjects.Particles.ParticleEmitter;
   private rubble!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private gritFx!: Phaser.GameObjects.Particles.ParticleEmitter;
   private glassFx!: Phaser.GameObjects.Particles.ParticleEmitter;
   private feathers!: Phaser.GameObjects.Particles.ParticleEmitter;
   private shards!: Phaser.GameObjects.Particles.ParticleEmitter;
@@ -222,6 +247,16 @@ export class GameScene extends Phaser.Scene {
   private weaponDrop: WeaponDrop | null = null;
   // a sombra que guarda as moedas da última morte, se ela ficou nesta sala
   echo: Echo | null = null;
+  // fuga com alarme: tempo desde a queda (-1 sem alarme) e os carcereiros que ele acordou
+  private alarmT = -1;
+  private alarmFoes: Enemy[] = [];
+  private alarmBellT = 0;
+  private alarmClean = false;
+  // arena dos condenados: a leva atual, quem nasceu nela e quantos ainda vão nascer
+  private arena: { wave: number; foes: Enemy[]; pending: number; wait: number; started: boolean } | null = null;
+  private elo: { x: number; y: number; sprite: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image } | null = null;
+  // inimigos leves sendo puxados pelo gancho da corrente
+  private pulls: { e: Enemy; dir: number; t: number }[] = [];
 
   constructor() {
     super('game');
@@ -238,6 +273,12 @@ export class GameScene extends Phaser.Scene {
     this.quakes = [];
     this.weaponDrop = null;
     this.echo = null;
+    this.alarmT = -1;
+    this.alarmFoes = [];
+    this.alarmClean = false;
+    this.arena = null;
+    this.elo = null;
+    this.pulls = [];
     this.boss = null;
     this.bossFrac = -1;
     this.rose = null;
@@ -322,6 +363,12 @@ export class GameScene extends Phaser.Scene {
     }
     this.physics.add.collider(this.player.zone, this.level.layer, undefined, this.oneWayFilter, this);
     for (const e of this.enemies) this.physics.add.collider(e.zone, this.level.layer);
+    // prisão: a queda com as chaves dispara o alarme; a arena espera o cavaleiro passar da grade
+    if (room.id === 'fuga' && progress.seen.has('item:chaves') && !progress.seen.has('alarm:fuga')) this.startAlarm();
+    if (room.id === 'arena') {
+      if (!progress.seen.has('arena:done')) this.arena = { wave: -1, foes: [], pending: 0, wait: 0, started: false };
+      else if (!progress.seen.has('item:elo')) this.placeElo(false);
+    }
 
     this.makeParticles();
     this.placeEcho();
@@ -341,7 +388,7 @@ export class GameScene extends Phaser.Scene {
     });
     const so = screenOrigin(this.cameras.main);
     if (room.theme !== 'memory') {
-      const dark = { bridge: 0.5, catacomb: 0.9, city: 0.55, nave: 0.8 }[room.theme];
+      const dark = { bridge: 0.5, catacomb: 0.9, city: 0.55, nave: 0.8, prison: 0.85 }[room.theme];
       this.add.image(so.x, so.y, 'vignette').setOrigin(0).setScrollFactor(0).setDepth(29).setAlpha(dark);
     }
     if (room.theme === 'bridge') {
@@ -356,7 +403,7 @@ export class GameScene extends Phaser.Scene {
     this.camY = room.theme === 'memory' ? 72 : 26;
     document.body.classList.toggle('bright', room.theme === 'memory');
     // nos fundos lisos da Cidade-Catedral o grão é mais leve (o traço não some no ruído)
-    this.fx.setGrain({ bridge: 0.09, catacomb: 0.09, memory: 0.035, city: 0.07, nave: 0.07 }[room.theme]);
+    this.fx.setGrain({ bridge: 0.09, catacomb: 0.09, memory: 0.035, city: 0.07, nave: 0.07, prison: 0.08 }[room.theme]);
     cam.setFollowOffset(-this.lookX, this.camY);
 
     if (!this.scene.isActive('hud')) this.scene.launch('hud');
@@ -365,7 +412,7 @@ export class GameScene extends Phaser.Scene {
     audio.ambience(room.ambience);
     audio.stepKind = room.theme === 'bridge' ? 'wet' : room.theme === 'memory' ? 'grass' : 'stone';
     // a nave ecoa mais que tudo; a cidade aberta quase nada
-    audio.space = { bridge: 0.12, catacomb: 0.45, memory: 0.12, city: 0.16, nave: 0.62 }[room.theme];
+    audio.space = { bridge: 0.12, catacomb: 0.45, memory: 0.12, city: 0.16, nave: 0.62, prison: 0.5 }[room.theme];
 
     // o ponto de retorno é a última vela acesa (no começo, a ponte); da memória volta-se para a vela do espelho
     if (data.from === 'new') progress.checkpoint(room.id, data.entry, settings.data.weapon);
@@ -516,6 +563,17 @@ export class GameScene extends Phaser.Scene {
       blendMode: Phaser.BlendModes.ADD,
       emitting: false,
     }).setDepth(12);
+    // poeira e ferrugem que caem do teto antes das gaiolas da Carcereira
+    this.gritFx = this.add.particles(0, 0, 'px', {
+      lifespan: { min: 900, max: 1400 },
+      speedY: { min: 20, max: 60 },
+      speedX: { min: -8, max: 8 },
+      gravityY: 260,
+      scale: { start: 1.3, end: 0.7 },
+      alpha: { start: 0.85, end: 0.3 },
+      tint: [0x8a8f9e, 0x6b7080, 0xb3b8c4, 0x7a5a44],
+      emitting: false,
+    }).setDepth(DEPTH.enemy + 2);
     // pedra da parede falsa e cacos do vitral
     this.rubble = this.add.particles(0, 0, 'px', {
       lifespan: { min: 500, max: 1100 },
@@ -655,6 +713,8 @@ export class GameScene extends Phaser.Scene {
     }
     const p = this.player;
     p.update(dt, this.controls);
+    this.hookHits();
+    if (p.canHook) this.fixtures.markRing(p.hook || p.dead ? null : this.hookTarget(p));
     for (const e of this.enemies) e.update(dt);
     this.trackPasses();
     this.updateQuakes(dt);
@@ -665,6 +725,10 @@ export class GameScene extends Phaser.Scene {
     this.npcs.update(dt);
     this.trackVisit(dt);
     this.bossFight();
+    this.updateAlarm(dt);
+    this.updateArena(dt);
+    this.updateElo(time);
+    this.updatePulls(dt);
     this.updateArrows(dt);
     this.combat();
     this.loot.update(dt);
@@ -711,6 +775,8 @@ export class GameScene extends Phaser.Scene {
         this.sparks.explode(10, c.centerX, c.centerY);
         this.sfx(e.alive ? 'hit' : 'kill');
         if (!e.alive) this.onKill(e);
+        // o gancho da corrente traz os leves para perto
+        else if (p.weapon.pull && LIGHT.has(e.kind) && (p.atkDir === 'side' || p.atkDir === 'low')) this.pulls.push({ e, dir: Math.sign(p.x - e.zone.x) || 1, t: 0.16 });
       }
       if (parried) {
         this.onParry(parried.x, parried.y, true);
@@ -1226,10 +1292,13 @@ export class GameScene extends Phaser.Scene {
     const col = b.center.x / TILE;
     // nas saídas de cima e de baixo só vale o trecho do buraco (fora dele o cavaleiro volta a cair)
     const inRange = (e: Exit) => !e.range || (col >= e.range[0] && col <= e.range[1] + 1);
+    // nas de lado, as linhas (uma sala pode ter duas saídas do mesmo lado, em alturas diferentes)
+    const row = b.center.y / TILE;
+    const inRows = (e: Exit) => !e.range || (row >= e.range[0] - 1 && row <= e.range[1] + 1);
     const ex = this.room.exits.find(
       (e) =>
-        (e.side === 'right' && b.center.x > W + 2) ||
-        (e.side === 'left' && b.center.x < -2) ||
+        (e.side === 'right' && b.center.x > W + 2 && inRows(e)) ||
+        (e.side === 'left' && b.center.x < -2 && inRows(e)) ||
         (e.side === 'up' && b.center.y < -2 && inRange(e)) ||
         (e.side === 'down' && b.center.y > H + 2 && inRange(e)),
     );
@@ -1246,6 +1315,296 @@ export class GameScene extends Phaser.Scene {
     cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () =>
       this.scene.restart({ room: ex.to, entry: ex.entry, from: 'door', via: ex.side } satisfies GameInit),
     );
+  }
+
+  // ---------- Gancho de Corrente ----------
+  // a argola que o gancho alcança: à vista e dentro do alcance; a da frente e a de cima valem mais
+  hookTarget(p: Player): Ring | null {
+    const b = p.body;
+    const cx = b.center.x;
+    const cy = b.top + 14;
+    let best: Ring | null = null;
+    let score = Infinity;
+    for (const r of this.fixtures.rings) {
+      const dx = r.x - cx;
+      const dy = r.y - cy;
+      const d = Math.hypot(dx, dy);
+      if (d > PLAYER.hookRange || d < 14 || !this.clearLine(cx, cy, r.x, r.y)) continue;
+      const behind = Math.sign(dx) === -p.facing && Math.abs(dx) > 24;
+      const sc = d * (behind ? 1.8 : 1) + (dy > 0 ? 50 : 0);
+      if (sc < score) {
+        score = sc;
+        best = r;
+      }
+    }
+    return best;
+  }
+
+  // nada sólido entre os dois pontos
+  private clearLine(ax: number, ay: number, bx: number, by: number) {
+    const n = Math.ceil(Math.hypot(bx - ax, by - ay) / 6);
+    for (let i = 1; i < n; i++) {
+      if (isSolid(this.level.tileAt(ax + ((bx - ax) * i) / n, ay + ((by - ay) * i) / n))) return false;
+    }
+    return true;
+  }
+
+  // a ponta do gancho bate em quem estiver no caminho e volta
+  private hookHits() {
+    const p = this.player;
+    const h = p.hook;
+    if (!h || h.phase !== 'throw') return;
+    for (const e of this.enemies) {
+      if (!e.alive || !Phaser.Geom.Rectangle.Contains(e.rect, h.x, h.y)) continue;
+      const r = e.hit(p.x, PLAYER.hookDmg, 'side');
+      if (r === 'ignored') continue;
+      if (r === 'blocked') {
+        this.clangs.explode(8, h.x, h.y);
+        this.sfx('clang');
+      } else {
+        this.sparks.explode(8, h.x, h.y);
+        this.sfx(e.alive ? 'hit' : 'kill');
+        if (!e.alive) this.onKill(e);
+      }
+      p.hookBounce();
+      break;
+    }
+  }
+
+  // garras escorregando no ferro liso
+  onSlick(x: number, y: number) {
+    if (Math.random() < 0.25) this.sparks.explode(1, x, y);
+    if (!progress.seen.has('slick:first')) {
+      progress.seen.add('slick:first');
+      ui.thought('Ferro liso. As garras não seguram.', 3400);
+    }
+  }
+
+  // ---------- prisão ----------
+  onLever(key: string) {
+    progress.seen.add(key);
+    progress.save();
+    this.fixtures.unlock(key);
+    const text = LEVERS[key];
+    if (text) this.time.delayedCall(800, () => ui.thought(text, 4200));
+  }
+
+  thoughtNow(text: string) {
+    ui.thought(text, 4200);
+  }
+
+  // as chaves da guarita: o alarme toca e o alçapão embaixo cede
+  takeKeys(x: number, y: number) {
+    progress.seen.add('item:chaves');
+    progress.save();
+    this.sfx('chime');
+    this.sfx('tink', 0.8, 0.8);
+    this.gold.explode(12, x, y);
+    ui.banner('As chaves da prisão', 'Pesam como uma sentença', 3000);
+    this.time.delayedCall(1100, () => {
+      this.sfx('bell', 0.9, 0.55);
+      this.cameras.main.shake(300, 0.004);
+      this.fixtures.unlock('item:chaves');
+    });
+    this.time.delayedCall(1700, () => this.sfx('bell', 0.7, 0.55));
+  }
+
+  private startAlarm() {
+    progress.seen.add('alarm:fuga');
+    progress.save();
+    this.alarmT = 0;
+    this.alarmBellT = 0.4;
+    for (const s of this.level.spawns) {
+      if (s.kind !== 'q') continue;
+      const e = new Jailer(this, s.x, s.y, true);
+      this.enemies.push(e);
+      this.alarmFoes.push(e);
+      this.physics.add.collider(e.zone, this.level.layer);
+    }
+    this.time.delayedCall(1000, () => ui.thought('O alarme. As grades vão descer uma a uma. Corre.', 3200));
+  }
+
+  private updateAlarm(dt: number) {
+    if (this.alarmT < 0) return;
+    this.alarmT += dt;
+    const t = this.alarmT;
+    const gates = this.fixtures.alarms;
+    gates.forEach((a, i) => {
+      if (!a.down && t > (ALARM_AT[i] ?? ALARM_END)) this.fixtures.dropAlarm(a);
+    });
+    // o sino de ferro tocando lá em cima
+    this.alarmBellT -= dt;
+    if (this.alarmBellT <= 0) {
+      this.alarmBellT = 1.5;
+      this.sfx('bell', 0.3, 0.55);
+    }
+    const p = this.player;
+    const last = gates[gates.length - 1];
+    if (last && !last.down && !this.alarmClean && !p.dead && p.x < last.x * TILE - 6) {
+      this.alarmClean = true;
+      this.sfx('chime', 0.7, 1.2);
+      this.loot.coins(15, p.x, p.body.top - 6);
+      ui.thought('Passei antes da última grade. Ninguém tinha escapado por aqui.', 4200);
+    }
+    const quiet = this.alarmFoes.every((e) => !e.alive);
+    if (t > ALARM_END || (quiet && t > (ALARM_AT[ALARM_AT.length - 1] ?? 0) + 2)) this.endAlarm();
+  }
+
+  private endAlarm() {
+    this.alarmT = -1;
+    for (const a of this.fixtures.alarms) this.fixtures.raiseAlarm(a);
+    this.sfx('gate', 0.8);
+    if (!this.player.dead) ui.thought('O sino parou. As grades sobem devagar.', 3600);
+  }
+
+  // Tomé: pede as chaves; com elas, conta a versão dele e vai abrir a porta das máscaras
+  private talkPrisoner(n: Npc) {
+    const P = PRISONER;
+    if (this.room.id !== 'celas') {
+      this.talk(P.name, [P.after[n.line++ % P.after.length]], n);
+      return;
+    }
+    if (progress.seen.has('item:chaves')) {
+      this.talk(P.name, P.freed, n, () => {
+        progress.seen.add('preso:livre');
+        progress.save();
+        this.sfx('locked', 0.8);
+        this.time.delayedCall(260, () => this.sfx('door', 0.8, 1.2));
+        this.npcs.release(n);
+        this.time.delayedCall(3000, () => ui.thought('Ele foi na frente. A porta das máscaras fica no fim da galeria, embaixo das celas.', 4800));
+      });
+    } else if (!progress.seen.has('preso:met')) {
+      this.talk(P.name, P.first, n, () => {
+        progress.seen.add('preso:met');
+        progress.save();
+      });
+    } else this.talk(P.name, [P.waiting[n.line++ % P.waiting.length]], n);
+  }
+
+  // ---------- arena dos condenados ----------
+  private updateArena(dt: number) {
+    const a = this.arena;
+    if (!a) return;
+    const p = this.player;
+    if (!a.started) {
+      if (p.dead || this.transitioning || p.x < 11 * TILE) return;
+      a.started = true;
+      this.props.setGates(false, true);
+      this.sfx('clang', 1);
+      audio.music('boss', 0.6);
+      ui.banner('Arena dos Condenados', 'Quatro levas. Quem ganha, luta de novo amanhã.', 2800);
+      a.wait = 2.4;
+      return;
+    }
+    if (a.wave >= ARENA_WAVES.length || p.dead) return;
+    if (a.pending > 0 || a.foes.some((e) => e.alive)) return;
+    a.wait -= dt;
+    if (a.wait > 0) return;
+    a.wave++;
+    if (a.wave >= ARENA_WAVES.length) {
+      this.arenaDone();
+      return;
+    }
+    this.spawnWave(ARENA_WAVES[a.wave]);
+    a.wait = 1.6;
+  }
+
+  private spawnWave(kinds: string[]) {
+    const a = this.arena!;
+    const pts = this.level.spawns.filter((s) => s.kind === '*');
+    const p = this.player;
+    const far = (high: boolean) => pts.filter((s) => (s.ty < 20) === high).sort((m, n) => Math.abs(n.x - p.x) - Math.abs(m.x - p.x));
+    const used = { true: 0, false: 0 };
+    a.pending += kinds.length;
+    kinds.forEach((k, i) => {
+      const high = k === 'a' || k === 'v';
+      const list = far(high);
+      const sp = list[used[`${high}`]++ % list.length];
+      this.time.delayedCall(300 + i * 380, () => {
+        a.pending--;
+        if (this.transitioning) return;
+        for (let j = 0; j < 8; j++) this.incense(sp.x + (Math.random() - 0.5) * 26, sp.y - Math.random() * 44, 2);
+        const e = SPAWNERS[k](this, sp.x, sp.y);
+        this.enemies.push(e);
+        a.foes.push(e);
+        this.physics.add.collider(e.zone, this.level.layer);
+        this.sfx('smoke', 0.6, 1.1);
+      });
+    });
+    this.sfx('gate', 0.6, 1.3);
+  }
+
+  private arenaDone() {
+    progress.seen.add('arena:done');
+    progress.save();
+    this.props.setGates(true, true);
+    audio.music(this.room.music, 2);
+    this.sfx('chime');
+    ui.thought('Ninguém mais desce na arena. No chão, um elo partido.', 4200);
+    this.placeElo(true);
+  }
+
+  private placeElo(animate: boolean) {
+    if (!this.textures.exists('item-elo')) {
+      const g = this.add.graphics();
+      g.lineStyle(3, 0x4a4e5c, 1).strokeEllipse(10, 12, 12, 18);
+      g.lineStyle(1, 0xa8b0c4, 1).strokeEllipse(10, 12, 12, 18);
+      g.fillStyle(0x07080d).fillRect(14, 4, 4, 5);
+      g.generateTexture('item-elo', 20, 24);
+      g.destroy();
+    }
+    const x = this.level.widthPx / 2;
+    const y = 23 * TILE - 22;
+    const glow = this.add.image(x, y, 'glow').setScale(1.8).setTint(0xbcd4ff).setAlpha(0.5).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.front);
+    const sprite = hd(this.add.image(x, y, 'item-elo').setDepth(DEPTH.enemy + 0.5));
+    if (animate) {
+      sprite.setAlpha(0).setScale(sprite.scale * 0.4);
+      this.tweens.add({ targets: sprite, alpha: 1, scale: sprite.scale / 0.4, duration: 700, ease: 'Back.easeOut' });
+    }
+    this.elo = { x, y, sprite, glow };
+  }
+
+  private updateElo(time: number) {
+    const e = this.elo;
+    if (!e) return;
+    const y = e.y + Math.sin(time * 0.0026) * 2.5;
+    e.sprite.y = y;
+    e.glow.y = y;
+    e.glow.alpha = 0.42 + Math.sin(time * 0.004) * 0.1;
+    const p = this.player;
+    if (p.dead || Math.abs(p.x - e.x) > 14 || y < p.body.top - 8 || y > p.body.bottom + 6) return;
+    this.elo = null;
+    progress.seen.add('item:elo');
+    progress.save();
+    this.tweens.add({ targets: e.sprite, scale: e.sprite.scale * 1.8, alpha: 0, duration: 380, onComplete: () => e.sprite.destroy() });
+    this.tweens.add({ targets: e.glow, scale: 5, alpha: 0, duration: 520, onComplete: () => e.glow.destroy() });
+    this.sfx('chime');
+    this.sfx('equip', 0.8);
+    this.glowBurst(e.x, y, 0xbcd4ff, 4);
+    ui.banner(ELO.name, ELO.text, 4200);
+  }
+
+  // inimigo leve preso no gancho da corrente: vem arrastado até perto do cavaleiro
+  private updatePulls(dt: number) {
+    if (!this.pulls.length) return;
+    const p = this.player;
+    for (const pl of this.pulls) {
+      pl.t -= dt;
+      const e = pl.e;
+      if (!e.alive || Math.abs(e.zone.x - p.x) < 34) {
+        pl.t = 0;
+        continue;
+      }
+      const b = e.body;
+      const step = pl.dir * 320 * dt;
+      const lead = pl.dir > 0 ? b.right + step + 1 : b.left + step - 1;
+      if (isSolid(this.level.tileAt(lead, b.center.y)) || isSolid(this.level.tileAt(lead, b.bottom - 4))) {
+        pl.t = 0;
+        continue;
+      }
+      b.x += step;
+    }
+    this.pulls = this.pulls.filter((pl) => pl.t > 0);
   }
 
   // ---------- portas, paredes falsas, sinos e páginas ----------
@@ -1318,6 +1677,7 @@ export class GameScene extends Phaser.Scene {
   talkTo(n: Npc) {
     if (n.kind === 'smith') this.openForge(n);
     else if (n.kind === 'nun') this.talkNun(n);
+    else if (n.kind === 'prisoner') this.talkPrisoner(n);
     else {
       const lines = this.room.npcs?.[n.i] ?? ['...'];
       const line = lines[n.line % lines.length];
@@ -1440,6 +1800,8 @@ export class GameScene extends Phaser.Scene {
     const p = this.player;
     p.canWall = progress.abilities.has('wall');
     p.canDouble = progress.abilities.has('double');
+    p.canHook = progress.abilities.has('hook');
+    document.body.classList.toggle('has-hook', p.canHook);
     p.dashCdMul = progress.on('breath') ? 0.55 : 1;
     this.registry.set('maxhp', progress.maxHp);
     this.registry.set('memories', [...progress.memories].map((m) => (progress.traded.has(m) ? 0 : 1)));
@@ -1488,7 +1850,7 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(1250, () => {
       const cam = this.cameras.main;
       this.sfx('bell', 0.8);
-      this.glowBurst(p.x, p.body.center.y, r.kind === 'wall' ? 0xbcd4ff : 0xfff0c8, 7);
+      this.glowBurst(p.x, p.body.center.y, r.kind === 'wall' || r.kind === 'hook' ? 0xbcd4ff : 0xfff0c8, 7);
       cam.flash(220, 70, 66, 60);
       pad.rumble(0.3, 0.6, 300);
       this.applyProgress();
@@ -1756,6 +2118,11 @@ export class GameScene extends Phaser.Scene {
       first = false;
     }
     this.summons = [];
+  }
+
+  // grão de poeira caindo do teto (aviso das gaiolas)
+  grit(x: number, y: number) {
+    this.gritFx.emitParticle(1, x, y);
   }
 
   // moeda do dízimo batendo no chão

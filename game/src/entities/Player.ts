@@ -9,12 +9,23 @@ import { hd } from '../gfx/flip';
 
 export type AttackDir = 'side' | 'up' | 'down' | 'low';
 // ações que o jogador já descobriu (as dicas somem quando ele usa)
-export type PlayerAction = 'move' | 'attack' | 'jump' | 'dash' | 'slide' | 'pogo' | 'crouch' | 'trip' | 'walljump' | 'doublejump' | 'parry';
+export type PlayerAction = 'move' | 'attack' | 'jump' | 'dash' | 'slide' | 'pogo' | 'crouch' | 'trip' | 'walljump' | 'doublejump' | 'parry' | 'hook';
+
+// a ponta do gancho: voando até a argola (ou até o fim do alcance), puxando o cavaleiro, voltando
+export interface HookState {
+  phase: 'throw' | 'pull' | 'back';
+  x: number;
+  y: number;
+  tx: number;
+  ty: number;
+  ring: boolean;
+  t: number;
+}
 
 const approach = (v: number, target: number, step: number) =>
   v < target ? Math.min(v + step, target) : Math.max(v - step, target);
 
-export const SLASH_KEY: Record<WeaponId, string | null> = { sword: 'slash', scythe: 'slash-big', daggers: 'slash-small', bow: null, badalo: 'slash-heavy', incensario: 'slash-censer' };
+export const SLASH_KEY: Record<WeaponId, string | null> = { sword: 'slash', scythe: 'slash-big', daggers: 'slash-small', bow: null, badalo: 'slash-heavy', incensario: 'slash-censer', corrente: null };
 // velocidade em que a animação de corrida foi desenhada (acima disso as pernas aceleram junto)
 const RUN_ANIM_SPEED = 192;
 
@@ -51,6 +62,8 @@ export class Player {
   // habilidades achadas no mapa
   canWall = false;
   canDouble = false;
+  canHook = false;
+  hook: HookState | null = null;
   // Fôlego (troca com o Cobrador): o dash recarrega mais rápido
   dashCdMul = 1;
   // conta os dashes (a cena marca quais inimigos já foram atravessados em cada um)
@@ -68,6 +81,7 @@ export class Player {
   private dashX0 = 0;
   private slideT = 0;
   private atkCd = 0;
+  private atkBuffer = 0;
   private windupT = 0;
   private atkT = 0;
   private atkAnimT = 0;
@@ -94,6 +108,11 @@ export class Player {
   private wallLock = 0;
   private airJumps = 0;
   private wallDustT = 0;
+  private hookCd = 0;
+  private chain: Phaser.GameObjects.Graphics;
+  // golpe da corrente: ela estica até a ponta do golpe e volta (no lugar do arco de corte)
+  private lashG: Phaser.GameObjects.Graphics;
+  private lashT = -1;
 
   constructor(private scene: GameScene, x: number, feetY: number, weapon: WeaponId) {
     this.zone = scene.add.zone(x, feetY - C.bodyH / 2, C.bodyW, C.bodyH);
@@ -104,6 +123,8 @@ export class Player {
     this.sprite = scene.add.sprite(x, feetY, `knight-${weapon}`, 0).setDepth(DEPTH.player);
     this.slash = scene.add.sprite(0, 0, 'slash', 0).setDepth(DEPTH.slash).setVisible(false);
     this.slash.on(Phaser.Animations.Events.ANIMATION_COMPLETE, () => this.slash.setVisible(false));
+    this.chain = scene.add.graphics().setDepth(DEPTH.player - 0.2);
+    this.lashG = scene.add.graphics().setDepth(DEPTH.player + 0.2);
     this.setWeapon(weapon);
     this.lastSafe.set(x, feetY);
   }
@@ -180,6 +201,7 @@ export class Player {
     this.atkCd -= dt;
     this.invuln -= dt;
     this.dropT -= dt;
+    this.hookCd -= dt;
     if (onGround) {
       this.coyote = C.coyote;
       this.airDash = true;
@@ -191,6 +213,7 @@ export class Player {
     this.buffer = input.pressed.jump ? C.jumpBuffer : this.buffer - dt;
 
     if (this.frozen || this.dead) {
+      if (this.hook) this.dropHook();
       b.velocity.x = approach(b.velocity.x, 0, C.groundDecel * dt);
       this.buffer = 0;
     } else if (this.hurtT > 0) {
@@ -206,6 +229,8 @@ export class Player {
       }
       const hitWall = this.dashDir > 0 ? b.blocked.right : b.blocked.left;
       if (this.slideT <= 0 || hitWall || !onGround) this.slideT = 0;
+    } else if (this.hook?.phase === 'pull') {
+      this.pullHook(dt, input);
     } else if (this.dashT > 0) {
       this.dashT -= dt;
       b.setVelocity(this.dashDir * C.dashSpeed, 0);
@@ -225,11 +250,13 @@ export class Player {
     }
 
     this.updateAttack(dt);
+    this.updateHook(dt);
+    this.updateLash(dt);
     this.updateCrouchBody(onGround);
 
     // gravidade: subida normal, um leve flutuar no topo do pulo e queda suave
     const vy = b.velocity.y;
-    if (this.dashT > 0) b.gravity.y = 0;
+    if (this.dashT > 0 || this.hook?.phase === 'pull') b.gravity.y = 0;
     else if (Math.abs(vy) < 70 && input.held.jump && !onGround && !this.frozen) b.gravity.y = -C.gravity * (1 - C.apexHang);
     else b.gravity.y = vy > 0 ? C.gravity * C.fallGravity : 0;
 
@@ -307,7 +334,202 @@ export class Player {
       if (onGround && this.crouched) this.startSlide(dir);
       else if (onGround || this.airDash) this.startDash(dir, onGround);
     }
-    if (input.pressed.attack && this.atkCd <= 0 && this.canAttack) this.startAttack(input, onGround);
+    // golpe apertado um instante antes do fim da recarga não se perde: sai assim que ela acaba
+    if (input.pressed.attack) this.atkBuffer = C.attackBuffer;
+    else this.atkBuffer -= dt;
+    if (this.atkBuffer > 0 && this.atkCd <= 0 && this.canAttack) {
+      this.atkBuffer = 0;
+      this.startAttack(input, onGround);
+    }
+    if (input.pressed.hook && this.canHook && this.hookCd <= 0 && !this.hook && !this.crouched) this.throwHook();
+  }
+
+  // ---------- Gancho de Corrente ----------
+  // lança na argola mais perto que estiver à vista; sem argola, a corrente vai e volta no vazio
+  private throwHook() {
+    const b = this.body;
+    const from = this.hand;
+    const ring = this.scene.hookTarget(this);
+    this.cancelAttack();
+    if (ring) {
+      this.facing = ring.x >= this.zone.x ? 1 : -1;
+      this.hook = { phase: 'throw', x: from.x, y: from.y, tx: ring.x, ty: ring.y, ring: true, t: 0 };
+    } else {
+      const k = C.hookRange * 0.75;
+      this.hook = { phase: 'throw', x: from.x, y: from.y, tx: from.x + this.facing * k * 0.85, ty: from.y - k * 0.5, ring: false, t: 0 };
+    }
+    this.hookCd = C.hookCd;
+    this.scene.sfx('swoosh', 0.7, 1.3);
+    this.scene.sfx('censer', 0.5, 1.4);
+    this.scene.onPlayerAction('hook');
+    void b;
+  }
+
+  // de onde a corrente sai (a mão da frente)
+  private get hand() {
+    const b = this.body;
+    return { x: b.center.x + this.facing * 6, y: b.top + 17 };
+  }
+
+  private updateHook(dt: number) {
+    const h = this.hook;
+    this.chain.clear();
+    if (!h) return;
+    h.t += dt;
+    const from = this.hand;
+    if (h.phase === 'throw') {
+      const dx = h.tx - h.x;
+      const dy = h.ty - h.y;
+      const d = Math.hypot(dx, dy);
+      const step = C.hookSpeed * dt;
+      if (d <= step) {
+        h.x = h.tx;
+        h.y = h.ty;
+        if (h.ring) {
+          // mordeu a argola: começa a puxar
+          h.phase = 'pull';
+          h.t = 0;
+          this.cancelAttack();
+          this.slideT = 0;
+          if (this.dashT > 0) this.endDash();
+          this.crouched = false;
+          this.wallDir = 0;
+          this.body.setAllowGravity(false);
+          this.scene.sfx('clang', 0.7, 1.5);
+          this.scene.sfx('tink', 0.6, 0.8);
+          this.scene.glowBurst(h.x, h.y, 0xbcd4ff, 1.2);
+        } else h.phase = 'back';
+      } else {
+        h.x += (dx / d) * step;
+        h.y += (dy / d) * step;
+      }
+    } else if (h.phase === 'back') {
+      const dx = from.x - h.x;
+      const dy = from.y - h.y;
+      const d = Math.hypot(dx, dy);
+      const step = C.hookSpeed * 1.2 * dt;
+      if (d <= step + 2) {
+        this.hook = null;
+        return;
+      }
+      h.x += (dx / d) * step;
+      h.y += (dy / d) * step;
+    }
+    this.drawChain(from.x, from.y, h.x, h.y);
+  }
+
+  // a ponta bateu em alguém no caminho: volta (a cena aplica o dano)
+  hookBounce() {
+    if (this.hook?.phase === 'throw') this.hook.phase = 'back';
+  }
+
+  private pullHook(dt: number, input: Controls) {
+    const h = this.hook!;
+    const b = this.body;
+    h.t += dt;
+    const dx = h.tx - b.center.x;
+    const dy = h.ty - (b.top + 14);
+    const d = Math.hypot(dx, dy);
+    const ux = d > 0 ? dx / d : 0;
+    const uy = d > 0 ? dy / d : 0;
+    const blocked = (ux > 0.3 && b.blocked.right) || (ux < -0.3 && b.blocked.left) || (uy < -0.3 && b.blocked.up) || (uy > 0.3 && b.blocked.down);
+    if (input.pressed.jump) {
+      this.releaseHook(ux, uy, false);
+      b.velocity.y = -C.jumpVel * 0.9;
+      this.jumping = true;
+      this.buffer = 0;
+      this.scene.sfx('jump');
+      return;
+    }
+    if (d < 16 || blocked || h.t > C.hookMaxPull) {
+      this.releaseHook(ux, uy, d < 16 || h.t > C.hookMaxPull);
+      return;
+    }
+    b.setVelocity(ux * C.hookPull, uy * C.hookPull);
+    if (Math.abs(ux) > 0.2) this.facing = ux > 0 ? 1 : -1;
+    this.ghostT -= dt;
+    if (this.ghostT <= 0) {
+      this.ghostT = 0.05;
+      this.scene.spawnGhost(this.sprite);
+    }
+  }
+
+  // solta da argola: guarda parte do embalo e, se a argola estava em cima, sobe por cima dela
+  private releaseHook(ux: number, uy: number, arrived: boolean) {
+    const b = this.body;
+    const h = this.hook;
+    this.hook = h ? { ...h, phase: 'back' } : null;
+    b.setAllowGravity(true);
+    b.velocity.x = ux * C.hookPull * 0.62;
+    b.velocity.y = arrived && uy < 0.2 ? -C.hookPop : uy * C.hookPull * 0.4;
+    this.airDash = true;
+    this.airJumps = this.canDouble ? 1 : 0;
+    this.hookCd = C.hookCd * 0.6;
+    this.wallLock = 0.1;
+  }
+
+  // a corrente do golpe: sai da mão, estica até a ponta da área do golpe e volta enrolando
+  private updateLash(dt: number) {
+    const g = this.lashG;
+    g.clear();
+    if (this.lashT < 0) return;
+    this.lashT += dt;
+    const out = 0.05;
+    const hold = this.weapon.active;
+    const back = 0.12;
+    const t = this.lashT;
+    let k: number;
+    if (t < out) k = t / out;
+    else if (t < out + hold) k = 1;
+    else if (t < out + hold + back) k = 1 - (t - out - hold) / back;
+    else {
+      this.lashT = -1;
+      return;
+    }
+    const b = this.body;
+    const box = this.attackBox();
+    const from = this.atkDir === 'side' || this.atkDir === 'low' ? this.hand : { x: b.center.x + this.facing * 3, y: b.top + 15 };
+    let tx: number;
+    let ty: number;
+    if (this.atkDir === 'up') {
+      tx = b.center.x + this.facing * 4;
+      ty = box.y + 6;
+    } else if (this.atkDir === 'down') {
+      tx = b.center.x + this.facing * 2;
+      ty = box.bottom - 6;
+    } else {
+      tx = this.facing > 0 ? box.right - 3 : box.x + 3;
+      ty = this.atkDir === 'low' ? b.bottom - 9 : box.centerY;
+    }
+    this.drawChain(from.x, from.y, from.x + (tx - from.x) * k, from.y + (ty - from.y) * k, g);
+  }
+
+  private drawChain(ax: number, ay: number, bx: number, by: number, g = this.chain) {
+    const len = Math.hypot(bx - ax, by - ay);
+    const n = Math.max(2, Math.floor(len / 5));
+    const ux = (bx - ax) / (len || 1);
+    const uy = (by - ay) / (len || 1);
+    g.lineStyle(2, 0x272c3a, 1).lineBetween(ax, ay, bx, by);
+    g.fillStyle(0x8a93a8, 1);
+    for (let i = 1; i < n; i++) {
+      const t = i / n;
+      const x = ax + (bx - ax) * t;
+      const y = ay + (by - ay) * t;
+      if (i % 2) g.fillRect(Math.round(x - ux), Math.round(y - uy), 2, 2);
+      else g.fillRect(Math.round(x), Math.round(y), 1, 1);
+    }
+    // a ponta: um gancho de ferro virado para trás
+    const px = -uy;
+    const py = ux;
+    g.fillStyle(0x3a3f4e, 1).fillTriangle(bx + ux * 4, by + uy * 4, bx - ux * 3 + px * 4, by - uy * 3 + py * 4, bx - ux * 3 - px * 4, by - uy * 3 - py * 4);
+    g.fillStyle(0xbcc6da, 1).fillRect(Math.round(bx + ux * 2), Math.round(by + uy * 2), 1, 1);
+  }
+
+  // cena trocando de sala, morte, cinemática: o gancho some
+  dropHook() {
+    if (this.hook?.phase === 'pull') this.body.setAllowGravity(true);
+    this.hook = null;
+    this.chain.clear();
   }
 
   // Garras de Ferro: no ar, encostado na parede, escorrega devagar e pode pular para o outro lado
@@ -317,7 +539,16 @@ export class Player {
       this.wallDir = 0;
       return;
     }
-    const touching = b.blocked.left ? -1 : b.blocked.right ? 1 : 0;
+    let touching: -1 | 0 | 1 = b.blocked.left ? -1 : b.blocked.right ? 1 : 0;
+    // ferro liso: as garras não seguram
+    if (touching !== 0) {
+      const L = this.scene.level;
+      const tx = Math.floor((touching > 0 ? b.right + 2 : b.left - 2) / 16);
+      if (L.slickCell(tx, Math.floor((b.top + 8) / 16)) || L.slickCell(tx, Math.floor((b.bottom - 6) / 16))) {
+        if (dir === touching) this.scene.onSlick(this.zone.x + touching * 7, b.center.y);
+        touching = 0;
+      }
+    }
     if (touching !== 0 && (dir === touching || this.wallDir === touching) && b.velocity.y > -60 && this.wallLock <= 0) {
       if (this.wallDir === 0) this.scene.dustBurst(this.zone.x + touching * 7, b.center.y, 4);
       this.wallDir = touching;
@@ -483,6 +714,8 @@ export class Player {
     this.atkAnimT = 0;
     this.shotPending = false;
     this.slash.setVisible(false);
+    this.lashT = -1;
+    this.lashG.clear();
   }
 
   private updateAttack(dt: number) {
@@ -528,6 +761,10 @@ export class Player {
   }
 
   private showSlash() {
+    if (this.weapon.id === 'corrente') {
+      this.lashT = 0;
+      return;
+    }
     const key = SLASH_KEY[this.weapon.id];
     if (!key) return;
     this.slash.setVisible(true);
@@ -596,6 +833,7 @@ export class Player {
     this.invuln = C.invuln;
     this.hurtT = C.hurtLock;
     if (this.dashT > 0) this.endDash();
+    this.dropHook();
     this.graceT = 0;
     this.slideT = 0;
     this.cancelAttack();
@@ -611,6 +849,7 @@ export class Player {
 
   teleport(x: number, feetY: number) {
     if (this.dashT > 0) this.endDash();
+    this.dropHook();
     this.graceT = 0;
     this.slideT = 0;
     this.body.reset(x, feetY - C.bodyH / 2);
@@ -644,6 +883,7 @@ export class Player {
     else if (this.dead || this.hurtT > 0) anim = 'hurt';
     else if (this.slideT > 0) anim = 'slide';
     else if (this.dashT > 0) anim = 'dash';
+    else if (this.hook?.phase === 'pull') anim = 'dash';
     else if (this.atkAnimT > 0) anim = this.atkAnim;
     else if (this.wallDir !== 0) anim = 'fall';
     else if (!onGround) anim = b.velocity.y < 0 ? 'jump' : 'fall';

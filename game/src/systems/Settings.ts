@@ -1,8 +1,8 @@
 import { WEAPON_IDS, type WeaponId } from '../config';
 import { RESERVED } from './Pad';
 
-export type Action = 'left' | 'right' | 'up' | 'down' | 'jump' | 'attack' | 'dash' | 'crouch';
-export const ACTIONS: Action[] = ['left', 'right', 'up', 'down', 'jump', 'attack', 'dash', 'crouch'];
+export type Action = 'left' | 'right' | 'up' | 'down' | 'jump' | 'attack' | 'dash' | 'crouch' | 'hook';
+export const ACTIONS: Action[] = ['left', 'right', 'up', 'down', 'jump', 'attack', 'dash', 'crouch', 'hook'];
 export type Scheme = 'keyboard' | 'click';
 // resolução da tela: automática (nítida, e mais leve sozinha se o jogo ficar lento), nítida ou leve
 export type Quality = 'auto' | 'high' | 'low';
@@ -17,6 +17,7 @@ export const ACTION_LABEL: Record<Action, string> = {
   attack: 'Atacar',
   dash: 'Dash',
   crouch: 'Agachar',
+  hook: 'Gancho de corrente',
 };
 
 export const DEFAULT_BINDS: Record<Action, string[]> = {
@@ -28,6 +29,7 @@ export const DEFAULT_BINDS: Record<Action, string[]> = {
   attack: ['Mouse0', 'KeyJ'],
   dash: ['KeyF', 'ShiftLeft'],
   crouch: ['ControlLeft', 'KeyC'],
+  hook: ['KeyE', 'KeyL'],
 };
 
 // botões do controle (posição no mapeamento padrão: 0 = botão de baixo, 7 = gatilho direito...)
@@ -40,9 +42,10 @@ export const DEFAULT_PAD: Record<Action, number[]> = {
   attack: [2],
   dash: [7, 1],
   crouch: [6, 4],
+  hook: [3, 5],
 };
 // ações que aparecem na troca de botões do controle (andar fica no analógico e no direcional)
-export const PAD_ACTIONS: Action[] = ['jump', 'attack', 'dash', 'crouch'];
+export const PAD_ACTIONS: Action[] = ['jump', 'attack', 'dash', 'crouch', 'hook'];
 
 export interface SettingsData {
   scheme: Scheme;

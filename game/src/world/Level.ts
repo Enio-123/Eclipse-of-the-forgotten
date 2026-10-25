@@ -3,10 +3,10 @@ import { TILE } from '../config';
 import { SOLID_VARIANTS, TILE_ONEWAY, TILE_SOLID, TILE_SPIKE } from '../gfx/textures';
 import { findBreakables, type Breakable } from './secrets';
 
-export type Theme = 'bridge' | 'catacomb' | 'memory' | 'city' | 'nave';
+export type Theme = 'bridge' | 'catacomb' | 'memory' | 'city' | 'nave' | 'prison';
 
 // bloco liso usado nas grades, nas paredes falsas e nos vitrais (sólidos enquanto fechados)
-const BLOCK = TILE_SOLID + 15 * SOLID_VARIANTS;
+export const BLOCK = TILE_SOLID + 15 * SOLID_VARIANTS;
 
 export interface Spawn {
   kind: string;
@@ -29,13 +29,17 @@ export const isGround = (i: number) => i >= TILE_SOLID || i === TILE_ONEWAY;
 
 // Constrói o tilemap a partir de um mapa ASCII:
 // '#' pedra, '-' plataforma atravessável, '^' espinhos, '~' água, '|' grade, 'Y' grade com chave,
-// '%' parede falsa, 'V' vitral quebrável; letras e números são objetos
+// '%' parede falsa, 'V' vitral quebrável; na prisão: '+' ferro liso (as garras escorregam),
+// '=' alçapão, ':' grade de cela e '!' grade do alarme (aberta até cair); letras e números são objetos
 export class Level {
   readonly map: Phaser.Tilemaps.Tilemap;
   readonly layer: Phaser.Tilemaps.TilemapLayer;
   readonly spawns: Spawn[] = [];
   readonly gates: { x: number; y: number }[] = [];
   readonly locks: { x: number; y: number }[] = [];
+  readonly traps: { x: number; y: number }[] = [];
+  readonly bars: { x: number; y: number }[] = [];
+  readonly alarms: { x: number; y: number }[] = [];
   // paredes falsas e vitrais ainda de pé (os já quebrados viram vão no grid)
   readonly breakables: Breakable[] = [];
   readonly widthPx: number;
@@ -59,14 +63,14 @@ export class Level {
     this.grid = grid;
     this.w = w;
     this.h = h;
-    const solid = (x: number, y: number) => x < 0 || y < 0 || x >= w || y >= h || grid[y][x] === '#';
+    const solid = (x: number, y: number) => x < 0 || y < 0 || x >= w || y >= h || grid[y][x] === '#' || grid[y][x] === '+';
 
     const data: number[][] = [];
     for (let y = 0; y < h; y++) {
       const row: number[] = [];
       for (let x = 0; x < w; x++) {
         const c = grid[y][x];
-        if (c === '#') {
+        if (c === '#' || c === '+') {
           // fundo de riacho não ganha grama: a água conta como coberta por cima
           const top = solid(x, y - 1) || grid[y - 1]?.[x] === '~';
           const mask = (top ? 0 : 1) | (solid(x + 1, y) ? 0 : 2) | (solid(x, y + 1) ? 0 : 4) | (solid(x - 1, y) ? 0 : 8);
@@ -79,6 +83,16 @@ export class Level {
         } else if (c === 'Y') {
           row.push(BLOCK);
           this.locks.push({ x, y });
+        } else if (c === '=') {
+          // alçapão: sólido até abrir (Fixtures abre os que já têm a marca)
+          row.push(BLOCK);
+          this.traps.push({ x, y });
+        } else if (c === ':') {
+          row.push(BLOCK);
+          this.bars.push({ x, y });
+        } else if (c === '!') {
+          row.push(-1);
+          this.alarms.push({ x, y });
         } else if (c === '%' || c === 'V') row.push(BLOCK);
         else if (c === '-') row.push(TILE_ONEWAY);
         else if (c === '^') row.push(TILE_SPIKE);
@@ -124,13 +138,25 @@ export class Level {
   }
 
   solidCell(x: number, y: number) {
-    return this.ch(x, y) === '#';
+    const c = this.ch(x, y);
+    return c === '#' || c === '+';
+  }
+
+  // parede de ferro liso: as garras não seguram
+  slickCell(x: number, y: number) {
+    return this.ch(x, y) === '+';
   }
 
   // célula vazia de verdade (sem chão, plataforma ou espinho)
   openCell(x: number, y: number) {
     const c = this.ch(x, y);
-    return c !== '#' && c !== '-' && c !== '^';
+    return c !== '#' && c !== '+' && c !== '-' && c !== '^';
+  }
+
+  // põe ou tira um bloco liso (alçapões e grades do alarme)
+  setBlock(x: number, y: number, on: boolean) {
+    if (on) this.layer.putTileAt(BLOCK, x, y);
+    else this.layer.removeTileAt(x, y);
   }
 
   spawn(kind: string) {
@@ -218,7 +244,7 @@ export class Level {
   private depthField() {
     const { grid, w, h } = this;
     const INF = 99;
-    const d: number[][] = grid.map((r) => [...r].map((c) => (c === '#' ? INF : 0)));
+    const d: number[][] = grid.map((r) => [...r].map((c) => (c === '#' || c === '+' ? INF : 0)));
     const q: [number, number][] = [];
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (d[y][x] === 0) q.push([x, y]);
     for (let i = 0; i < q.length; i++) {

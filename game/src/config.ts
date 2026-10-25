@@ -22,6 +22,8 @@ export const PLAYER = {
   jumpCut: 0.42,
   coyote: 0.1,
   jumpBuffer: 0.12,
+  // golpe apertado antes do fim da recarga fica guardado por este tempo
+  attackBuffer: 0.14,
   dashSpeed: 460,
   // dash fantasma: atravessa inimigos e golpes sem levar dano (e um respiro logo depois)
   dashTime: 0.204,
@@ -37,6 +39,14 @@ export const PLAYER = {
   wallLock: 0.15,
   // Pena do Eclipse: segundo pulo no ar
   doubleJumpVel: 420,
+  // Gancho de Corrente: alcance, voo da ponta, puxada e o impulso no fim (para passar da argola)
+  hookRange: 180,
+  hookSpeed: 1500,
+  hookPull: 540,
+  hookPop: 300,
+  hookMaxPull: 0.75,
+  hookCd: 0.22,
+  hookDmg: 0.5,
   maxHp: 5,
   invuln: 1.1,
   hurtLock: 0.22,
@@ -44,8 +54,8 @@ export const PLAYER = {
   knockY: 230,
 };
 
-export type WeaponId = 'sword' | 'scythe' | 'daggers' | 'bow' | 'badalo' | 'incensario';
-export const WEAPON_IDS: WeaponId[] = ['sword', 'scythe', 'daggers', 'bow', 'badalo', 'incensario'];
+export type WeaponId = 'sword' | 'scythe' | 'daggers' | 'bow' | 'badalo' | 'incensario' | 'corrente';
+export const WEAPON_IDS: WeaponId[] = ['sword', 'scythe', 'daggers', 'bow', 'badalo', 'incensario', 'corrente'];
 
 export interface WeaponDef {
   id: WeaponId;
@@ -69,6 +79,8 @@ export interface WeaponDef {
   quake?: boolean;
   // onde o golpe passa fica uma nuvem de incenso que queima os inimigos (o incensário)
   smoke?: boolean;
+  // o gancho na ponta puxa os inimigos leves para perto (a corrente)
+  pull?: boolean;
   stats: { dano: number; velocidade: number; alcance: number; corrida: number };
 }
 
@@ -105,6 +117,13 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
     boss: { id: 'arcebispo', name: 'Arcebispo', art: 'o', found: 'Ainda quente. Onde ele passa, o incenso fica e queima. Dá para usar em Trocar arma, no menu de pausa.' },
     smoke: true,
     stats: { dano: 4, velocidade: 2, alcance: 4, corrida: 3 },
+  },
+  corrente: {
+    id: 'corrente', name: 'Corrente da Carcereira', summary: 'Alcance enorme e golpe fino. O gancho puxa os inimigos leves para perto.',
+    dmg: 1.4, cooldown: 0.5, windup: 0.1, active: 0.12, reach: 112, height: 26, recoil: 60, moveMul: 0.6, ranged: false, speed: 0.98,
+    boss: { id: 'carcereira', name: 'Carcereira', art: 'a', found: 'Ainda balança. O gancho puxa quem é leve. Dá para usar em Trocar arma, no menu de pausa.' },
+    pull: true,
+    stats: { dano: 3, velocidade: 3, alcance: 5, corrida: 3 },
   },
 };
 
@@ -146,6 +165,52 @@ export const GUARD = {
   atkCd: 0.9,
   downTime: 1.35,
   tripCd: 3.0,
+};
+
+// Carcereiro: corrente estalada na altura do peito (agache, deslize ou apare) e o soco de ferro no
+// chão de perto (pule). Sem escudo: fica aberto depois de cada golpe.
+export const JAILER = {
+  bodyW: 24,
+  bodyH: 54,
+  hp: 6,
+  walk: 50,
+  sight: 230,
+  lashReach: 124,
+  lashWind: 0.55,
+  lashActive: 0.16,
+  lashRec: 0.6,
+  slamReach: 58,
+  slamWind: 0.62,
+  slamActive: 0.12,
+  slamRec: 0.75,
+  atkCd: 0.95,
+};
+
+// A Carcereira: corrente alta (agache), varrida no chão (pule), gancho em linha reta (saia da linha
+// ou apare a ponta) e gaiolas que caem do teto. Com metade da vida chama dois carcereiros.
+export const CARCEREIRA = {
+  bodyW: 30,
+  bodyH: 100,
+  hp: 54,
+  walk: 66,
+  phase2: 0.5,
+  think: 0.65,
+  lashReach: 220,
+  lashWind: 0.7,
+  lashActive: 0.2,
+  lashRec: 0.75,
+  sweepReach: 210,
+  sweepWind: 0.65,
+  sweepActive: 0.22,
+  sweepRec: 0.7,
+  hookWind: 0.6,
+  hookSpeed: 540,
+  hookRange: 300,
+  hookBack: 420,
+  yankWind: 0.55,
+  yankCd: 6,
+  cageWarn: 0.95,
+  stagger: 1.8,
 };
 
 // Corvo do Dízimo: paira, avisa com o olho aceso e mergulha em linha reta
@@ -241,6 +306,7 @@ export const LOOT = {
   guard: { coins: [7, 10], life: 1 },
   archer: { coins: [3, 5], life: 0.5 },
   censer: { coins: [4, 7], life: 0.75 },
+  jailer: { coins: [6, 9], life: 0.75 },
   boss: { coins: [40, 40], life: 2 },
   // a sombra devolve as moedas dela direto na bolsa
   echo: { coins: [0, 0], life: 0 },

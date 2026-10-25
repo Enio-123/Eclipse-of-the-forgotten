@@ -5,7 +5,7 @@ import { ACTIONS, ACTION_LABEL, PAD_ACTIONS, codeName, settings, type Action, ty
 import { audio } from '../systems/Audio';
 import { BRAND_LABEL, BTN, buttonGlyph, buttonName, pad, stickGlyph, type PadBrand } from '../systems/Pad';
 import { LEVEL_MUL, MAX_LEVEL, progress, type Upgrade } from '../systems/Save';
-import { BESTIARY, FORGE, MATERIALS, MEMORIES, MEMORY_TOTAL, OFFERS, PAGES, PAGE_IDS, RELICS, SLOTS } from '../world/lore';
+import { BESTIARY, FORGE, MATERIALS, MEMORIES, MEMORY_TOTAL, OFFERS, PAGES, PAGE_IDS, RELICS } from '../world/lore';
 import { MAP_POS, ROOMS, type Ability, type RoomId } from '../world/rooms';
 import { drawMarker, renderMap, type MapHere } from './mapview';
 import { RES, applyRes, resFor } from '../gfx/view';
@@ -38,11 +38,11 @@ interface SheetMeta {
   scale?: number;
 }
 
-const WEAPON_ORDER: WeaponId[] = ['scythe', 'sword', 'daggers', 'bow', 'badalo', 'incensario'];
+const WEAPON_ORDER: WeaponId[] = ['scythe', 'sword', 'daggers', 'bow', 'badalo', 'incensario', 'corrente'];
 const TAGS: Partial<Record<WeaponId, string>> = { scythe: 'Arma do carrasco · recomendada' };
 const TOUCH_LABEL: Record<Action, string> = {
   left: 'Analógico', right: 'Analógico', up: 'Analógico para cima', down: 'Analógico para baixo',
-  jump: 'Pular', attack: 'Atacar', dash: 'Dash', crouch: 'Analógico para baixo',
+  jump: 'Pular', attack: 'Atacar', dash: 'Dash', crouch: 'Analógico para baixo', hook: 'Gancho',
 };
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector(sel) as T;
@@ -725,9 +725,10 @@ class UI {
     const render = (focusId?: Upgrade) => {
       const used = progress.slotsUsed;
       const pips = $('.inv-slots .pips', s);
-      pips.replaceChildren(...Array.from({ length: SLOTS }, (_, k) => el('i', k < used ? 'on' : '')));
-      $('.inv-slots .count', s).textContent = `${used} de ${SLOTS}`;
-      $('.inv-slots', s).setAttribute('aria-label', `Espaços usados: ${used} de ${SLOTS}`);
+      const slots = progress.slots;
+      pips.replaceChildren(...Array.from({ length: slots }, (_, k) => el('i', k < used ? 'on' : '')));
+      $('.inv-slots .count', s).textContent = `${used} de ${slots}`;
+      $('.inv-slots', s).setAttribute('aria-label', `Espaços usados: ${used} de ${slots}`);
       grid.replaceChildren();
       for (const off of OFFERS) {
         const owned = progress.upgrades.has(off.id);
@@ -748,7 +749,7 @@ class UI {
         b.onclick = () => {
           const r = o.toggle(off.id);
           if (r === 'full') {
-            const need = off.slots - (SLOTS - progress.slotsUsed);
+            const need = off.slots - (progress.slots - progress.slotsUsed);
             msg.textContent = `Não cabe: falta ${plural(need, 'espaço', 'espaços')}. Guarde outro item primeiro.`;
             const box = $('.inv-slots', s);
             box.classList.remove('shake');

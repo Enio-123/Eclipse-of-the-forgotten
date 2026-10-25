@@ -26,8 +26,9 @@ export class Backdrop {
     else if (theme === 'catacomb') this.catacomb();
     else if (theme === 'city') this.city();
     else if (theme === 'nave') this.nave();
+    else if (theme === 'prison') this.prison();
     else this.memory();
-    this.bg = { bridge: 0x161a2b, catacomb: 0x07080d, city: 0x0b1020, nave: 0x07080d, memory: 0x5c9a3e }[theme];
+    this.bg = { bridge: 0x161a2b, catacomb: 0x07080d, city: 0x0b1020, nave: 0x07080d, memory: 0x5c9a3e, prison: 0x08070b }[theme];
   }
 
   private img(key: string, depth: number) {
@@ -185,6 +186,39 @@ export class Backdrop {
       const beam = this.scene.add.image(x + this.so.x * 0.7, -20 + this.so.y * 0.9, 'beam').setOrigin(0.5, 0).setScale(2.2, 2.4).setRotation(rot).setAlpha(a)
         .setTint(0xaebde8).setBlendMode(add).setScrollFactor(0.3, 0.1).setDepth(BG.beams);
       this.layers.push({ o: beam, update: (_sx, _sy, t) => void (beam.alpha = a * (0.7 + 0.3 * Math.sin(t * 0.0005 + x))) });
+    }
+  }
+
+  // Prisão Subterrânea: a parede do fundo com celas e arcos de tijolo, pilares e correntes mais
+  // perto e a luz das tochas respirando nas pedras
+  private prison() {
+    if (!this.scene.textures.exists('prison-far')) {
+      this.catacomb();
+      return;
+    }
+    const far = this.hdTile('prison-far', BG.far, 400);
+    const mid = this.hdTile('prison-mid', BG.mid, 420);
+    this.layers.push(
+      {
+        o: far,
+        update: (sx, sy) => {
+          this.scrollHd(far, sx * 0.12);
+          far.y = this.so.y + VIEW_H - 400 + Math.round(this.lift(sy) * 0.06);
+        },
+      },
+      {
+        o: mid,
+        update: (sx, sy) => {
+          this.scrollHd(mid, sx * 0.35);
+          mid.y = this.so.y + VIEW_H - 420 + Math.round(this.lift(sy) * 0.18);
+        },
+      },
+    );
+    const add = Phaser.BlendModes.ADD;
+    for (const [x, a, rot] of [[120, 0.05, 0.1], [470, 0.04, -0.08]] as const) {
+      const beam = this.scene.add.image(x + this.so.x * 0.75, -10 + this.so.y * 0.9, 'beam').setOrigin(0.5, 0).setScale(1.4, 1.7).setRotation(rot).setAlpha(a)
+        .setTint(0xc9b8a0).setBlendMode(add).setScrollFactor(0.25, 0.1).setDepth(BG.beams);
+      this.layers.push({ o: beam, update: (_sx, _sy, t) => void (beam.alpha = a * (0.75 + 0.25 * Math.sin(t * 0.0006 + x))) });
     }
   }
 

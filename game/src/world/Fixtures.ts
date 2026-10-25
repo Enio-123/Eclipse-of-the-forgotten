@@ -7,7 +7,7 @@ import { progress } from '../systems/Save';
 import { DEPTH } from './Decor';
 import { hd, hdScale } from '../gfx/flip';
 import type { Breakable } from './secrets';
-import type { DoorDef } from './rooms';
+import type { DoorDef, TrapdoorDef } from './rooms';
 
 // o véu fica acima de tudo do cenário e dos inimigos, abaixo do cavaleiro
 const VEIL_DEPTH = DEPTH.enemy + 1.5;
@@ -70,8 +70,62 @@ export interface Page {
   taken: boolean;
 }
 
+// ---------- prisão ----------
+// alavanca no chão: um golpe e ela vira (a marca abre grades e alçapões com a mesma chave)
+export interface Lever {
+  i: number;
+  x: number;
+  y: number;
+  key: string;
+  base: Phaser.GameObjects.Image;
+  handle: Phaser.GameObjects.Image;
+  on: boolean;
+}
+
+// alçapão: duas folhas presas nas pontas; abertas, ficam penduradas para baixo
+export interface Trapdoor {
+  i: number;
+  x0: number;
+  x1: number;
+  y: number;
+  def: TrapdoorDef | null;
+  open: boolean;
+  leaves: Phaser.GameObjects.Image[];
+  // cedendo sob os pés (o do cadafalso)
+  giveT: number;
+}
+
+// grade do alarme: escondida no teto até o alarme derrubar
+export interface AlarmGate {
+  x: number;
+  ys: number[];
+  top: number;
+  h: number;
+  sprite: Phaser.GameObjects.Image;
+  down: boolean;
+}
+
+// argola de ferro onde o gancho morde
+export interface Ring {
+  x: number;
+  y: number;
+  sprite: Phaser.GameObjects.Image;
+  glow: Phaser.GameObjects.Image;
+  lit: number;
+}
+
+// as chaves da prisão, penduradas na guarita
+export interface Keys {
+  x: number;
+  y: number;
+  sprite: Phaser.GameObjects.Image;
+  glow: Phaser.GameObjects.Image;
+  taken: boolean;
+}
+
 // O que o cavaleiro golpeia ou atravessa e não é inimigo: portas, grades com chave, paredes
-// falsas e vitrais, sinos da freira, cofres do dízimo e páginas do diário
+// falsas e vitrais, sinos da freira, cofres do dízimo e páginas do diário; na prisão, alavancas,
+// alçapões, grades de cela, grades do alarme, argolas do gancho e as chaves
 export class Fixtures {
   readonly doors: Door[] = [];
   readonly locks: LockGate[] = [];
@@ -79,6 +133,11 @@ export class Fixtures {
   readonly bells: Bell[] = [];
   readonly caches: Cache[] = [];
   readonly pages: Page[] = [];
+  readonly levers: Lever[] = [];
+  readonly trapdoors: Trapdoor[] = [];
+  readonly alarms: AlarmGate[] = [];
+  readonly rings: Ring[] = [];
+  keys: Keys | null = null;
 
   constructor(private scene: GameScene) {
     const s = scene;
@@ -101,7 +160,14 @@ export class Fixtures {
       } else if (sp.kind === 'H') this.prop('deco-gallows', sp.x, sp.y + 1);
       else if (sp.kind === 'f') this.prop('deco-fountain', sp.x, sp.y + 1);
       else if (sp.kind === 'A') this.prop('deco-altar', sp.x, sp.y + 1);
+      else if (sp.kind === 'n') this.prop('deco-anvil', sp.x, sp.y + 1);
+      else if (sp.kind === 'Q') this.addLever(this.levers.length, sp.x, sp.y);
+      else if (sp.kind === 'o') this.addRing(sp.x, sp.y - TILE / 2);
+      else if (sp.kind === 'k' && !progress.seen.has('item:chaves')) this.addKeys(sp.x, sp.y);
     }
+    this.addTrapdoors();
+    this.addBars();
+    this.addAlarms();
     // cada coluna de 'Y' é uma grade com a sua chave
     const cols = new Map<number, number[]>();
     for (const l of L.locks) cols.set(l.x, [...(cols.get(l.x) ?? []), l.y]);
@@ -347,6 +413,228 @@ export class Fixtures {
     this.pages.push({ id, x, y: py, sprite, glow, phase: Math.random() * 6, taken: false });
   }
 
+  // ---------- alavancas ----------
+  private addLever(i: number, x: number, y: number) {
+    const s = this.scene;
+    const baseKey = this.ensure('deco-lever-base', 20, 10, (g) => {
+      g.fillStyle(0x1c1d24).fillRect(0, 4, 20, 6);
+      g.fillStyle(0x4a4e5c).fillRect(1, 5, 18, 3).fillCircle(10, 5, 4);
+      g.fillStyle(0x2b2e38).fillCircle(10, 5, 2);
+    });
+    const handleKey = this.ensure('deco-lever-handle', 6, 26, (g) => {
+      g.fillStyle(0x3a3d48).fillRect(2, 4, 2, 22);
+      g.fillStyle(0x6b6f7c).fillRect(2, 4, 1, 22);
+      g.fillStyle(0x2b2118).fillRect(0, 0, 6, 6);
+      g.fillStyle(0x4a3a26).fillRect(1, 1, 4, 4);
+    });
+    const key = `lever:${s.room.id}:${i}`;
+    const on = progress.seen.has(key);
+    const handle = hd(s.add.image(x, y - 5, handleKey).setOrigin(0.5, 1).setDepth(DEPTH.prop + 0.1).setAngle(on ? 38 : -38));
+    const base = hd(s.add.image(x, y + 1, baseKey).setOrigin(0.5, 1).setDepth(DEPTH.prop + 0.2));
+    this.levers.push({ i, x, y, key, base, handle, on });
+  }
+
+  private leverRect(l: Lever) {
+    return new Phaser.Geom.Rectangle(l.x - 12, l.y - 30, 24, 30);
+  }
+
+  private pull(l: Lever) {
+    if (l.on) return;
+    const s = this.scene;
+    l.on = true;
+    s.tweens.add({ targets: l.handle, angle: 38, duration: 260, ease: 'Back.easeOut' });
+    s.sfx('clang', 0.8, 0.7);
+    s.sfx('gate', 0.5, 1.2);
+    s.cameras.main.shake(100, 0.003);
+    s.onLever(l.key);
+  }
+
+  // ---------- alçapões ----------
+  private addTrapdoors() {
+    const s = this.scene;
+    const L = s.level;
+    const key = this.ensure('deco-trapdoor', 16, 16, (g) => {
+      g.fillStyle(0x24190f).fillRect(0, 0, 16, 16);
+      g.fillStyle(0x3d2b1b).fillRect(0, 1, 16, 4).fillRect(0, 6, 16, 4).fillRect(0, 11, 16, 4);
+      g.fillStyle(0x5a5e6a).fillRect(0, 3, 16, 2).fillRect(0, 12, 16, 2);
+      g.fillStyle(0x8a8e9a).fillRect(3, 3, 1, 1).fillRect(12, 12, 1, 1);
+    });
+    // cada trecho seguido de '=' na mesma linha é um alçapão, na ordem do mapa
+    const cells = [...L.traps].sort((a, b) => a.y - b.y || a.x - b.x);
+    const groups: { x0: number; x1: number; y: number }[] = [];
+    for (const c of cells) {
+      const g = groups[groups.length - 1];
+      if (g && g.y === c.y && g.x1 === c.x - 1) g.x1 = c.x;
+      else groups.push({ x0: c.x, x1: c.x, y: c.y });
+    }
+    groups.forEach((g, i) => {
+      const w = (g.x1 - g.x0 + 1) * TILE;
+      const half = w / 2;
+      const y = g.y * TILE;
+      const left = s.add.image(g.x0 * TILE, y, key).setOrigin(0, 0).setDisplaySize(half, TILE).setDepth(DEPTH.tiles + 0.5);
+      const right = s.add.image((g.x1 + 1) * TILE, y, key).setOrigin(1, 0).setDisplaySize(half, TILE).setDepth(DEPTH.tiles + 0.5).setFlipX(true);
+      const t: Trapdoor = { i, x0: g.x0, x1: g.x1, y: g.y, def: s.room.trapdoors?.[i] ?? null, open: false, leaves: [left, right], giveT: 0 };
+      this.trapdoors.push(t);
+      if (t.def && progress.seen.has(t.def.key)) this.openTrapdoor(t, false);
+    });
+  }
+
+  openTrapdoor(t: Trapdoor, animate: boolean) {
+    if (t.open) return;
+    t.open = true;
+    const s = this.scene;
+    for (let x = t.x0; x <= t.x1; x++) s.level.setBlock(x, t.y, false);
+    const [left, right] = t.leaves;
+    if (!animate) {
+      left.setAngle(90);
+      right.setAngle(-90);
+      return;
+    }
+    s.sfx('door', 0.9, 0.7);
+    s.sfx('thud', 0.7, 0.8);
+    s.tweens.add({ targets: left, angle: 90, duration: 420, ease: 'Bounce.easeOut' });
+    s.tweens.add({ targets: right, angle: -90, duration: 420, ease: 'Bounce.easeOut' });
+    s.dustBurst((t.x0 + t.x1 + 1) * TILE * 0.5, t.y * TILE, 12);
+  }
+
+  // abre as grades com chave e os alçapões que esperam por essa marca
+  unlock(key: string) {
+    this.openLocks(key, true);
+    for (const t of this.trapdoors) if (t.def?.key === key) this.openTrapdoor(t, true);
+  }
+
+  // o alçapão do cadafalso cede quando o cavaleiro pisa nele (depois do Arcebispo)
+  private updateTrapdoors(dt: number) {
+    const s = this.scene;
+    const p = s.player;
+    for (const t of this.trapdoors) {
+      const d = t.def;
+      if (t.open || !d?.auto || !progress.seen.has(d.auto)) continue;
+      if (t.giveT > 0) {
+        t.giveT -= dt;
+        for (const l of t.leaves) l.y = t.y * TILE + (Math.random() < 0.5 ? 1 : 0);
+        if (t.giveT <= 0) {
+          for (const l of t.leaves) l.y = t.y * TILE;
+          progress.seen.add(d.key);
+          s.markDirty();
+          this.openTrapdoor(t, true);
+          if (d.thought) s.time.delayedCall(500, () => s.thoughtNow(d.thought!));
+        }
+        continue;
+      }
+      const tx = p.x / TILE;
+      if (p.onGround && tx > t.x0 - 0.2 && tx < t.x1 + 1.2 && Math.abs(p.body.bottom - t.y * TILE) < 3) {
+        t.giveT = 0.55;
+        s.sfx('crack', 0.9, 0.7);
+        s.sfx('door', 0.5, 0.5);
+      }
+    }
+  }
+
+  // ---------- grades de cela (só o Véu passa) ----------
+  private addBars() {
+    const s = this.scene;
+    const key = this.ensure('deco-cellbars', 16, 16, (g) => {
+      g.fillStyle(0x2a2d36).fillRect(3, 0, 3, 16).fillRect(10, 0, 3, 16);
+      g.fillStyle(0x5a5e6a).fillRect(3, 0, 1, 16).fillRect(10, 0, 1, 16);
+      g.fillStyle(0x3a3d48).fillRect(0, 7, 16, 2);
+    });
+    const cols = new Map<number, number[]>();
+    for (const c of s.level.bars) cols.set(c.x, [...(cols.get(c.x) ?? []), c.y]);
+    for (const [x, ys] of cols) {
+      const top = Math.min(...ys);
+      const h = (Math.max(...ys) - top + 1) * TILE;
+      // a folha no traço liso tem mais pixels que o tile: reduz a repetição para o tamanho do mundo
+      const k = hdScale(s, key);
+      s.add.tileSprite(x * TILE, top * TILE, TILE, h, key).setOrigin(0).setTileScale(k, k).setDepth(DEPTH.tiles + 0.4);
+    }
+  }
+
+  // ---------- grades do alarme ----------
+  private addAlarms() {
+    const s = this.scene;
+    const cols = new Map<number, number[]>();
+    for (const c of s.level.alarms) cols.set(c.x, [...(cols.get(c.x) ?? []), c.y]);
+    for (const x of [...cols.keys()].sort((a, b) => b - a)) {
+      const ys = cols.get(x)!;
+      const top = Math.min(...ys);
+      const h = (Math.max(...ys) - top + 1) * TILE;
+      // escondida dentro do teto, atrás da pintura do terreno
+      const sprite = s.add.image(x * TILE, top * TILE - h, 'deco-portcullis').setOrigin(0).setDepth(DEPTH.tiles - 0.5);
+      sprite.setDisplaySize(TILE, h);
+      this.alarms.push({ x, ys, top, h, sprite, down: false });
+    }
+  }
+
+  // a grade cai; quem estiver embaixo é empurrado para o lado de onde veio
+  dropAlarm(a: AlarmGate) {
+    if (a.down) return;
+    a.down = true;
+    const s = this.scene;
+    s.tweens.add({
+      targets: a.sprite,
+      y: a.top * TILE,
+      duration: 300,
+      ease: 'Quad.easeIn',
+      onComplete: () => {
+        const p = s.player;
+        const b = p.body;
+        const gx0 = a.x * TILE;
+        const gx1 = gx0 + TILE;
+        if (b.right > gx0 && b.left < gx1 && b.bottom > a.top * TILE) {
+          const side = p.x < gx0 + TILE / 2 ? -1 : 1;
+          b.x = side < 0 ? gx0 - b.width - 1 : gx1 + 1;
+        }
+        for (const y of a.ys) s.level.setBlock(a.x, y, true);
+        s.sfx('clang', 0.9, 0.6);
+        s.sfx('thud', 0.8);
+        s.cameras.main.shake(140, 0.006);
+        s.dustBurst(gx0 + TILE / 2, (a.top * TILE) + a.h, 10);
+      },
+    });
+  }
+
+  raiseAlarm(a: AlarmGate) {
+    if (!a.down) return;
+    a.down = false;
+    const s = this.scene;
+    for (const y of a.ys) s.level.setBlock(a.x, y, false);
+    s.tweens.add({ targets: a.sprite, y: a.top * TILE - a.h, duration: 1600, ease: 'Sine.easeInOut' });
+  }
+
+  // ---------- argolas do gancho ----------
+  private addRing(x: number, y: number) {
+    const s = this.scene;
+    const key = this.ensure('deco-ring', 18, 18, (g) => {
+      g.fillStyle(0x1c1d24).fillRect(5, 0, 8, 6);
+      g.fillStyle(0x4a4e5c).fillRect(6, 1, 6, 4);
+      g.lineStyle(3, 0x2a2d36, 1).strokeCircle(9, 10, 6);
+      g.lineStyle(1, 0x8a8e9a, 1).strokeCircle(9, 10, 6);
+    });
+    const glow = s.add.image(x, y, 'glow').setScale(1.2).setTint(0xbcd4ff).setAlpha(0).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.front);
+    const sprite = hd(s.add.image(x, y, key).setDepth(DEPTH.prop + 0.3));
+    this.rings.push({ x, y, sprite, glow, lit: 0 });
+  }
+
+  // a argola que o gancho alcança agora acende de leve
+  markRing(r: Ring | null) {
+    for (const o of this.rings) o.lit = o === r ? 1 : 0;
+  }
+
+  // ---------- as chaves ----------
+  private addKeys(x: number, y: number) {
+    const s = this.scene;
+    const key = this.ensure('item-keys', 20, 22, (g) => {
+      g.lineStyle(2, 0x8a7440, 1).strokeCircle(10, 6, 5);
+      g.fillStyle(0xb09450).fillRect(4, 10, 2, 11).fillRect(9, 10, 2, 9).fillRect(14, 10, 2, 12);
+      g.fillStyle(0xb09450).fillRect(4, 18, 4, 2).fillRect(9, 16, 4, 2).fillRect(14, 19, 4, 2);
+    });
+    const py = y - 26;
+    const glow = s.add.image(x, py, 'glow').setScale(1.4).setTint(0xffd98a).setAlpha(0.45).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.front);
+    const sprite = hd(s.add.image(x, py, key).setDepth(DEPTH.enemy + 0.4));
+    this.keys = { x, y: py, sprite, glow, taken: false };
+  }
+
   // ---------- golpes ----------
   // o golpe do cavaleiro bate em paredes falsas, vitrais, sinos e cofres (uma vez por golpe)
   strike(box: Phaser.Geom.Rectangle, p: Player) {
@@ -370,6 +658,12 @@ export class Fixtures {
       this.hitCache(c);
       hit = true;
     }
+    for (const l of this.levers) {
+      if (l.on || p.hitSet.has(l) || !overlap(box, this.leverRect(l))) continue;
+      p.hitSet.add(l);
+      this.pull(l);
+      hit = true;
+    }
     return hit;
   }
 
@@ -390,6 +684,11 @@ export class Fixtures {
       this.hitCache(c);
       return true;
     }
+    for (const l of this.levers) {
+      if (l.on || !overlap(rect, this.leverRect(l))) continue;
+      this.pull(l);
+      return true;
+    }
     return false;
   }
 
@@ -407,9 +706,16 @@ export class Fixtures {
     return null;
   }
 
-  // pega as páginas que o cavaleiro encostar
+  // pega as páginas (e as chaves) que o cavaleiro encostar
   touch(p: Player) {
     const b = p.body;
+    const k = this.keys;
+    if (k && !k.taken && Math.abs(p.x - k.x) < 14 && k.y > b.top - 8 && k.y < b.bottom + 6) {
+      k.taken = true;
+      this.scene.takeKeys(k.x, k.y);
+      this.scene.tweens.add({ targets: k.sprite, scale: k.sprite.scale * 1.8, alpha: 0, duration: 380, onComplete: () => k.sprite.destroy() });
+      this.scene.tweens.add({ targets: k.glow, scale: 4, alpha: 0, duration: 520, onComplete: () => k.glow.destroy() });
+    }
     for (const pg of this.pages) {
       if (pg.taken) continue;
       if (Math.abs(p.x - pg.x) < 14 && pg.y > b.top - 8 && pg.y < b.bottom + 6) {
@@ -422,6 +728,17 @@ export class Fixtures {
   }
 
   update(time: number, dt: number) {
+    this.updateTrapdoors(dt);
+    for (const r of this.rings) {
+      const target = r.lit ? 0.5 + Math.sin(time * 0.008) * 0.12 : 0;
+      r.glow.alpha += (target - r.glow.alpha) * Math.min(1, dt * 12);
+    }
+    const k = this.keys;
+    if (k && !k.taken) {
+      const y = k.y + Math.sin(time * 0.0024) * 2;
+      k.sprite.setPosition(k.x, y).setAngle(Math.sin(time * 0.0017) * 10);
+      k.glow.setPosition(k.x, y).setAlpha(0.38 + Math.sin(time * 0.004) * 0.1);
+    }
     for (const w of this.walls) {
       if (w.shakeT <= 0) continue;
       w.shakeT -= dt;

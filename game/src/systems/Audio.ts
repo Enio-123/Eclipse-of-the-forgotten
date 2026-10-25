@@ -9,8 +9,11 @@ export type SfxName =
   | 'ash' | 'quake' | 'equip' | 'erase'
   | 'parry' | 'break' | 'glass' | 'page' | 'anvil' | 'smoke' | 'coinrain' | 'door' | 'locked' | 'censer' | 'draw' | 'gate'
   | 'echo' | 'echo-die';
-export type TrackId = 'title' | 'bridge' | 'crypt' | 'memory' | 'boss' | 'city' | 'nave' | 'boss2' | 'none';
-export type AmbienceId = 'rain' | 'crypt' | 'wind' | 'city' | 'nave' | 'none';
+export type TrackId = 'title' | 'bridge' | 'crypt' | 'memory' | 'boss' | 'city' | 'nave' | 'boss2' | 'boss3' | FileTrackId | 'none';
+export type AmbienceId = 'rain' | 'crypt' | 'wind' | 'city' | 'nave' | 'prison' | 'none';
+// faixas gravadas, em arquivo (as trilhas que o Enio escolheu)
+type FileTrackId = 'prison' | 'fosso' | 'shadow';
+type SynthTrackId = Exclude<TrackId, FileTrackId | 'none'>;
 export type StepKind = 'wet' | 'stone' | 'grass';
 
 const mtof = (m: number) => 440 * Math.pow(2, (m - 69) / 12);
@@ -22,6 +25,8 @@ interface Playing {
   next: number;
   stop: (() => void)[];
   alive: boolean;
+  // faixa gravada que não carregou: toca esta sintetizada no lugar
+  synth?: SynthTrackId;
 }
 
 interface TrackDef {
@@ -37,10 +42,35 @@ const DMAJ = [50, 54, 57], BMIN = [47, 50, 54], GMAJ = [43, 47, 50], AMAJ = [45,
 // capítulo 2 (a cidade): mi menor, com o si maior da cadência
 const EM = [52, 55, 59], CMAJ = [48, 52, 55], AMIN = [45, 48, 52], BMAJ = [47, 51, 54];
 
+// capítulo 3 (a prisão): dó menor, com o sol maior que puxa de volta
+const CMIN = [48, 51, 55], AB = [44, 48, 51], FMIN = [41, 44, 48], GMAJ3 = [43, 47, 50];
+
+// Trilha gravada: o arquivo toca uma vez a partir de 'from' e depois repete o trecho [início, fim]
+// (em segundos), cruzando 'xf' segundos na emenda. Os dois pontos caem no mesmo tempo do compasso,
+// então o cruzamento não se nota. 'vol' iguala o volume ao das faixas sintetizadas.
+interface FileDef {
+  url: string;
+  from: number;
+  loop: [number, number];
+  xf: number;
+  vol: number;
+  fallback: SynthTrackId;
+}
+// Deep Echoes tem 128 BPM e o compasso cai em 0,073 + 1,875 k segundos
+const FILES: Record<FileTrackId, FileDef> = {
+  // The Unexplored Abyss: as salas da prisão
+  prison: { url: 'assets/music-abismo.mp3', from: 0, loop: [6, 226], xf: 5, vol: 0.3, fallback: 'crypt' },
+  // Deep Echoes, a parte calma do começo: o Fosso dos Esquecidos
+  fosso: { url: 'assets/music-ecos.mp3', from: 0, loop: [3.823, 46.948], xf: 1.875, vol: 0.3, fallback: 'crypt' },
+  // Deep Echoes, a parte forte: a luta com a Sombra do Carrasco
+  shadow: { url: 'assets/music-ecos.mp3', from: 61.948, loop: [61.948, 180.073], xf: 1.875, vol: 0.32, fallback: 'boss3' },
+};
+const isFile = (id: TrackId): id is FileTrackId => id in FILES;
+
 const chance = (p: number) => Math.random() < p;
 const pick = <T,>(a: T[]) => a[Math.floor(Math.random() * a.length)];
 
-const TRACKS: Record<Exclude<TrackId, 'none'>, TrackDef> = {
+const TRACKS: Record<SynthTrackId, TrackDef> = {
   // Título: ré menor, piano em arpejo sobre pads, com uma melodia que vai e volta
   title: {
     bpm: 66,
@@ -174,6 +204,29 @@ const TRACKS: Record<Exclude<TrackId, 'none'>, TrackDef> = {
       if (i === 4 && bar % 4 === 2) e.choir(p.bus, t, r + 27, d * 12, 0.02);
     },
   },
+  // Carcereira: ostinato em dó menor no piano grave, ferro batendo nos tempos fortes, correntes
+  // arrastando no contratempo e o coro que só entra no fim de cada volta
+  boss3: {
+    bpm: 112,
+    start(e, p) {
+      p.stop.push(e.drone(p.bus, 36, 0.05), e.drone(p.bus, 43, 0.022));
+    },
+    step(e, p, s, t, d) {
+      const bar = Math.floor(s / 8);
+      const i = s % 8;
+      const prog = [CMIN, CMIN, AB, GMAJ3, CMIN, FMIN, AB, GMAJ3];
+      const ch = prog[bar % 8];
+      const r = ch[0] - 12;
+      const pat = [0, 12, 0, 7, 0, 12, 3, 7];
+      e.piano(p.bus, t, r + pat[i], i % 2 === 0 ? 0.12 : 0.075, d * 2);
+      if (i === 0) e.metal(p.bus, t, 55, bar % 2 === 0 ? 0.05 : 0.035, 0.9);
+      if (i === 4) e.metal(p.bus, t, 61, 0.028, 0.5);
+      if ((i === 3 || i === 7) && chance(0.6)) e.chain(p.bus, t, 0.03);
+      if (i === 0 && bar % 2 === 0) e.pad(p.bus, t, ch.map((n) => n + 12), d * 16, 0.028, 1100);
+      if (i === 0 && bar % 8 === 6) e.choir(p.bus, t, ch[2] + 12, d * 14, 0.024);
+      if (i === 4 && bar % 8 === 7) e.choir(p.bus, t, ch[1] + 12, d * 10, 0.02);
+    },
+  },
   // Memória: ré maior, caixinha de música, pad quente e uma flauta
   memory: {
     bpm: 80,
@@ -253,6 +306,7 @@ class AudioEngine {
     this.wantAmb = 'none';
     this.music(t);
     this.ambience(a);
+    window.setTimeout(() => this.prefetch(), 6000);
   }
 
   private impulse(sec: number, decay: number) {
@@ -310,7 +364,7 @@ class AudioEngine {
     send.gain.value = 0.55;
     bus.connect(send).connect(this.reverb);
     const p: Playing = { id, bus, step: 0, next: t + 0.1, stop: [], alive: true };
-    TRACKS[id].start?.(this, p);
+    if (!isFile(id)) TRACKS[id].start?.(this, p);
     this.playing.push(p);
   }
 
@@ -320,7 +374,20 @@ class AudioEngine {
     const ahead = ctx.currentTime + 0.3;
     for (const p of this.playing) {
       if (!p.alive) continue;
-      const def = TRACKS[p.id as Exclude<TrackId, 'none'>];
+      if (isFile(p.id) && !p.synth) {
+        const f = FILES[p.id];
+        const state = this.fileState(f);
+        if (state === 'wait') continue;
+        if (state === 'ready') {
+          this.scheduleFile(p, f, ctx.currentTime + 1);
+          continue;
+        }
+        // o arquivo não veio: segue com a sintetizada
+        p.synth = f.fallback;
+        p.next = ctx.currentTime + 0.1;
+        TRACKS[p.synth].start?.(this, p);
+      }
+      const def = TRACKS[p.synth ?? (p.id as SynthTrackId)];
       const dur = 60 / def.bpm / 2;
       if (p.next < ctx.currentTime - 1) p.next = ctx.currentTime + 0.05;
       while (p.next < ahead) {
@@ -329,6 +396,103 @@ class AudioEngine {
         p.next += dur;
       }
     }
+  }
+
+  // ---------- faixas gravadas ----------
+  // os arquivos comprimidos (poucos MB) baixam cedo; a faixa só é decodificada quando vai tocar,
+  // a 32 kHz (um terço menos memória que 48 kHz, e o agudo que sobra basta para música)
+  private files = new Map<string, { bytes: Promise<ArrayBuffer | null>; buf: AudioBuffer | null; failed: boolean; decoding: boolean }>();
+
+  private fileEntry(url: string) {
+    let e = this.files.get(url);
+    if (!e) {
+      const bytes = fetch(url)
+        .then((r) => (r.ok ? r.arrayBuffer() : null))
+        .catch(() => null);
+      e = { bytes, buf: null, failed: false, decoding: false };
+      this.files.set(url, e);
+    }
+    return e;
+  }
+
+  private fileState(f: FileDef): 'ready' | 'wait' | 'failed' {
+    const e = this.fileEntry(f.url);
+    if (e.buf) return 'ready';
+    if (e.failed) return 'failed';
+    if (!e.decoding) {
+      e.decoding = true;
+      const entry = e;
+      void entry.bytes
+        .then((ab) => {
+          if (!ab) throw new Error('arquivo não veio');
+          const OAC = window.OfflineAudioContext ?? (window as unknown as { webkitOfflineAudioContext: typeof OfflineAudioContext }).webkitOfflineAudioContext;
+          // decodeAudioData esvazia o buffer que recebe: vai uma cópia, para poder decodificar de novo
+          return new OAC(2, 1, 32000).decodeAudioData(ab.slice(0));
+        })
+        .then((buf) => {
+          entry.buf = buf;
+          // só uma faixa gravada decodificada por vez, além das que estão tocando
+          for (const [url, o] of this.files) {
+            if (o !== entry && o.buf && !this.playing.some((q) => isFile(q.id) && FILES[q.id].url === url)) o.buf = null;
+          }
+        })
+        .catch(() => (entry.failed = true))
+        .finally(() => (entry.decoding = false));
+    }
+    return 'wait';
+  }
+
+  // agenda as passadas do arquivo: a primeira a partir de 'from', as outras do início do laço
+  // (menos o cruzamento), cada uma entrando enquanto a anterior sai
+  private scheduleFile(p: Playing, f: FileDef, ahead: number) {
+    const ctx = this.ctx!;
+    const buf = this.files.get(f.url)!.buf!;
+    const [a, b] = f.loop;
+    if (p.next < ctx.currentTime) p.next = ctx.currentTime + 0.05;
+    while (p.next < ahead) {
+      const first = p.step === 0;
+      const off = first ? f.from : a - f.xf;
+      const len = b - off;
+      const t = p.next;
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      const g = ctx.createGain();
+      if (first) g.gain.value = f.vol;
+      else {
+        g.gain.value = 0;
+        g.gain.setValueCurveAtTime(this.fadeCurve(f.vol, true), t, f.xf);
+      }
+      g.gain.setValueAtTime(f.vol, t + len - f.xf - 0.01);
+      g.gain.setValueCurveAtTime(this.fadeCurve(f.vol, false), t + len - f.xf, f.xf);
+      src.connect(g).connect(p.bus);
+      src.start(t, off);
+      src.stop(t + len + 0.05);
+      p.stop.push(() => {
+        try {
+          src.stop();
+        } catch {
+          // já tinha parado
+        }
+      });
+      p.step++;
+      p.next = t + (first ? Math.max(1, b - f.xf - off) : b - a);
+    }
+  }
+
+  // cruzamento de potência constante (seno para entrar, cosseno para sair)
+  private fadeCurve(vol: number, up: boolean) {
+    const n = 64;
+    const c = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const x = i / (n - 1);
+      c[i] = vol * (up ? Math.sin((x * Math.PI) / 2) : Math.cos((x * Math.PI) / 2));
+    }
+    return c;
+  }
+
+  // baixa os arquivos das trilhas gravadas sem decodificar (chamado logo depois do áudio abrir)
+  prefetch() {
+    for (const f of Object.values(FILES)) this.fileEntry(f.url);
   }
 
   // ---------- instrumentos ----------
@@ -431,6 +595,27 @@ class AudioEngine {
     const h = this.env(t, 0.002, vol * 0.25, dest);
     h.gain.exponentialRampToValueAtTime(0.0005, t + 0.3);
     this.osc('triangle', f * 4, t, t + 0.35, h);
+  }
+
+  // ferro batido: parciais que não se encaixam numa nota só e um estalo seco na frente
+  metal(dest: AudioNode, t: number, m: number, vol: number, len = 0.6) {
+    const f = mtof(m);
+    for (const [r, k, dec] of [[1, 1, 1], [2.32, 0.55, 0.62], [3.87, 0.38, 0.4], [5.21, 0.22, 0.26]] as const) {
+      const g = this.env(t, 0.002, vol * k, dest);
+      g.gain.exponentialRampToValueAtTime(0.0004, t + len * dec);
+      this.osc('sine', f * r, t, t + len * dec + 0.05, g);
+    }
+    this.nz(dest, t, 0.035, 'highpass', 4200, 2600, vol * 1.6, 1);
+  }
+
+  // corrente arrastando: elos curtos que tilintam em sequência
+  chain(dest: AudioNode, t: number, vol: number) {
+    const n = 3 + Math.floor(Math.random() * 4);
+    for (let k = 0; k < n; k++) {
+      const tt = t + k * (0.035 + Math.random() * 0.03);
+      this.nz(dest, tt, 0.025, 'bandpass', 3800 + Math.random() * 1600, 2400, vol, 6);
+      this.tone(dest, tt, 0.05, 'square', 2600 + Math.random() * 900, 2400, vol * 0.18);
+    }
   }
 
   flute(dest: AudioNode, t: number, m: number, len: number, vol: number) {
@@ -607,6 +792,32 @@ class AudioEngine {
       };
       window.setTimeout(voice, 3000);
       window.setTimeout(crackle, 900);
+      stops.push(() => (alive = false));
+    }
+    if (id === 'prison') {
+      // pedra fria e úmida embaixo da cidade: grave abafado, um gemido de ar nos corredores,
+      // correntes que balançam sozinhas e, de longe, uma porta de ferro batendo
+      noise('lowpass', 110, 0.6, 0.2);
+      const moan = noise('bandpass', 330, 6, 0.035);
+      lfo(moan.bf.frequency, 0.035, 120);
+      lfo(moan.g.gain, 0.06, 0.02);
+      const air = noise('bandpass', 1400, 0.6, 0.008);
+      lfo(air.g.gain, 0.09, 0.004);
+      let alive = true;
+      const rattle = () => {
+        if (!alive) return;
+        this.chain(bus, ctx.currentTime, 0.008 + Math.random() * 0.01);
+        window.setTimeout(rattle, 4000 + Math.random() * 9000);
+      };
+      const door = () => {
+        if (!alive) return;
+        const now = ctx.currentTime;
+        this.metal(bus, now, pick([40, 43, 46]), 0.03, 1.6);
+        this.nz(bus, now, 0.6, 'lowpass', 300, 90, 0.08, 0.7);
+        window.setTimeout(door, 20000 + Math.random() * 26000);
+      };
+      window.setTimeout(rattle, 2500);
+      window.setTimeout(door, 9000 + Math.random() * 8000);
       stops.push(() => (alive = false));
     }
     this.amb = { id, bus, stop: () => stops.forEach((f) => f()) };

@@ -59,6 +59,9 @@ body.menu-open #banner, body.menu-open #thought, body.menu-open #hint, body.menu
 #buttons [data-action="jump"] { right: 0; bottom: 0; width: 78px; height: 78px; }
 #buttons [data-action="attack"] { right: 94px; bottom: 6px; }
 #buttons [data-action="dash"] { right: 40px; bottom: 88px; }
+/* o gancho só aparece depois de achar a relíquia */
+#buttons [data-action="hook"] { right: 120px; bottom: 82px; width: 54px; height: 54px; display: none; }
+body.has-hook #buttons [data-action="hook"] { display: flex; }
 #pause-btn {
   width: 46px; height: 46px; top: calc(12px + env(safe-area-inset-top, 0px)); right: calc(14px + env(safe-area-inset-right, 0px));
 }
@@ -214,7 +217,7 @@ span.key { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 2px;
   scrollbar-width: thin;
 }
 .panel.wide { width: min(100%, 1060px); }
-#screen-weapons .panel.wide { width: min(100%, 1200px); }
+#screen-weapons .panel.wide { width: min(100%, 1320px); }
 .panel.small { width: min(100%, 400px); text-align: center; }
 .panel.small .list { align-items: center; margin-top: 22px; }
 .panel h2 { margin: 0; font-family: var(--display); font-weight: 400; font-size: clamp(26px, 3vw, 34px); letter-spacing: 0.04em; }
@@ -235,8 +238,8 @@ span.key { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 2px;
 .row button:hover, .row button:focus-visible, .tab-panel > button:hover, .tab-panel > button:focus-visible { border-color: var(--gold); outline: none; }
 
 /* cartas das armas */
-.cards { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; margin-top: 22px; }
-@media (max-width: 900px) { .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.cards { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; margin-top: 22px; }
+@media (max-width: 900px) { .cards { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .card {
   position: relative; display: flex; flex-direction: column; text-align: left; padding: 0 0 16px; cursor: pointer;
   background: rgba(255, 255, 255, 0.025); border: 1px solid var(--faint); transition: border-color 0.18s ease, background 0.18s ease;
@@ -249,7 +252,7 @@ span.key { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 2px;
 .card.locked h3, .card.locked .sum, .card.locked .stats { opacity: 0.45; }
 .card.locked:hover { border-color: var(--faint); }
 .card .view {
-  position: relative; height: 168px; overflow: hidden;
+  position: relative; height: 150px; overflow: hidden;
   background: radial-gradient(ellipse at 50% 78%, rgba(120, 130, 170, 0.18), transparent 62%);
 }
 .card .view::after { content: ""; position: absolute; left: 22%; right: 22%; bottom: 23px; height: 1px; background: var(--line); }
@@ -260,22 +263,35 @@ span.key { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 2px;
 /* folha no traço liso: o quadro recortado do atlas, já com o dobro de pixels */
 .sprite.hd { image-rendering: auto; }
 .sprite i { position: absolute; background-repeat: no-repeat; }
-.card h3 { margin: 12px 16px 0; font-family: var(--display); font-weight: 400; font-size: 23px; letter-spacing: 0.03em; }
+.card h3 { margin: 12px 14px 0; font-family: var(--display); font-weight: 400; font-size: 21px; letter-spacing: 0.03em; }
 .card .tag { margin: 2px 16px 0; color: var(--gold); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; min-height: 1.4em; }
-.card .sum { margin: 8px 16px 0; color: var(--muted); font-size: 14px; line-height: 1.45; min-height: 2.9em; }
-.stats { margin: 12px 16px 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; align-items: center; font-size: 13px; color: #b9b4a8; }
+.card .sum { margin: 8px 14px 0; color: var(--muted); font-size: 14px; line-height: 1.4; min-height: 2.8em; }
+.stats { margin: 12px 14px 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: center; font-size: 13px; color: #b9b4a8; }
 .stats dt { margin: 0; }
-.stats dd { margin: 0; display: flex; gap: 3px; }
-.stats i { width: 14px; height: 5px; background: rgba(232, 228, 218, 0.12); }
+/* as barras encolhem com a carta (sete armas numa linha) */
+.stats dd { margin: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 14px)); gap: 3px; }
+.stats i { height: 5px; background: rgba(232, 228, 218, 0.12); }
 .stats i.on { background: var(--gold); }
 
-/* celular deitado: as seis armas cabem numa linha, sem rolar */
+/* tela de notebook (até 780 de altura): cartas mais baixas para os botões caberem sem rolar */
+@media (max-height: 780px) and (min-height: 501px) {
+  #screen-weapons .panel { padding: 22px 28px; }
+  #screen-weapons .sub { display: none; }
+  .cards { margin-top: 16px; }
+  .card .view { height: 136px; }
+  #screen-weapons .sprite { transform: scale(0.88); transform-origin: 50% 100%; }
+  .card h3 { margin-top: 10px; }
+  .stats { gap: 4px 10px; margin-top: 10px; }
+  #screen-weapons .row { margin-top: 16px; }
+}
+
+/* celular deitado: as sete armas cabem numa linha, sem rolar */
 @media (max-height: 500px) and (orientation: landscape) {
   .screen { padding: 8px; }
   .panel { padding: 14px 18px; max-height: calc(100vh - 16px); }
   .panel h2 { font-size: 22px; }
   .panel .sub { margin-top: 4px; font-size: 13px; }
-  .cards { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
+  .cards { grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; margin-top: 10px; }
   #screen-weapons .sub { display: none; }
   .card { padding-bottom: 8px; }
   .card .view { height: 90px; }
@@ -285,7 +301,8 @@ span.key { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 2px;
   .card .tag { margin: 1px 8px 0; font-size: 8.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .card .sum { display: none; }
   .stats { margin: 6px 8px 0; gap: 2px 6px; font-size: 10.5px; }
-  .stats i { width: 9px; height: 4px; }
+  .stats dd { grid-template-columns: repeat(5, minmax(0, 9px)); gap: 2px; }
+  .stats i { height: 4px; }
   .row { margin-top: 10px; }
   .row button { min-height: 38px; padding: 6px 16px; font-size: 16px; }
 }

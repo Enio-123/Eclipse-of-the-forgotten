@@ -2,9 +2,10 @@ import Phaser from 'phaser';
 import type { GameScene } from '../scenes/GameScene';
 import type { Player } from '../entities/Player';
 import { DEPTH } from './Decor';
-import { face, hd } from '../gfx/flip';
+import { face, hd, hdScale } from '../gfx/flip';
+import { progress } from '../systems/Save';
 
-export type NpcKind = 'nun' | 'smith' | 'folk';
+export type NpcKind = 'nun' | 'smith' | 'folk' | 'prisoner';
 
 export interface Npc {
   kind: NpcKind;
@@ -29,11 +30,12 @@ interface Walker {
   puffT: number;
 }
 
-const KEY: Record<NpcKind, string> = { nun: 'nun', smith: 'smith', folk: 'folk' };
+const KEY: Record<NpcKind, string> = { nun: 'nun', smith: 'smith', folk: 'folk', prisoner: 'prisoner' };
 const NAME: Record<NpcKind, (n: Npc) => string> = {
   nun: () => 'a irmã Luzia',
   smith: () => 'Brás',
   folk: (n) => (n.look === 'shawl' ? 'a esquecida' : 'o esquecido'),
+  prisoner: () => 'Tomé',
 };
 
 // Gente da Cidade-Catedral: a freira cega (N), o ferreiro (B), os esquecidos que falam (E) e a
@@ -42,6 +44,8 @@ export class Npcs {
   readonly list: Npc[] = [];
   private walkers: Walker[] = [];
   private glow: Phaser.GameObjects.Image | null = null;
+  // a grade da cela do Tomé (some quando ele sai)
+  private cell: Phaser.GameObjects.TileSprite | null = null;
 
   constructor(private s: GameScene) {
     let folk = 0;
@@ -51,6 +55,11 @@ export class Npcs {
       if (sp.kind === 'N') this.add('nun', sp.x, sp.y, 0);
       else if (sp.kind === 'B') this.add('smith', sp.x, sp.y, 0);
       else if (sp.kind === 'E') this.add('folk', sp.x, sp.y, folk++);
+      else if (sp.kind === 'I') {
+        // Tomé: preso na cela até ganhar as chaves; depois espera na porta das máscaras
+        const free = progress.seen.has('preso:livre');
+        if ((s.room.id === 'celas') !== free) this.add('prisoner', sp.x, sp.y, 0);
+      }
       else if (sp.kind === 'Z') {
         route.push(sp.x);
         routeY = sp.y;
@@ -61,14 +70,22 @@ export class Npcs {
 
   private add(kind: NpcKind, x: number, y: number, i: number) {
     const s = this.s;
-    const key = KEY[kind];
-    const look = i % 2 ? 'hat' : 'shawl';
+    // sem a folha própria do Tomé, ele usa a dos esquecidos, mais escura
+    const own = kind !== 'prisoner' || s.textures.exists('prisoner');
+    const key = own ? KEY[kind] : 'folk';
+    const look = kind === 'prisoner' ? 'hat' : i % 2 ? 'hat' : 'shawl';
     const o = s.registry.get(`${key}-origin`) as { x: number; y: number };
-    const idle = kind === 'folk' ? `folk-idle-${look}` : kind === 'smith' ? 'smith-work' : 'nun-idle';
+    const idle = this.animKey(kind, look, false);
     const sprite = hd(s.add.sprite(x, y, key, 0).setOrigin(o.x, o.y).setDepth(DEPTH.enemy - 0.5));
+    if (!own) sprite.setTint(0x8f8a84);
     sprite.play({ key: idle, startFrame: Math.floor(Math.random() * 2) });
     const n: Npc = { kind, i, x, y, sprite, look, line: 0 };
     this.list.push(n);
+    if (kind === 'prisoner' && s.room.id === 'celas') {
+      const bars = s.textures.exists('deco-cellbars') ? 'deco-cellbars' : 'deco-portcullis';
+      const k = hdScale(s, bars);
+      this.cell = s.add.tileSprite(x - 24, y - 56, 48, 56, bars).setOrigin(0).setTileScale(k, k).setDepth(DEPTH.enemy - 0.3);
+    }
     if (kind === 'smith') {
       // a forja: brilho da brasa na bigorna e faísca a cada martelada
       this.glow = s.add.image(x + 34, y - 20, 'glow').setTint(0xff8a3a).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.front).setAlpha(0.4).setScale(1.3);
@@ -118,9 +135,29 @@ export class Npcs {
     }
   }
 
+  private animKey(kind: NpcKind, look: 'shawl' | 'hat', talk: boolean) {
+    if (kind === 'prisoner') {
+      if (this.s.textures.exists('prisoner')) return `prisoner-${talk ? 'talk' : 'idle'}`;
+      return `folk-${talk ? 'talk' : 'idle'}-hat`;
+    }
+    if (kind === 'folk') return `folk-${talk ? 'talk' : 'idle'}-${look}`;
+    if (kind === 'smith') return talk ? 'smith-talk' : 'smith-work';
+    return `nun-${talk ? 'talk' : 'idle'}`;
+  }
+
   talking(n: Npc, on: boolean) {
-    const key = n.kind === 'folk' ? `folk-${on ? 'talk' : 'idle'}-${n.look}` : n.kind === 'smith' ? (on ? 'smith-talk' : 'smith-work') : `nun-${on ? 'talk' : 'idle'}`;
-    n.sprite.play(key, true);
+    n.sprite.play(this.animKey(n.kind, n.look, on), true);
+  }
+
+  // Tomé sai da cela: a grade sobe e ele vai embora pelo corredor
+  release(n: Npc) {
+    const s = this.s;
+    if (this.cell) {
+      s.tweens.add({ targets: this.cell, y: this.cell.y - 60, alpha: 0, duration: 1400, ease: 'Sine.easeInOut' });
+      s.sfx('gate', 0.8, 1.1);
+    }
+    s.tweens.add({ targets: n.sprite, alpha: 0, x: n.x + 90, delay: 1200, duration: 2200, onComplete: () => n.sprite.destroy() });
+    this.list.splice(this.list.indexOf(n), 1);
   }
 
   nearby(p: Player): { hint: string; act: () => void } | null {

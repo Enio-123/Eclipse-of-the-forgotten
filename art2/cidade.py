@@ -54,7 +54,7 @@ def breakables(rows):
         return 0 <= x < w and 0 <= y < h
 
     def opn(x, y):
-        return inside(x, y) and ch(x, y) not in '#%V'
+        return inside(x, y) and ch(x, y) not in '#+%V'
     N4 = ((1, 0), (-1, 0), (0, 1), (0, -1))
     groups, taken = [], set()
     for y in range(h):

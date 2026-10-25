@@ -13,6 +13,7 @@ O porta (entra apertando para cima; RoomDef.doors na ordem do mapa)  $ baú de m
 b sino da freira  p página do diário  N freira cega  B ferreiro  E esquecido (fala; RoomDef.npcs)
 a arqueiro da sacada  i penitente do incensário  Z ponta do caminho da procissão
 H cadafalso grande (a vela fica em cima)  f fonte do claustro  A altar do dízimo
+Prisão Subterrânea: ver a seção dela, mais abaixo.
 """
 import sys
 
@@ -284,6 +285,9 @@ def escadaria():
     # passagem da cripta e saída para a praça
     g.fill(0, 32, 0, 35, '.')
     g.fill(35, 7, 35, 10, '.')
+    # atalho para o Poço dos Condenados: a grade só abre pela alavanca do outro lado
+    for y in range(33, 36):
+        g.put(35, y, 'Y')
     # claraboia: lá em cima já é a cidade
     g.fill(13, 0, 21, 1, '.')
     # patamares de pedra presos às paredes, alternando os lados, com tábuas no meio
@@ -294,6 +298,7 @@ def escadaria():
             g.put(x, y, '-')
     g.put(2, 35, '1')
     g.put(33, 10, '2')
+    g.put(33, 35, '3')
     g.put(28, 20, 'c')
     g.put(26, 26, 'v')
     g.put(8, 9, 'v')
@@ -320,6 +325,10 @@ def praca():
     # cadafalso: o tablado fica 3 blocos acima do chão
     for x in range(52, 61):
         g.put(x, 26, '-')
+    # o alçapão do cadafalso: abre depois do Arcebispo e leva ao Poço dos Condenados
+    for x in range(54, 59):
+        g.put(x, 29, '=')
+    g.fill(54, 30, 58, H - 1, '.')
     # escadaria da catedral, com a porta no alto
     g.fill(91, 28, 111, 28, '#')
     g.fill(94, 27, 108, 27, '#')
@@ -327,6 +336,7 @@ def praca():
     r = 28
     g.put(2, r, '1')
     g.put(W - 3, r, '2')
+    g.put(51, r, '3')
     g.put(101, 25, 'O')
     g.put(12, r, 'B')
     g.put(8, 20, 'p')
@@ -568,11 +578,283 @@ def altar():
     return g.rows()
 
 
+
+# ======================================================================================
+# Prisão Subterrânea (capítulo 3). Fica embaixo da praça e da rua. O chão do poço, das celas,
+# da sala das correntes e da guarita fica na mesma linha absoluta (32); a galeria da fuga corre
+# embaixo deles. Caracteres novos:
+# = alçapão (sólido enquanto fechado; RoomDef.trapdoors)  Q alavanca (golpe vira; marca lever:sala:i)
+# o argola do gancho  + parede de ferro liso (as garras escorregam)  : grade de cela (nada passa)
+# ! grade do alarme (cai na fuga)  k molho de chaves  w gancho de corrente (relíquia)
+# W carcereiro  q carcereiro que só aparece com o alarme  I o preso da cela sete  * onda da arena
+# ======================================================================================
+def plank(g, x0, x1, y):
+    for x in range(x0, x1 + 1):
+        g.put(x, y, '-')
+
+
+def poco():
+    """Poço dos Condenados: embaixo do cadafalso. Quem cai pelo alçapão pousa na laje de cima.
+    As tábuas descem para a esquerda, até o túnel da alavanca (atalho para a escadaria); do fundo,
+    onde jogavam os condenados, se segue para as celas, à direita. Para voltar: as tábuas em
+    zigue-zague sobem até a laje e as garras sobem pelo poço."""
+    W, H = 60, 44
+    g = Grid(W, H, '#')
+    g.fill(54, 0, 58, 11, '.')
+    g.fill(6, 12, 58, 40, '.')
+    # laje de pouso, presa na parede da direita
+    g.fill(40, 16, 58, 17, '#')
+    g.fill(49, 18, 58, 18, '#')
+    # túnel da alavanca e a laje da esquerda
+    g.fill(0, 17, 5, 19, '.')
+    g.fill(6, 20, 13, 21, '#')
+    g.fill(6, 22, 9, 22, '#')
+    for y in range(17, 20):
+        g.put(2, y, 'Y')
+    # descida até a laje da esquerda
+    plank(g, 27, 32, 19)
+    plank(g, 17, 21, 22)
+    # zigue-zague de volta, do fundo até a laje
+    for (x0, x1, y) in [(47, 51, 37), (38, 43, 33), (47, 51, 29), (38, 43, 25), (33, 38, 21)]:
+        plank(g, x0, x1, y)
+    # saída para as celas, no fundo
+    g.fill(59, 37, 59, 40, '.')
+    g.put(56, 2, '1')
+    g.put(1, 19, '2')
+    g.put(57, 40, '3')
+    g.put(4, 19, 'Q')
+    g.put(9, 19, 'p')
+    g.put(24, 40, 'c')
+    g.put(36, 40, 'c')
+    g.put(11, 19, 'C')
+    g.put(44, 15, 'C')
+    return g.rows()
+
+
+def celas():
+    """Corredor das Celas: o corredor de baixo vai do poço à sala das correntes, passando pela cela
+    do preso (ao fundo), pela vela e pela porta da arena. No chão, o alçapão que só abre por baixo
+    (a alavanca fica na galeria da fuga). A galeria dos carcereiros, em cima, sobe pelo vão do meio
+    e desce perto do fim; acaba numa cela com grade. Da galeria, as argolas da abóbada levam ao
+    nicho alto (as paredes de ferro não seguram as garras). Uma parede falsa esconde outra cela."""
+    W, H = 150, 44
+    g = Grid(W, H, '#')
+    # corredor de baixo
+    g.fill(0, 33, W - 1, 40, '.')
+    # trecho de teto baixo: só passa agachado ou deslizando
+    g.fill(104, 33, 111, 38, '#')
+    # alçapão no chão e o vão embaixo dele (vai para a galeria da fuga)
+    for x in range(93, 98):
+        g.put(x, 41, '=')
+    g.fill(93, 42, 97, 43, '.')
+    # galeria de cima
+    g.fill(8, 19, 135, 27, '.')
+    # vão do meio para subir, com tábuas dentro e embaixo
+    g.fill(62, 28, 66, 32, '.')
+    plank(g, 58, 62, 37)
+    plank(g, 64, 68, 33)
+    # vão perto do fim para descer
+    g.fill(118, 28, 122, 32, '.')
+    plank(g, 112, 116, 36)
+    # cela com grade no fim da galeria (o que tem dentro fica à vista)
+    g.fill(137, 21, 144, 27, '.')
+    for y in range(21, 28):
+        g.put(136, y, ':')
+    # cela escondida atrás da parede falsa, na ponta esquerda da galeria
+    g.fill(2, 23, 5, 27, '.')
+    g.fill(6, 23, 7, 27, '%')
+    # abóbada alta com paredes de ferro e o nicho no alto, à direita
+    g.fill(92, 6, 112, 18, '.')
+    for y in range(6, 19):
+        g.put(91, y, '+')
+        g.put(113, y, '+')
+    g.fill(106, 9, 112, 10, '#')
+    r = 40
+    g.put(2, r, '1')
+    g.put(147, r, '2')
+    g.put(91, r, '3')
+    g.put(30, r, 'I')
+    g.put(40, r, 'R')
+    g.put(52, r, 'O')
+    g.put(20, r, 'c')
+    g.put(78, r, 'W')
+    g.put(126, r, 'W')
+    g.put(84, 27, 'W')
+    g.put(3, 27, '$')
+    g.put(141, 27, '$')
+    g.put(12, 27, 'p')
+    g.put(110, 8, 'm')
+    g.put(99, 17, 'o')
+    g.put(103, 11, 'o')
+    for x in (10, 26, 46, 72, 88, 118, 138):
+        g.put(x, r, 'C')
+    return g.rows()
+
+
+def correntes():
+    """Sala das Correntes: correntes enormes descem do teto escuro. O gancho de corrente fica no
+    pedestal do meio. A saída é a laje alta da direita: a parede de ferro embaixo dela não segura as
+    garras, então só se chega lá de argola em argola."""
+    W, H = 60, 44
+    g = Grid(W, H, '#')
+    g.fill(1, 3, 58, 40, '.')
+    g.fill(0, 37, 0, 40, '.')
+    # laje da saída e a parede de ferro embaixo dela
+    g.fill(45, 8, 58, 9, '#')
+    g.fill(59, 4, 59, 7, '.')
+    for y in range(10, 41):
+        g.put(59, y, '+')
+    # pedestal do gancho e uma tábua do lado
+    g.fill(18, 39, 22, 40, '#')
+    plank(g, 6, 11, 36)
+    r = 40
+    g.put(2, r, '1')
+    g.put(56, 7, '2')
+    g.put(20, 38, 'w')
+    g.put(30, 32, 'o')
+    g.put(37, 25, 'o')
+    g.put(44, 18, 'o')
+    g.put(41, 12, 'o')
+    g.put(8, 35, 'p')
+    g.put(34, r, 'c')
+    g.put(50, r, 'c')
+    for x in (4, 14, 26, 46):
+        g.put(x, r, 'C')
+    return g.rows()
+
+
+def guarita():
+    """Guarita dos Carcereiros: a torre onde eles dormem e guardam as chaves. Entra pelo alto, à
+    esquerda (a vela fica logo ali), e desce andar por andar. O molho de chaves fica pendurado no
+    fundo, em cima de um alçapão: pegar as chaves toca o alarme e o chão some."""
+    W, H = 60, 44
+    g = Grid(W, H, '#')
+    # patamar de entrada
+    g.fill(0, 4, 18, 7, '.')
+    # a torre
+    g.fill(12, 8, 52, 40, '.')
+    g.fill(13, 2, 51, 7, '.')
+    # andares de madeira e pedra, alternando os vãos
+    g.fill(12, 8, 30, 8, '#')
+    plank(g, 31, 36, 8)
+    g.fill(24, 16, 52, 16, '#')
+    plank(g, 18, 23, 16)
+    g.fill(12, 24, 40, 24, '#')
+    plank(g, 41, 46, 24)
+    g.fill(22, 32, 52, 32, '#')
+    plank(g, 16, 21, 32)
+    # alçapão das chaves
+    for x in range(44, 49):
+        g.put(x, 41, '=')
+    g.fill(44, 42, 48, 43, '.')
+    g.put(2, 7, '1')
+    g.put(41, 40, '2')
+    g.put(6, 7, 'R')
+    g.put(46, 39, 'k')
+    g.put(40, 15, 'W')
+    g.put(20, 23, 'W')
+    g.put(36, 31, 'W')
+    g.put(28, 40, 'c')
+    g.put(14, 31, 'p')
+    for x in (16, 34, 48):
+        g.put(x, 15, 'C')
+    return g.rows()
+
+
+def fuga():
+    """Galeria da Fuga: corre embaixo das celas. Quem cai da guarita chega na ponta da direita com
+    o alarme tocando: as grades descem uma a uma pelo caminho e os carcereiros acordam. Na ponta
+    da esquerda, a alavanca abre o alçapão das celas (o poço sobe até lá) e a porta das máscaras
+    só abre para quem soltou o preso."""
+    W, H = 180, 26
+    g = Grid(W, H, '#')
+    g.fill(3, 12, 176, 21, '.')
+    # poço da guarita (direita) e poço das celas (esquerda, com o alçapão em cima)
+    g.fill(164, 0, 168, 11, '.')
+    g.fill(3, 0, 7, 11, '.')
+    for x in range(3, 8):
+        g.put(x, 0, '=')
+    # obstáculos: tetos baixos, espinhos e degraus
+    g.fill(138, 12, 144, 18, '#')
+    for x in range(118, 124):
+        g.put(x, 21, '^')
+    g.fill(116, 20, 117, 21, '#')
+    g.fill(124, 20, 125, 21, '#')
+    g.fill(96, 12, 101, 18, '#')
+    g.fill(72, 18, 79, 21, '#')
+    for x in range(54, 60):
+        g.put(x, 21, '^')
+    g.fill(52, 20, 53, 21, '#')
+    g.fill(60, 20, 61, 21, '#')
+    g.fill(30, 12, 35, 18, '#')
+    # grades do alarme (descem até o chão; as do teto baixo deixam o vão de deslizar)
+    for gx in (152, 132, 108, 86, 66, 42):
+        for y in range(12, 22):
+            if g.g[y][gx] == '.':
+                g.put(gx, y, '!')
+    r = 21
+    g.put(166, 2, '1')
+    g.put(5, 2, '2')
+    g.put(10, r, 'Q')
+    g.put(22, r, 'O')
+    # Tomé espera aqui depois de sair da cela
+    g.put(27, r, 'I')
+    g.put(160, r, 'C')
+    g.put(14, r, 'C')
+    for x in (146, 112, 90, 62, 38):
+        g.put(x, r, 'q')
+    return g.rows()
+
+
+def arena():
+    """Arena dos Condenados: a porta tranca atrás do cavaleiro e vêm três ondas. Tablados nos dois
+    lados e um no meio, mais alto."""
+    W, H = 60, 26
+    g = Grid(W, H, '#')
+    g.fill(2, 3, 57, 22, '.')
+    for y in range(19, 23):
+        g.put(8, y, '|')
+    plank(g, 12, 19, 18)
+    plank(g, 40, 47, 18)
+    plank(g, 25, 34, 13)
+    r = 22
+    g.put(4, r, 'O')
+    for (x, y) in [(14, r), (46, r), (16, 17), (44, 17), (30, 12), (54, r)]:
+        g.put(x, y, '*')
+    for x in (10, 22, 38, 50):
+        g.put(x, r, 'C')
+    return g.rows()
+
+
+def mascara():
+    """Sala da Máscara: a forja onde se faziam as máscaras dos condenados. A Carcereira espera
+    junto da bigorna; a grade fecha atrás do cavaleiro. Gaiolas presas no teto e duas celas no
+    fundo (abrem na segunda fase)."""
+    W, H = 70, 32
+    g = Grid(W, H, '#')
+    g.fill(2, 3, 67, 27, '.')
+    for y in range(24, 28):
+        g.put(7, y, '|')
+    plank(g, 16, 22, 21)
+    plank(g, 47, 53, 21)
+    r = 27
+    g.put(4, r, 'O')
+    g.put(50, r, 'X')
+    g.put(52, r, 'n')
+    g.put(20, r, '*')
+    g.put(60, r, '*')
+    for x in (12, 28, 42, 58):
+        g.put(x, r, 'C')
+    return g.rows()
+
+
 if __name__ == '__main__':
     out = sys.argv[1]
     maps = {'ponte': ponte(), 'catacumbas': catacumbas(), 'memoria': memoria(), 'sinos': sinos(), 'cripta': cripta(),
             'escadaria': escadaria(), 'praca': praca(), 'rua': rua(), 'telhados': telhados(), 'nave': nave(),
-            'claustro': claustro(), 'galeria': galeria(), 'altar': altar()}
+            'claustro': claustro(), 'galeria': galeria(), 'altar': altar(),
+            'poco': poco(), 'celas': celas(), 'correntes': correntes(), 'guarita': guarita(), 'fuga': fuga(),
+            'arena': arena(), 'mascara': mascara()}
     lines = ['// Gerado por ferramentas/rooms.py: não edite à mão', '']
     for k, rows in maps.items():
         lines.append(f'export const MAP_{k.upper()} = [')

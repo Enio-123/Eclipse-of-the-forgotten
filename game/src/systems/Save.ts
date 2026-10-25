@@ -65,7 +65,9 @@ const KEY = 'eclipse-progresso-v1';
 const ROOM_IDS: RoomId[] = [
   'ponte', 'catacumbas', 'memoria', 'sinos', 'cripta',
   'escadaria', 'praca', 'rua', 'telhados', 'nave', 'claustro', 'galeria', 'altar',
+  'poco', 'celas', 'correntes', 'guarita', 'fuga', 'arena', 'mascara',
 ];
+const ABILITIES: Ability[] = ['wall', 'double', 'hook', 'veil'];
 
 export function loadSave(): SaveData | null {
   try {
@@ -80,7 +82,7 @@ export function loadSave(): SaveData | null {
       kintsugi: typeof d.kintsugi === 'number' ? Math.max(0, Math.min(3, Math.floor(d.kintsugi))) : 0,
       prologueDone: !!d.prologueDone,
       seen: strs(d.seen),
-      abilities: strs(d.abilities).filter((a) => a === 'wall' || a === 'double') as Ability[],
+      abilities: strs(d.abilities).filter((a) => ABILITIES.includes(a as Ability)) as Ability[],
       memories: strs(d.memories),
       traded: strs(d.traded),
       upgrades: strs(d.upgrades),
@@ -211,8 +213,13 @@ export const progress = {
     return n;
   },
 
+  // espaços do inventário: o Elo do Condenado (prêmio da arena) dá mais um
+  get slots() {
+    return SLOTS + (this.seen.has('item:elo') ? 1 : 0);
+  },
+
   fits(u: Upgrade) {
-    return this.equipped.has(u) || this.slotsUsed + slotCost(u) <= SLOTS;
+    return this.equipped.has(u) || this.slotsUsed + slotCost(u) <= this.slots;
   },
 
   // liga ou desliga; 'full' quando não cabe (tire outro primeiro)

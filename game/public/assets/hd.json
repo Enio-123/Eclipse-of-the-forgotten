@@ -19,5 +19,18 @@
  "nave-mid": 2,
  "claustro-mid": 2,
  "deco-rose": 2,
- "deco-rose-broken": 2
+ "deco-rose-broken": 2,
+ "deco-lever-base": 2,
+ "deco-lever-handle": 2,
+ "deco-trapdoor": 2,
+ "deco-cellbars": 2,
+ "deco-ring": 2,
+ "item-keys": 2,
+ "deco-anvil": 2,
+ "cage": 2,
+ "relic-hook": 2,
+ "item-corrente": 2,
+ "item-elo": 2,
+ "prison-far": 2,
+ "prison-mid": 2
 }

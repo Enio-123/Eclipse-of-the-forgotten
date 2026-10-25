@@ -19,7 +19,7 @@ ICON_S = 4   # ícones do inventário: 24 -> 96 (a tela mostra com 48)
 
 
 def sheets():
-    import anims, knight, guard, crow, archer, censer, sineiro, arcebispo, townsfolk, enemy, props, deco
+    import anims, knight, guard, crow, archer, censer, sineiro, arcebispo, townsfolk, enemy, props, deco, jailer, carcereira
     out = {}
     for w in anims.WEAPONS:
         out[f'knight-{w}'] = dict(anims=anims.anims_for(w), mod='knight', W=knight.W, H=knight.H, feet=knight.FEET,
@@ -35,9 +35,15 @@ def sheets():
     out['sineiro'] = dict(anims=sineiro.ANIMS, mod='sineiro', W=sineiro.W, H=sineiro.H, feet=sineiro.FEET)
     out['arcebispo'] = dict(anims=arcebispo.ANIMS, mod='arcebispo', W=arcebispo.W, H=arcebispo.H, feet=arcebispo.FEET,
                             meta_extra={'points': {n: [arcebispo.points(p) for p in poses] for n, (poses, _, _) in arcebispo.ANIMS.items()}})
+    # Carcereiro: a mão da corrente em cada quadro (o jogo desenha a corrente estalada)
+    out['jailer'] = dict(anims=jailer.ANIMS, mod='jailer', W=jailer.W, H=jailer.H, feet=jailer.FEET,
+                         meta_extra={'points': {n: [jailer.points(p) for p in poses] for n, (poses, _, _) in jailer.ANIMS.items()}})
+    out['carcereira'] = dict(anims=carcereira.ANIMS, mod='carcereira', W=carcereira.W, H=carcereira.H, feet=carcereira.FEET,
+                             meta_extra={'points': {n: [carcereira.points(p) for p in poses] for n, (poses, _, _) in carcereira.ANIMS.items()}})
     out['nun'] = dict(anims=townsfolk.NUN_ANIMS, mod='townsfolk', W=townsfolk.NUN_W, H=townsfolk.NUN_H, feet=townsfolk.NUN_FEET, extra={'build': 'nun'})
     out['smith'] = dict(anims=townsfolk.SMITH_ANIMS, mod='townsfolk', W=townsfolk.SMITH_W, H=townsfolk.SMITH_H, feet=townsfolk.SMITH_FEET, extra={'build': 'smith'})
     out['folk'] = dict(anims=townsfolk.FOLK_ANIMS, mod='townsfolk', W=townsfolk.FOLK_W, H=townsfolk.FOLK_H, feet=townsfolk.FOLK_FEET, extra={'build': 'folk'})
+    out['prisoner'] = dict(anims=townsfolk.PRISONER_ANIMS, mod='townsfolk', W=townsfolk.PRISONER_W, H=townsfolk.PRISONER_H, feet=townsfolk.PRISONER_FEET, extra={'build': 'prisoner'})
     out['cobrador'] = dict(anims=props.COB_ANIMS, mod='props', W=props.CW, H=props.CH, feet=props.CFEET, extra={'build': 'cobrador_build'})
     out['figure'] = dict(anims=deco.FIGURE_ANIMS, mod='deco', W=deco.FIGURE_W, H=deco.FIGURE_H, feet=deco.FIGURE_FEET, extra={'build': 'figure_build'})
     return out
@@ -65,9 +71,9 @@ def singles(out_dir):
     items.badalo().save(f'{out_dir}/item-badalo.png')
     items.incensario().save(f'{out_dir}/item-incensario.png')
     made['item-badalo'] = made['item-incensario'] = ink.S
-    # enfeites da Cidade-Catedral
-    import props_hd
-    for k, fn in props_hd.PROPS.items():
+    # enfeites da Cidade-Catedral e da Prisão Subterrânea
+    import props_hd, prison_props
+    for k, fn in list(props_hd.PROPS.items()) + list(prison_props.PROPS.items()):
         prims, decals, W, H = fn()
         to_png(ink.render_frame(prims, decals, W, H, style=ink.HK)).save(f'{out_dir}/{k}.png')
         made[k] = ink.S

@@ -2,7 +2,7 @@
 import math
 
 TAU = math.pi * 2
-WEAPONS = ['sword', 'scythe', 'daggers', 'bow', 'badalo', 'incensario']
+WEAPONS = ['sword', 'scythe', 'daggers', 'bow', 'badalo', 'incensario', 'corrente']
 
 
 def lerp(a, b, t):
@@ -30,7 +30,7 @@ def lerp(a, b, t):
 # ---------------- golpes mais fluidos ----------------
 # o que não é medida troca de uma vez no meio do caminho (lado da lâmina, flecha encaixada, brasa
 # acesa, pegada de duas mãos e a profundidade do braço de trás)
-STEP_KEYS = ('blade', 'nock', 'hot', 'glow', 'mask', 'ikB', 'zB')
+STEP_KEYS = ('blade', 'nock', 'hot', 'glow', 'mask', 'ikB', 'zB', 'lash')
 
 
 def _num(v):
@@ -212,6 +212,18 @@ def carry(w, name, i=0, n=1, ph=0.0, b=0.0):
                 'dash': dict(armF=(-74, 10), wpn=-100),
                 'hurt': dict(armF=(40, 40), wpn=130),
                 'crouch': dict(armF=(40, 50), wpn=84),
+                'slide': dict(armF=(-70, 30), wpn=-110),
+                'kneel': dict(armF=(96, 34), wpn=0)}[name]
+    if w == 'corrente':
+        # a corrente da Carcereira: um palmo pendurado da mão com o gancho, arrastando na corrida
+        return {'idle': dict(armF=(-2 + b * 2, 34 - b * 2), wpn=5 * math.sin(ph) - 4),
+                'run': dict(armF=(-18 - 18 * s, 44), wpn=-40 - 14 * s),
+                'jump': dict(armF=(-40, 50), wpn=-116),
+                'fall': dict(armF=(-52, 60), wpn=-150),
+                'land': dict(armF=(-6, 46), wpn=26),
+                'dash': dict(armF=(-74, 10), wpn=-100),
+                'hurt': dict(armF=(40, 40), wpn=130),
+                'crouch': dict(armF=(40, 50), wpn=70),
                 'slide': dict(armF=(-70, 30), wpn=-110),
                 'kneel': dict(armF=(96, 34), wpn=0)}[name]
     raise ValueError(w)
@@ -427,6 +439,45 @@ def attacks(w):
             lerp(CROUCH, dict(armF=(88, 0), wpn=96, lean=36, hot=True), 1),
             lerp(CROUCH, dict(armF=(82, -6), wpn=92, lean=38, hot=True), 1),
             lerp(CROUCH, dict(armF=(64, 0), wpn=70, lean=36, hot=True), 1),
+            lerp(CROUCH, dict(armF=(20, 30), wpn=10, lean=32), 1),
+        ], 20)
+    elif w == 'corrente':
+        # a corrente estala reta na direção do golpe (o jogo desenha ela esticada; no sprite fica
+        # só a volta enrolada na mão enquanto ela está lá fora)
+        L = dict(legF=(30, 28), legB=(-26, 22), footF=-4, footB=-6)
+        x = dict(lash=True)
+        A['attack'] = ([
+            dict(L, lean=-6, armF=(150, 30), armB=(30, 40), wpn=214, cape=dict(lift=8, wave=4, phase=0.3), hoodtip=(1, 1)),
+            dict(L, lean=4, armF=(120, 12), armB=(10, 40), wpn=150, cape=dict(lift=14, wave=5, phase=0.8), hoodtip=(0, 0)),
+            dict(L, **x, lean=12, armF=(94, -2), armB=(-30, 40), cape=dict(lift=30, wave=7, phase=1.5), hoodtip=(-2, -2)),
+            dict(L, **x, lean=14, armF=(90, 0), armB=(-40, 30), cape=dict(lift=32, wave=7, phase=2.2), hoodtip=(-3, -2)),
+            dict(L, **x, lean=10, armF=(84, 4), armB=(-30, 30), cape=dict(lift=24, wave=6, phase=2.8), hoodtip=(-2, -1)),
+            dict(L, lean=4, armF=(36, 30), armB=(0, 30), wpn=40, cape=dict(lift=14, wave=4, phase=3.4), hoodtip=(-1, 0)),
+        ], 20)
+        U = dict(legF=(20, 22), legB=(-20, 20))
+        A['attack_up'] = ([
+            dict(U, lean=10, armF=(50, 40), armB=(10, 30), wpn=40, cape=dict(lift=10, wave=4, phase=0.4)),
+            dict(U, lean=4, armF=(110, 20), armB=(0, 30), wpn=110, cape=dict(lift=12, wave=4, phase=0.9)),
+            dict(U, **x, lean=-6, armF=(170, 4), armB=(-20, 30), head=(0, -1), tilt=-8, cape=dict(lift=16, wave=6, phase=1.4)),
+            dict(U, **x, lean=-10, armF=(176, 0), armB=(-30, 30), head=(0, -1), tilt=-10, cape=dict(lift=20, wave=6, phase=2.0)),
+            dict(U, **x, lean=-8, armF=(172, 4), armB=(-30, 30), head=(0, -1), tilt=-8, cape=dict(lift=20, wave=6, phase=2.6)),
+            dict(U, lean=-2, armF=(130, 20), armB=(0, 30), wpn=160, cape=dict(lift=12, wave=4, phase=3.2)),
+        ], 20)
+        D = dict(legF=(40, 70), legB=(-6, 50), footF=20)
+        A['attack_down'] = ([
+            dict(D, lean=-4, armF=(150, 20), armB=(30, 40), wpn=196, cape=dict(lift=56, wave=8, phase=0.3), hoodtip=(2, -5)),
+            dict(D, lean=2, armF=(90, 10), armB=(20, 40), wpn=100, cape=dict(lift=60, wave=8, phase=0.8), hoodtip=(2, -5)),
+            dict(D, **x, lean=8, armF=(12, 0), armB=(-20, 30), cape=dict(lift=70, wave=10, phase=1.4), hoodtip=(2, -6)),
+            dict(D, **x, lean=10, armF=(4, 0), armB=(-20, 30), cape=dict(lift=74, wave=10, phase=2.0), hoodtip=(3, -6)),
+            dict(D, **x, lean=8, armF=(6, 0), armB=(-10, 30), cape=dict(lift=74, wave=10, phase=2.6), hoodtip=(3, -6)),
+            dict(D, lean=4, armF=(0, 20), armB=(0, 30), wpn=-20, cape=dict(lift=70, wave=10, phase=3.2), hoodtip=(3, -6)),
+        ], 20)
+        A['crouch_attack'] = ([
+            lerp(CROUCH, dict(armF=(-40, 40), wpn=-100, lean=26), 1),
+            lerp(CROUCH, dict(armF=(-10, 40), wpn=-40, lean=24), 1),
+            lerp(CROUCH, dict(armF=(90, 0), lean=36, lash=True), 1),
+            lerp(CROUCH, dict(armF=(88, 0), lean=38, lash=True), 1),
+            lerp(CROUCH, dict(armF=(86, 2), lean=36, lash=True), 1),
             lerp(CROUCH, dict(armF=(20, 30), wpn=10, lean=32), 1),
         ], 20)
     return A

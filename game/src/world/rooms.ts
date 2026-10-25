@@ -1,14 +1,15 @@
 import type { Theme } from './Level';
 import {
-  MAP_ALTAR, MAP_CATACUMBAS, MAP_CLAUSTRO, MAP_CRIPTA, MAP_ESCADARIA, MAP_GALERIA, MAP_MEMORIA, MAP_NAVE, MAP_PONTE,
-  MAP_PRACA, MAP_RUA, MAP_SINOS, MAP_TELHADOS,
+  MAP_ALTAR, MAP_ARENA, MAP_CATACUMBAS, MAP_CELAS, MAP_CLAUSTRO, MAP_CORRENTES, MAP_CRIPTA, MAP_ESCADARIA, MAP_FUGA, MAP_GALERIA,
+  MAP_GUARITA, MAP_MASCARA, MAP_MEMORIA, MAP_NAVE, MAP_POCO, MAP_PONTE, MAP_PRACA, MAP_RUA, MAP_SINOS, MAP_TELHADOS,
 } from './maps';
 import type { AmbienceId, TrackId } from '../systems/Audio';
 
 export type RoomId =
   | 'ponte' | 'catacumbas' | 'memoria' | 'sinos' | 'cripta'
-  | 'escadaria' | 'praca' | 'rua' | 'telhados' | 'nave' | 'claustro' | 'galeria' | 'altar';
-export type Ability = 'wall' | 'double';
+  | 'escadaria' | 'praca' | 'rua' | 'telhados' | 'nave' | 'claustro' | 'galeria' | 'altar'
+  | 'poco' | 'celas' | 'correntes' | 'guarita' | 'fuga' | 'arena' | 'mascara';
+export type Ability = 'wall' | 'double' | 'hook' | 'veil';
 export type Side = 'left' | 'right' | 'up' | 'down';
 
 export interface Exit {
@@ -30,7 +31,16 @@ export interface DoorDef {
   bar?: boolean;
 }
 
-export type BossId = 'sineiro' | 'arcebispo';
+export type BossId = 'sineiro' | 'arcebispo' | 'carcereira';
+
+// alçapão (cada grupo de '=' do mapa, de cima para baixo e da esquerda para a direita): sólido até a
+// marca existir. auto: com esta outra marca, ele cai sozinho quando o cavaleiro chega perto
+// (grava a marca dele e mostra o pensamento)
+export interface TrapdoorDef {
+  key: string;
+  auto?: string;
+  thought?: string;
+}
 
 // Dica de controle mostrada quando o cavaleiro passa por um trecho (em tiles)
 export interface HintDef {
@@ -74,6 +84,7 @@ export interface RoomDef {
   // falas de cada esquecido 'E' (na ordem do mapa): ele repete a última
   npcs?: string[][];
   boss?: BossId;
+  trapdoors?: TrapdoorDef[];
 }
 
 // salas do prólogo
@@ -213,7 +224,12 @@ const CHAPTER2: Record<'escadaria' | 'praca' | 'rua' | 'telhados' | 'nave' | 'cl
     theme: 'catacomb',
     title: 'Escadaria dos Penitentes',
     subtitle: 'A subida para a cidade',
-    exits: [{ side: 'left', to: 'cripta', entry: '2', range: [32, 35] }, { side: 'right', to: 'praca', entry: '1', range: [7, 10] }],
+    exits: [
+      { side: 'left', to: 'cripta', entry: '2', range: [32, 35] },
+      { side: 'right', to: 'praca', entry: '1', range: [7, 10] },
+      { side: 'right', to: 'poco', entry: '2', range: [33, 35] },
+    ],
+    locks: ['lever:poco:0'],
     ...CITY,
     drips: 16,
     music: 'crypt',
@@ -230,8 +246,13 @@ const CHAPTER2: Record<'escadaria' | 'praca' | 'rua' | 'telhados' | 'nave' | 'cl
     theme: 'city',
     title: 'Praça do Cadafalso',
     subtitle: 'Cidade-Catedral de Vespera',
-    exits: [{ side: 'left', to: 'escadaria', entry: '2', range: [25, 28] }, { side: 'right', to: 'rua', entry: '1', range: [25, 28] }],
+    exits: [
+      { side: 'left', to: 'escadaria', entry: '2', range: [25, 28] },
+      { side: 'right', to: 'rua', entry: '1', range: [25, 28] },
+      { side: 'down', to: 'poco', entry: '1', range: [54, 58] },
+    ],
     doors: [{ to: 'nave', entry: 'O1', key: 'short:catedral', locked: 'Trancada por dentro. A catedral não abre para quem bate.' }],
+    trapdoors: [{ key: 'trap:praca', auto: 'boss:arcebispo', thought: 'O alçapão do cadafalso cedeu. Lá embaixo, correntes.' }],
     npcs: [
       ['Você também veio pagar? A fila anda devagar, mas anda.', 'Eu tinha uma filha. Ou um cachorro. Paguei os dois.', 'O Arcebispo conta tudo. Até o que a gente esqueceu.'],
       ['Não olhe para o cadafalso. Ali penduram quem lembra demais.', 'Dizem que dá para entrar na catedral pelos telhados. Ninguém sobe mais.'],
@@ -356,7 +377,154 @@ const CHAPTER2: Record<'escadaria' | 'praca' | 'rua' | 'telhados' | 'nave' | 'cl
   },
 };
 
-export const ROOMS: Record<RoomId, RoomDef> = { ...PROLOGUE, ...CHAPTER2 };
+// ---------- capítulo 3: a Prisão Subterrânea ----------
+const PRISON: Pick<RoomDef, 'pit' | 'rain' | 'lightning' | 'petals' | 'motes'> = { pit: false, rain: false, lightning: false, petals: false, motes: true };
+
+const CHAPTER3: Record<'poco' | 'celas' | 'correntes' | 'guarita' | 'fuga' | 'arena' | 'mascara', RoomDef> = {
+  poco: {
+    id: 'poco',
+    map: MAP_POCO,
+    theme: 'prison',
+    title: 'Poço dos Condenados',
+    subtitle: 'Prisão Subterrânea',
+    exits: [
+      { side: 'up', to: 'praca', entry: '3', range: [54, 58] },
+      { side: 'left', to: 'escadaria', entry: '3', range: [17, 19] },
+      { side: 'right', to: 'celas', entry: '1', range: [37, 40] },
+    ],
+    locks: ['lever:poco:0'],
+    ...PRISON,
+    drips: 24,
+    music: 'prison',
+    ambience: 'prison',
+    hints: [{ x0: 4, x1: 9, text: '{attack} na alavanca', until: 'lever' }],
+    thoughts: [
+      { x: 50, y: 15, text: 'Jogavam os condenados por aqui. Eu sei, porque eu empurrava.' },
+      { x: 8, y: 19, text: 'Uma alavanca. Do outro lado da grade, a escadaria dos penitentes.' },
+      { x: 30, y: 40, text: 'Ossos com algemas. Ninguém veio buscar.' },
+    ],
+  },
+  celas: {
+    id: 'celas',
+    map: MAP_CELAS,
+    theme: 'prison',
+    title: 'Corredor das Celas',
+    subtitle: 'Onde se espera a sentença',
+    exits: [
+      { side: 'left', to: 'poco', entry: '3', range: [33, 40] },
+      { side: 'right', to: 'correntes', entry: '1', range: [33, 40] },
+      { side: 'down', to: 'fuga', entry: '2', range: [93, 97] },
+    ],
+    doors: [{ to: 'arena', entry: 'O0' }],
+    trapdoors: [{ key: 'lever:fuga:0' }],
+    ...PRISON,
+    drips: 20,
+    music: 'prison',
+    ambience: 'prison',
+    hints: [],
+    thoughts: [
+      { x: 8, text: 'Cada porta tem um número riscado. Eu sabia todos de cor.' },
+      { x: 95, text: 'Um alçapão no chão, trancado por baixo.' },
+      { x: 133, y: 27, text: 'Uma grade que nenhuma chave abre. Um dia alguma coisa vai passar por ela.' },
+    ],
+  },
+  correntes: {
+    id: 'correntes',
+    map: MAP_CORRENTES,
+    theme: 'prison',
+    title: 'Sala das Correntes',
+    subtitle: 'Onde se pendurava a sentença',
+    exits: [
+      { side: 'left', to: 'celas', entry: '2', range: [37, 40] },
+      { side: 'right', to: 'guarita', entry: '1', range: [4, 7] },
+    ],
+    ...PRISON,
+    drips: 18,
+    music: 'prison',
+    ambience: 'prison',
+    hints: [{ x0: 24, x1: 40, text: '{hook} lança o gancho na argola mais perto', needs: 'hook', until: 'hook' }],
+    thoughts: [
+      { x: 52, y: 40, text: 'As argolas sobem até a passagem lá em cima.' },
+      { x: 50, y: 7, text: 'Do outro lado, a torre dos carcereiros.' },
+    ],
+  },
+  guarita: {
+    id: 'guarita',
+    map: MAP_GUARITA,
+    theme: 'prison',
+    title: 'Guarita dos Carcereiros',
+    subtitle: 'Onde dormem os que vigiam',
+    exits: [
+      { side: 'left', to: 'correntes', entry: '2', range: [4, 7] },
+      { side: 'down', to: 'fuga', entry: '1', range: [44, 48] },
+    ],
+    trapdoors: [{ key: 'item:chaves' }],
+    ...PRISON,
+    drips: 12,
+    music: 'prison',
+    ambience: 'prison',
+    hints: [],
+    thoughts: [
+      { x: 10, y: 7, text: 'Os carcereiros dormiam aqui em cima. Nunca dormiam de verdade.' },
+      { x: 40, y: 40, text: 'As chaves da prisão inteira, penduradas. Pesam como uma sentença.' },
+    ],
+  },
+  fuga: {
+    id: 'fuga',
+    map: MAP_FUGA,
+    theme: 'prison',
+    title: 'Galeria da Fuga',
+    subtitle: 'Por onde ninguém escapou',
+    exits: [
+      { side: 'up', to: 'celas', entry: '3', range: [3, 7] },
+      { side: 'up', to: 'guarita', entry: '2', range: [164, 168] },
+    ],
+    doors: [{ to: 'mascara', entry: 'O0', key: 'preso:livre', locked: 'Uma porta com a forma de uma máscara. Não tem fechadura deste lado.' }],
+    trapdoors: [{ key: 'lever:fuga:0' }],
+    ...PRISON,
+    drips: 16,
+    music: 'prison',
+    ambience: 'prison',
+    hints: [],
+    thoughts: [
+      { x: 12, text: 'A alavanca do alçapão. Lá em cima ficam as celas.' },
+      { x: 24, text: 'A porta das máscaras.' },
+    ],
+  },
+  arena: {
+    id: 'arena',
+    map: MAP_ARENA,
+    theme: 'prison',
+    title: 'Arena dos Condenados',
+    subtitle: 'Onde se lutava por mais um dia',
+    exits: [],
+    doors: [{ to: 'celas', entry: 'O0' }],
+    ...PRISON,
+    drips: 10,
+    music: 'prison',
+    ambience: 'prison',
+    hints: [],
+    thoughts: [{ x: 7, text: 'Os condenados lutavam aqui entre si. Quem ganhava lutava de novo amanhã.' }],
+  },
+  mascara: {
+    id: 'mascara',
+    map: MAP_MASCARA,
+    theme: 'prison',
+    title: 'Sala da Máscara',
+    subtitle: 'Onde lhe deram um rosto novo',
+    exits: [],
+    doors: [{ to: 'fuga', entry: 'O0' }],
+    boss: 'carcereira',
+    ...PRISON,
+    drips: 8,
+    music: 'prison',
+    ambience: 'prison',
+    hints: [],
+    thoughts: [{ x: 9, text: 'Eu já estive aqui. Do outro lado da bigorna.' }],
+  },
+};
+
+export const ROOMS: Record<RoomId, RoomDef> = { ...PROLOGUE, ...CHAPTER2, ...CHAPTER3 };
 
 // Onde cada sala fica no mapa (em tiles). A memória do vale não aparece no mapa.
 export const MAP_POS: Partial<Record<RoomId, { x: number; y: number }>> = {
@@ -372,4 +540,11 @@ export const MAP_POS: Partial<Record<RoomId, { x: number; y: number }>> = {
   claustro: { x: 380, y: -83 },
   galeria: { x: 470, y: -117 },
   altar: { x: 590, y: -119 },
+  poco: { x: 470, y: -9 },
+  celas: { x: 530, y: -9 },
+  correntes: { x: 680, y: -9 },
+  guarita: { x: 740, y: -9 },
+  fuga: { x: 620, y: 35 },
+  arena: { x: 470, y: 35 },
+  mascara: { x: 600, y: 61 },
 };

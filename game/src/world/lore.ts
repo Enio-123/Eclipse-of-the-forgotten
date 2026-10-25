@@ -11,6 +11,8 @@ export const MEMORIES: Record<string, { title: string; text: string }> = {
   'nave:0': { title: 'As alianças', text: 'Duas alianças de ferro. A minha ainda está no dedo. A dela, não sei.' },
   'praca:freira': { title: 'A voz da irmã', text: 'Ela cantou no meu casamento. A noiva nunca chegou ao altar.' },
   'altar:boss': { title: 'O dízimo do casamento', text: 'O Arcebispo cobrou antes da cerimônia: a memória dela. Ela me esqueceu no caminho.' },
+  'celas:0': { title: 'O capuz preto', text: 'Eu usava o capuz para não ver os rostos. Um dia vi um rosto mesmo assim, e parei.' },
+  'mascara:boss': { title: 'A máscara de ferro', text: 'Ela fechou o ferro no meu rosto e leu a sentença. Não ouvi o crime. Só lembro das minhas mãos: numa versão, limpas. Na outra, não.' },
 };
 export const MEMORY_TOTAL = Object.keys(MEMORIES).length;
 
@@ -26,6 +28,10 @@ export const PAGES: Record<string, { title: string; text: string }> = {
   'nave:0': { title: 'O Arcebispo', text: 'Ele não era mau. Era só contador. Um dia achou que dava para cobrar o tempo também, e o céu escureceu.' },
   'claustro:0': { title: 'As irmãs', text: 'Éramos doze no claustro. Onze esqueceram a oração e depois o caminho. Eu fiquei, porque nunca vi o eclipse.' },
   'galeria:0': { title: 'Os vitrais', text: 'Cada vitral tem o rosto de alguém que pagou tudo. A luz ainda passa por eles. Eles não sabem.' },
+  'poco:0': { title: 'O poço', text: 'Embaixo do cadafalso há um poço. Quem lembra demais desce por ele, e ninguém conta mais deles. Eu conto.' },
+  'celas:0': { title: 'As celas', text: 'Cada porta tem um número riscado. Lá embaixo não se usa nome: o nome é a primeira coisa que o Dízimo leva.' },
+  'correntes:0': { title: 'A sala das correntes', text: 'Penduravam a sentença em ferro, na sala grande, para o condenado ler toda manhã. Quem não sabia ler, ouvia.' },
+  'guarita:0': { title: 'A Carcereira', text: 'Ela não dorme. Guarda as chaves de todos e a máscara de cada um. Dizem que foi ela quem forjou a primeira.' },
 };
 export const PAGE_IDS = Object.keys(PAGES);
 
@@ -42,6 +48,16 @@ export const RELICS: Record<Ability, { name: string; text: string; how: string }
     name: 'Pena do Eclipse',
     text: 'Uma pena que não cai. Pesa menos que o ar.',
     how: 'No ar, {jump} de novo para o pulo duplo',
+  },
+  hook: {
+    name: 'Gancho de Corrente',
+    text: 'A corrente de um carcereiro, com um gancho na ponta. Morde o ferro e não solta.',
+    how: '{hook} lança o gancho na argola mais perto e puxa você até ela',
+  },
+  veil: {
+    name: 'Véu Abissal',
+    text: 'Um pedaço da sombra dele. Pesa como um pano molhado e passa por onde a pedra não deixa.',
+    how: 'O {dash} atravessa grades e golpes',
   },
 };
 
@@ -60,7 +76,7 @@ export const OFFERS: { id: Upgrade; name: string; text: string; cost: number; pa
     cost: 0, pay: 'gift', slots: 1, missing: 'Ainda não tem. Alguém na cidade guarda.',
   },
 ];
-// espaços do inventário
+// espaços do inventário (o Elo do Condenado dá mais um)
 export const SLOTS = 3;
 
 // ---------- gente da Cidade-Catedral ----------
@@ -147,4 +163,52 @@ export const BESTIARY: { kind: string; name: string; text: string; tip: string }
     text: 'Contava tudo o que a cidade pagava. Um dia quis cobrar o tempo, e o céu escureceu.',
     tip: 'O incensário dele também se apara. Quando o vitral cair, fuja dos fachos de luz.',
   },
+  {
+    kind: 'jailer', name: 'Carcereiro',
+    text: 'Vigia as celas embaixo da cidade. Esqueceu por que prende, mas não esqueceu como.',
+    tip: 'De longe a corrente vem na altura do peito: agache, deslize ou apare. De perto ele soca o chão: pule.',
+  },
+  {
+    kind: 'boss:carcereira', name: 'A Carcereira',
+    text: 'Guarda as chaves de todos e a máscara de cada um. Foi ela quem fechou o ferro no rosto dele.',
+    tip: 'Agache na corrente alta, pule a varrida, apare a ponta do gancho e fuja das sombras das gaiolas.',
+  },
 ];
+
+// alavancas da prisão: o que o cavaleiro pensa quando ela vira
+export const LEVERS: Record<string, string> = {
+  'lever:poco:0': 'A grade da escadaria subiu. Um caminho curto de volta para a cidade.',
+  'lever:fuga:0': 'Lá em cima, um alçapão destrancou. O poço sobe até as celas.',
+};
+
+// Tomé, o preso do corredor das celas: pede as chaves e conta a versão dele daquele dia
+export const PRISONER = {
+  name: 'Tomé',
+  first: [
+    'Passos de ferro de novo. Não é carcereiro: carcereiro não para na frente da cela.',
+    'Me chamo Tomé. Estou aqui desde antes do eclipse. Ou depois. Aqui embaixo o tempo não passa, só pesa.',
+    'As chaves ficam na guarita, depois da sala das correntes. A parede de lá é de ferro liso; as garras não ajudam.',
+    'Traz as chaves e eu te mostro a porta das máscaras. Ela só abre por dentro.',
+  ],
+  waiting: [
+    'As chaves ficam na guarita. Sala das correntes, depois sobe.',
+    'Lá em cima as argolas aguentam o peso de um homem. Eu vi carcereiro subir por elas.',
+  ],
+  freed: [
+    'O barulho dessas chaves... faz tempo que ninguém gira essa fechadura para abrir.',
+    'Eu te devo uma, então escuta: eu estava na fila do cadafalso naquele dia. Vi você lá em cima.',
+    'Vi você cortar a corda de alguém. Ou vi você descer a foice? Já não sei. Aqui embaixo, cada um lembra de um jeito.',
+    'Vou na frente. A porta das máscaras fica no fim da galeria, embaixo de nós. Abro por dentro e espero lá.',
+  ],
+  after: [
+    'Abri a porta. Ela está lá dentro, na bigorna. Martela máscaras como quem reza.',
+    'Se ela perguntar por mim, diga que eu morri. É quase verdade.',
+  ],
+};
+
+// ondas da Arena dos Condenados (letras do mapa) e o prêmio no fim
+export const ARENA_WAVES: string[][] = [['c', 'c', 'c'], ['g', 'W'], ['v', 'v', 'a', 'W'], ['W', 'i', 'W']];
+export const ELO = {
+  name: 'Elo do Condenado',
+  text: 'Um elo de corrente partido. Mais um espaço no inventário.',
+};

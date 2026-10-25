@@ -63,6 +63,7 @@ export class Props {
       if (s.kind === 'R') this.addShrine(ri++, s.x, s.y);
       else if (s.kind === 'J') this.addRelic('wall', s.x, s.y);
       else if (s.kind === 'U') this.addRelic('double', s.x, s.y);
+      else if (s.kind === 'w') this.addRelic('hook', s.x, s.y);
       else if (s.kind === 'K') this.addCobrador(s.x, s.y);
       else if (s.kind === 'm') {
         const id = `${room}:${mi++}`;
@@ -128,8 +129,8 @@ export class Props {
     s.add.image(x, y, 'deco-pedestal').setOrigin(0.5, 1).setDepth(DEPTH.prop);
     const r: Relic = { kind, x, y, sprite: null, glow: null };
     if (!progress.abilities.has(kind)) {
-      r.glow = s.add.image(x, y - 50, 'glow').setScale(1.8).setTint(kind === 'wall' ? 0xbcd4ff : 0xfff0c8).setAlpha(0.55).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.front);
-      r.sprite = s.add.image(x, y - 50, `relic-${kind}`).setDepth(DEPTH.enemy);
+      r.glow = s.add.image(x, y - 50, 'glow').setScale(1.8).setTint(kind === 'wall' || kind === 'hook' ? 0xbcd4ff : 0xfff0c8).setAlpha(0.55).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.front);
+      r.sprite = hd(s.add.image(x, y - 50, `relic-${kind}`).setDepth(DEPTH.enemy));
     }
     this.relics.push(r);
   }

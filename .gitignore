@@ -8,3 +8,7 @@ shots/
 __pycache__/
 *.log
 undefined
+audio_in/
+audio_out/
+art/out_*/
+maps.bak.ts
