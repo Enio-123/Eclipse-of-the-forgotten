@@ -34,11 +34,13 @@ const check = (name, ok, extra = '') => {
   await page.goto(URL);
   await page.waitForSelector('#screen-menu.show', { timeout: 30000 });
   await page.waitForTimeout(400);
-  const tap = async (i, hold = 90) => {
+  // segura o bastante para a leitura do controle pegar o toque mesmo com o navegador lento
+  // (a repetição só começa com 380 ms)
+  const tap = async (i, hold = 170) => {
     await page.evaluate((i) => window.__btn(i, true), i);
     await page.waitForTimeout(hold);
     await page.evaluate((i) => window.__btn(i, false), i);
-    await page.waitForTimeout(90);
+    await page.waitForTimeout(110);
   };
   const focused = () => page.evaluate(() => document.activeElement?.textContent?.trim() ?? '');
 
@@ -91,7 +93,9 @@ const check = (name, ok, extra = '') => {
   const w = await page.evaluate(() => document.querySelector('.card[aria-checked="true"]')?.dataset.w);
   check('direcional troca a arma', w === 'sword', w);
   await tap(14);
-  for (let k = 0; k < 8 && (await focused()) !== 'Começar'; k++) await tap(13);
+  const trail = [];
+  for (let k = 0; k < 12 && (await focused()) !== 'Começar'; k++) { trail.push((await focused()).slice(0, 14)); await tap(13); }
+  check('direcional desce até Começar', (await focused()) === 'Começar', trail.join(' > '));
   await tap(0);
   await page.waitForSelector('#screen-intro.show', { timeout: 4000 });
   const skipText = await page.evaluate(() => [...document.querySelectorAll('#screen-intro .skip span')].filter((s) => getComputedStyle(s).display !== 'none').map((s) => s.textContent).join('|'));

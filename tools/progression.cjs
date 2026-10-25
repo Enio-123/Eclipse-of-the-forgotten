@@ -63,6 +63,9 @@ const T = 16;
       // corre e atravessa o abismo: pulo, pulo duplo caindo, dash
       gap(p, k) {
         const b = p.body;
+        // pousou (na viga, ou caiu nos espinhos e voltou para a borda): solta tudo, senão a
+        // corrida leva o cavaleiro para a cripta ou de novo para o abismo
+        if (st.done || (st.phase > 0 && (p.frozen || (p.onGround && st.t - st.t1 > 0.2)))) { st.done = true; return; }
         k.held.right = true;
         k.held.jump = true;
         if (st.phase === 0 && b.right > args.edge) { k.pressed.jump = true; st.phase = 1; st.t1 = st.t; }
