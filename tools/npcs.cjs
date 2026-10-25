@@ -178,7 +178,7 @@ const URL = process.argv[3] || 'http://localhost:8765/index.html';
   await page.waitForTimeout(300);
   const lv = await page.evaluate((w) => [window.__progress.level(w), window.__progress.coins, window.__progress.dmgFor(w)], w);
   check(lv[0] === 1 && lv[1] === 70, `forjou: nível ${lv[0]}, ${lv[1]} moedas`);
-  check(Math.abs(lv[2] - 1.15) < 0.01, `dano da arma sobe 15% (${lv[2].toFixed(2)})`);
+  check(Math.abs(lv[2] - 1.1) < 0.01, `dano da arma sobe 10% (${lv[2].toFixed(2)})`);
   const lv2 = await page.evaluate((w) => !document.querySelector(`#screen-forge [data-id="${w}"]`).disabled, w);
   check(lv2, 'nível 2 libera com o bronze do Sineiro (já vencido)');
   await page.click(`#screen-forge [data-id="${w}"]`);

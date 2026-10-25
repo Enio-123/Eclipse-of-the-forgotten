@@ -3,40 +3,40 @@
   "w": 144,
   "h": 128,
   "ox": 0.19444444444444445,
-  "frames": 3,
-  "fps": 24,
+  "frames": 7,
+  "fps": 48,
   "scale": 2
  },
  "slash-big": {
   "w": 208,
   "h": 192,
   "ox": 0.1346153846153846,
-  "frames": 4,
-  "fps": 22,
+  "frames": 13,
+  "fps": 66,
   "scale": 2
  },
  "slash-small": {
   "w": 104,
   "h": 88,
   "ox": 0.15384615384615385,
-  "frames": 3,
-  "fps": 30,
+  "frames": 7,
+  "fps": 60,
   "scale": 2
  },
  "slash-heavy": {
   "w": 192,
   "h": 184,
   "ox": 0.125,
-  "frames": 4,
-  "fps": 20,
+  "frames": 13,
+  "fps": 60,
   "scale": 2
  },
  "slash-censer": {
   "w": 184,
   "h": 176,
   "ox": 0.13043478260869565,
-  "frames": 4,
-  "fps": 20,
+  "frames": 13,
+  "fps": 60,
   "scale": 2
  }
 }

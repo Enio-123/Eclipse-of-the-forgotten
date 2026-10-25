@@ -676,7 +676,9 @@ class UI {
       li.append(el('b', '', off.name), el('span', 'how', on ? `Equipado. ${off.text}` : 'Guardado no inventário.'));
       up.append(li);
     }
-    $('.map-coins', s).textContent = plural(progress.coins, 'moeda', 'moedas');
+    const echo = progress.echo;
+    $('.map-coins', s).textContent = plural(progress.coins, 'moeda', 'moedas') + (echo ? ` · ${echo.coins} com a sombra` : '');
+    $<HTMLElement>('.lg-echo', s).hidden = !echo;
     if (!progress.upgrades.size) up.append(el('li', 'unknown', 'Nenhum'));
     this.push('map', o.onClose);
     // desenha depois que a tela aparece (precisa do tamanho do canvas)

@@ -8,6 +8,7 @@ import { Archer } from '../entities/Archer';
 import { Censer } from '../entities/Censer';
 import { Boss } from '../entities/Boss';
 import { Arcebispo } from '../entities/Arcebispo';
+import { ABYSS, Echo } from '../entities/Echo';
 import { overlap, type BossFoe, type Enemy } from '../entities/Enemy';
 import { SmokeField } from '../entities/Smoke';
 import { Arrow } from '../entities/Arrow';
@@ -215,7 +216,12 @@ export class GameScene extends Phaser.Scene {
   private tracks: Track[] = [];
   private quakes: Quake[] = [];
   private ash!: Phaser.GameObjects.Particles.ParticleEmitter;
+  // gotas e luzes da sombra (o Eco)
+  private abyssDrips!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private abyssMotes!: Phaser.GameObjects.Particles.ParticleEmitter;
   private weaponDrop: WeaponDrop | null = null;
+  // a sombra que guarda as moedas da última morte, se ela ficou nesta sala
+  echo: Echo | null = null;
 
   constructor() {
     super('game');
@@ -231,6 +237,7 @@ export class GameScene extends Phaser.Scene {
     this.tracks = [];
     this.quakes = [];
     this.weaponDrop = null;
+    this.echo = null;
     this.boss = null;
     this.bossFrac = -1;
     this.rose = null;
@@ -317,6 +324,7 @@ export class GameScene extends Phaser.Scene {
     for (const e of this.enemies) this.physics.add.collider(e.zone, this.level.layer);
 
     this.makeParticles();
+    this.placeEcho();
     this.censerClouds = new SmokeField(this, [0xa8906e, 0xcab58f], DEPTH.player - 0.5);
     this.loot = new Loot(this);
     this.passed.clear();
@@ -447,7 +455,22 @@ export class GameScene extends Phaser.Scene {
     } else {
       cam.fadeIn(from === 'death' ? 700 : 380, 7, 8, 13);
       if (from === 'continue' || from === 'door') this.time.delayedCall(350, showBanner);
+      if (from === 'death') this.deathNews();
     }
+  }
+
+  // de volta na vela: conta o que ficou com a sombra e o que se perdeu de vez
+  private deathNews() {
+    const news = this.registry.get('echo-news') as { lost: number; gone: number } | undefined;
+    this.registry.remove('echo-news');
+    if (!news) return;
+    let text = '';
+    if (news.gone > 0) text = `A sombra antiga se desfez com as ${news.gone} moedas dela. `;
+    if (news.lost > 0 && !progress.seen.has('echo:first')) {
+      progress.seen.add('echo:first');
+      text += 'A maior parte das moedas ficou com a minha sombra, onde eu caí. Se eu a vencer, elas voltam.';
+    } else if (news.lost > 0) text += `${news.lost} moedas ficaram com a minha sombra.`;
+    if (text) this.time.delayedCall(900, () => ui.thought(text.trim(), 5200));
   }
 
   private rainFloor() {
@@ -564,6 +587,27 @@ export class GameScene extends Phaser.Scene {
       tint: this.room.theme === 'memory' ? [0xffffff, 0xe8e0cc] : [0xa49e94, 0x77726c, 0x4a474c, 0xd9c7a2],
       emitting: false,
     }).setDepth(DEPTH.enemy + 1);
+    // a sombra pinga gotas escuras e solta luzes lilás que sobem
+    this.abyssDrips = this.add.particles(0, 0, 'px', {
+      lifespan: { min: 380, max: 760 },
+      speedX: { min: -12, max: 12 },
+      speedY: { min: 10, max: 40 },
+      gravityY: 380,
+      scale: { start: 1.3, end: 0.5 },
+      alpha: { start: 0.95, end: 0.2 },
+      tint: [ABYSS.ink, 0x2a1240, ABYSS.purple, ABYSS.magenta],
+      emitting: false,
+    }).setDepth(DEPTH.enemy - 0.1);
+    this.abyssMotes = this.add.particles(0, 0, 'px', {
+      lifespan: { min: 500, max: 1100 },
+      speedX: { min: -14, max: 14 },
+      speedY: { min: -46, max: -14 },
+      scale: { start: 1.1, end: 0 },
+      alpha: { start: 0.9, end: 0 },
+      tint: [ABYSS.lilac, 0xb58cf0, ABYSS.magenta],
+      blendMode: Phaser.BlendModes.ADD,
+      emitting: false,
+    }).setDepth(DEPTH.enemy + 0.2);
     this.waterFx = this.add.particles(0, 0, 'px', {
       lifespan: { min: 200, max: 420 },
       speedX: { min: -60, max: 60 },
@@ -734,7 +778,8 @@ export class GameScene extends Phaser.Scene {
 
   // inimigo derrotado: deixa moedas e, de vez em quando, um caco de vida
   private onKill(e: Enemy) {
-    if (this.looted.has(e)) return;
+    // a sombra não deixa moedas no chão: devolve as dela direto na bolsa (echoDefeated)
+    if (this.looted.has(e) || e.kind === 'echo') return;
     this.looted.add(e);
     this.loot.drop(e.kind, e.zone.x, e.zone.y);
     progress.kill(e.kind);
@@ -1049,8 +1094,18 @@ export class GameScene extends Phaser.Scene {
     const cam = this.cameras.main;
     this.transitioning = true;
     ui.hint(null);
-    // as moedas pegas até aqui ficam (grava sem mudar o ponto de retorno)
-    if (this.dirty) progress.save();
+    // 70% das moedas ficam com a sombra, onde ele caiu (a sombra antiga, se havia, some com as
+    // dela). Grava junto o que mudou até aqui, sem mudar o ponto de retorno
+    const spot = this.echoSpot();
+    const { lost, gone } = progress.die(this.room.id, spot.x, spot.y);
+    this.dirty = false;
+    this.registry.set('echo-news', { lost, gone });
+    if (lost > 0) {
+      this.registry.set('coins-loss', true);
+      this.registry.set('coins', progress.coins);
+      const p = this.player;
+      for (let i = 0; i < 4; i++) this.time.delayedCall(i * 90, () => this.echoMotes(p.x, p.body.center.y, false, 8));
+    }
     this.sfx('crack');
     pad.rumble(1, 0.8, 560);
     this.time.delayedCall(600, () => {
@@ -1457,6 +1512,102 @@ export class GameScene extends Phaser.Scene {
     this.applyProgress();
     if (info) ui.banner(info.title, info.text, 4600);
     if (CHAPTERS[m.id]) this.chapterEnd(m.id);
+  }
+
+  // ---------- a sombra (Eco) ----------
+  // onde a sombra fica ao morrer: no último chão seguro; na sala de um chefe ainda vivo, na entrada
+  // (fora da arena, para não ter de lutar com os dois juntos)
+  private echoSpot() {
+    const id = this.room.boss;
+    if (id && !progress.seen.has(`boss:${id}`)) {
+      const s = this.level.spawn('1') ?? this.level.spawns[0];
+      const inward = s.x < this.level.widthPx / 2 ? 1 : -1;
+      return { x: s.x + inward * 3 * TILE, y: s.y };
+    }
+    return { x: this.player.lastSafe.x, y: this.player.lastSafe.y };
+  }
+
+  private placeEcho() {
+    const d = progress.echo;
+    if (!d || d.room !== this.room.id || this.room.noAttack) return;
+    const e = new Echo(this, d.x, d.y, settings.data.weapon);
+    this.echo = e;
+    this.enemies.push(e);
+    // a sombra passa pelas tábuas finas (só a pedra segura)
+    this.physics.add.collider(e.zone, this.level.layer, undefined, (_o, t) => (t as Phaser.Tilemaps.Tile).index !== TILE_ONEWAY, this);
+  }
+
+  echoMotes(x: number, y: number, drip: boolean, n = 1) {
+    (drip ? this.abyssDrips : this.abyssMotes).emitParticle(n, x, y);
+  }
+
+  echoWoke(_e: Echo) {
+    if (progress.seen.has('echo:met')) return;
+    progress.seen.add('echo:met');
+    this.markDirty();
+    ui.thought('Sou eu, do jeito que o abismo lembra. Ela guarda o que eu perdi.', 4600);
+  }
+
+  // a sombra caiu: as moedas dela voam de volta para o cavaleiro
+  echoDefeated(x: number, y: number) {
+    const before = progress.coins;
+    const n = progress.reclaim();
+    this.dirty = false;
+    this.sfx('echo-die');
+    this.cameras.main.shake(160, 0.004);
+    pad.rumble(0.35, 0.6, 220);
+    this.abyssDrips.explode(26, x, y);
+    this.abyssMotes.explode(22, x, y);
+    const g = this.add.image(x, y, 'glow').setTint(ABYSS.lilac).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.slash).setScale(0.5).setAlpha(0.9);
+    this.tweens.add({ targets: g, scale: 3.4, alpha: 0, duration: 520, ease: 'Quad.easeOut', onComplete: () => g.destroy() });
+    if (n <= 0) return;
+    this.time.delayedCall(320, () => this.sfx('coinrain', 0.7));
+    // o contador sobe enquanto as moedas chegam (o progresso já guardou todas)
+    const k = Math.min(28, 6 + Math.ceil(n / 8));
+    let shown = before;
+    for (let i = 0; i < k; i++) {
+      const share = i === k - 1 ? before + n : before + Math.round((n * (i + 1)) / k);
+      const big = n / k >= 4;
+      const c = this.add.sprite(x, y, big ? 'coin-big' : 'coin', 0).setDepth(DEPTH.slash).play(big ? 'coin-big-spin' : 'coin-spin');
+      const a = Math.random() * Math.PI * 2;
+      const r = 18 + Math.random() * 30;
+      const out = { x: x + Math.cos(a) * r, y: y + Math.sin(a) * r - 12 };
+      this.tweens.add({
+        targets: c,
+        x: out.x,
+        y: out.y,
+        duration: 260,
+        ease: 'Quad.easeOut',
+        onComplete: () => {
+          // depois voa até o cavaleiro, seguindo ele
+          const from = { x: c.x, y: c.y };
+          const fly = { t: 0 };
+          this.tweens.add({
+            targets: fly,
+            t: 1,
+            delay: 120 + i * 45,
+            duration: 380,
+            ease: 'Quad.easeIn',
+            onUpdate: () => {
+              const p = this.player;
+              c.setPosition(Phaser.Math.Linear(from.x, p.x, fly.t), Phaser.Math.Linear(from.y, p.body.center.y, fly.t));
+            },
+            onComplete: () => {
+              c.destroy();
+              if (this.transitioning) return;
+              shown = Math.max(shown, share);
+              this.registry.set('coins', Math.min(progress.coins, shown));
+              this.sparks.explode(2, this.player.x, this.player.body.center.y);
+              if (i % 3 === 0 || i === k - 1) this.sfx('tink', 0.35, 1 + Math.random() * 0.3);
+            },
+          });
+        },
+      });
+    }
+    if (!progress.seen.has('echo:won')) {
+      progress.seen.add('echo:won');
+      this.time.delayedCall(1700, () => ui.thought('As moedas voltaram. Ela era só o que eu tinha perdido.', 4200));
+    }
   }
 
   // ---------- chefes ----------

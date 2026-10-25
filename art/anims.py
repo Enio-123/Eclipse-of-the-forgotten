@@ -27,6 +27,58 @@ def lerp(a, b, t):
     return out
 
 
+# ---------------- golpes mais fluidos ----------------
+# o que não é medida troca de uma vez no meio do caminho (lado da lâmina, flecha encaixada, brasa
+# acesa, pegada de duas mãos e a profundidade do braço de trás)
+STEP_KEYS = ('blade', 'nock', 'hot', 'glow', 'mask', 'ikB', 'zB')
+
+
+def _num(v):
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def _cr(p0, p1, p2, p3, t):
+    t2, t3 = t * t, t * t * t
+    return 0.5 * (2 * p1 + (p2 - p0) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (3 * p1 - p0 - 3 * p2 + p3) * t3)
+
+
+def _blend(a, b, c, d, t, key=''):
+    if key in STEP_KEYS:
+        return b if t < 0.5 else c
+    if isinstance(b, dict):
+        return {k: _blend(a.get(k, b[k]), b[k], c.get(k, b[k]), d.get(k, c.get(k, b[k])), t, k) for k in b}
+    if all(_num(v) for v in (a, b, c, d)):
+        return _cr(a, b, c, d, t)
+    if all(isinstance(v, tuple) and len(v) == len(b) and all(_num(q) for q in v) for v in (a, b, c, d)):
+        return tuple(_cr(a[i], b[i], c[i], d[i], t) for i in range(len(b)))
+    return b if t < 0.5 else c
+
+
+def smooth(keys, fps, target=54):
+    """Poses intermediárias entre as poses-chave de um golpe, numa curva suave (Catmull-Rom): o
+    braço e a arma passam por todos os ângulos no caminho sem parar em cada chave, e chegam
+    devagar na última. A duração e o momento de cada chave continuam iguais (o golpe acerta na
+    mesma hora); só entram mais quadros, num ritmo perto de `target` por segundo."""
+    import knight
+    m = max(1, round(target / fps))
+    if m <= 1 or len(keys) < 2:
+        return keys, fps
+    K = [knight.P(k) for k in keys]
+    n = len(K)
+    out = []
+    for i in range(n - 1):
+        p0 = K[i - 1] if i > 0 else K[i]
+        p1, p2 = K[i], K[i + 1]
+        # depois da última chave ele para (a curva chega sem velocidade)
+        p3 = K[i + 2] if i + 2 < n else K[i]
+        for j in range(m):
+            f = _blend(p0, p1, p2, p3, j / m) if j else dict(p1)
+            f['draw'] = min(1.0, max(0.0, f['draw']))
+            out.append(f)
+    out.append(K[-1])
+    return out, fps * m
+
+
 # ---------------- corpo (comum a todas as armas) ----------------
 def idle_body(i, n):
     ph = TAU * i / n
@@ -405,5 +457,6 @@ def anims_for(w):
     stand = idle[0]
     A['getup'] = ([lerp(kneel, stand, t) for t in (0.25, 0.5, 0.75, 0.95)], 10, False)
     for k, v in attacks(w).items():
-        A[k] = (v[0], v[1], False)
+        poses, fps = smooth(v[0], v[1])
+        A[k] = (poses, fps, False)
     return A

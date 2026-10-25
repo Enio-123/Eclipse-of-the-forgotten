@@ -196,6 +196,34 @@ export const CENSER = {
   smokeH: 24,
 };
 
+// O Eco: a sombra do cavaleiro que guarda as moedas perdidas na morte. Paira, segue devagar e
+// avança num corte (dá para aparar no fim da preparação). Só machuca no corte.
+export const ECHO = {
+  bodyW: 14,
+  bodyH: 42,
+  hp: 5,
+  // acorda quando o cavaleiro chega perto (e não nos primeiros instantes da sala)
+  sight: 210,
+  sightY: 140,
+  calm: 1.4,
+  speed: 96,
+  accel: 430,
+  // distância que ela gosta de manter antes de avançar
+  keep: 60,
+  reach: 150,
+  windup: 0.5,
+  // avanço curto: para na frente do cavaleiro, o corte cobre o resto
+  lunge: 330,
+  lungeTime: 0.24,
+  active: 0.17,
+  recover: 0.62,
+  atkCd: [0.9, 1.5] as const,
+  hurt: 0.2,
+  knock: 170,
+  // longe demais de onde ficou: volta para lá e espera
+  leash: 320,
+};
+
 // Aparar: golpear no fim da preparação ou no golpe do inimigo rebate o ataque e deixa ele tonto.
 // Enquanto está tonto, os golpes entram com bônus.
 export const PARRY = {
@@ -214,6 +242,8 @@ export const LOOT = {
   archer: { coins: [3, 5], life: 0.5 },
   censer: { coins: [4, 7], life: 0.75 },
   boss: { coins: [40, 40], life: 2 },
+  // a sombra devolve as moedas dela direto na bolsa
+  echo: { coins: [0, 0], life: 0 },
   magnet: 56,
   pickupDelay: 0.35,
   lifeTime: 16,

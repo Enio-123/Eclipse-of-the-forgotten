@@ -7,7 +7,8 @@ export type SfxName =
   | 'hit' | 'hurt' | 'kill' | 'thunder' | 'drip' | 'crack' | 'shard' | 'splash' | 'ui' | 'ui-ok'
   | 'clang' | 'caw' | 'swoosh' | 'thud' | 'chime' | 'bell' | 'rest' | 'coin' | 'roar' | 'tink' | 'mend' | 'ghost'
   | 'ash' | 'quake' | 'equip' | 'erase'
-  | 'parry' | 'break' | 'glass' | 'page' | 'anvil' | 'smoke' | 'coinrain' | 'door' | 'locked' | 'censer' | 'draw' | 'gate';
+  | 'parry' | 'break' | 'glass' | 'page' | 'anvil' | 'smoke' | 'coinrain' | 'door' | 'locked' | 'censer' | 'draw' | 'gate'
+  | 'echo' | 'echo-die';
 export type TrackId = 'title' | 'bridge' | 'crypt' | 'memory' | 'boss' | 'city' | 'nave' | 'boss2' | 'none';
 export type AmbienceId = 'rain' | 'crypt' | 'wind' | 'city' | 'nave' | 'none';
 export type StepKind = 'wet' | 'stone' | 'grass';
@@ -886,6 +887,31 @@ class AudioEngine {
           src.start(t, Math.random());
           src.stop(t + 0.95);
         }
+        break;
+      case 'echo': {
+        // a sombra: um sopro que cresce ao contrário e duas notas ocas que sobem juntas
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.5, t + 0.32);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.62);
+        g.connect(out);
+        this.nz(g, t, 0.62, 'bandpass', 220 * r, 1100 * r, 0.6, 5);
+        [146.8, 220].forEach((f, i) => {
+          const o = ctx.createGain();
+          o.gain.setValueAtTime(0.0001, t);
+          o.gain.exponentialRampToValueAtTime(i ? 0.035 : 0.06, t + 0.3);
+          o.gain.exponentialRampToValueAtTime(0.001, t + 0.7);
+          o.connect(out);
+          const osc = this.osc(i ? 'triangle' : 'sine', f * r, t, t + 0.72, o);
+          osc.frequency.exponentialRampToValueAtTime(f * r * 1.5, t + 0.6);
+        });
+        break;
+      }
+      case 'echo-die':
+        // a sombra se desfaz: um respiro que se solta, vidro escuro e um sino pequeno
+        this.nz(out, t, 0.8, 'bandpass', 1400 * r, 260 * r, 0.32, 2);
+        this.tone(out, t, 0.9, 'sine', 330 * r, 82 * r, 0.12);
+        [988, 1480, 1976].forEach((f, i) => this.tone(out, t + 0.16 + i * 0.07, 1.1, 'sine', f * r, f * r * 0.995, 0.05));
         break;
       case 'coinrain':
         // chuva do dízimo: moedas batendo em toda parte

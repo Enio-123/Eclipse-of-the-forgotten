@@ -130,6 +130,43 @@ def arrow_hd(s=2):
     return Image.fromarray((np.clip(a, 0, 1) * 255 + 0.5).astype(np.uint8), 'RGBA')
 
 
+def tween(keys, fps):
+    """Quadros intermediários entre os quadros-chave de um corte (início e fim do arco, espessura,
+    opacidade e rastro), mais um quadro final sumindo: o arco varre e some suave em vez de pular.
+    Devolve os parâmetros de cada quadro e o novo ritmo (a duração fica quase igual)."""
+    m = 3 if fps <= 22 else 2
+    last = dict(keys[-1])
+    fade = dict(last, start=min(1.0, last['start'] + 0.3), thick=last['thick'] * 0.7, alpha=last['alpha'] * 0.35)
+    K = list(keys) + [fade]
+    out = []
+    for i in range(len(K) - 1):
+        a, b = K[i], K[i + 1]
+        for j in range(m):
+            t = j / m
+            # o fio acelera no começo do golpe e desacelera no fim
+            e = t * t * (3 - 2 * t)
+            out.append({k: a[k] + (b[k] - a[k]) * (e if k in ('start', 'end') else t) for k in a})
+    out.append(K[-1])
+    return out, fps * m
+
+
+def swing(W, H, cx, R, squash, keys, cols, fps, seed=None, **kw):
+    """Monta os quadros de um corte a partir dos quadros-chave (todos com as mesmas faíscas, que
+    andam junto com o arco em vez de piscar)."""
+    params, fps = tween(keys, fps)
+    frames = [arc_frame(W, H, cx, R, squash, f['start'], f['end'], f['thick'], f['alpha'], cols,
+                        trail=f.get('trail', kw.get('trail', 2.2)), sparkle=seed,
+                        **{k: v for k, v in kw.items() if k != 'trail'}) for f in params]
+    return frames, fps
+
+
+def K(start, end, thick, alpha, trail=None):
+    d = dict(start=start, end=end, thick=thick, alpha=alpha)
+    if trail is not None:
+        d['trail'] = trail
+    return d
+
+
 def sheet(frames, path):
     W, H = frames[0].size
     s = Image.new('RGBA', (W * len(frames), H), (0, 0, 0, 0))
@@ -150,20 +187,16 @@ def main(out, hd=0):
     # espada (igual ao protótipo)
     W, H = 72, 64
     cols = (CORE, MID, EDGE, GOLD)
-    fr = [arc_frame(W, H, 14, 34, 1.05, 0.05, 0.62, 7, 1.0, cols),
-          arc_frame(W, H, 14, 34, 1.05, 0.0, 1.0, 9, 1.0, cols),
-          arc_frame(W, H, 14, 34, 1.05, 0.38, 1.0, 5, 0.7, cols)]
+    fr, fps = swing(W, H, 14, 34, 1.05, [K(0.05, 0.62, 7, 1.0), K(0.0, 1.0, 9, 1.0), K(0.38, 1.0, 5, 0.7)], cols, 24)
     sheet(fr, f'{out}/slash.png')
-    meta['slash'] = dict(w=W, h=H, ox=14 / W, frames=3, fps=24)
+    meta['slash'] = dict(w=W, h=H, ox=14 / W, frames=len(fr), fps=fps)
     # foice: arco largo e achatado, mais lento, rastro carmesim
     W, H = 104, 96
     cols = (S_CORE, S_MID, S_EDGE, S_DEEP)
-    fr = [arc_frame(W, H, 14, 74, 1.55, 0.0, 0.42, 9, 1.0, cols, a0=-78, a1=82, trail=2.6, sparkle=1),
-          arc_frame(W, H, 14, 74, 1.55, 0.0, 0.85, 12, 1.0, cols, a0=-78, a1=82, trail=2.6, sparkle=2),
-          arc_frame(W, H, 14, 74, 1.55, 0.18, 1.0, 11, 0.95, cols, a0=-78, a1=82, trail=2.6, sparkle=3),
-          arc_frame(W, H, 14, 74, 1.55, 0.55, 1.0, 6, 0.6, cols, a0=-78, a1=82, trail=2.0, sparkle=4)]
+    fr, fps = swing(W, H, 14, 74, 1.55, [K(0.0, 0.42, 9, 1.0, 2.6), K(0.0, 0.85, 12, 1.0, 2.6), K(0.18, 1.0, 11, 0.95, 2.6), K(0.55, 1.0, 6, 0.6, 2.0)],
+                    cols, 22, seed=1, a0=-78, a1=82)
     sheet(fr, f'{out}/slash-big.png')
-    meta['slash-big'] = dict(w=W, h=H, ox=14 / W, frames=4, fps=22)
+    meta['slash-big'] = dict(w=W, h=H, ox=14 / W, frames=len(fr), fps=fps)
     # adagas: dois cortes finos que se cruzam
     W, H = 52, 44
     cols = (D_CORE, D_MID, D_EDGE, D_EDGE)
@@ -172,27 +205,32 @@ def main(out, hd=0):
         b = arc_frame(W, H, 6, 26, 1.1, s1, e1, th * 0.8, al * 0.85, cols, a0=-40, a1=75)
         a.alpha_composite(b)
         return a
-    fr = [dagger_frame(0.0, 0.7, 0.0, 0.0, 4, 1.0), dagger_frame(0.2, 1.0, 0.0, 0.8, 4.5, 1.0), dagger_frame(0.6, 1.0, 0.4, 1.0, 3, 0.7)]
+    keys = [dict(s0=0.0, e0=0.7, s1=0.0, e1=0.0, th=4, al=1.0), dict(s0=0.2, e0=1.0, s1=0.0, e1=0.8, th=4.5, al=1.0),
+            dict(s0=0.6, e0=1.0, s1=0.4, e1=1.0, th=3, al=0.7), dict(s0=0.9, e0=1.0, s1=0.8, e1=1.0, th=2, al=0.25)]
+    fr = []
+    m = 2
+    for i in range(len(keys) - 1):
+        a, b = keys[i], keys[i + 1]
+        for j in range(m):
+            t = j / m
+            fr.append(dagger_frame(**{k: a[k] + (b[k] - a[k]) * t for k in a}))
+    fr.append(dagger_frame(**keys[-1]))
     sheet(fr, f'{out}/slash-small.png')
-    meta['slash-small'] = dict(w=W, h=H, ox=8 / W, frames=3, fps=30)
+    meta['slash-small'] = dict(w=W, h=H, ox=8 / W, frames=len(fr), fps=30 * m)
     # badalo: a pancada desce por cima da cabeça até o chão na frente
     W, H = 96, 92
     cols = (H_CORE, H_MID, H_EDGE, H_DEEP)
-    fr = [arc_frame(W, H, 12, 62, 1.3, 0.0, 0.4, 11, 1.0, cols, a0=-96, a1=74, trail=2.4, sparkle=5),
-          arc_frame(W, H, 12, 62, 1.3, 0.0, 0.86, 15, 1.0, cols, a0=-96, a1=74, trail=2.4, sparkle=6),
-          arc_frame(W, H, 12, 62, 1.3, 0.22, 1.0, 13, 0.95, cols, a0=-96, a1=74, trail=2.4, sparkle=7),
-          arc_frame(W, H, 12, 62, 1.3, 0.6, 1.0, 7, 0.6, cols, a0=-96, a1=74, trail=2.0, sparkle=8)]
+    fr, fps = swing(W, H, 12, 62, 1.3, [K(0.0, 0.4, 11, 1.0, 2.4), K(0.0, 0.86, 15, 1.0, 2.4), K(0.22, 1.0, 13, 0.95, 2.4), K(0.6, 1.0, 7, 0.6, 2.0)],
+                    cols, 20, seed=5, a0=-96, a1=74)
     sheet(fr, f'{out}/slash-heavy.png')
-    meta['slash-heavy'] = dict(w=W, h=H, ox=12 / W, frames=4, fps=20)
+    meta['slash-heavy'] = dict(w=W, h=H, ox=12 / W, frames=len(fr), fps=fps)
     # incensário: o arco desce por cima da cabeça até a frente, deixando fumaça
     W, H = 92, 88
     cols = (C_CORE, C_MID, C_EDGE, C_DEEP)
-    fr = [arc_frame(W, H, 12, 58, 1.25, 0.0, 0.42, 9, 1.0, cols, a0=-100, a1=72, trail=3.0, sparkle=9),
-          arc_frame(W, H, 12, 58, 1.25, 0.0, 0.88, 12, 1.0, cols, a0=-100, a1=72, trail=3.0, sparkle=10),
-          arc_frame(W, H, 12, 58, 1.25, 0.24, 1.0, 11, 0.9, cols, a0=-100, a1=72, trail=3.2, sparkle=11),
-          arc_frame(W, H, 12, 58, 1.25, 0.62, 1.0, 6, 0.55, cols, a0=-100, a1=72, trail=2.6, sparkle=12)]
+    fr, fps = swing(W, H, 12, 58, 1.25, [K(0.0, 0.42, 9, 1.0, 3.0), K(0.0, 0.88, 12, 1.0, 3.0), K(0.24, 1.0, 11, 0.9, 3.2), K(0.62, 1.0, 6, 0.55, 2.6)],
+                    cols, 20, seed=9, a0=-100, a1=72)
     sheet(fr, f'{out}/slash-censer.png')
-    meta['slash-censer'] = dict(w=W, h=H, ox=12 / W, frames=4, fps=20)
+    meta['slash-censer'] = dict(w=W, h=H, ox=12 / W, frames=len(fr), fps=fps)
     # flecha
     a = Image.new('RGBA', (24, 7), (0, 0, 0, 0))
     px = a.putpixel

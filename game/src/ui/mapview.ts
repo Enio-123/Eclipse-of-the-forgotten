@@ -1,3 +1,4 @@
+import { TILE } from '../config';
 import { progress } from '../systems/Save';
 import { MAP_POS, ROOMS, type Exit, type RoomId, type Side } from '../world/rooms';
 import { findBreakables } from '../world/secrets';
@@ -172,6 +173,9 @@ export function renderMap(cssW: number, cssH: number, dpr: number, here: MapHere
       }
     }
   }
+  // a sombra com as moedas perdidas, onde ela espera
+  const echo = progress.echo;
+  if (echo && list.some((r) => r.id === echo.room)) markers.push({ kind: 'echo', ...at(echo.room, echo.x / TILE, echo.y / TILE - 1.4), on: true });
   const k = Math.max(3.2, s * 1.1);
   for (const m of markers) drawMarker(ctx, m.kind, m.x, m.y, k, m.on);
   const pos = at(here.room, here.x, here.y);
@@ -263,6 +267,22 @@ export function drawMarker(ctx: CanvasRenderingContext2D, kind: string, x: numbe
       ctx.arc(0, -k * 0.3, k * 0.6, Math.PI, 0);
       ctx.lineTo(k * 0.6, k * 0.9);
       ctx.stroke();
+      break;
+    case 'echo':
+      // gota escura com a máscara pequena
+      ctx.fillStyle = '#7029b8';
+      ctx.beginPath();
+      ctx.moveTo(0, -k * 1.15);
+      ctx.bezierCurveTo(k * 0.75, -k * 0.2, k * 0.75, k * 0.8, 0, k * 0.8);
+      ctx.bezierCurveTo(-k * 0.75, k * 0.8, -k * 0.75, -k * 0.2, 0, -k * 1.15);
+      ctx.fill();
+      ctx.strokeStyle = '#d8b7ff';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.fillStyle = '#efe6ff';
+      ctx.beginPath();
+      ctx.ellipse(0, k * 0.2, k * 0.28, k * 0.34, 0, 0, Math.PI * 2);
+      ctx.fill();
       break;
     case 'you':
       ctx.fillStyle = '#fff6df';

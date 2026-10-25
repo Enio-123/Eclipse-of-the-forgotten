@@ -14,11 +14,11 @@ export type PlayerAction = 'move' | 'attack' | 'jump' | 'dash' | 'slide' | 'pogo
 const approach = (v: number, target: number, step: number) =>
   v < target ? Math.min(v + step, target) : Math.max(v - step, target);
 
-const SLASH_KEY: Record<WeaponId, string | null> = { sword: 'slash', scythe: 'slash-big', daggers: 'slash-small', bow: null, badalo: 'slash-heavy', incensario: 'slash-censer' };
+export const SLASH_KEY: Record<WeaponId, string | null> = { sword: 'slash', scythe: 'slash-big', daggers: 'slash-small', bow: null, badalo: 'slash-heavy', incensario: 'slash-censer' };
 // velocidade em que a animação de corrida foi desenhada (acima disso as pernas aceleram junto)
 const RUN_ANIM_SPEED = 192;
 
-interface SlashMeta {
+export interface SlashMeta {
   w: number;
   h: number;
   ox: number;

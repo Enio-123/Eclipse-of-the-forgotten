@@ -93,8 +93,18 @@ export class HudScene extends Phaser.Scene {
       if (!coinEl || !coinNum || !coinGain) return;
       const n = (this.registry.get('coins') as number | undefined) ?? 0;
       coinNum.textContent = String(n);
-      if (n > coinsShown) {
+      // morte: o que foi para a sombra aparece em lilás
+      const loss = n < coinsShown && this.registry.get('coins-loss');
+      if (loss) {
+        this.registry.set('coins-loss', false);
+        gain = 0;
+        coinGain.textContent = `-${coinsShown - n}`;
+        coinGain.classList.add('on', 'loss');
+        clearTimeout(gainTimer);
+        gainTimer = window.setTimeout(() => coinGain.classList.remove('on'), 2600);
+      } else if (n > coinsShown) {
         gain += n - coinsShown;
+        coinGain.classList.remove('loss');
         coinGain.textContent = `+${gain}`;
         coinGain.classList.add('on');
         coinEl.classList.remove('bump');

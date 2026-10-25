@@ -21,10 +21,23 @@ export interface SaveData {
   // inimigos derrotados por tipo (bestiário do diário) e nível de cada arma no ferreiro
   kills: Record<string, number>;
   levels: Record<string, number>;
+  // a sombra que ficou onde o cavaleiro caiu, com as moedas que ele perdeu (null: nenhuma)
+  echo: Echo | null;
 }
 
-// dano de cada nível do ferreiro (0 = como veio)
-export const LEVEL_MUL = [1, 1.15, 1.3, 1.5];
+export interface Echo {
+  room: RoomId;
+  // pé da sombra (px da sala)
+  x: number;
+  y: number;
+  coins: number;
+}
+
+// ao morrer, 70% das moedas ficam com a sombra
+export const ECHO_SHARE = 0.7;
+
+// dano de cada nível do ferreiro (0 = como veio): +10% por nível, no máximo +30%
+export const LEVEL_MUL = [1, 1.1, 1.2, 1.3];
 export const MAX_LEVEL = LEVEL_MUL.length - 1;
 
 const counts = (v: unknown) => {
@@ -40,6 +53,13 @@ const UPGRADES: Upgrade[] = ['mask', 'blade', 'breath', 'purse', 'shard', 'whets
 const MIGRATE_ORDER: Upgrade[] = ['mask', 'shard', 'breath', 'whetstone', 'blade', 'purse'];
 const slotCost = (u: Upgrade) => OFFERS.find((o) => o.id === u)?.slots ?? 1;
 const strs = (v: unknown) => (Array.isArray(v) ? v.filter((s) => typeof s === 'string') : []) as string[];
+const num = (v: unknown) => typeof v === 'number' && Number.isFinite(v);
+const echoOf = (v: unknown): Echo | null => {
+  if (!v || typeof v !== 'object') return null;
+  const e = v as Partial<Echo>;
+  if (!ROOM_IDS.includes(e.room as RoomId) || !num(e.x) || !num(e.y) || !num(e.coins) || e.coins! < 1) return null;
+  return { room: e.room as RoomId, x: e.x!, y: e.y!, coins: Math.floor(e.coins!) };
+};
 
 const KEY = 'eclipse-progresso-v1';
 const ROOM_IDS: RoomId[] = [
@@ -69,6 +89,7 @@ export function loadSave(): SaveData | null {
       equipped: Array.isArray(d.equipped) ? strs(d.equipped) : null,
       kills: counts(d.kills),
       levels: counts(d.levels),
+      echo: echoOf(d.echo),
     };
   } catch {
     return null;
@@ -111,6 +132,7 @@ export const progress = {
   coins: 0,
   kills: new Map<string, number>(),
   levels: new Map<WeaponId, number>(),
+  echo: null as Echo | null,
   // quanto falta para a próxima lasca de vida cair de um inimigo (não é gravado)
   lifeAcc: 0,
 
@@ -129,6 +151,7 @@ export const progress = {
     this.coins = 0;
     this.kills = new Map();
     this.levels = new Map();
+    this.echo = null;
     this.lifeAcc = 0;
     clearSave();
   },
@@ -158,6 +181,7 @@ export const progress = {
         .filter(([k]) => WEAPON_IDS.includes(k as WeaponId))
         .map(([k, v]) => [k as WeaponId, Math.min(MAX_LEVEL, v)]),
     );
+    this.echo = d.echo;
     this.lifeAcc = 0;
   },
 
@@ -226,8 +250,29 @@ export const progress = {
       room: this.room, entry: this.entry, weapon: this.weapon, kintsugi: this.kintsugi, prologueDone: this.prologueDone,
       seen: [...this.seen], abilities: [...this.abilities], memories: [...this.memories], traded: [...this.traded],
       upgrades: [...this.upgrades], visited, coins: this.coins, equipped: [...this.equipped],
-      kills: Object.fromEntries(this.kills), levels: Object.fromEntries(this.levels),
+      kills: Object.fromEntries(this.kills), levels: Object.fromEntries(this.levels), echo: this.echo,
     });
+  },
+
+  // morreu: a maior parte das moedas fica com a sombra, onde ele caiu. A sombra antiga (se ainda
+  // havia uma) some com o que guardava. Devolve quanto foi para a sombra e quanto se perdeu de vez
+  die(room: RoomId, x: number, y: number) {
+    const gone = this.echo?.coins ?? 0;
+    const keep = Math.floor(this.coins * (1 - ECHO_SHARE));
+    const lost = this.coins - keep;
+    this.coins = keep;
+    this.echo = lost > 0 ? { room, x: Math.round(x), y: Math.round(y), coins: lost } : null;
+    this.save();
+    return { lost, gone };
+  },
+
+  // venceu a sombra: as moedas voltam
+  reclaim() {
+    const n = this.echo?.coins ?? 0;
+    this.coins += n;
+    this.echo = null;
+    this.save();
+    return n;
   },
 
   // ponto de retorno: onde o jogador volta ao morrer ou ao continuar
