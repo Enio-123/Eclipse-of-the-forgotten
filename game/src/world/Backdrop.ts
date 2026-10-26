@@ -16,8 +16,6 @@ export const HD_LAYERS: Record<string, string[]> = {
   bridge: ['bridge-sky', 'bridge-far', 'bridge-far-rim', 'clouds-far', 'clouds-near', 'bridge-mid', 'bridge-mid-rim', 'bridge-fg'],
   catacomb: ['cat-far', 'cat-mid'],
   memory: ['mem-sky', 'mem-far', 'mem-mid'],
-  // o Vale usa o fundo do vale da memória (é o mesmo lugar) até ter a pintura dele
-  vale: ['mem-sky', 'mem-far', 'mem-mid'],
 };
 
 // as imagens de fundo que a sala usa (vêm quando ela abre: gfx/roomAssets.ts); as nuvens ficam sempre,
@@ -40,6 +38,13 @@ export function backdropKeys(theme: string, room: string): string[] {
       if (room === 'serra') return ['snow-sky', 'serra-far', 'serra-mid'];
       // a Mata Fechada tem o pinhal dela, junto e escuro, no lugar das montanhas
       return room === 'mata' ? ['snow-sky', 'mata-far', 'mata-mid'] : ['snow-sky', 'snow-far', 'snow-mid'];
+    case 'vale':
+      // as Cachoeiras são uma garganta (o paredão molhado dos dois lados), a gruta é pedra por todo lado e
+      // o cais é a noite de lua cheia da lembrança
+      if (room === 'cachoeiras') return ['vale-sky', 'cascata-far', 'cascata-mid'];
+      if (room === 'gruta') return ['gruta-far', 'gruta-mid'];
+      if (room === 'cais') return ['cais-sky', 'cais-far', 'cais-mid'];
+      return ['vale-sky', 'vale-far', 'vale-mid'];
     default:
       return ['mem-sky', 'mem-far', 'mem-mid'];
   }
@@ -71,8 +76,10 @@ export class Backdrop {
     else if (theme === 'prison') this.prison();
     else if (theme === 'mine') this.mine();
     else if (theme === 'snow') this.snow();
+    else if (theme === 'vale') this.vale();
     else this.memory();
-    this.bg = { bridge: 0x161a2b, catacomb: 0x07080d, city: 0x0b1020, nave: 0x07080d, memory: 0x5c9a3e, prison: 0x08070b, mine: 0x0a0807, snow: 0x9fb3c8, vale: 0x6fa58a }[theme];
+    const valeBg = room === 'gruta' ? 0x070b0d : room === 'cais' ? 0x0f1a36 : 0x8a7f9c;
+    this.bg = { bridge: 0x161a2b, catacomb: 0x07080d, city: 0x0b1020, nave: 0x07080d, memory: 0x5c9a3e, prison: 0x08070b, mine: 0x0a0807, snow: 0x9fb3c8, vale: valeBg }[theme];
   }
 
   private img(key: string, depth: number) {
@@ -428,6 +435,72 @@ export class Backdrop {
     for (const [x, a, rot] of beams) {
       const beam = this.scene.add.image(x + this.so.x * 0.7, -30 + this.so.y * 0.9, 'beam').setOrigin(0.5, 0).setScale(dense ? 1.5 : 2.4, 3.2).setRotation(rot).setAlpha(a)
         .setTint(0xeaf2ff).setBlendMode(add).setScrollFactor(0.3, 0.1).setDepth(BG.beams);
+      this.layers.push({ o: beam, update: (_sx, _sy, t) => void (beam.alpha = a * (0.7 + 0.3 * Math.sin(t * 0.0004 + x))) });
+    }
+  }
+
+  // Vale das Cachoeiras: o céu do eclipse preso na tela (a luz dourada da memória embaixo, as nuvens
+  // luminosas), os platôs com as cachoeiras e o campo com as árvores de flor mais perto; as duas camadas
+  // ficam presas no chão da sala e descem quando a câmera sobe. Nas Cachoeiras o paredão de colunas de
+  // basalto molhado repete na vertical (a garganta); na gruta, a pedra escura atrás da água com as
+  // colunas e a luz verde; no cais, a noite de lua cheia com o aqueduto recortado lá no fundo
+  private vale() {
+    const room = this.room;
+    const has = (k: string) => this.scene.textures.exists(k);
+    const cave = room === 'gruta';
+    const shaft = room === 'cachoeiras' || cave;
+    const night = room === 'cais';
+    // a gruta não tem céu: só as duas camadas de pedra
+    const keys = backdropKeys('vale', room);
+    const [farKey, midKey] = keys.slice(-2);
+    if (keys.length === 3 && has(keys[0])) hd(this.img(keys[0], BG.sky));
+    const far = has(farKey) ? this.hdTile(farKey, BG.far, VIEW_H) : null;
+    const mid = has(midKey) ? this.hdTile(midKey, BG.mid, VIEW_H) : null;
+    if (far) {
+      this.layers.push({
+        o: far,
+        update: (sx, sy) => {
+          far.tilePositionX = (sx * 0.12) / far.tileScaleX;
+          if (shaft) far.tilePositionY = (sy * 0.1) / far.tileScaleY;
+          else far.y = this.so.y + Math.round(this.lift(sy) * 0.06);
+        },
+      });
+    }
+    if (mid) {
+      this.layers.push({
+        o: mid,
+        update: (sx, sy) => {
+          mid.tilePositionX = (sx * 0.34) / mid.tileScaleX;
+          if (shaft) mid.tilePositionY = (sy * 0.3) / mid.tileScaleY;
+          else mid.y = this.so.y + Math.round(this.lift(sy) * 0.18);
+        },
+      });
+    }
+    const add = Phaser.BlendModes.ADD;
+    if (cave) {
+      // a luz verde que atravessa a cachoeira da boca da gruta, vinda da esquerda
+      const glow = this.scene.add.image(this.so.x - 40, this.so.y + VIEW_H * 0.45, 'glow').setScale(9, 7).setTint(0x7fd3b8).setAlpha(0.1)
+        .setBlendMode(add).setScrollFactor(0).setDepth(BG.fog);
+      this.layers.push({ o: glow, update: (_sx, _sy, t) => void (glow.alpha = 0.08 + 0.03 * Math.sin(t * 0.0011) + 0.015 * Math.sin(t * 0.0037)) });
+      return;
+    }
+    const fog = this.tile('fog', BG.fog, 140, 236).setAlpha(night ? 0.2 : 0.26).setTint(night ? 0x8fa4cc : 0xffe6c4);
+    this.layers.push({
+      o: fog,
+      update: (sx, sy, t) => {
+        fog.tilePositionX = sx * 0.5 + t * 0.006;
+        fog.y = this.so.y + 236 + Math.round(this.lift(sy) * 0.4);
+      },
+    });
+    // a luz baixa entra de lado, em fachos dourados compridos (no cais, o luar fraco e frio)
+    const beams: readonly (readonly [number, number, number])[] = night
+      ? [[140, 0.05, -0.32], [300, 0.035, -0.2]]
+      : room === 'cachoeiras'
+        ? [[120, 0.12, -0.5], [360, 0.09, -0.42], [560, 0.1, -0.56]]
+        : [[60, 0.12, -0.62], [260, 0.08, -0.55], [470, 0.1, -0.68]];
+    for (const [x, a, rot] of beams) {
+      const beam = this.scene.add.image(x + this.so.x * 0.7, -40 + this.so.y * 0.9, 'beam').setOrigin(0.5, 0).setScale(night ? 2.0 : 2.6, 3.4).setRotation(rot).setAlpha(a)
+        .setTint(night ? 0xc8d8ff : 0xffd79a).setBlendMode(add).setScrollFactor(0.3, 0.1).setDepth(BG.beams);
       this.layers.push({ o: beam, update: (_sx, _sy, t) => void (beam.alpha = a * (0.7 + 0.3 * Math.sin(t * 0.0004 + x))) });
     }
   }

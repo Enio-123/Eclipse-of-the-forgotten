@@ -267,6 +267,27 @@ const ROOMS: Partial<Record<RoomId, Partial<Look>>> = {
   },
   // as cachoeiras: a névoa das quedas fica no ar o tempo todo
   cachoeiras: { mist: 0.56, mistFront: 0.16, wet: 0.18 },
+  // o Cais da Lua: a noite da lembrança. O luar frio vem de cima e da esquerda, a água devolve a lua, a
+  // névoa prateada fica no lago; o lampião do barco e o Âmbar da cachoeira são as únicas luzes quentes
+  cais: {
+    ambient: [0.46, 0.52, 0.7],
+    sky: [0.22, 0.27, 0.38],
+    knight: 0.3,
+    knightR: 112,
+    ao: 0.36,
+    lightGain: 1.6,
+    reach: 1.2,
+    bloomThreshold: 0.66,
+    bloom: 0.62,
+    rays: 0.45,
+    mistColor: [0.56, 0.64, 0.82],
+    mist: 0.4,
+    water: 0.72,
+    reflTint: [0.8, 0.9, 1.12],
+    shadowTint: [0.94, 0.98, 1.1],
+    highTint: [0.97, 1.0, 1.06],
+    sat: 0.92,
+  },
   // a Mata Fechada: a copa tapa o dia, então o chão fica no escuro e a luz entra em fachos duros pelos
   // buracos da copa; dentro da cova e do cercado é mais escuro ainda
   mata: {

@@ -23,6 +23,8 @@ export class CapeFx {
   private open = 0;
   private t = 0;
   private side: 1 | -1;
+  // onde o nó estava na última vez que o pano andou (para ver um salto: teletransporte, volta ao chão seguro)
+  private last: Node | null = null;
 
   constructor(scene: Phaser.Scene, private p: Player) {
     this.g = scene.add.graphics().setDepth(DEPTH.player - 0.1);
@@ -55,6 +57,17 @@ export class CapeFx {
     if (p.facing !== this.side) this.side = p.facing;
     const f = this.side;
     const a = this.anchor();
+    // o nó saltou de lugar (ou andou muito escondido, no véu ou mergulhado): o pano vai junto, sem
+    // esticar uma faixa vermelha pela tela até alcançar
+    if (this.last && Math.hypot(a.x - this.last.x, a.y - this.last.y) > 40) {
+      const dx = a.x - this.last.x;
+      const dy = a.y - this.last.y;
+      for (const e of this.edges) for (const n of e) {
+        n.x += dx;
+        n.y += dy;
+      }
+    }
+    this.last = { x: a.x, y: a.y };
     const vx = b.velocity.x;
     const vy = b.velocity.y;
     const sp = Math.min(1, Math.abs(vx) / 230);

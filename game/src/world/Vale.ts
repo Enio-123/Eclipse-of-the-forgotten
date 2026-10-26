@@ -319,10 +319,11 @@ export class Vale {
 
   // ---------- a água funda ----------
   // pintada pela profundidade (Decor.paintWater); na gruta escura, quase preta, só com a luz que entra pela
-  // cortina d'água
+  // cortina d'água; no cais, o lago da noite de lua cheia
   private drawWater() {
     const s = this.s;
-    const w = paintWater(s, s.level, WATER_LOOKS.vale!, s.room.id === 'gruta' ? 0.45 : 1);
+    const look = s.room.id === 'cais' ? WATER_LOOKS['vale-noite']! : WATER_LOOKS.vale!;
+    const w = paintWater(s, s.level, look, s.room.id === 'gruta' ? 0.45 : 1);
     for (const sprite of w.surfaces) this.surfaces.push({ sprite, vx: 0 });
     for (const sprite of w.caustics) this.caustics.push({ sprite, vx: 0 });
   }

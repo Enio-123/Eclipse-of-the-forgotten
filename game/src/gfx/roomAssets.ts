@@ -22,6 +22,7 @@ const ROOM_IMAGES = new Set([
   'bridge-sky', 'bridge-far', 'bridge-far-rim', 'bridge-mid', 'bridge-mid-rim', 'bridge-fg', 'cat-far', 'cat-mid', 'mem-sky', 'mem-far', 'mem-mid',
   'city-sky', 'city-far', 'city-mid', 'claustro-mid', 'nave-far', 'nave-mid', 'prison-far', 'prison-mid', 'fosso-far', 'fosso-mid',
   'mine-far', 'mine-mid', 'snow-sky', 'snow-far', 'snow-mid', 'mata-far', 'mata-mid', 'serra-far', 'serra-mid',
+  'vale-sky', 'vale-far', 'vale-mid', 'cascata-far', 'cascata-mid', 'gruta-far', 'gruta-mid', 'cais-sky', 'cais-far', 'cais-mid',
 ]);
 
 // as folhas dos chefes (grandes e cada uma usada numa sala só)

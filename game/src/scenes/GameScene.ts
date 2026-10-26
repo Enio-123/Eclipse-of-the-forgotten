@@ -736,7 +736,7 @@ export class GameScene extends Phaser.Scene {
     if (room.theme !== 'memory') {
       // a vinheta do tema, mais fechada nas salas que são um lugar fechado dentro da área
       // (a gruta atrás da cachoeira: só a luz que atravessa a água entra)
-      const DARK_ROOM: Partial<Record<RoomId, number>> = { mata: 0.82, gruta: 0.86 };
+      const DARK_ROOM: Partial<Record<RoomId, number>> = { mata: 0.82, gruta: 0.86, cais: 0.62 };
       const dark = DARK_ROOM[room.id] ?? { bridge: 0.5, catacomb: 0.9, city: 0.55, nave: 0.8, prison: 0.85, mine: 0.85, snow: 0.45, vale: 0.32 }[room.theme];
       this.add.image(so.x, so.y, 'vignette').setOrigin(0).setScrollFactor(0).setDepth(29).setAlpha(dark);
     }
@@ -750,7 +750,7 @@ export class GameScene extends Phaser.Scene {
     cam.startFollow(this.player.zone, true, 0.11, 0.13);
     this.lookX = this.player.facing * 36;
     this.camY = room.theme === 'memory' ? 72 : 26;
-    document.body.classList.toggle('bright', room.theme === 'memory' || (room.theme === 'vale' && room.id !== 'gruta'));
+    document.body.classList.toggle('bright', this.bright());
     // nos fundos lisos da Cidade-Catedral o grão é mais leve (o traço não some no ruído)
     this.fx.setGrain({ bridge: 0.09, catacomb: 0.09, memory: 0.035, city: 0.07, nave: 0.07, prison: 0.08, mine: 0.08, snow: 0.05, vale: 0.04 }[room.theme]);
     cam.setFollowOffset(-this.lookX, this.camY);
@@ -897,9 +897,10 @@ export class GameScene extends Phaser.Scene {
     return (x: number) => col.get(Math.floor(x / TILE)) ?? null;
   }
 
-  // sala de dia claro (o vale da memória e o Vale das Cachoeiras, menos a gruta): poeira e rastros claros
+  // sala de dia claro (o vale da memória e o Vale das Cachoeiras, menos a gruta e a noite do cais): poeira
+  // e rastros claros
   private bright() {
-    return this.room.theme === 'memory' || (this.room.theme === 'vale' && this.room.id !== 'gruta');
+    return this.room.theme === 'memory' || (this.room.theme === 'vale' && this.room.id !== 'gruta' && this.room.id !== 'cais');
   }
 
   private makeParticles() {
