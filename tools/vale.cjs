@@ -59,6 +59,8 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
   const start = async (room, entry, from = 'door') => {
     await page.evaluate(([room, entry, from]) => {
       window.__oldPlayer = window.__scene && window.__scene.player;
+      // os ganchos de quadro das partes de antes continuam na cena (ela é a mesma): sem o registro, param
+      window.__trLog = window.__hrLog = null;
       window.__ui.closeAll();
       const g = window.__game;
       const t = g.scene.getScene('title');
@@ -464,7 +466,7 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
       window.__trLog = { states: [], minY: 99999, hp0: s.player.hp, hurt: false };
       if (!window.__trHook) {
         window.__trHook = true;
-        s.events.on('postupdate', () => { const e = window.__tr; const L = window.__trLog; if (!e || !L) return; if (L.states[L.states.length - 1] !== e.state) L.states.push(e.state); L.minY = Math.min(L.minY, e.zone.y); if (s.player.hp < L.hp0) L.hurt = true; });
+        s.events.on('postupdate', () => { const e = window.__tr; const L = window.__trLog; if (!e || !L) return; if (L.states[L.states.length - 1] !== e.state) L.states.push(e.state); L.minY = Math.min(L.minY, e.zone.y); if (s.player.hp < L.hp0) { L.hurt = true; s.player.hp = L.hp0; s.player.invuln = 99; } });
       }
     });
     // o cavaleiro parado na beira do poço: ela vai para baixo dele, avisa e salta
@@ -550,7 +552,7 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
       window.__hrLog = { states: [], hp0: s.player.hp, hurt: false };
       if (!window.__hrHook) {
         window.__hrHook = true;
-        s.events.on('postupdate', () => { const e = window.__hr; const L = window.__hrLog; if (!e || !L) return; if (L.states[L.states.length - 1] !== e.state) L.states.push(e.state); if (s.player.hp < L.hp0) L.hurt = true; });
+        s.events.on('postupdate', () => { const e = window.__hr; const L = window.__hrLog; if (!e || !L) return; if (L.states[L.states.length - 1] !== e.state) L.states.push(e.state); if (s.player.hp < L.hp0) { L.hurt = true; s.player.hp = L.hp0; s.player.invuln = 99; } });
       }
     });
     // o cavaleiro entra no raso, na frente dela: ela encolhe o pescoço e dá o bote
