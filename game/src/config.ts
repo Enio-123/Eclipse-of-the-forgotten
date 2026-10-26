@@ -57,6 +57,24 @@ export const PLAYER = {
   glideFall: 70,
   glideAccel: 1100,
   draftAccel: 950,
+  // água funda e morna (Vale, Minas): sem a Concha do Rio ele afunda devagar, anda no fundo devagar, o
+  // pulo do fundo é fraco e o fôlego acaba (volta ao chão firme, sem machucar); com ela, nada para todos
+  // os lados, o pulo vira braçada e na linha d'água pula para fora inteiro
+  sinkSpeed: 62,
+  waterWalk: 0.5,
+  waterJump: 230,
+  waterDrag: 520,
+  breath: 2.6,
+  swimSpeed: 150,
+  swimAccel: 700,
+  swimDecel: 420,
+  strokeVel: 290,
+  strokeCd: 0.42,
+  floatRise: 120,
+  // boiando, a linha d'água fica nesta altura abaixo do alto da cabeça (px)
+  floatHead: 15,
+  // a queda d'água empurra para baixo até esta velocidade
+  fallPush: 360,
   maxHp: 5,
   invuln: 1.1,
   hurtLock: 0.22,

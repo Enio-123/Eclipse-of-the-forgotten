@@ -1282,7 +1282,7 @@ def alagada():
     afundados e pelas pedras que sobraram de pe (ou por cima, pelas vigas das bombas). No fim, as
     tabuas sobem ate a plataforma das bombas, e a casa delas esta tapada com Ambar: so a picareta
     abre, e la dentro esta a ordem que mandou alagar a galeria de baixo."""
-    W, H = 112, 34
+    W, H = 112, 42
     g = Grid(W, H, '#')
     # as duas bocas, na altura das dos Trilhos e da Casa das Prensas
     g.fill(0, 14, 2, 23, '.')
@@ -1291,6 +1291,12 @@ def alagada():
     g.fill(3, 14, 108, 23, '.')
     # a bacia alagada no meio (fundo na linha 31)
     g.fill(23, 24, 86, 30, '~')
+    # v19: a galeria de baixo, toda debaixo d'água (só nadando, com a Concha do Rio): um poço no fundo da
+    # sexta bacia desce até ela; no fundo, o baú dos mineiros que fugiram pela água
+    g.fill(66, 31, 68, 34, '~')
+    g.fill(54, 35, 84, 39, '~')
+    g.fill(54, 34, 60, 34, '~')
+    g.put(79, 39, '$')
     # o que sobrou de pe na bacia: vagonetes afundados e pedras, um a cada cinco tiles
     for x0, x1, top in ((27, 29, 23), (35, 38, 24), (44, 47, 22), (53, 55, 24), (61, 64, 23), (70, 73, 24), (79, 81, 22)):
         g.fill(x0, top, x1, 30, '#')
@@ -1826,7 +1832,7 @@ def descida():
         ground(g, x0, x1, top)
     # a garganta, com o poço no fundo
     ground(g, 37, 52, 44)
-    g.fill(37, 40, 52, 43, '~')
+    g.fill(37, 41, 52, 43, '~')
     # a ponte de corda, quebrada no meio: as cordas saem dos postes das duas beiradas
     plank(g, 37, 42, 20)
     plank(g, 47, 52, 20)
@@ -1837,8 +1843,8 @@ def descida():
     ground(g, 81, 92, 44)
     g.fill(81, 41, 92, 43, '~')
     ground(g, 85, 88, 35)
-    # o córrego no terraço de baixo (a cachoeira cai da beirada dele, nas colunas 81 e 82)
-    g.fill(74, 27, 80, 27, '~')
+    # o córrego cavado no terraço de baixo (a cachoeira cai da beirada dele, nas colunas 81 e 82)
+    g.fill(74, 28, 80, 28, '~')
     # o nicho atrás da água, cavado na beirada do terraço
     g.fill(76, 31, 80, 34, '.')
     g.put(1, 13, '1')
@@ -1866,9 +1872,9 @@ def prado():
     # a pedra grande do fim do campo, um arco com uma loca embaixo
     g.fill(156, 30, 166, 35, '#')
     g.fill(158, 32, 164, 35, '.')
-    # o lago raso das garças
+    # o lago raso das garças (dá pé: a água bate no peito dele)
     ground(g, 41, 56, 38)
-    g.fill(41, 35, 56, 37, '~')
+    g.fill(41, 36, 56, 37, '~')
     # o lago fundo
     ground(g, 113, 128, 40)
     g.fill(113, 35, 128, 39, '~')
@@ -1978,15 +1984,18 @@ def gruta():
     g.fill(21, 6, 82, 24, '.')
     ground(g, 21, 40, 22, 30)
     ground(g, 61, 82, 20, 30)
-    # o poço (fundo) e a passagem alagada para a câmara escondida
+    # o poço (fundo) e a passagem alagada para a câmara escondida. A câmara é um bolsão de ar preso
+    # (fechado na pedra, o ar não tem por onde sair): a água entra só até a boca da passagem, e o resto
+    # dela é a laje seca do baú
     g.fill(41, 22, 60, 33, '~')
     g.fill(61, 31, 66, 33, '~')
-    g.fill(67, 28, 80, 32, '.')
-    g.fill(67, 33, 80, 33, '#')
+    g.fill(67, 27, 80, 30, '.')
+    g.fill(67, 31, 71, 33, '~')
+    g.fill(72, 31, 80, 33, '#')
     g.put(1, 14, '1')
     g.put(74, 19, '<')
     g.put(68, 19, 'r')
-    g.put(76, 32, '$')
+    g.put(76, 30, '$')
     g.put(33, 14, '?')
     g.put(54, 12, '?')
     return g.rows()

@@ -18,7 +18,8 @@ export type RoomId =
   | 'encosta' | 'pinhal' | 'lago' | 'mata' | 'cabana' | 'serra' | 'clareira'
   | 'descida' | 'prado' | 'riacho' | 'cachoeiras' | 'gruta' | 'prainha' | 'rio' | 'cais';
 // 'cape': a Capa de Arielle (segurando o pulo no ar, plana; nas correntes de ar, sobe)
-export type Ability = 'dash' | 'wall' | 'double' | 'hook' | 'veil' | 'cape';
+// 'swim': a Concha do Rio (na água funda, nada para todos os lados e não perde o fôlego)
+export type Ability = 'dash' | 'wall' | 'double' | 'hook' | 'veil' | 'cape' | 'swim';
 export type Side = 'left' | 'right' | 'up' | 'down';
 
 export interface Exit {
@@ -130,6 +131,23 @@ export interface RoomDef {
   // objetos de cenário soltos, sem física (a balança do mercado, os toldos das bancas): a imagem, o x
   // do meio e a linha do chão em que ela assenta (em tiles); back: atrás das plataformas
   decos?: { key: string; x: number; y: number; back?: boolean; flip?: boolean }[];
+  // Vale das Cachoeiras (em tiles): quedas d'água, de x0 a x1, do alto y0 até a linha y1 (onde a água
+  // bate): empurram para baixo e só se atravessam de lado
+  falls?: Rect[];
+  // correntezas do rio (vx em px/s para o lado): levam quem está na água e os troncos
+  currents?: (Rect & { vx: number })[];
+  // os troncos boiando '[' (na ordem do mapa): o trecho de x0 a x1 em que cada um desce com a correnteza
+  // e afunda no fim, voltando ao começo; null: fica boiando no lugar
+  logs?: ([number, number] | null)[];
+  // manchas do presente: onde a lembrança falha e o vale fica cinza e seco quando ele passa
+  present?: Rect[];
+}
+
+export interface Rect {
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
 }
 
 export interface GustDef {
@@ -1089,6 +1107,8 @@ const CHAPTER6: Record<'descida' | 'prado' | 'riacho' | 'cachoeiras' | 'gruta' |
     music: 'memory',
     ambience: 'wind',
     hints: [],
+    // o córrego do terraço despenca da beirada até o poço (atrás dela, o nicho do baú)
+    falls: [{ x0: 81, x1: 82, y0: 28, y1: 40 }],
     thoughts: [
       { x: 4, text: 'A neve acaba nesta pedra. Lá embaixo o mundo é verde, como se o eclipse nunca tivesse passado por aqui.' },
       { x: 40, y: 19, text: 'A ponte de tábuas cedeu no meio. Lá embaixo a água corre clara, e não tem gelo.' },
@@ -1150,8 +1170,20 @@ const CHAPTER6: Record<'descida' | 'prado' | 'riacho' | 'cachoeiras' | 'gruta' |
     music: 'memory',
     ambience: 'rain',
     hints: [],
+    // as duas quedas grandes (do alto da sala até o poço) e a pequena que cobre a boca da gruta; do lado
+    // de cada uma, a névoa sobe em corrente de ar (a capa pega nela)
+    falls: [
+      { x0: 14, x1: 16, y0: 0, y1: 101 },
+      { x0: 38, x1: 40, y0: 0, y1: 101 },
+      { x0: 49, x1: 51, y0: 0, y1: 8 },
+    ],
+    drafts: [
+      { x0: 11, x1: 13, y0: 70, y1: 100 },
+      { x0: 35, x1: 37, y0: 60, y1: 100 },
+      { x0: 41, x1: 42, y0: 5, y1: 20 },
+    ],
     thoughts: [
-      { x: 6, y: 101, text: 'Cinco quedas d\'água. Por dentro delas não se sobe: a água empurra para baixo.' },
+      { x: 6, y: 101, text: 'Três quedas d\'água. Por dentro delas não se sobe: a água empurra para baixo.' },
       { x: 26, y: 19, text: 'Lá em cima, atrás da última queda, uma boca escura na pedra.' },
     ],
   },
@@ -1187,6 +1219,11 @@ const CHAPTER6: Record<'descida' | 'prado' | 'riacho' | 'cachoeiras' | 'gruta' |
     music: 'memory',
     ambience: 'wind',
     hints: [],
+    // o rio corre devagar para a direita e puxa mais forte por baixo do paredão
+    currents: [
+      { x0: 67, x1: 99, y0: 33, y1: 43, vx: 35 },
+      { x0: 100, x1: 125, y0: 38, y1: 43, vx: 70 },
+    ],
     thoughts: [
       { x: 4, text: 'Areia fina. Uma fogueira apagada, com as pedras ainda em roda.' },
       { x: 96, y: 33, text: 'O paredão desce até dentro do rio. Do outro lado, só por baixo da água.' },
@@ -1207,6 +1244,15 @@ const CHAPTER6: Record<'descida' | 'prado' | 'riacho' | 'cachoeiras' | 'gruta' |
     music: 'memory',
     ambience: 'wind',
     hints: [],
+    // a correnteza: mais forte nos arcos dos pilares; cada tronco desce o trecho entre duas ilhas
+    currents: [
+      { x0: 13, x1: 69, y0: 34, y1: 43, vx: 60 },
+      { x0: 70, x1: 73, y0: 34, y1: 43, vx: 105 },
+      { x0: 74, x1: 119, y0: 34, y1: 43, vx: 60 },
+      { x0: 120, x1: 123, y0: 34, y1: 43, vx: 105 },
+      { x0: 124, x1: 187, y0: 34, y1: 43, vx: 60 },
+    ],
+    logs: [[13, 39], [53, 91], [105, 139], [151, 187]],
     thoughts: [
       { x: 6, text: 'O rio inteiro desce para fora do reino. Era por aqui que eles fugiam.' },
       { x: 66, y: 22, text: 'Um pilar de pedra escura no meio do vale, com bronze nas juntas. Isto é da Casa.' },
@@ -1224,6 +1270,8 @@ const CHAPTER6: Record<'descida' | 'prado' | 'riacho' | 'cachoeiras' | 'gruta' |
     ambience: 'wind',
     // o portão do aqueduto, lá em cima da escada: as Torres Rúnicas ainda não existem
     locks: ['torres'],
+    // os troncos do lago ficam boiando no lugar
+    logs: [null, null, null],
     hints: [],
     thoughts: [
       { x: 4, text: 'Um cais de madeira. Um barco rodando devagar no meio do lago, sem ninguém remando.' },

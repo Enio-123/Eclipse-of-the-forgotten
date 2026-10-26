@@ -399,6 +399,15 @@ export const RELICS: Record<Ability, RelicInfo> = {
       text: 'O retalho da capa de Arielle. Ela amarrava no pescoço dele quando ventava na serra, e ria do nó torto.',
     },
   },
+  swim: {
+    name: 'A Concha do Rio',
+    text: 'Uma concha de rio do tamanho da palma da mão, furada para passar um cordão. Ela disse que, com ela no pescoço, ele não se afogava mais.',
+    how: 'Na água funda, {up} {down} {left} {right} nadam, {jump} dá uma braçada e {dash} um impulso. Na linha d\'água, {jump} pula para fora',
+    named: {
+      name: 'A Concha de Arielle',
+      text: 'Arielle achou a concha no rio, no dia em que ele confessou que nunca tinha aprendido a nadar. Furou com um prego e amarrou num cordão.',
+    },
+  },
 };
 
 export function relicInfo(a: Ability, knowsName: boolean) {

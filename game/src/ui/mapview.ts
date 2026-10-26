@@ -291,7 +291,7 @@ function roomMarkers(id: RoomId): Marker[] {
   for (let y = 0; y < g.H; y++) {
     for (let x = 0; x < g.W; x++) {
       const c = g.rows[y][x];
-      if (!'RKJUw>{mXMOBNb'.includes(c)) continue;
+      if (!'RKJUw>{<mXMOBNb'.includes(c)) continue;
       const idx = c === 'R' ? ri++ : c === 'm' ? mi++ : c === 'b' ? bi++ : 0;
       if (!seen.at(x, y) || g.hidden.has(y * g.W + x)) continue;
       const p = { x: pos.x + x + 0.5, y: pos.y + y + 0.5 };
@@ -299,6 +299,7 @@ function roomMarkers(id: RoomId): Marker[] {
       else if (c === 'K') out.push({ kind: 'cobrador', ...p, on: true });
       else if (c === '>' && !progress.abilities.has('dash')) out.push({ kind: 'relic', ...p, on: true });
       else if (c === '{' && !progress.abilities.has('cape')) out.push({ kind: 'relic', ...p, on: true });
+      else if (c === '<' && !progress.abilities.has('swim')) out.push({ kind: 'relic', ...p, on: true });
       else if (c === 'J' && !progress.abilities.has('wall')) out.push({ kind: 'relic', ...p, on: true });
       else if (c === 'U' && !progress.abilities.has('double')) out.push({ kind: 'relic', ...p, on: true });
       else if (c === 'w' && !progress.abilities.has('hook')) out.push({ kind: 'relic', ...p, on: true });

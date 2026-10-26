@@ -55,17 +55,149 @@ export const DEPTH = {
   water: 12,
 } as const;
 
-// O líquido parado de cada região: a cor da massa funda (e quanto ela clareia por linha), as duas
-// cores da superfície que corre e o brilho solto nela. A água do riacho da memória não entra aqui:
-// é rasa, e usa a textura de sempre.
-const LIQUIDS: Partial<Record<string, { deep: [number, number, number]; step: [number, number, number]; dark: number; light: number; line: [number, number]; glint: number }>> = {
-  // a tinta das sentenças, no Fosso e na Margem
-  prison: { deep: [22, 11, 34], step: [1, 1, 2], dark: 0x2a1248, light: 0x381c5c, line: [0xb58cf0, 0x7b55b4], glint: 0xd8b7ff },
+// A água funda de cada região, pintada pela profundidade de cada célula (contada da linha d'água daquela
+// coluna) em quatro faixas por tile, sem emendas: a cor da linha d'água (surf), a do fundo (deep, a uns
+// sete tiles para baixo), o brilho da superfície e quanto de cáustica corre logo embaixo dela. A água do
+// riacho da memória e o lago gelado da floresta não entram aqui (rasa uma, debaixo do gelo o outro).
+export interface WaterLook {
+  surf: [number, number, number];
+  deep: [number, number, number];
+  line: number;
+  caustic: number;
+}
+export const WATER_LOOKS: Partial<Record<string, WaterLook>> = {
+  // a tinta das sentenças, no Fosso e na Margem: grossa, sem luz por dentro
+  prison: { surf: [78, 46, 122], deep: [16, 8, 26], line: 0xb58cf0, caustic: 0 },
   // a água que tomou as minas, esverdeada do Âmbar dissolvido
-  mine: { deep: [9, 24, 25], step: [1, 2, 2], dark: 0x0d2a2c, light: 0x14403c, line: [0x8fd8c8, 0x47897e], glint: 0xd9f6ea },
-  // a água morna do Vale: verde-azulada e funda, com o sol do eclipse em pontos dourados na superfície
-  vale: { deep: [20, 62, 70], step: [1, 2, 2], dark: 0x1f5f63, light: 0x2c7a74, line: [0xd2f4e4, 0x7cc7b4], glint: 0xffe9b0 },
+  mine: { surf: [52, 112, 100], deep: [8, 22, 24], line: 0x8fd8c8, caustic: 0.07 },
+  // a água morna do Vale: verde-água clara em cima, azul-esverdeada e funda embaixo
+  vale: { surf: [74, 150, 134], deep: [12, 42, 54], line: 0xe6fff4, caustic: 0.11 },
 };
+
+// as texturas da água pintada: o brilho da linha d'água e a cáustica (linhas finas de luz que se
+// cruzam, feitas de ondas que emendam nas bordas)
+function waterTextures(scene: Phaser.Scene) {
+  const T = scene.textures;
+  const canvas = (key: string, w: number, h: number, draw: (d: Uint8ClampedArray) => void) => {
+    if (T.exists(key)) return;
+    const tex = T.createCanvas(key, w, h);
+    if (!tex) return;
+    const ctx = tex.getContext();
+    const img = ctx.createImageData(w, h);
+    draw(img.data);
+    ctx.putImageData(img, 0, 0);
+    tex.refresh();
+  };
+  canvas('water-surf', 128, 8, (d) => {
+    const rand = rng(17);
+    for (let x = 0; x < 128; x++) {
+      const k = 0.6 + 0.4 * Math.sin((x / 128) * Math.PI * 6 + 1.3) * Math.sin((x / 128) * Math.PI * 2);
+      for (let y = 0; y < 8; y++) {
+        const i = (y * 128 + x) * 4;
+        const a = y === 0 ? 0.85 * k : y === 1 ? 0.45 * k : Math.max(0, 0.22 - y * 0.03) * (rand() < 0.5 ? 1 : 0.4);
+        d[i] = d[i + 1] = d[i + 2] = 255;
+        d[i + 3] = Math.round(255 * a);
+      }
+      if (rand() < 0.06) {
+        const i = ((2 + Math.floor(rand() * 3)) * 128 + x) * 4;
+        d[i + 3] = 235;
+      }
+    }
+  });
+  canvas('water-caustic', 128, 64, (d) => {
+    const rand = rng(29);
+    const waves: [number, number, number, number][] = [];
+    for (let i = 0; i < 7; i++) waves.push([1 + Math.floor(rand() * 4) * (rand() < 0.5 ? -1 : 1), 1 + Math.floor(rand() * 3), rand() * 6.3, 0.6 + rand() * 0.4]);
+    for (let y = 0; y < 64; y++) {
+      for (let x = 0; x < 128; x++) {
+        let n = 0;
+        let m = 0;
+        for (const [kx, ky, ph, a] of waves) {
+          n += a * Math.sin(Math.PI * 2 * ((kx * x) / 128 + (ky * y) / 64) + ph + 0.8 * Math.sin((Math.PI * 2 * ky * x) / 128 + ph));
+          m += a;
+        }
+        const ridge = Math.pow(1 - Math.abs(n / m), 14);
+        const i = (y * 128 + x) * 4;
+        d[i] = d[i + 1] = d[i + 2] = 255;
+        d[i + 3] = Math.round(255 * Math.min(1, ridge * 1.3));
+      }
+    }
+  });
+}
+
+// pinta a água funda da sala. A massa fica atrás do cavaleiro (DEPTH.front) e um véu fino na frente tinge
+// quem está afundado (mais quanto mais fundo); devolve a linha d'água e as cáusticas (quem chama anima)
+export function paintWater(scene: Phaser.Scene, L: Level, look: WaterLook, dim = 1) {
+  const water = (x: number, y: number) => L.ch(x, y) === '~';
+  const out = { surfaces: [] as Phaser.GameObjects.TileSprite[], caustics: [] as Phaser.GameObjects.TileSprite[] };
+  if (!L.spans(water).length) return out;
+  waterTextures(scene);
+  const top = new Int16Array(L.w * L.h).fill(-1);
+  for (let x = 0; x < L.w; x++) {
+    for (let y = 0; y < L.h; y++) if (water(x, y)) top[y * L.w + x] = y > 0 && water(x, y - 1) ? top[(y - 1) * L.w + x] : y;
+  }
+  const back = scene.add.graphics().setDepth(DEPTH.front);
+  const veil = scene.add.graphics().setDepth(DEPTH.water);
+  const color = (t: number) => {
+    const k = Math.min(1, Math.pow(t / 6.5, 0.85));
+    const c = (i: number) => Math.round((look.surf[i] + (look.deep[i] - look.surf[i]) * k) * dim);
+    return (c(0) << 16) | (c(1) << 8) | c(2);
+  };
+  const SUB = 4;
+  for (let y = 0; y < L.h; y++) {
+    let x = 0;
+    while (x < L.w) {
+      if (!water(x, y)) {
+        x++;
+        continue;
+      }
+      const d = y - top[y * L.w + x];
+      let x1 = x;
+      while (x1 + 1 < L.w && water(x1 + 1, y) && y - top[y * L.w + x1 + 1] === d) x1++;
+      const px = x * TILE;
+      const w = (x1 - x + 1) * TILE;
+      for (let k = 0; k < SUB; k++) {
+        const t = d + (k + 0.5) / SUB;
+        // a primeira faixa começa na linha d'água (3 px abaixo do alto do tile)
+        const y0 = y * TILE + (k * TILE) / SUB;
+        const yy = d === 0 && k === 0 ? y * TILE + 3 : y0;
+        const h = y0 + TILE / SUB - yy;
+        back.fillStyle(color(t), Math.min(0.94, 0.6 + t * 0.12)).fillRect(px, yy, w, h);
+        veil.fillStyle(color(t), Math.min(0.42, 0.12 + t * 0.07)).fillRect(px, yy, w, h);
+      }
+      x = x1 + 1;
+    }
+  }
+  // a linha d'água (só onde ela dá para o ar) e, logo embaixo, a cáustica em duas camadas que se cruzam.
+  // A cáustica não passa do fundo (num poço raso ela é curta) e some aos poucos com a profundidade
+  const depthAt = (x: number, y: number) => {
+    let d = 0;
+    while (d < 4 && water(x, y + d)) d++;
+    return d;
+  };
+  for (const sp of L.spans((x, y) => water(x, y) && !water(x, y - 1) && !L.solidCell(x, y - 1))) {
+    const w = (sp.x1 - sp.x0 + 1) * TILE;
+    out.surfaces.push(scene.add.tileSprite(sp.x0 * TILE, sp.y * TILE + 2, w, 8, 'water-surf').setOrigin(0).setTint(look.line).setAlpha(0.9 * dim).setDepth(DEPTH.water + 0.1));
+    if (look.caustic <= 0) continue;
+    let x = sp.x0;
+    while (x <= sp.x1) {
+      const d = depthAt(x, sp.y);
+      let x1 = x;
+      while (x1 + 1 <= sp.x1 && depthAt(x1 + 1, sp.y) === d) x1++;
+      const h = Math.min(56, d * TILE - 5);
+      const a = look.caustic * dim * Math.min(1, 0.45 + d * 0.2);
+      for (let i = 0; i < 2 && h > 4; i++) {
+        const c = scene.add.tileSprite(x * TILE, sp.y * TILE + 4, (x1 - x + 1) * TILE, h, 'water-caustic').setOrigin(0).setAlpha(a, a, 0, 0)
+          .setTint(0xeaffe0).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.front + 0.1).setFlipX(i === 1);
+        // o desenho preso ao mundo, para os trechos vizinhos emendarem
+        c.tilePositionX = i === 1 ? -(c.x + c.width) : c.x;
+        out.caustics.push(c);
+      }
+      x = x1 + 1;
+    }
+  }
+  return out;
+}
 
 // Trechos do tabuleiro da ponte que recebem balaustrada (em tiles)
 const BRIDGE_RAILS: [number, number][] = [[24, 50], [57, 78], [99, 106], [124, 132], [145, 170]];
@@ -79,6 +211,7 @@ export class Decor {
   readonly flickers: Flicker[] = [];
   readonly puddles: Point[] = [];
   readonly water: { sprite: Phaser.GameObjects.TileSprite; x0: number; x1: number; y: number }[] = [];
+  private caustics: Phaser.GameObjects.TileSprite[] = [];
   mirror: { x: number; y: number; glow: Phaser.GameObjects.Image } | null = null;
   figureSpawn: Point | null = null;
   private rand: () => number;
@@ -92,9 +225,10 @@ export class Decor {
       this.rails();
       this.makePuddles();
     }
+    // a água funda do Vale é pintada pelo próprio Vale (a cor pela profundidade, sem faixas)
     if (level.theme === 'memory' || level.theme === 'vale') {
       this.flowers();
-      this.waterBodies();
+      if (level.theme === 'memory') this.waterBodies();
     } else if (level.theme !== 'snow') this.waterBodies();
     this.objects();
   }
@@ -234,50 +368,36 @@ export class Decor {
     // o lago da floresta é fundo: só a água que dá para o ar tem a linha da superfície; embaixo do gelo
     // (e mais para baixo) é água escura e fria, inteira, e dá para ver o que está parado nela
     const snow = L.theme === 'snow';
-    // o líquido parado de cada região (a tinta das sentenças, a água que tomou as minas): a superfície
-    // corre, e a massa funda fica atrás de quem está dentro dela
-    const liq = snow ? null : LIQUIDS[L.theme];
-    const deepKey = snow ? 'water-deep' : `liquid-${L.theme}-deep`;
-    const topKey = `liquid-${L.theme}-top`;
-    const open = (x: number, y: number) => (snow ? L.ch(x, y - 1) === '.' : !liq || L.ch(x, y - 1) !== '~');
+    // o líquido parado de cada região (a tinta das sentenças, a água que tomou as minas): pintado pela
+    // profundidade, com a linha d'água correndo
+    const liq = snow ? null : WATER_LOOKS[L.theme];
+    if (liq) {
+      const w = paintWater(this.scene, L, liq);
+      for (const sprite of w.surfaces) this.water.push({ sprite, x0: sprite.x, x1: sprite.x + sprite.width, y: sprite.y + 1 });
+      this.caustics.push(...w.caustics);
+      return;
+    }
+    const deepKey = 'water-deep';
+    const open = (x: number, y: number) => (snow ? L.ch(x, y - 1) === '.' : true);
     if (snow && !this.scene.textures.exists(deepKey)) {
       const g = this.scene.add.graphics();
       for (let y = 0; y < 16; y++) g.fillStyle(Phaser.Display.Color.GetColor(30 + y, 70 + y * 2, 104 + y * 2), 1).fillRect(0, y, 16, 1);
       g.generateTexture(deepKey, 16, 16);
       g.destroy();
     }
-    // as duas texturas do líquido (a da água do riacho é azul demais para tingir de roxo ou de verde)
-    if (liq && !this.scene.textures.exists(topKey)) {
-      const g = this.scene.add.graphics();
-      for (let y = 0; y < 16; y++) g.fillStyle(Phaser.Display.Color.GetColor(liq.deep[0] + y * liq.step[0], liq.deep[1] + y * liq.step[1], liq.deep[2] + y * liq.step[2]), 1).fillRect(0, y, 16, 1);
-      g.generateTexture(deepKey, 16, 16);
-      g.clear();
-      for (let y = 0; y < 16; y++) {
-        for (let x = 0; x < 32; x++) g.fillStyle((x * 7 + y * 13) % 5 < 2 ? liq.dark : liq.light, 0.9).fillRect(x, y, 1, 1);
-      }
-      for (let x = 0; x < 32; x++) g.fillStyle(x % 8 < 5 ? liq.line[0] : liq.line[1], 0.95).fillRect(x, 0, 1, 1);
-      for (const [x, y] of [[4, 4], [18, 7], [27, 3], [11, 10]]) g.fillStyle(liq.glint, 0.85).fillRect(x, y, 1, 1);
-      g.generateTexture(topKey, 32, 16);
-      g.destroy();
-    }
     for (const s of L.spans((x, y) => L.ch(x, y) === '~' && open(x, y))) {
       const sprite = this.scene.add
-        .tileSprite(s.x0 * TILE, s.y * TILE + 3, (s.x1 - s.x0 + 1) * TILE, TILE - 3, liq ? topKey : 'water')
+        .tileSprite(s.x0 * TILE, s.y * TILE + 3, (s.x1 - s.x0 + 1) * TILE, TILE - 3, 'water')
         .setOrigin(0)
-        .setAlpha(snow ? 0.7 : liq ? 0.95 : 0.82)
+        .setAlpha(snow ? 0.7 : 0.82)
         .setDepth(DEPTH.water);
       if (snow) sprite.setTint(0xb8d8ec);
       this.water.push({ sprite, x0: s.x0 * TILE, x1: (s.x1 + 1) * TILE, y: s.y * TILE + 3 });
     }
-    if (!snow && !liq) return;
-    // a massa funda fica atrás de quem está dentro dela: na calha o cavaleiro sumiria se ela passasse
-    // por cima (só a linha da superfície, essa sim, corta o corpo dele)
+    if (!snow) return;
+    // embaixo do gelo: a água escura e fria, inteira
     for (const s of L.spans((x, y) => L.ch(x, y) === '~' && !open(x, y))) {
-      const w = (s.x1 - s.x0 + 1) * TILE;
-      this.scene.add.tileSprite(s.x0 * TILE, s.y * TILE, w, TILE, deepKey).setOrigin(0)
-        .setAlpha(snow ? 0.6 : 0.92).setDepth(snow ? DEPTH.water : DEPTH.front);
-      // e um véu fino por cima, só para tingir quem está afundado nela
-      if (liq) this.scene.add.tileSprite(s.x0 * TILE, s.y * TILE, w, TILE, deepKey).setOrigin(0).setAlpha(0.3).setDepth(DEPTH.water);
+      this.scene.add.tileSprite(s.x0 * TILE, s.y * TILE, (s.x1 - s.x0 + 1) * TILE, TILE, deepKey).setOrigin(0).setAlpha(0.6).setDepth(DEPTH.water);
     }
   }
 
@@ -408,6 +528,10 @@ export class Decor {
       f.img.alpha = f.base * (0.84 + 0.16 * a);
     }
     for (const w of this.water) w.sprite.tilePositionX -= dt * 9;
+    this.caustics.forEach((c, i) => {
+      c.tilePositionX += dt * (i % 2 ? 7 : -5);
+      c.tilePositionY = Math.sin(time * 0.0006 + (i % 2)) * 6;
+    });
     if (this.mirror) this.mirror.glow.alpha = 0.26 + Math.sin(time * 0.002) * 0.08;
   }
 }

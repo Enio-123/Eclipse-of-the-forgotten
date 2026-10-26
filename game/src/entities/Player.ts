@@ -83,6 +83,26 @@ export class Player {
   ice = false;
   windX = 0;
   draft = 0;
+  // água funda e morna (Vale e Minas; a cena liga por sala). swim: metade do corpo na água, a não ser de pé
+  // no fundo com a cabeça para fora (aí ele só anda no raso); under: a cabeça embaixo; canSwim: a Concha
+  // do Rio
+  warm = false;
+  canSwim = false;
+  swim = false;
+  under = false;
+  // fôlego sem a Concha (1 = cheio): quando acaba, a cena devolve o cavaleiro ao chão firme
+  breath = 1;
+  // a correnteza (px/s para o lado) e a queda d'água que empurra para baixo (o Vale marca a cada quadro)
+  current = 0;
+  fall = 0;
+  // a linha d'água acima dele (px), se em cima dela houver ar
+  private surface: number | null = null;
+  private strokeT = 0;
+  // acabou de pular para fora da água: a física dela não segura o pulo
+  private exitT = 0;
+  private breathOut = false;
+  // inclinação do corpo nadando (rad, segue o embalo)
+  private tilt = 0;
   hook: HookState | null = null;
   // vagonete das Minas: sentado dentro, preso ao assento que a cena põe a cada quadro (pés em x, y)
   ride: { x: number; y: number; vx: number; vy: number } | null = null;
@@ -322,6 +342,7 @@ export class Player {
     this.wallCoyote -= dt;
     this.wallLock -= dt;
     this.buffer = input.pressed.jump ? C.jumpBuffer : this.buffer - dt;
+    this.updateWater(dt, onGround);
 
     if (this.ride && !this.dead) {
       this.rideUpdate(dt, input);
@@ -393,12 +414,22 @@ export class Player {
     // gravidade: subida normal, um leve flutuar no topo do pulo e queda suave
     const vy = b.velocity.y;
     if (this.dashT > 0 || this.hook?.phase === 'pull') b.gravity.y = 0;
-    else if (Math.abs(vy) < 70 && input.held.jump && !onGround && !this.frozen) b.gravity.y = -C.gravity * (1 - C.apexHang);
+    else if (this.swim) {
+      // a água segura: o nado (ou o afundar) decide a velocidade de subida e de descida; machucado ou
+      // parado por outra coisa, ele afunda devagar
+      b.gravity.y = -C.gravity;
+      if (this.hurtT > 0 || this.frozen || this.dead || this.aiming || this.castT > 0) b.velocity.y = approach(b.velocity.y, C.sinkSpeed, 900 * dt);
+    } else if (Math.abs(vy) < 70 && input.held.jump && !onGround && !this.frozen) b.gravity.y = -C.gravity * (1 - C.apexHang);
     else b.gravity.y = vy > 0 ? C.gravity * C.fallGravity : 0;
-    if (this.gravMul !== 1 && !(this.dashT > 0 || this.hook?.phase === 'pull')) b.gravity.y -= C.gravity * (1 - this.gravMul);
+    if (this.gravMul !== 1 && !this.swim && !(this.dashT > 0 || this.hook?.phase === 'pull')) b.gravity.y -= C.gravity * (1 - this.gravMul);
     // na gravidade leve a queda também é mais lenta (o teto de velocidade vale para cima também, então
     // só a descida é limitada aqui)
     if (this.gravMul < 1 && b.velocity.y > C.maxFall * 0.7) b.velocity.y = C.maxFall * 0.7;
+    // a queda d'água empurra para baixo com força: não se sobe por dentro dela (o dash atravessa de lado)
+    if (this.fall > 0 && this.dashT <= 0 && !this.ride && !this.dive && this.hook?.phase !== 'pull') {
+      b.velocity.y = approach(b.velocity.y, this.fall, 2400 * dt);
+      this.jumping = false;
+    }
     this.updateGlide(dt, input, onGround);
 
     this.trackSafeSpot(onGround);
@@ -409,6 +440,11 @@ export class Player {
 
   private control(dt: number, input: Controls, onGround: boolean) {
     const b = this.body;
+    if (this.swim) {
+      this.swimMove(dt, input, onGround);
+      this.actions(dt, input, onGround, (input.held.right ? 1 : 0) - (input.held.left ? 1 : 0));
+      return;
+    }
     let dir = (input.held.right ? 1 : 0) - (input.held.left ? 1 : 0);
 
     // modo "mover com clique": anda até o ponto clicado
@@ -478,10 +514,15 @@ export class Player {
       this.jumping = false;
     }
     if (b.velocity.y >= 0 || b.blocked.up) this.jumping = false;
+    this.actions(dt, input, onGround, dir);
+  }
 
-    if (input.pressed.dash && this.dashCd <= 0 && this.canDash) {
-      if (onGround && this.crouched) this.startSlide(dir);
-      else if (onGround || this.airDash) this.startDash(dir, onGround);
+  // dash, golpe e gancho (em terra e na água)
+  private actions(dt: number, input: Controls, onGround: boolean, dir: number) {
+    // na água funda o dash só sai com a Concha (vira um impulso de nado)
+    if (input.pressed.dash && this.dashCd <= 0 && this.canDash && (!this.swim || this.canSwim)) {
+      if (onGround && this.crouched && !this.swim) this.startSlide(dir);
+      else if (onGround || this.airDash || this.swim) this.startDash(dir, onGround || this.swim);
     }
     // golpe apertado um instante antes do fim da recarga não se perde: sai assim que ela acaba
     if (input.pressed.attack) this.atkBuffer = C.attackBuffer;
@@ -712,10 +753,120 @@ export class Player {
     this.chain.clear();
   }
 
+  // ---------- água funda e morna ----------
+  // o estado da água no começo do quadro (dentro dela o controle e a gravidade mudam) e o fôlego
+  private updateWater(dt: number, onGround: boolean) {
+    const b = this.body;
+    const L = this.scene.level;
+    this.strokeT -= dt;
+    this.exitT -= dt;
+    const was = this.swim;
+    const w = this.warm && !this.ride && !this.dive && this.exitT <= 0 ? L.waterAt(this.zone.x, b.center.y) : null;
+    const head = !!w && L.inWater(this.zone.x, b.top + 5);
+    this.swim = !!w && (!onGround || head);
+    this.under = this.swim && head;
+    this.surface = w?.air ? w.surface : null;
+    if (this.swim && !was) {
+      // caiu na água: ela segura a queda (e fecha a capa, solta a parede)
+      if (b.velocity.y > 0) b.velocity.y *= this.canSwim ? 0.3 : 0.4;
+      this.wallDir = 0;
+      this.jumping = false;
+    }
+    if (this.swim) {
+      this.airDash = true;
+      this.airJumps = this.canDouble ? 1 : 0;
+    }
+    // o fôlego só conta sem a Concha, com a cabeça embaixo
+    if (this.under && !this.canSwim && !this.frozen && !this.dead) {
+      this.breath = Math.max(0, this.breath - dt / C.breath);
+      if (this.breath <= 0 && !this.breathOut) {
+        this.breathOut = true;
+        this.scene.onBreathOut();
+      }
+    } else {
+      this.breath = Math.min(1, this.breath + dt * 1.6);
+      if (this.breath >= 1) this.breathOut = false;
+    }
+  }
+
+  // na água funda. Sem a Concha: afunda devagar, anda no fundo devagar e o pulo do fundo é fraco. Com ela:
+  // nada para todos os lados com embalo, parado boia até a cabeça sair, {jump} embaixo é uma braçada e na
+  // linha d'água é o pulo inteiro para fora. A correnteza leva junto
+  private swimMove(dt: number, input: Controls, onGround: boolean) {
+    const b = this.body;
+    this.crouched = false;
+    this.moveTarget = null;
+    this.wallDir = 0;
+    const dx = (input.held.right ? 1 : 0) - (input.held.left ? 1 : 0);
+    const dy = (input.held.down || input.held.crouch ? 1 : 0) - (input.held.up ? 1 : 0);
+    if (dx !== 0) {
+      this.scene.onPlayerAction('move');
+      if (this.atkAnimT <= 0) this.facing = dx as 1 | -1;
+    }
+    if (!this.canSwim) {
+      const sp = this.runSpeed * C.waterWalk * (this.atkAnimT > 0 ? this.weapon.moveMul : 1);
+      b.velocity.x = approach(b.velocity.x, dx * sp + this.current * 0.7, (dx ? C.swimAccel : C.swimDecel) * dt);
+      if (this.buffer > 0 && onGround) {
+        this.buffer = 0;
+        b.velocity.y = -C.waterJump;
+        this.scene.sfx('jump', 0.45, 0.7);
+        this.scene.bubbles(this.zone.x, b.bottom - 6, 5);
+        this.scene.onPlayerAction('jump');
+      }
+      b.velocity.y = approach(b.velocity.y, C.sinkSpeed, (b.velocity.y > C.sinkSpeed ? 1500 : C.waterDrag) * dt);
+      return;
+    }
+    const s = this.surface;
+    // quanto falta subir para a cabeça sair na altura de boiar (px; negativo: já está acima)
+    const e = s === null ? Infinity : b.top + C.floatHead - s;
+    if (this.buffer > 0 && e < 12) {
+      // na linha d'água: o pulo sai inteiro (e a água não segura ele por um instante)
+      this.buffer = 0;
+      this.swim = false;
+      this.exitT = 0.22;
+      b.velocity.y = -C.jumpVel;
+      this.jumping = true;
+      this.scene.sfx('jump');
+      this.scene.splash(this.zone.x, s!);
+      this.scene.onPlayerAction('jump');
+      return;
+    }
+    const sp = C.swimSpeed * (this.atkAnimT > 0 ? 0.7 : 1);
+    const len = Math.hypot(dx, dy) || 1;
+    const tx = (dx / len) * sp + this.current;
+    let ty = (dy / len) * sp;
+    if (dy <= 0 && s !== null) {
+      // subindo, ou parado com ar em cima: boia até a cabeça sair e fica balançando na linha d'água
+      const rise = dy < 0 ? sp : C.floatRise;
+      ty = Phaser.Math.Clamp(-e * 5, -rise, 60) + (e < 10 ? Math.sin(this.scene.time.now / 420) * 7 : 0);
+    } else if (dy === 0) ty = -16;
+    if (this.buffer > 0 && this.strokeT <= 0) {
+      // a braçada: um impulso para onde ele aponta (sem direção, para cima)
+      this.buffer = 0;
+      this.strokeT = C.strokeCd;
+      const ux = dx / len;
+      const uy = dx || dy ? dy / len : -1;
+      b.velocity.x = ux * C.strokeVel + this.current;
+      b.velocity.y = uy * C.strokeVel;
+      this.scene.sfx('swoosh', 0.35, 0.6);
+      this.scene.bubbles(this.zone.x - ux * 8, b.center.y - uy * 8, 6);
+      this.scene.onPlayerAction('jump');
+    }
+    const acc = (dx || dy ? C.swimAccel : C.swimDecel) * dt;
+    b.velocity.x = approach(b.velocity.x, tx, acc);
+    b.velocity.y = approach(b.velocity.y, ty, acc);
+  }
+
+  // a cena devolveu ao chão firme: fôlego cheio de novo
+  refillBreath() {
+    this.breath = 1;
+    this.breathOut = false;
+  }
+
   // Garras de Ferro: no ar, encostado na parede, escorrega devagar e pode pular para o outro lado
   private wallSlide(dt: number, dir: number, onGround: boolean) {
     const b = this.body;
-    if (!this.canWall || onGround || this.atkAnimT > 0) {
+    if (!this.canWall || onGround || this.atkAnimT > 0 || this.swim || this.fall > 0) {
       this.wallDir = 0;
       return;
     }
@@ -776,7 +927,7 @@ export class Player {
   private updateGlide(dt: number, input: Controls, onGround: boolean) {
     const b = this.body;
     const blocked = onGround || this.dead || this.frozen || !!this.pose || !!this.ride || !!this.dive || this.dashT > 0 || !!this.hook ||
-      this.wallDir !== 0 || this.hurtT > 0 || this.aiming || this.castT > 0;
+      this.wallDir !== 0 || this.hurtT > 0 || this.aiming || this.castT > 0 || this.swim || this.fall > 0;
     if (!this.canGlide || blocked) {
       if (onGround || !input.held.jump) this.glideArmed = false;
       this.setGlide(false);
@@ -1264,7 +1415,7 @@ export class Player {
   }
 
   private trackSafeSpot(onGround: boolean) {
-    if (!onGround || this.hurtT > 0 || this.frozen) return;
+    if (!onGround || this.hurtT > 0 || this.frozen || this.swim) return;
     const b = this.body;
     const l = this.scene.level;
     const y = b.bottom + 2;
@@ -1315,7 +1466,14 @@ export class Player {
     else if (this.atkAnimT > 0) anim = this.atkAnim;
     else if (this.wallDir !== 0) anim = 'wall';
     else if (this.ride) anim = this.crouched ? 'crouch' : 'idle';
-    else if (!onGround) {
+    else if (this.swim && this.canSwim && !onGround) {
+      // nadando: a braçada (ou, numa folha sem ela, o quadro do topo do pulo)
+      if (this.scene.anims.exists(`knight-${this.weapon.id}-swim`)) anim = 'swim';
+      else {
+        anim = 'air';
+        air = Math.round(((this.scene.anims.get(`knight-${this.weapon.id}-air`)?.frames.length ?? 13) - 1) / 2);
+      }
+    } else if (!onGround) {
       // no ar o quadro vem da velocidade: impulso, subida, topo, queda; numa queda longa a capa tremula
       if (this.fastFallT > 0.25) anim = 'fall';
       else {
@@ -1328,18 +1486,28 @@ export class Player {
     else anim = 'idle';
     if (air >= 0) this.holdFrame(anim, air);
     else this.play(anim);
-    // as pernas acompanham a velocidade da arma (a animação foi feita para 192 px/s)
-    const pace = this.runSpeed / RUN_ANIM_SPEED;
-    this.sprite.anims.timeScale = anim === 'run' ? pace : 1;
+    // as pernas acompanham a velocidade da arma (a animação foi feita para 192 px/s); na água, a de verdade
+    const pace = (this.swim || this.inWater ? Math.max(70, vx) : this.runSpeed) / RUN_ANIM_SPEED;
+    const swimPace = 0.55 + 0.75 * Math.min(1, Math.hypot(b.velocity.x, b.velocity.y) / C.swimSpeed);
+    this.sprite.anims.timeScale = anim === 'run' ? pace : anim === 'swim' ? swimPace : 1;
     if ((anim === 'run' || anim === 'crouch_walk') && onGround) {
       this.stepT -= dt;
       if (this.stepT <= 0) {
         this.stepT = anim === 'run' ? 0.3 / pace : 0.42;
-        this.scene.dustBurst(this.zone.x - this.facing * 4, b.bottom, 1);
+        if (!this.swim && !this.inWater) this.scene.dustBurst(this.zone.x - this.facing * 4, b.bottom, 1);
         this.scene.footstep();
       }
     } else this.stepT = 0.06;
     s.setPosition(Math.round(this.zone.x), Math.round(b.bottom));
+    // nadando, o corpo deita para o lado do embalo (gira em volta do meio do corpo, não dos pés)
+    const tiltTo = this.swim && this.canSwim && !onGround && this.dashT <= 0 ? Phaser.Math.Clamp(b.velocity.x / C.swimSpeed, -1, 1) * 0.5 : 0;
+    this.tilt += (tiltTo - this.tilt) * Math.min(1, dt * 7);
+    if (Math.abs(this.tilt) < 0.002) this.tilt = 0;
+    else {
+      const r = b.height / 2;
+      s.setPosition(Math.round(this.zone.x - Math.sin(this.tilt) * r), Math.round(b.center.y + Math.cos(this.tilt) * r));
+    }
+    s.setRotation(this.tilt);
     s.setFlipX(this.facing < 0);
     this.squash(dt, onGround, vy);
     // no dash o cavaleiro fica translúcido e frio, como um fantasma (no Véu, vira tinta)

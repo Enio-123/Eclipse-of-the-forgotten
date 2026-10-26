@@ -93,7 +93,7 @@ const KEY = 'eclipse-progresso-v1';
 // as salas que valem num save: todas as do mapa (tirado do próprio mapa, para nunca ficar atrás dele
 // quando entra uma sala nova)
 const ROOM_IDS = Object.keys(ROOMS) as RoomId[];
-export const ABILITIES: Ability[] = ['dash', 'wall', 'double', 'hook', 'veil', 'cape'];
+export const ABILITIES: Ability[] = ['dash', 'wall', 'double', 'hook', 'veil', 'cape', 'swim'];
 
 export function loadSave(): SaveData | null {
   try {

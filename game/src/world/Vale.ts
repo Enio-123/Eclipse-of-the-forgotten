@@ -1,16 +1,437 @@
 import Phaser from 'phaser';
-import { TILE } from '../config';
+import { PLAYER as C, TILE } from '../config';
 import type { GameScene } from '../scenes/GameScene';
-import { DEPTH } from './Decor';
+import type { Player } from '../entities/Player';
+import { DEPTH, WATER_LOOKS, paintWater } from './Decor';
 import type { Span } from './Level';
+import type { Rect } from './rooms';
 import { rng } from '../gfx/raster';
 
+// a subida na névoa do lado das quedas (px/s), como a corrente de ar da serra
+const RISE = 200;
+
+interface Fall {
+  r: Rect;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  back: Phaser.GameObjects.TileSprite;
+  front: Phaser.GameObjects.TileSprite;
+  mist: Phaser.GameObjects.Image[];
+  // onde a água bate (a linha d'água do poço embaixo, ou o chão)
+  foot: number;
+  acc: number;
+}
+
+interface Draft {
+  rect: Phaser.Geom.Rectangle;
+  acc: number;
+}
+
+interface Log {
+  zone: Phaser.GameObjects.Zone;
+  body: Phaser.Physics.Arcade.Body;
+  img: Phaser.GameObjects.Image;
+  ripple: Phaser.GameObjects.Image;
+  // o trecho que ele desce (px) ou null (boia no lugar), o lugar de origem e a linha d'água
+  seg: [number, number] | null;
+  home: number;
+  surface: number;
+  // o peso dele em cima (0 a 1, com mola), afundando no fim do trecho (0 a 1) e voltando (0 a 1)
+  load: number;
+  sink: number;
+  rise: number;
+  ph: number;
+}
+
 // O Vale das Cachoeiras (capítulo 6, lore/vale.md): o vale da Lembrança do prólogo, agora no presente.
-// Aqui fica o que é só do vale: as árvores de flor (cujos galhos são as plataformas '-' que saem do
-// tronco, como os pinheiros da floresta) enquanto a pintura da sala não chega.
+// Aqui fica o que é só do vale: a água funda pintada pela profundidade (a linha d'água, o verde que
+// escurece para baixo, as cáusticas), as quedas d'água (empurram para baixo; do lado delas a névoa sobe e a
+// capa pega), a correnteza do rio (leva quem nada e os troncos), os troncos boiando (servem de chão e
+// afundam um pouco com o peso) e as árvores de flor enquanto a pintura da sala não chega.
 export class Vale {
+  private falls: Fall[] = [];
+  private drafts: Draft[] = [];
+  private currents: { rect: Phaser.Geom.Rectangle; vx: number }[] = [];
+  private logs: Log[] = [];
+  private surfaces: { sprite: Phaser.GameObjects.TileSprite; vx: number }[] = [];
+  private caustics: { sprite: Phaser.GameObjects.TileSprite; vx: number }[] = [];
+  private foam: Phaser.GameObjects.Particles.ParticleEmitter;
+  private spray: Phaser.GameObjects.Particles.ParticleEmitter;
+  private rising: Phaser.GameObjects.Particles.ParticleEmitter;
+  private drift: Phaser.GameObjects.Particles.ParticleEmitter;
+  private time = 0;
+  private driftAcc = 0;
+  // os troncos só seguram o cavaleiro depois que ele existe (o Vale nasce antes dele)
+  private linked = false;
+
   constructor(private s: GameScene) {
+    this.makeTextures();
     if (!s.textures.exists(`arvores-${s.room.id}`)) this.drawTrees();
+    this.drawWater();
+    const room = s.room;
+    // a espuma onde a queda bate, os respingos e a névoa que sobe do lado
+    this.foam = s.add.particles(0, 0, 'glow', {
+      lifespan: { min: 500, max: 1100 },
+      speedX: { min: -50, max: 50 },
+      speedY: { min: -70, max: -20 },
+      scale: { start: 0.18, end: 0.55 },
+      alpha: { start: 0.42, end: 0 },
+      tint: [0xffffff, 0xe6fbf2],
+      emitting: false,
+    }).setDepth(DEPTH.water + 0.5);
+    this.spray = s.add.particles(0, 0, 'px', {
+      lifespan: { min: 260, max: 620 },
+      speedX: { min: -90, max: 90 },
+      speedY: { min: -170, max: -60 },
+      gravityY: 520,
+      scale: { start: 1.2, end: 0.5 },
+      alpha: { start: 0.9, end: 0 },
+      tint: [0xffffff, 0xd9f5ea],
+      emitting: false,
+    }).setDepth(DEPTH.water + 0.6);
+    this.rising = s.add.particles(0, 0, 'px', {
+      lifespan: { min: 1100, max: 1900 },
+      speedY: { min: -260, max: -160 },
+      speedX: { min: -14, max: 14 },
+      scale: { start: 1.1, end: 0.4 },
+      alpha: { start: 0.55, end: 0 },
+      tint: [0xffffff, 0xe1f7ee],
+      emitting: false,
+    }).setDepth(19);
+    // pétalas e folhas descendo o rio na linha d'água
+    this.drift = s.add.particles(0, 0, 'px', {
+      lifespan: { min: 2600, max: 4200 },
+      scaleX: { min: 1.6, max: 2.6 },
+      scaleY: { min: 0.9, max: 1.3 },
+      alpha: { start: 0.9, end: 0 },
+      tint: [0xf6b3cc, 0xfbd0de, 0x8fbf6a, 0xc9e39a],
+      emitting: false,
+    }).setDepth(DEPTH.water + 0.4);
+    for (const r of room.falls ?? []) this.addFall(r);
+    for (const d of room.drafts ?? []) {
+      this.drafts.push({ rect: new Phaser.Geom.Rectangle(d.x0 * TILE, d.y0 * TILE, (d.x1 - d.x0 + 1) * TILE, (d.y1 - d.y0 + 1) * TILE), acc: 0 });
+    }
+    for (const c of room.currents ?? []) {
+      this.currents.push({ rect: new Phaser.Geom.Rectangle(c.x0 * TILE, c.y0 * TILE, (c.x1 - c.x0 + 1) * TILE, (c.y1 - c.y0 + 1) * TILE), vx: c.vx });
+    }
+    // a linha d'água corre com a correnteza do trecho
+    for (const w of this.surfaces) w.vx = this.flowAt(w.sprite.x + w.sprite.width / 2, w.sprite.y + 4);
+    // a cáustica anda com a linha d'água de cima (trechos vizinhos no mesmo ritmo, sem costura)
+    for (const w of this.caustics) {
+      const top = this.surfaces.find((sf) => w.sprite.x >= sf.sprite.x - 1 && w.sprite.x < sf.sprite.x + sf.sprite.width && Math.abs(sf.sprite.y + 2 - w.sprite.y) < 4);
+      w.vx = top ? top.vx : this.flowAt(w.sprite.x + w.sprite.width / 2, w.sprite.y + 4);
+    }
+    const logs = s.level.spawns.filter((sp) => sp.kind === '[');
+    logs.forEach((sp, i) => this.addLog(sp.x, sp.ty, room.logs?.[i] ?? null, i));
+  }
+
+  // ---------- texturas ----------
+  private canvas(key: string, w: number, h: number, draw: (d: Uint8ClampedArray) => void) {
+    const T = this.s.textures;
+    if (T.exists(key)) return;
+    const tex = T.createCanvas(key, w, h);
+    if (!tex) return;
+    const ctx = tex.getContext();
+    const img = ctx.createImageData(w, h);
+    draw(img.data);
+    ctx.putImageData(img, 0, 0);
+    tex.refresh();
+  }
+
+  private makeTextures() {
+    // a cortina da queda: fios de água compridos, cada coluna no seu ritmo (o desenho emenda em cima e
+    // embaixo, para correr sem costura)
+    const sheet = (key: string, seed: number, dense: number) =>
+      this.canvas(key, 48, 256, (d) => {
+        const rand = rng(seed);
+        const W = 48;
+        const H = 256;
+        const cols: { a: number; k1: number; k2: number; p1: number; p2: number }[] = [];
+        for (let x = 0; x < W; x++) cols.push({ a: 0.35 + 0.65 * rand(), k1: 1 + Math.floor(rand() * 3), k2: 4 + Math.floor(rand() * 7), p1: rand() * 6.3, p2: rand() * 6.3 });
+        for (let y = 0; y < H; y++) {
+          for (let x = 0; x < W; x++) {
+            let a = 0;
+            for (let dx = -1; dx <= 1; dx++) {
+              const c = cols[(x + dx + W) % W];
+              const v = 0.5 + 0.5 * Math.sin((Math.PI * 2 * c.k1 * y) / H + c.p1);
+              const w = 0.5 + 0.5 * Math.sin((Math.PI * 2 * c.k2 * y) / H + c.p2);
+              a += (dx === 0 ? 0.5 : 0.25) * c.a * (0.2 + 0.8 * Math.pow(v * w, 1.4));
+            }
+            const i = (y * W + x) * 4;
+            const white = Math.min(1, a * 1.25);
+            d[i] = 200 + 55 * white;
+            d[i + 1] = 232 + 23 * white;
+            d[i + 2] = 224 + 31 * white;
+            d[i + 3] = Math.round(255 * Math.min(1, a * dense));
+          }
+        }
+      });
+    sheet('fall-back', 61, 0.9);
+    sheet('fall-front', 67, 0.75);
+    // o tronco boiando (desenhado em 2x): casca escura com sulcos, o topo molhado de luz, musgo e as
+    // pontas cortadas com os anéis
+    this.canvas('vale-log', 152, 40, (d) => {
+      const rand = rng(43);
+      const W = 152;
+      const H = 40;
+      const cy = 20;
+      const R = 15;
+      const grooves: number[] = [];
+      for (let i = 0; i < 9; i++) grooves.push(rand() * 2 - 1);
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const i = (y * W + x) * 4;
+          const ey = (y - cy) / R;
+          // as pontas: elipses de anéis
+          const capL = Math.hypot((x - 10) / 6.5, ey);
+          const capR = Math.hypot((x - (W - 10)) / 6.5, ey);
+          const inBody = x >= 10 && x <= W - 10 && Math.abs(ey) <= 1;
+          let r = 0;
+          let g = 0;
+          let b = 0;
+          let a = 0;
+          if (capR <= 1) {
+            const ring = 0.5 + 0.5 * Math.sin(capR * 22);
+            r = 150 + 40 * ring;
+            g = 112 + 30 * ring;
+            b = 72 + 16 * ring;
+            a = 1;
+            if (capR > 0.86) {
+              r = 74;
+              g = 52;
+              b = 36;
+            }
+          } else if (inBody || capL <= 1) {
+            const lit = Math.max(0, -ey);
+            let groove = 0;
+            for (const gy of grooves) groove = Math.max(groove, Math.max(0, 1 - Math.abs(ey - gy * 0.9) * 9) * (0.5 + 0.5 * Math.sin(x * 0.11 + gy * 7)));
+            const n = rand();
+            r = 66 + 50 * lit - 30 * groove + n * 8;
+            g = 46 + 36 * lit - 22 * groove + n * 6;
+            b = 32 + 24 * lit - 16 * groove + n * 5;
+            // musgo por cima, em manchas
+            const moss = Math.max(0, Math.sin(x * 0.07 + 1) * Math.sin(x * 0.023) - 0.35) * Math.max(0, -ey - 0.2) * 2.2;
+            r = r * (1 - moss) + 86 * moss;
+            g = g * (1 - moss) + 118 * moss;
+            b = b * (1 - moss) + 54 * moss;
+            // o brilho molhado no alto
+            if (ey < -0.62 && ey > -0.82) {
+              r += 40;
+              g += 40;
+              b += 34;
+            }
+            // a sombra embaixo (a parte dentro d'água fica mais escura)
+            if (ey > 0.25) {
+              const k = Math.min(1, (ey - 0.25) * 1.6);
+              r *= 1 - 0.55 * k;
+              g *= 1 - 0.45 * k;
+              b *= 1 - 0.35 * k;
+            }
+            a = 1;
+          }
+          d[i] = Math.max(0, Math.min(255, r));
+          d[i + 1] = Math.max(0, Math.min(255, g));
+          d[i + 2] = Math.max(0, Math.min(255, b));
+          d[i + 3] = Math.round(255 * a);
+        }
+      }
+    });
+    // o anel de água em volta do tronco
+    this.canvas('vale-ripple', 96, 12, (d) => {
+      for (let y = 0; y < 12; y++) {
+        for (let x = 0; x < 96; x++) {
+          const e = Math.hypot((x - 48) / 48, (y - 6) / 6);
+          const ring = Math.max(0, 1 - Math.abs(e - 0.82) * 7);
+          const i = (y * 96 + x) * 4;
+          d[i] = 230;
+          d[i + 1] = 255;
+          d[i + 2] = 244;
+          d[i + 3] = Math.round(200 * ring);
+        }
+      }
+    });
+  }
+
+  // ---------- a água funda ----------
+  // pintada pela profundidade (Decor.paintWater); na gruta escura, quase preta, só com a luz que entra pela
+  // cortina d'água
+  private drawWater() {
+    const s = this.s;
+    const w = paintWater(s, s.level, WATER_LOOKS.vale!, s.room.id === 'gruta' ? 0.45 : 1);
+    for (const sprite of w.surfaces) this.surfaces.push({ sprite, vx: 0 });
+    for (const sprite of w.caustics) this.caustics.push({ sprite, vx: 0 });
+  }
+
+  // ---------- quedas d'água ----------
+  private addFall(r: Rect) {
+    const s = this.s;
+    const L = s.level;
+    const x = r.x0 * TILE;
+    const w = (r.x1 - r.x0 + 1) * TILE;
+    const y = r.y0 * TILE;
+    const h = (r.y1 + 1 - r.y0) * TILE;
+    // onde a água bate: a linha d'água do poço (ou o chão)
+    const cx = Math.floor((x + w / 2) / TILE);
+    const below = L.waterAt(cx * TILE + 8, (r.y1 + 1) * TILE + 4);
+    const foot = below ? below.surface : (r.y1 + 1) * TILE;
+    // atrás do cavaleiro a cortina cheia; na frente, fios mais ralos (ele aparece dentro da água)
+    const back = s.add.tileSprite(x, y, w, foot - y, 'fall-back').setOrigin(0).setAlpha(0.82).setDepth(DEPTH.front + 0.3);
+    const front = s.add.tileSprite(x - 2, y, w + 4, foot - y, 'fall-front').setOrigin(0).setAlpha(0.42).setDepth(DEPTH.water - 0.4);
+    front.tilePositionX = 17;
+    // a névoa do pé da queda: nuvens brancas e moles, que respiram
+    const mist: Phaser.GameObjects.Image[] = [];
+    for (let i = 0; i < 3; i++) {
+      mist.push(s.add.image(x + w / 2 + (i - 1) * w * 0.7, foot - 6 - i * 4, 'glow').setScale(2.2 + i * 0.6, 1.4).setTint(0xf2fff8)
+        .setAlpha(0.2).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.water + 0.3));
+    }
+    this.falls.push({ r, x, y, w, h, back, front, mist, foot, acc: 0 });
+  }
+
+  // ---------- troncos boiando ----------
+  private addLog(x: number, ty: number, seg: [number, number] | null, i: number) {
+    const s = this.s;
+    const L = s.level;
+    const surface = L.waterAt(x, ty * TILE + 8)?.surface ?? ty * TILE + 3;
+    const zone = s.add.zone(x, surface - 3, 64, 8);
+    s.physics.add.existing(zone);
+    const body = zone.body as Phaser.Physics.Arcade.Body;
+    body.setAllowGravity(false);
+    body.setImmovable(true);
+    // só o alto segura: por baixo e pelos lados ele atravessa (nada por baixo dele, pula de lado)
+    body.checkCollision.down = false;
+    body.checkCollision.left = false;
+    body.checkCollision.right = false;
+    const img = s.add.image(x, surface, 'vale-log').setScale(0.5).setOrigin(0.5, 0.42).setDepth(DEPTH.enemy - 0.5);
+    const ripple = s.add.image(x, surface + 1, 'vale-ripple').setScale(0.9, 1).setAlpha(0.5).setDepth(DEPTH.water + 0.2);
+    this.logs.push({ zone, body, img, ripple, seg: seg ? [seg[0] * TILE, (seg[1] + 1) * TILE] : null, home: x, surface, load: 0, sink: 0, rise: 1, ph: i * 1.7 });
+  }
+
+  // a correnteza num ponto (px/s para o lado)
+  flowAt(x: number, y: number) {
+    for (const c of this.currents) if (c.rect.contains(x, y)) return c.vx;
+    return 0;
+  }
+
+  update(dt: number) {
+    const s = this.s;
+    const p = s.player;
+    this.time += dt;
+    if (!this.linked) {
+      this.linked = true;
+      for (const l of this.logs) s.physics.add.collider(p.zone, l.zone);
+    }
+    const view = s.cameras.main.worldView;
+    this.updateFalls(dt, p, view);
+    this.updateDrafts(dt, p, view);
+    // a correnteza leva quem está na água (nadando ou andando no raso)
+    p.current = p.swim || p.inWater ? this.flowAt(p.x, p.body.center.y) : 0;
+    this.updateLogs(dt, p);
+    for (const w of this.surfaces) w.sprite.tilePositionX -= (w.vx * 0.9 + 6) * dt;
+    this.caustics.forEach((w, i) => {
+      w.sprite.tilePositionX -= (w.vx * 0.6 + (i % 2 ? -7 : 5)) * dt;
+      w.sprite.tilePositionY = Math.sin(this.time * 0.6 + (i % 2)) * 6;
+    });
+    // pétalas e folhas descendo o rio, só no trecho que aparece
+    if (this.currents.length) {
+      this.driftAcc += dt * 1.6;
+      while (this.driftAcc >= 1) {
+        this.driftAcc -= 1;
+        const sp = this.surfaces[Math.floor(Math.random() * this.surfaces.length)];
+        if (!sp || !Phaser.Geom.Rectangle.Overlaps(sp.sprite.getBounds(), view) || Math.abs(sp.vx) < 1) continue;
+        const x = Math.max(sp.sprite.x, view.x) + Math.random() * Math.min(sp.sprite.width, view.width);
+        this.drift.emitParticleAt(x, sp.sprite.y + 1);
+      }
+      this.drift.forEachAlive((pt) => {
+        pt.velocityX = this.flowAt(pt.x, pt.y + 6) * 0.9;
+        pt.velocityY = 0;
+      }, this);
+    }
+  }
+
+  private updateFalls(dt: number, p: Player, view: Phaser.Geom.Rectangle) {
+    const b = p.body;
+    let push = 0;
+    for (const f of this.falls) {
+      f.back.tilePositionY -= 330 * dt;
+      f.front.tilePositionY -= 470 * dt;
+      // o cavaleiro dentro da queda: a água empurra para baixo e espirra nos ombros
+      const inside = p.x > f.x - 3 && p.x < f.x + f.w + 3 && b.bottom > f.y && b.top < f.foot;
+      if (inside) {
+        push = C.fallPush;
+        if (Math.random() < dt * 30) this.spray.explode(1, p.x + (Math.random() - 0.5) * 14, b.top + 2);
+      }
+      const show = f.x + f.w > view.x - 40 && f.x < view.right + 40 && f.foot > view.y - 40 && f.y < view.bottom + 40;
+      if (!show) continue;
+      const t = this.time;
+      f.mist.forEach((m, i) => m.setAlpha(0.16 + 0.06 * Math.sin(t * 1.3 + i * 2)).setScale(2.2 + i * 0.6 + 0.2 * Math.sin(t * 0.9 + i), 1.4));
+      // a espuma e os respingos no pé
+      f.acc += dt * (14 + f.w * 0.3);
+      while (f.acc >= 1) {
+        f.acc -= 1;
+        this.foam.explode(1, f.x + Math.random() * f.w, f.foot - 2);
+        if (Math.random() < 0.6) this.spray.explode(1, f.x + Math.random() * f.w, f.foot - 1);
+      }
+    }
+    p.fall = push;
+  }
+
+  // a névoa do lado das quedas sobe: com a capa aberta, ele sobe junto
+  private updateDrafts(dt: number, p: Player, view: Phaser.Geom.Rectangle) {
+    let rise = 0;
+    for (const d of this.drafts) {
+      if (d.rect.contains(p.x, p.body.center.y)) rise = RISE;
+      if (!Phaser.Geom.Rectangle.Overlaps(d.rect, view)) continue;
+      const r = Phaser.Geom.Rectangle.Intersection(d.rect, view);
+      d.acc += dt * 30 * (r.height / 300 + 0.3);
+      while (d.acc >= 1) {
+        d.acc -= 1;
+        this.rising.explode(1, r.x + Math.random() * r.width, r.y + Math.random() * r.height);
+      }
+    }
+    p.draft = rise;
+  }
+
+  private updateLogs(dt: number, p: Player) {
+    const pb = p.body;
+    for (const l of this.logs) {
+      const b = l.body;
+      // ele está de pé em cima?
+      const on = pb.blocked.down && Math.abs(pb.bottom - b.top) < 3 && pb.right > b.left && pb.left < b.right;
+      l.load += ((on ? 1 : 0) - l.load) * Math.min(1, dt * (on ? 9 : 4));
+      let tx = b.center.x;
+      let vx = 0;
+      if (l.seg) {
+        if (l.sink > 0) {
+          // afundando no fim do trecho: some e volta no começo
+          l.sink += dt / 1.1;
+          if (l.sink >= 1) {
+            l.sink = 0;
+            l.rise = 0;
+            b.reset(l.seg[0] + 36, l.surface - 3);
+          }
+        } else {
+          vx = this.flowAt(b.center.x, l.surface + 6) * 0.72 || 30;
+          if (b.right >= l.seg[1] - 2) {
+            l.sink = 0.001;
+            this.s.splash(b.center.x, l.surface);
+          }
+        }
+        l.rise = Math.min(1, l.rise + dt / 0.8);
+      } else {
+        // no lago: boia no lugar, rodando devagar
+        tx = l.home + Math.sin(this.time * 0.32 + l.ph) * 20;
+        vx = (tx - b.center.x) * 2;
+      }
+      const sinking = l.sink > 0 ? l.sink : 1 - l.rise;
+      const ty = l.surface - 3 + Math.sin(this.time * 1.7 + l.ph) * 1.4 + l.load * 4 + sinking * 16;
+      b.setVelocity(vx, (ty - b.center.y) * 9);
+      // afundando (ou voltando) o tronco não segura ninguém
+      b.checkCollision.up = sinking < 0.4;
+      l.img.setPosition(b.center.x, b.center.y + 3).setAlpha(1 - sinking).setRotation(Math.sin(this.time * 1.1 + l.ph) * 0.015 - l.load * 0.01);
+      l.ripple.setPosition(b.center.x, l.surface + 1).setAlpha((0.35 + 0.15 * Math.sin(this.time * 2 + l.ph)) * (1 - sinking));
+    }
   }
 
   // cada árvore 'T': o tronco do pé até acima do galho mais alto, os galhos do mapa saindo dele (o pé de
@@ -80,6 +501,4 @@ export class Vale {
       blossom(bloomFront, x + 10, yTop + 14, 9);
     }
   }
-
-  update(_dt: number) {}
 }

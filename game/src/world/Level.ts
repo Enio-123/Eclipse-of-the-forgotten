@@ -395,4 +395,14 @@ export class Level {
   inWater(x: number, y: number) {
     return this.ch(Math.floor(x / TILE), Math.floor(y / TILE)) === '~';
   }
+
+  // a água deste ponto: a linha da superfície acima dele (px) e se em cima dela há ar (num túnel alagado
+  // a água vai até a pedra do teto); null fora da água
+  waterAt(x: number, y: number) {
+    const tx = Math.floor(x / TILE);
+    let ty = Math.floor(y / TILE);
+    if (this.ch(tx, ty) !== '~') return null;
+    while (ty > 0 && this.ch(tx, ty - 1) === '~') ty--;
+    return { surface: ty * TILE + 3, air: !this.solidCell(tx, ty - 1) };
+  }
 }

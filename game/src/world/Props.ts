@@ -68,6 +68,7 @@ export class Props {
       else if (s.kind === 'U') this.addRelic('double', s.x, s.y);
       else if (s.kind === 'w') this.addRelic('hook', s.x, s.y);
       else if (s.kind === '{') this.addRelic('cape', s.x, s.y);
+      else if (s.kind === '<') this.addRelic('swim', s.x, s.y);
       else if (s.kind === 'K') this.addCobrador(s.x, s.y);
       else if (s.kind === 'm') {
         const id = `${room}:${mi++}`;
@@ -168,7 +169,7 @@ export class Props {
     if (!hung) s.add.image(x, y, 'deco-pedestal').setOrigin(0.5, 1).setDepth(DEPTH.prop);
     const r: Relic = { kind, x, y, sprite: null, glow: null };
     if (!progress.abilities.has(kind)) {
-      const tint = kind === 'wall' || kind === 'hook' ? 0xbcd4ff : kind === 'cape' ? 0xffb8a0 : 0xfff0c8;
+      const tint = kind === 'wall' || kind === 'hook' ? 0xbcd4ff : kind === 'cape' ? 0xffb8a0 : kind === 'swim' ? 0xd2fff0 : 0xfff0c8;
       r.glow = s.add.image(x, y - 50, 'glow').setScale(hung ? 1.4 : 1.8).setTint(tint).setAlpha(0.55).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.front);
       const key = s.textures.exists(`relic-${kind}`) ? `relic-${kind}` : 'relic-double';
       r.sprite = hd(s.add.image(x, hung ? y - 63 : y - 50, key).setDepth(DEPTH.enemy));

@@ -394,6 +394,8 @@ export class GameScene extends Phaser.Scene {
   private shards!: Phaser.GameObjects.Particles.ParticleEmitter;
   gold!: Phaser.GameObjects.Particles.ParticleEmitter;
   private waterFx!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private bubbleFx!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private breathG!: Phaser.GameObjects.Graphics;
   private wisps!: Phaser.GameObjects.Particles.ParticleEmitter;
   private smoke!: Phaser.GameObjects.Particles.ParticleEmitter;
   // inimigos já atravessados no dash atual (um sopro por inimigo) e os que já deixaram moedas
@@ -635,6 +637,9 @@ export class GameScene extends Phaser.Scene {
     this.player = new Player(this, spawn.x, spawn.y, settings.data.weapon);
     this.player.facing = spawn.x < W / 2 ? 1 : -1;
     this.player.canAttack = !room.noAttack;
+    // a água morna do Vale e a que tomou as Minas são fundas de verdade (afunda, nada); a tinta da prisão,
+    // o riacho raso da memória e o lago gelado da floresta continuam como eram
+    this.player.warm = room.theme === 'vale' || room.theme === 'mine';
     if (data.via === 'down') this.player.body.setVelocityY(220);
     this.magic = progress.mage ? new Magic(this, progress.mage) : null;
     // o cavaleiro não tem habilidade: o ícone dela some do HUD
@@ -1008,10 +1013,29 @@ export class GameScene extends Phaser.Scene {
       speedY: { min: -150, max: -50 },
       gravityY: 600,
       scale: { start: 0.8, end: 0.3 },
-      // água do riacho e do lago; na calha da prisão o que espirra é tinta
-      tint: this.room.theme === 'prison' ? [0xb58cf0, 0x5c3d91, ABYSS.ink] : [0xd9f2ff, 0x8ccbef],
+      // água do riacho e do lago; na calha da prisão o que espirra é tinta; no Vale e nas Minas, verde
+      tint: this.room.theme === 'prison' ? [0xb58cf0, 0x5c3d91, ABYSS.ink] : this.room.theme === 'vale' || this.room.theme === 'mine' ? [0xeafff6, 0xa6dcc8] : [0xd9f2ff, 0x8ccbef],
       emitting: false,
     }).setDepth(DEPTH.water + 1);
+    // bolhas que sobem na água funda (o fôlego dele, a braçada) e estouram na linha d'água
+    if (!this.textures.exists('bubble')) {
+      const g = this.add.graphics();
+      g.lineStyle(1, 0xffffff, 0.85).strokeCircle(4, 4, 3);
+      g.fillStyle(0xffffff, 0.18).fillCircle(4, 4, 3);
+      g.fillStyle(0xffffff, 0.9).fillRect(2, 2, 1, 1);
+      g.generateTexture('bubble', 8, 8);
+      g.destroy();
+    }
+    this.bubbleFx = this.add.particles(0, 0, 'bubble', {
+      lifespan: { min: 600, max: 1400 },
+      speedX: { min: -10, max: 10 },
+      speedY: { min: -64, max: -26 },
+      scale: { start: 0.35, end: 0.8 },
+      alpha: { start: 0.85, end: 0.2 },
+      deathZone: { type: 'onLeave', source: { contains: (x: number, y: number) => this.level.inWater(x, y) } },
+      emitting: false,
+    }).setDepth(DEPTH.water + 1);
+    this.breathG = this.add.graphics().setDepth(DEPTH.water + 2);
   }
 
   private oneWayFilter(_obj: unknown, tile: unknown) {
@@ -1903,18 +1927,62 @@ export class GameScene extends Phaser.Scene {
 
   private water() {
     const p = this.player;
-    const inWater = this.level.inWater(p.x, p.body.bottom - 2);
+    const b = p.body;
+    const w = this.level.waterAt(p.x, b.bottom - 2);
+    const inWater = !!w;
     p.inWater = inWater;
-    if (inWater && !this.wasInWater) {
-      const surface = Math.floor((p.body.bottom - 2) / TILE) * TILE + 3;
-      this.waterFx.explode(12, p.x, surface);
+    if (w && !this.wasInWater && w.air) {
+      this.waterFx.explode(12, p.x, w.surface);
       this.sfx('splash');
     }
-    if (inWater && Math.abs(p.body.velocity.x) > 30 && Math.random() < 0.25) {
-      const surface = Math.floor((p.body.bottom - 2) / TILE) * TILE + 3;
-      this.waterFx.explode(1, p.x - p.facing * 4, surface);
-    }
+    // andando no raso ou nadando na linha d'água: a água espirra na frente dele
+    if (w?.air && b.top < w.surface && Math.abs(b.velocity.x) > 30 && Math.random() < 0.25) this.waterFx.explode(1, p.x - p.facing * 4, w.surface);
     this.wasInWater = inWater;
+    // com a cabeça embaixo, o ar escapa aos poucos
+    if (p.under && Math.random() < this.game.loop.delta / 1000 * (p.canSwim ? 1.6 : 4)) this.bubbles(p.x + p.facing * 4, b.top + 7, 1);
+    // sem a Concha, o fôlego aparece em quatro bolhas em cima da cabeça (a última pisca quando acaba)
+    const g = this.breathG;
+    g.clear();
+    if (!p.warm || p.canSwim || p.breath >= 0.999 || p.dead) return;
+    const n = 4;
+    const k = p.breath * n;
+    const low = p.breath < 0.3 && Math.floor(this.time.now / 140) % 2 === 0;
+    for (let i = 0; i < n; i++) {
+      const f = Phaser.Math.Clamp(k - i, 0, 1);
+      if (f <= 0) continue;
+      const x = p.x - 12 + i * 8;
+      const y = b.top - 12 + Math.sin(this.time.now / 210 + i * 1.3) * 1.2;
+      g.lineStyle(1, 0xeafcff, (0.45 + 0.55 * f) * (low ? 0.35 : 1)).strokeCircle(x, y, 1.4 + 1.6 * f);
+      g.fillStyle(0xffffff, 0.85 * f).fillRect(x - 1, y - 1, 1, 1);
+    }
+  }
+
+  // bolhas subindo na água funda (estouram na linha d'água)
+  bubbles(x: number, y: number, n: number) {
+    this.bubbleFx.explode(n, x, y);
+  }
+
+  // sem a Concha, o fôlego acabou: a água devolve o cavaleiro ao último chão firme (sem machucar)
+  onBreathOut() {
+    const p = this.player;
+    if (this.respawning || p.dead || this.transitioning) return;
+    this.respawning = true;
+    p.frozen = true;
+    this.bubbles(p.x, p.body.top + 4, 12);
+    this.sfx('splash', 0.5, 0.6);
+    this.thinkOnce('water:breath', 'Nunca aprendi a nadar.');
+    const cam = this.cameras.main;
+    cam.fadeOut(280, 7, 8, 13);
+    cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      p.teleport(p.lastSafe.x, p.lastSafe.y);
+      p.body.setVelocity(0, 0);
+      p.refillBreath();
+      cam.fadeIn(260, 7, 8, 13);
+      this.time.delayedCall(180, () => {
+        p.frozen = false;
+        this.respawning = false;
+      });
+    });
   }
 
   private onHurt() {
@@ -2862,6 +2930,7 @@ export class GameScene extends Phaser.Scene {
     p.canHook = progress.abilities.has('hook');
     p.canVeil = progress.abilities.has('veil');
     p.canGlide = progress.abilities.has('cape');
+    p.canSwim = progress.abilities.has('swim');
     if (p.canGlide && !this.cape) this.cape = new CapeFx(this, p);
     document.body.classList.toggle('has-hook', p.canHook);
     document.body.classList.toggle('has-dash', p.canDash);
@@ -3704,7 +3773,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   footstep() {
-    if (this.player.inWater) this.sfx('splash', 0.35);
+    // no fundo da água funda o passo é abafado
+    if (this.player.under) audio.sfx('step', { vol: 0.2, rate: 0.55 });
+    else if (this.player.inWater) this.sfx('splash', 0.35);
     else audio.sfx('step', { rate: 0.9 + Math.random() * 0.2 });
   }
 
