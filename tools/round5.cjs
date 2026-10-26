@@ -197,7 +197,8 @@ let fails = 0;
   await page.waitForSelector('#screen-inventory.show');
   await page.waitForTimeout(300);
   const cards = await page.evaluate(() => [...document.querySelectorAll('#screen-inventory .inv-item')].map((b) => ({ id: b.dataset.id, dis: b.disabled, img: b.querySelector('img').complete && b.querySelector('img').naturalWidth })));
-  ok(cards.length === 7 && cards.filter((c) => !c.dis).map((c) => c.id).sort().join() === 'blade,breath,mask,purse', `inventário mostra 7 itens, 4 liberados (${cards.length}: ${cards.filter((c) => !c.dis).map((c) => c.id).join(', ')})`);
+  // 7 do capítulo 1 e 2, mais os três das Minas que já aparecem (os outros ficam escondidos até achar)
+  ok(cards.length === 10 && cards.filter((c) => !c.dis).map((c) => c.id).sort().join() === 'blade,breath,mask,purse', `inventário mostra 10 itens, 4 liberados (${cards.length}: ${cards.filter((c) => !c.dis).map((c) => c.id).join(', ')})`);
   ok(cards.every((c) => c.img >= 64), `os ícones carregaram no traço liso (${[...new Set(cards.map((c) => c.img))].join(', ')} px)`);
   await page.click('#screen-inventory .inv-item[data-id="mask"]');
   await page.click('#screen-inventory .inv-item[data-id="blade"]');
@@ -223,7 +224,8 @@ let fails = 0;
   const hp2 = await st();
   ok(hp.max === 5 && hp.hp === 5 && hp2.max === 6 && hp2.hp === 5, `máscara: desligada vida ${hp.hp}/${hp.max}, ligada de novo ${hp2.hp}/${hp2.max} (sem cura de graça)`);
   const weaponsList = await page.evaluate(() => [...document.querySelectorAll('#screen-inventory .inv-weapons li')].map((l) => l.textContent));
-  ok(weaponsList.length === 8 && /trancada/.test(weaponsList[4]) && /Sineiro/.test(weaponsList[4]) && /Arcebispo/.test(weaponsList[5]) && /Carcereira/.test(weaponsList[6]) && /Capataz/.test(weaponsList[7]), `armas no inventário: ${weaponsList.join(' | ')}`);
+  // as quatro do começo e a de cada chefe, na ordem em que eles aparecem (a Lança do Mestre da Caça é a última)
+  ok(weaponsList.length === 9 && /trancada/.test(weaponsList[4]) && /Sineiro/.test(weaponsList[4]) && /Arcebispo/.test(weaponsList[5]) && /Carcereira/.test(weaponsList[6]) && /Capataz/.test(weaponsList[7]) && /Mestre da Caça/.test(weaponsList[8]), `armas no inventário: ${weaponsList.join(' | ')}`);
   await page.keyboard.press('Escape');
   await page.waitForTimeout(200);
   const top = await page.evaluate(() => window.__ui.top);
@@ -293,7 +295,7 @@ let fails = 0;
     const c = document.querySelector('#screen-weapons .card[data-w="badalo"]');
     return { n: document.querySelectorAll('#screen-weapons .card').length, dis: c.disabled, locked: c.classList.contains('locked'), tag: c.querySelector('.tag').textContent, stats: c.querySelectorAll('.stats dt').length };
   });
-  ok(lock.n === 8 && lock.dis && lock.locked && lock.tag === 'Vença o Sineiro' && lock.stats === 4, `Trocar arma: 8 armas, o Badalo trancado ("${lock.tag}"), 4 atributos com Corrida`);
+  ok(lock.n === 9 && lock.dis && lock.locked && lock.tag === 'Vença o Sineiro' && lock.stats === 4, `Trocar arma: ${lock.n} armas (9 com a Lança), o Badalo trancado ("${lock.tag}"), 4 atributos com Corrida`);
   await page.screenshot({ path: `${OUT}/armas-trancada.png` });
   await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');

@@ -116,8 +116,15 @@ const URL = process.argv[3] || 'http://localhost:8765/index.html';
   st = await state();
   check(st.room === 'praca' && /Trancada/.test(await thought()), 'porta trancada não abre e avisa');
 
-  // 4. praça -> rua; parede falsa do porão, cofre e página
+  // 4. praça -> Mercado do Dízimo (v18) -> rua; parede falsa do porão, cofre e página
   await tp(116, 28);
+  await hold('KeyD', 900);
+  await waitRoom('mercado');
+  st = await state();
+  check(st.room === 'mercado' && st.tx <= 4, `praça leva ao Mercado do Dízimo (${st.tx},${st.ty})`);
+  await safe();
+  await calm();
+  await tp(107, 28);
   await hold('KeyD', 900);
   await waitRoom('rua');
   st = await state();

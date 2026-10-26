@@ -46,11 +46,13 @@ const OUT = process.argv[2] || '.';
         st.best = Math.min(st.best, b.bottom);
         if (b.bottom <= 161 && p.x > 134 * 16) st.top = true;
         if (st.top) {
-          // em cima: segue até o vão do meio pulando as ameias
-          if (p.x < 139 * 16 + 8) c.held.right = true;
-          // pula as ameias até a de antes do vão; depois só anda e cai no vão da memória
-          const blocked = b.blocked.right;
-          if (p.onGround && blocked && p.x < 138 * 16 && t - st.lastJ > 0.2) { c.pressed.jump = true; st.lastJ = t; c.held.jump = true; }
+          // em cima: vai até o vão da memória (entre as ameias 138 e 140), pulando as ameias do caminho.
+          // Mira o meio do vão e corrige para os dois lados: um pulo que passa do vão volta andando
+          const dx = 139 * 16 + 8 - p.x;
+          if (dx > 3) c.held.right = true;
+          else if (dx < -3) c.held.left = true;
+          const blocked = dx > 0 ? b.blocked.right : b.blocked.left;
+          if (p.onGround && blocked && Math.abs(dx) > 12 && t - st.lastJ > 0.2) { c.pressed.jump = true; st.lastJ = t; c.held.jump = true; }
           else c.held.jump = false;
         } else if (p.onGround) {
           c.held.right = true;
@@ -60,7 +62,7 @@ const OUT = process.argv[2] || '.';
         } else if (t - st.lastJ > 0.1) c.held.right = true;
         else c.held.left = true;
         const got = window.__progress.memories.has('ponte:0');
-        if (got || t > 14) { c.update = c.__orig; res({ got, best: Math.round(b.bottom), x: +(p.x / 16).toFixed(1) }); }
+        if (got || t > 24) { c.update = c.__orig; res({ got, best: Math.round(st.best), x: +(p.x / 16).toFixed(1) }); }
       };
     }));
   };
@@ -69,7 +71,7 @@ const OUT = process.argv[2] || '.';
   r = await attempt(['wall']);
   await page.waitForTimeout(400);
   await page.screenshot({ path: `${OUT}/torre-memoria.png` });
-  ok(r.got, `com as garras sobe a torre e pega a memória (x ${r.x})`);
+  ok(r.got, `com as garras sobe a torre e pega a memória (x ${r.x}, pé mais alto ${r.best})`);
   console.log(errs.join('\n') || 'sem erros');
   await browser.close();
 })();
