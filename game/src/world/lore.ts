@@ -1,5 +1,5 @@
 import type { Upgrade } from '../systems/Save';
-import type { Ability } from './rooms';
+import type { Ability, RoomId } from './rooms';
 import type { EchoKind, WaveMode } from '../gfx/memoryWave';
 
 // Memórias espalhadas pelo mapa. O id é sala:ordem no mapa ("boss" é a do Sineiro).
@@ -104,6 +104,11 @@ export const OLD_MINER = {
     'Fiquei porque lá em cima ninguém ia lembrar de mim. Aqui pelo menos a pedra lembra.',
     'Mais para baixo, depois da câmara dos espelhos, o Capataz ainda toca as prensas. Ele não para nem para morrer.',
   ],
+  // o Remendo: ele reconhece o ouro nas rachaduras da máscara
+  mend: [
+    'Essa máscara... rachada e colada com ouro. Minha mulher remendava as tigelas assim. Dizia que a rachadura também conta a história.',
+    'Quando doer, ajoelha e deixa o ouro escorrer até a ferida. Gasta o Âmbar que você juntou, mas fecha.',
+  ],
   after: [
     'Uma moça de capa vermelha passou por aqui antes do céu escurecer. Anotava os nossos nomes num caderno. Disse que alguém precisava lembrar.',
     'Siga os cristais. Eles crescem onde alguém lembrou de alguma coisa com muita força.',
@@ -163,8 +168,19 @@ export const RELICS: Record<Ability, { name: string; text: string; how: string }
 
 // O que o Cobrador aceita: memórias (que o cavaleiro esquece) ou moedas. Cada item ocupa
 // espaços no inventário (slots) e só vale enquanto estiver equipado. Os presentes ('gift') não
-// estão à venda: alguém dá ao cavaleiro (missing diz onde procurar).
-export const OFFERS: { id: Upgrade; name: string; text: string; cost: number; pay: 'memory' | 'coin' | 'gift'; slots: number; missing?: string }[] = [
+// estão à venda: alguém dá ao cavaleiro (missing diz onde procurar). Os achados ('found') estão
+// pelo caminho, em baús, registros e no que os chefes deixam; os de uma região (region) só aparecem
+// no inventário depois que ele pisa lá (a sala de entrada da região).
+export const OFFERS: {
+  id: Upgrade;
+  name: string;
+  text: string;
+  cost: number;
+  pay: 'memory' | 'coin' | 'gift' | 'found';
+  slots: number;
+  missing?: string;
+  region?: RoomId;
+}[] = [
   { id: 'breath', name: 'Fôlego', text: 'O dash recarrega quase na metade do tempo.', cost: 1, pay: 'memory', slots: 1 },
   { id: 'mask', name: 'Máscara remendada', text: 'Mais um fragmento de vida.', cost: 2, pay: 'memory', slots: 1 },
   { id: 'blade', name: 'Fio do carrasco', text: 'Todos os golpes ficam 30% mais fortes.', cost: 2, pay: 'memory', slots: 2 },
@@ -175,7 +191,56 @@ export const OFFERS: { id: Upgrade; name: string; text: string; cost: number; pa
     id: 'beads', name: 'Contas da Irmã', text: 'Paredes falsas e vitrais rachados brilham de leve, e os esconderijos aparecem no mapa.',
     cost: 0, pay: 'gift', slots: 1, missing: 'Ainda não tem. Alguém na cidade guarda.',
   },
+  // as Minas Abandonadas
+  {
+    id: 'flower', name: 'Flor prensada', text: 'Com 1 de vida, o cheiro da flor traz uma lembrança boa e fecha uma rachadura. Volta a valer depois de um descanso.',
+    cost: 0, pay: 'found', slots: 1, region: 'boca', missing: 'Ainda não tem. Alguém guardou uma flor entre as folhas de uma ficha.',
+  },
+  {
+    id: 'helmet', name: 'Capacete de mineiro', text: 'As pedras que caem do teto e as vigas baixas batem no capacete e não machucam.',
+    cost: 0, pay: 'found', slots: 1, region: 'boca', missing: 'Ainda não tem. Ficou num baú, logo na entrada da mina.',
+  },
+  {
+    id: 'rawamber', name: 'Âmbar bruto', text: 'Cada golpe que entra junta metade a mais de Âmbar nas contas.',
+    cost: 0, pay: 'found', slots: 1, region: 'boca', missing: 'Ainda não tem. Um baú na Casa das Prensas guarda.',
+  },
+  {
+    id: 'watch', name: 'Relógio do turno', text: 'A Lembrança segura o mundo um segundo a mais, e o Eco fica dois segundos a mais.',
+    cost: 0, pay: 'found', slots: 1, region: 'boca', missing: 'Ainda não tem. Um baú no Veio de Âmbar guarda.',
+  },
+  {
+    id: 'whistle', name: 'Apito do Capataz', text: 'Aparar um golpe apita o fim do turno: o mundo para por meio segundo, sem gastar Âmbar.',
+    cost: 0, pay: 'found', slots: 2, region: 'boca', missing: 'Ainda não tem. Está pendurado no pescoço de quem manda no turno.',
+  },
+  {
+    id: 'mirror', name: 'Lasca do espelho', text: 'O Eco bate com a força inteira do cavaleiro.',
+    cost: 0, pay: 'found', slots: 1, region: 'boca', missing: 'Ainda não tem. O espelho da Câmara de Âmbar pode soltar uma lasca.',
+  },
 ];
+// o que ele pensa quando pega cada achado (depois do aviso do item)
+export const FOUND_THOUGHTS: Partial<Record<Upgrade, string>> = {
+  flower: 'Uma flor seca, guardada com cuidado. Quem guarda uma flor numa ficha de inventário?',
+  helmet: 'Amassado por dentro. Alguém levou uma pedra na cabeça e voltou para o turno.',
+  rawamber: 'Morno na mão, como se ainda lembrasse de alguém.',
+  watch: 'Parado na hora do fim do turno. Os ponteiros ainda tremem.',
+  whistle: 'O apito que chamava o turno. Ninguém mais vai obedecer.',
+  mirror: 'Na lasca, a minha imagem demora um instante para piscar.',
+};
+// espaços a mais no inventário, achados pelo caminho (o nome e o que diz o aviso)
+export const SLOT_FINDS: Record<'bornal' | 'cinto', { name: string; text: string; thought: string; region: RoomId }> = {
+  bornal: {
+    name: 'Bornal de mineiro',
+    text: 'Uma bolsa de lona presa no Âmbar. Mais um espaço no inventário.',
+    thought: 'O Âmbar escorreu por cima do bornal e guardou tudo: um pedaço de pão de pedra e um toco de vela.',
+    region: 'boca',
+  },
+  cinto: {
+    name: 'Cinto de ferramentas',
+    text: 'As argolas ainda seguram o que for preciso. Mais um espaço no inventário.',
+    thought: 'Alguém tirou o cinto antes de sentar na prensa. Não voltou para buscar.',
+    region: 'boca',
+  },
+};
 // espaços do inventário (o Elo do Condenado dá mais um)
 export const SLOTS = 3;
 

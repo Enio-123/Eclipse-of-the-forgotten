@@ -474,6 +474,7 @@ export class Fixtures {
     c.sprite.setTexture(this.ensure('deco-cache-open', 24, 18, (g) => g.fillStyle(0x2b2118).fillRect(0, 8, 24, 10)));
     s.sfx('coinrain', 0.8);
     s.loot.coins(Phaser.Math.Between(16, 24), c.x, c.y - 10);
+    s.cacheOpened(c.i, c.x, c.y);
   }
 
   // ---------- páginas do diário ----------

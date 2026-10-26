@@ -440,12 +440,13 @@ export const POWERS: Record<PowerId, { name: string; text: string; cost: number;
 };
 export const AMBER_BAR = {
   max: 3,
-  // quanto cada coisa enche (em gomos)
+  // quanto cada coisa enche (em gomos): cada golpe que entra e, se derrubou, mais um pouco
+  // (o fiapo de tinta cai com um golpe: dá os dois)
   hit: 0.2,
   kill: 0.3,
-  wisp: 0.5,
-  // Lembrança: quanto tempo o resto do mundo fica parado
+  // Lembrança: quanto tempo o resto do mundo fica parado (os chefes se soltam antes, nesta fração)
   stopTime: 2.2,
+  bossStop: 0.6,
   // Eco: quanto tempo a cópia fica, o atraso dela e quanto do golpe dele o dela tira
   echoTime: 6,
   echoDelay: 0.2,
@@ -453,6 +454,26 @@ export const AMBER_BAR = {
   // Remendo: o cavaleiro para um instante enquanto o ouro fecha a ferida
   mendTime: 0.6,
 };
+
+// os achados das Minas (lore.ts, OFFERS): quanto cada um mexe
+export const MINE_ITEMS = {
+  // Flor prensada: com 1 de vida, quanto volta (uma vez por descanso)
+  flowerHeal: 1,
+  // Âmbar bruto: o quanto a mais cada golpe junta
+  rawAmber: 1.5,
+  // Relógio do turno: segundos a mais na Lembrança e no Eco
+  watchStop: 1,
+  watchEcho: 2,
+  // Apito do Capataz: aparar para o mundo por este tanto (como a Lembrança, de graça)
+  whistleStop: 0.6,
+  // Lasca do espelho: quanto do golpe do cavaleiro o Eco tira
+  mirrorDmg: 1,
+};
+
+// Fragmentação nas Minas: com 1 de vida (fora da luta com chefe) a lembrança dele racha. A gravidade
+// fica leve por um tempo e sobem fiapos de tinta, que caem com um golpe e enchem as contas de Âmbar.
+// Depois disso, só volta a rachar passado o intervalo
+export const FRAGMENT = { lowGrav: 0.6, lowT: 6, wisps: 3, every: 60 };
 
 // Aparar: golpear no fim da preparação ou no golpe do inimigo rebate o ataque e deixa ele tonto.
 // Enquanto está tonto, os golpes entram com bônus.

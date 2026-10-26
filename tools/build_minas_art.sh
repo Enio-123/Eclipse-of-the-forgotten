@@ -8,6 +8,7 @@ step() { t0=$(date +%s); echo "== $1" >> $LOG; shift; "$@" >> $LOG 2>&1; r=$?; e
 step terreno sh tools/paint_minas.sh || exit 1
 step abismo sh -c 'cd art2 && python3 prisao.py abismo hd_fosso && python3 finaliza.py abyss hd_fosso --keep=terreno-abismo'
 step objetos sh -c 'cd art && python3 mine_props.py ../game/public/assets'
+step achados sh -c 'cd art && python3 mine_items.py ../game/public/assets'
 step folhas sh -c 'cd art && python3 ink_sheets.py ../game/public/assets knight-picareta miner ambat'
 step hdpack python3 tools/hdpack.py
 echo FIM >> $LOG

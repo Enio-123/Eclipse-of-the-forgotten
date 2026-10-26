@@ -5,6 +5,8 @@ import {
   MAP_PONTE, MAP_PRACA, MAP_PRENSAS, MAP_RUA, MAP_SINOS, MAP_TELHADOS, MAP_TRILHOS, MAP_VEIO,
 } from './maps';
 import type { AmbienceId, TrackId } from '../systems/Audio';
+import type { Upgrade } from '../systems/Save';
+import type { FindId } from './Finds';
 
 export type RoomId =
   | 'ponte' | 'catacumbas' | 'memoria' | 'sinos' | 'cripta'
@@ -100,6 +102,12 @@ export interface RoomDef {
   // penduradas (tile do gancho; a corrente ou o braço vêm do que estiver perto)
   rails?: [number, number, number][];
   lamps?: [number, number][];
+  // o que sai de cada baú '$' além das moedas (na ordem do mapa; null: só moedas)
+  cacheItems?: (Upgrade | null)[];
+  // achados no chão (tile da célula onde ficam, o chão logo embaixo). needs: a marca que faz ele
+  // aparecer (sem ela ainda não está lá); from: de onde ele pula quando a marca acontece na sala
+  // (em pixels, a partir do ponto onde fica)
+  finds?: { id: FindId; x: number; y: number; needs?: string; from?: [number, number] }[];
 }
 
 // salas do prólogo
@@ -607,6 +615,7 @@ const CHAPTER4: Record<'boca' | 'trilhos' | 'prensas' | 'veio' | 'espelhos' | 'c
     ambience: 'mine',
     rails: [[56, 99, 30]],
     lamps: [[31, 14], [95, 15], [50, 21]],
+    cacheItems: ['helmet'],
     hints: [],
     thoughts: [
       { x: 14, text: 'Trilhos. Escoras. Alguém cavava aqui embaixo, muito antes da prisão.' },
@@ -650,6 +659,9 @@ const CHAPTER4: Record<'boca' | 'trilhos' | 'prensas' | 'veio' | 'espelhos' | 'c
     music: 'mine',
     ambience: 'mine',
     lamps: [[11, 12], [84, 12], [84, 31]],
+    cacheItems: ['rawamber'],
+    // o cinto de ferramentas, preso no Âmbar no pé da parede, embaixo da entrada
+    finds: [{ id: 'cinto', x: 6.5, y: 39 }],
     hints: [],
     thoughts: [
       { x: 20, text: 'Prensas do tamanho de uma casa. Para espremer pedra não precisava de tanto.' },
@@ -671,6 +683,9 @@ const CHAPTER4: Record<'boca' | 'trilhos' | 'prensas' | 'veio' | 'espelhos' | 'c
     music: 'mine',
     ambience: 'mine',
     lamps: [[8, 22], [56, 26], [8, 38], [56, 50], [8, 58], [56, 70], [3, 41]],
+    cacheItems: ['watch'],
+    // o bornal, num nicho da parede da esquerda que o Âmbar cobriu, logo abaixo da entrada
+    finds: [{ id: 'bornal', x: 2, y: 17 }],
     hints: [],
     thoughts: [
       { x: 30, y: 17, text: 'Quanto mais perto do veio, mais quieto fica dentro da cabeça.' },
@@ -692,6 +707,8 @@ const CHAPTER4: Record<'boca' | 'trilhos' | 'prensas' | 'veio' | 'espelhos' | 'c
     drips: 8,
     music: 'mine',
     ambience: 'mine',
+    // quando o espelho racha, uma lasca do vidro de Âmbar salta do meio dele e cai do lado da base
+    finds: [{ id: 'mirror', x: 35, y: 25, needs: 'boss:reflexo', from: [-38, -70] }],
     hints: [],
     thoughts: [{ x: 4, text: 'As paredes me devolvem. Com um pouco de atraso.' }],
   },

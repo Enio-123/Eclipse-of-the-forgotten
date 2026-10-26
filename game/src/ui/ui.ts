@@ -1,11 +1,11 @@
 import type Phaser from 'phaser';
-import { WEAPONS, WEAPON_IDS, type WeaponId } from '../config';
+import { POWERS, POWER_IDS, WEAPONS, WEAPON_IDS, type PowerId, type WeaponId } from '../config';
 import { raw } from '../systems/RawInput';
 import { ACTIONS, ACTION_LABEL, PAD_ACTIONS, codeName, settings, type Action, type Quality } from '../systems/Settings';
 import { audio } from '../systems/Audio';
 import { BRAND_LABEL, BTN, buttonGlyph, buttonName, pad, stickGlyph, type PadBrand } from '../systems/Pad';
-import { LEVEL_MUL, MAX_LEVEL, progress, type Upgrade } from '../systems/Save';
-import { BESTIARY, FORGE, MATERIALS, MEMORIES, MEMORY_TOTAL, OFFERS, PAGES, PAGE_IDS, RECORDS, RECORD_IDS, RELICS } from '../world/lore';
+import { LEVEL_MUL, MAX_LEVEL, SLOT_IDS, progress, type SlotFind, type Upgrade } from '../systems/Save';
+import { BESTIARY, ELO, FORGE, MATERIALS, MEMORIES, MEMORY_TOTAL, OFFERS, PAGES, PAGE_IDS, RECORDS, RECORD_IDS, RELICS, SLOT_FINDS } from '../world/lore';
 import { MAP_POS, ROOMS, type Ability, type RoomId } from '../world/rooms';
 import { drawMarker, renderMap, type MapHere } from './mapview';
 import { RES, applyRes, resFor } from '../gfx/view';
@@ -779,7 +779,7 @@ class UI {
 
   // ---------- inventário ----------
   // itens do Cobrador que se ligam e desligam (3 espaços), as armas e as relíquias
-  inventory(o: { toggle: (id: Upgrade) => 'on' | 'off' | 'full' | 'missing'; onBack: () => void }) {
+  inventory(o: { toggle: (id: Upgrade) => 'on' | 'off' | 'full' | 'missing'; choosePower: (id: PowerId) => boolean; onBack: () => void }) {
     const s = $('#screen-inventory');
     const grid = $('.inv-items', s);
     const msg = $('.inv-msg', s);
@@ -794,6 +794,8 @@ class UI {
       grid.replaceChildren();
       for (const off of OFFERS) {
         const owned = progress.upgrades.has(off.id);
+        // os achados de uma região só aparecem depois que ele pisa lá
+        if (off.region && !owned && !progress.visited.has(off.region)) continue;
         const on = progress.on(off.id);
         const b = el('button', `inv-item${on ? ' on' : ''}${owned ? '' : ' missing'}`) as HTMLButtonElement;
         b.dataset.id = off.id;
@@ -829,6 +831,42 @@ class UI {
       if (focusId) grid.querySelector<HTMLButtonElement>(`[data-id="${focusId}"]`)?.focus({ preventScroll: true });
     };
     render();
+    // poderes de memória: um escolhido por vez (o botão de memória usa o escolhido)
+    const pw = $('.inv-powers-wrap', s);
+    const pl = $('.inv-powers', s);
+    const renderPowers = (focusId?: PowerId) => {
+      pw.hidden = progress.powers.size === 0;
+      $('.inv-powers-how', s).innerHTML = this.format('{memory} usa o escolhido · as contas de Âmbar enchem a cada golpe que entra');
+      pl.replaceChildren();
+      for (const id of POWER_IDS) {
+        const P = POWERS[id];
+        const known = progress.powers.has(id);
+        const on = known && progress.power === id;
+        const b = el('button', `inv-item inv-power${on ? ' on' : ''}${known ? '' : ' missing'}`) as HTMLButtonElement;
+        b.dataset.id = id;
+        b.disabled = !known;
+        b.setAttribute('role', 'radio');
+        b.setAttribute('aria-checked', String(on));
+        const icon = el('img') as HTMLImageElement;
+        icon.src = `assets/power-${id}.png`;
+        icon.alt = '';
+        const cost = el('span', 'inv-cost');
+        cost.setAttribute('aria-label', `${P.cost} ${P.cost === 1 ? 'conta' : 'contas'} de Âmbar`);
+        for (let k = 0; k < P.cost; k++) cost.append(el('i'));
+        const text = el('span', 'inv-text');
+        text.append(el('b', '', P.name), el('span', 'what', known ? P.text : P.how));
+        b.append(icon, text, cost, el('span', 'inv-state', !known ? '' : on ? 'Escolhido' : 'Lembrado'));
+        b.onclick = () => {
+          if (!o.choosePower(id)) return;
+          msg.textContent = `${P.name}: escolhido.`;
+          audio.sfx('equip');
+          renderPowers(id);
+        };
+        pl.append(b);
+      }
+      if (focusId) pl.querySelector<HTMLButtonElement>(`[data-id="${focusId}"]`)?.focus({ preventScroll: true });
+    };
+    renderPowers();
     // armas: a que está em uso, as liberadas e as de chefe ainda trancadas
     const wl = $('.inv-weapons', s);
     wl.replaceChildren();
@@ -843,6 +881,20 @@ class UI {
       else li.append(el('b', '', 'Arma trancada'), el('span', 'how', b ? `vença ${b.art} ${b.name}` : 'vença o chefe'));
       wl.append(li);
     }
+    // os espaços a mais: o Elo da arena, o bornal e o cinto das Minas (os de uma região, depois de pisar lá)
+    const extra = $('.inv-extra', s);
+    extra.replaceChildren();
+    const SLOT_INFO: Record<SlotFind, { name: string; text: string; region: RoomId }> = { elo: { ...ELO, region: 'arena' }, ...SLOT_FINDS };
+    for (const id of SLOT_IDS) {
+      const info = SLOT_INFO[id];
+      const has = progress.seen.has(`item:${id}`);
+      if (!has && !progress.visited.has(info.region)) continue;
+      const li = el('li', has ? '' : 'unknown');
+      if (has) li.append(el('b', '', info.name), el('span', 'how', 'mais um espaço'));
+      else li.append(el('span', 'unknown', 'Ainda não encontrado'));
+      extra.append(li);
+    }
+    $<HTMLElement>('.inv-extra-wrap', s).hidden = !extra.children.length;
     const rel = $('.inv-relics', s);
     rel.replaceChildren();
     for (const a of ['wall', 'double', 'hook', 'veil'] as Ability[]) {

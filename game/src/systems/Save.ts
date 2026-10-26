@@ -1,4 +1,4 @@
-import { PLAYER, WEAPONS, WEAPON_IDS, type WeaponId } from '../config';
+import { AMBER_BAR, PLAYER, POWERS, POWER_IDS, WEAPONS, WEAPON_IDS, type PowerId, type WeaponId } from '../config';
 
 // as quatro armas de começo (as outras vêm dos chefes)
 export const STARTERS: WeaponId[] = WEAPON_IDS.filter((w) => !WEAPONS[w].boss);
@@ -29,6 +29,10 @@ export interface SaveData {
   levels: Record<string, number>;
   // a sombra que ficou onde o cavaleiro caiu, com as moedas que ele perdeu (null: nenhuma)
   echo: Echo | null;
+  // poderes de memória (Minas): os que ele já lembrou, o escolhido e o Âmbar guardado nas contas
+  powers: PowerId[];
+  power: PowerId | null;
+  amber: number;
 }
 
 export interface Echo {
@@ -53,8 +57,14 @@ const counts = (v: unknown) => {
   return out;
 };
 
-export type Upgrade = 'mask' | 'blade' | 'breath' | 'purse' | 'shard' | 'whetstone' | 'beads';
-const UPGRADES: Upgrade[] = ['mask', 'blade', 'breath', 'purse', 'shard', 'whetstone', 'beads'];
+// os do Cobrador, o presente da Irmã e os seis achados das Minas (lore.ts, OFFERS)
+export type Upgrade =
+  | 'mask' | 'blade' | 'breath' | 'purse' | 'shard' | 'whetstone' | 'beads'
+  | 'flower' | 'helmet' | 'rawamber' | 'watch' | 'whistle' | 'mirror';
+const UPGRADES: Upgrade[] = ['mask', 'blade', 'breath', 'purse', 'shard', 'whetstone', 'beads', 'flower', 'helmet', 'rawamber', 'watch', 'whistle', 'mirror'];
+// espaços a mais no inventário, achados pelo caminho (o Elo na arena, o bornal e o cinto nas Minas)
+export type SlotFind = 'elo' | 'bornal' | 'cinto';
+export const SLOT_IDS: SlotFind[] = ['elo', 'bornal', 'cinto'];
 // num save antigo as melhorias eram fixas: entram ligadas, na ordem de quem mais ajuda a sobreviver
 const MIGRATE_ORDER: Upgrade[] = ['mask', 'shard', 'breath', 'whetstone', 'blade', 'purse'];
 const slotCost = (u: Upgrade) => OFFERS.find((o) => o.id === u)?.slots ?? 1;
@@ -106,6 +116,9 @@ export function loadSave(): SaveData | null {
       kills: counts(d.kills),
       levels: counts(d.levels),
       echo: echoOf(d.echo),
+      powers: strs(d.powers).filter((w) => POWER_IDS.includes(w as PowerId)) as PowerId[],
+      power: POWER_IDS.includes(d.power as PowerId) ? (d.power as PowerId) : null,
+      amber: num(d.amber) ? Math.max(0, Math.min(AMBER_BAR.max, d.amber!)) : 0,
     };
   } catch {
     return null;
@@ -152,6 +165,9 @@ export const progress = {
   echo: null as Echo | null,
   // quanto falta para a próxima lasca de vida cair de um inimigo (não é gravado)
   lifeAcc: 0,
+  powers: new Set<PowerId>(),
+  power: null as PowerId | null,
+  amber: 0,
 
   reset() {
     this.kintsugi = 0;
@@ -171,6 +187,9 @@ export const progress = {
     this.levels = new Map();
     this.echo = null;
     this.lifeAcc = 0;
+    this.powers = new Set();
+    this.power = null;
+    this.amber = 0;
     clearSave();
   },
 
@@ -202,6 +221,45 @@ export const progress = {
     );
     this.echo = d.echo;
     this.lifeAcc = 0;
+    this.powers = new Set(d.powers);
+    this.power = d.power && this.powers.has(d.power) ? d.power : (d.powers[0] ?? null);
+    this.amber = this.powers.size ? d.amber : 0;
+  },
+
+  // ---------- poderes de memória ----------
+  // lembrou um poder: o primeiro já fica escolhido. Devolve false se já sabia
+  learn(id: PowerId) {
+    if (this.powers.has(id)) return false;
+    this.powers.add(id);
+    if (!this.power) this.power = id;
+    this.save();
+    return true;
+  },
+
+  choosePower(id: PowerId) {
+    if (!this.powers.has(id)) return false;
+    this.power = id;
+    this.save();
+    return true;
+  },
+
+  // o Âmbar só enche as contas depois do primeiro poder; devolve quanto entrou
+  gainAmber(n: number) {
+    if (!this.powers.size || n <= 0) return 0;
+    const before = this.amber;
+    this.amber = Math.min(AMBER_BAR.max, this.amber + n);
+    return this.amber - before;
+  },
+
+  get powerCost() {
+    return this.power ? POWERS[this.power].cost : 0;
+  },
+
+  // gasta as contas do poder escolhido (false: não tem Âmbar que chegue)
+  spendAmber(n: number) {
+    if (this.amber + 1e-6 < n) return false;
+    this.amber = Math.max(0, this.amber - n);
+    return true;
   },
 
   // ---------- diário e ferreiro ----------
@@ -230,9 +288,18 @@ export const progress = {
     return n;
   },
 
-  // espaços do inventário: o Elo do Condenado (prêmio da arena) dá mais um
+  // espaços do inventário: o Elo do Condenado (prêmio da arena), o bornal e o cinto das Minas dão mais um cada
   get slots() {
-    return SLOTS + (this.seen.has('item:elo') ? 1 : 0);
+    return SLOTS + SLOT_IDS.filter((id) => this.seen.has(`item:${id}`)).length;
+  },
+
+  // ganhou um item achado (não comprado): entra equipado se couber, senão fica guardado
+  grant(u: Upgrade): 'on' | 'stored' | false {
+    if (this.upgrades.has(u)) return false;
+    this.upgrades.add(u);
+    const r = this.toggle(u) === 'on' ? 'on' : 'stored';
+    this.save();
+    return r;
   },
 
   fits(u: Upgrade) {
@@ -284,6 +351,7 @@ export const progress = {
       seen: [...this.seen], abilities: [...this.abilities], memories: [...this.memories], traded: [...this.traded],
       upgrades: [...this.upgrades], visited, coins: this.coins, equipped: [...this.equipped],
       kills: Object.fromEntries(this.kills), levels: Object.fromEntries(this.levels), echo: this.echo,
+      powers: [...this.powers], power: this.power, amber: Math.round(this.amber * 100) / 100,
     });
   },
 

@@ -1052,6 +1052,12 @@ def prensas():
     g.fill(70, 29, 85, 30, '#')
     # buraco para o veio
     g.fill(74, 40, 79, 43, '.')
+    # o nicho do cinto de ferramentas, no pé da parede embaixo da entrada, tapado pelo Âmbar que pingou
+    # das prensas (só a Picareta abre)
+    g.fill(6, 37, 7, 39, '.')
+    for y in range(37, 40):
+        g.put(8, y, '@')
+        g.put(9, y, '@')
     r = 39
     g.put(2, 23, '1')
     g.put(82, r, '2')
@@ -1086,6 +1092,11 @@ def veio():
     plank(g, 26, 34, 24)
     g.fill(30, 30, 46, 31, '#')
     plank(g, 14, 20, 36)
+    # o nicho do bornal, logo embaixo da entrada: o Âmbar escorreu por cima e tapou (só a Picareta abre)
+    g.fill(1, 15, 3, 17, '.')
+    for y in range(15, 18):
+        g.put(4, y, '@')
+        g.put(5, y, '@')
     # o alojamento, cavado na parede da esquerda
     g.fill(0, 40, 5, 47, '.')
     g.fill(6, 48, 24, 49, '#')
@@ -1095,7 +1106,7 @@ def veio():
     plank(g, 12, 18, 71)
     # saída para a Câmara de Âmbar, no fundo à direita
     g.fill(59, 72, 63, 77, '.')
-    g.put(10, 1, '1')
+    g.put(10, 3, '1')
     g.put(62, 77, '3')
     g.put(2, 47, 'R')
     g.put(9, 47, 'E')
@@ -1152,7 +1163,6 @@ def capataz():
         g.put(7, y, '|')
     plank(g, 15, 21, 23)
     plank(g, 44, 50, 23)
-    plank(g, 28, 37, 17)
     # o túnel tapado pelo âmbar: segue para leste e desabou adiante (o vento frio passa pelas frestas)
     g.fill(64, 24, 70, 29, '.')
     for y in range(24, 30):
@@ -1161,7 +1171,7 @@ def capataz():
     r = 29
     g.put(1, r, '1')
     g.put(46, r, 'X')
-    g.put(56, r, 'h')
+    g.put(50, r, 'x')
     g.put(68, r, 'r')
     for (x, y) in ((10, 6), (24, 5), (40, 5), (58, 7), (33, 4)):
         g.put(x, y, 'x')

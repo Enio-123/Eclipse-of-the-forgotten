@@ -75,6 +75,8 @@ export class Player {
   dashCdMul = 1;
   // conta os dashes (a cena marca quais inimigos já foram atravessados em cada um)
   dashCount = 0;
+  // conta os golpes (o Eco repete cada um uma vez só)
+  atkN = 0;
 
   private coyote = 0;
   private buffer = 0;
@@ -795,6 +797,7 @@ export class Player {
     this.atkAnimT = Math.max(0.15, W.windup + Math.max(W.active, 0.08) + 0.06);
     this.curAnim = '';
     this.hitSet.clear();
+    this.atkN++;
     if (W.windup <= 0) this.showSlash();
     if (W.quake) this.scene.sfx('heavy', 1, 0.7);
     else if (W.smoke) {

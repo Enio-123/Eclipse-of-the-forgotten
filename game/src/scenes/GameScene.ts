@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
-import { ARCHER, INCENSE, PAL, PARRY, PLAYER, QUAKE, TILE, VIEW_H, WEAPONS, WEAPON_IDS, type WeaponId } from '../config';
-import { Player, type PlayerAction } from '../entities/Player';
+import { AMBER_BAR, ARCHER, FRAGMENT, INCENSE, MINE_ITEMS, PAL, PARRY, PLAYER, POWERS, QUAKE, TILE, VIEW_H, VIEW_W, WEAPONS, WEAPON_IDS, type PowerId, type WeaponId } from '../config';
+import { Player, type AttackDir, type PlayerAction } from '../entities/Player';
+import { MemoryEcho } from '../entities/MemoryEcho';
 import { Crawler } from '../entities/Crawler';
 import { Guard } from '../entities/Guard';
 import { Crow } from '../entities/Crow';
@@ -33,9 +34,10 @@ import { Props, type MemoryOrb, type Relic, type Shrine } from '../world/Props';
 import { Fixtures, type Door, type Ring } from '../world/Fixtures';
 import { Npcs, type Npc } from '../world/Npcs';
 import { Mine } from '../world/Mine';
+import { Finds, hasFind, isSlotFind, type FindId } from '../world/Finds';
 import type { Breakable } from '../world/secrets';
 import { Loot } from '../world/Loot';
-import { ARENA_WAVES, BELLS, ELO, FORGE, LEVERS, MATERIALS, MEMORIES, MEMORY_ECHO, NUN, OFFERS, OLD_MINER, PAGES, PRISONER, RECORDS, RELICS, SMITH } from '../world/lore';
+import { ARENA_WAVES, BELLS, ELO, FORGE, FOUND_THOUGHTS, LEVERS, MATERIALS, MEMORIES, MEMORY_ECHO, NUN, OFFERS, OLD_MINER, PAGES, PRISONER, RECORDS, RELICS, SLOT_FINDS, SMITH } from '../world/lore';
 import { TILE_ONEWAY, smoothGlow } from '../gfx/textures';
 import { ui } from '../ui/ui';
 import { pad } from '../systems/Pad';
@@ -122,6 +124,8 @@ interface BossInfo {
   corpse: string;
   corpseFacing: 1 | -1;
   after: [string, string];
+  // o achado que cai dele (dx: pela frente dele, a partir dos pés)
+  item?: { id: Upgrade; dx: number };
   // o que ele devolve ao cavaleiro além da memória (a Sombra vira o Véu Abissal)
   relic?: Ability;
 }
@@ -212,6 +216,7 @@ const BOSSES: Record<BossId, BossInfo> = {
     corpse: 'death',
     corpseFacing: 1,
     after: ['O apito caiu do pescoço dele. Pela primeira vez, ninguém chama o turno.', 'A picareta dele quebra o Âmbar. O bloco do túnel não vai segurar.'],
+    item: { id: 'whistle', dx: 22 },
   },
 };
 
@@ -235,6 +240,13 @@ const CHAPTERS: Record<string, { title: string; text: string }> = {
   },
 };
 
+// como usar cada poder de memória, logo depois de lembrar dele
+const POWER_TIPS: Record<PowerId, string> = {
+  lembranca: '{memory} gasta duas contas de Âmbar e para o mundo por um instante. Cada golpe que entra enche as contas de novo.',
+  eco: 'Escolha o Eco no inventário. {memory} gasta uma conta: a cópia repete os golpes por alguns segundos.',
+  remendo: 'Escolha o Remendo no inventário. Parado no chão, {memory} gasta as três contas e fecha uma ferida.',
+};
+
 // a rosácea atrás do altar (quebra na segunda fase do Arcebispo)
 export interface Rose {
   x: number;
@@ -256,8 +268,9 @@ const SPAWNERS: Record<string, (s: GameScene, x: number, y: number) => Enemy> = 
   W: (s, x, y) => new Jailer(s, x, y),
   u: (s, x, y) => new Miner(s, x, y),
   z: (s, x, y) => new AmberBat(s, x, y - 10),
-  // fiapo de tinta da fragmentação (o Capataz chama na segunda fase)
-  k: (s, x, y) => new InkWisp(s, x, y),
+  // fiapo de tinta da fragmentação: só o Capataz chama, na segunda fase (nome comprido de propósito,
+  // nenhuma letra do mapa cai aqui; o 'k' é das chaves da guarita)
+  wisp: (s, x, y) => new InkWisp(s, x, y),
 };
 
 export class GameScene extends Phaser.Scene {
@@ -273,6 +286,8 @@ export class GameScene extends Phaser.Scene {
   npcs!: Npcs;
   // as Minas: cristais, escoras, trilhos e vagonete, prensas, registros e blocos de Âmbar
   mine: Mine | null = null;
+  // os achados no chão da sala (itens e espaços do inventário)
+  finds!: Finds;
   loot!: Loot;
   boss: BossFoe | null = null;
   private bossFrac = -1;
@@ -303,7 +318,7 @@ export class GameScene extends Phaser.Scene {
   // tempo de jogo acumulado (os testes esperam por ele, não pelo relógio da máquina)
   clock = 0;
   private respawning = false;
-  private transitioning = false;
+  transitioning = false;
   // o jogo rodando de verdade, sem troca de sala (a resolução automática só mede aqui)
   get live() {
     return !!this.player && !this.transitioning && !this.respawning;
@@ -326,7 +341,7 @@ export class GameScene extends Phaser.Scene {
   private glassFx!: Phaser.GameObjects.Particles.ParticleEmitter;
   private feathers!: Phaser.GameObjects.Particles.ParticleEmitter;
   private shards!: Phaser.GameObjects.Particles.ParticleEmitter;
-  private gold!: Phaser.GameObjects.Particles.ParticleEmitter;
+  gold!: Phaser.GameObjects.Particles.ParticleEmitter;
   private waterFx!: Phaser.GameObjects.Particles.ParticleEmitter;
   private wisps!: Phaser.GameObjects.Particles.ParticleEmitter;
   private smoke!: Phaser.GameObjects.Particles.ParticleEmitter;
@@ -355,6 +370,19 @@ export class GameScene extends Phaser.Scene {
   private elo: { x: number; y: number; sprite: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image } | null = null;
   // inimigos leves sendo puxados pelo gancho da corrente
   private pulls: { e: Enemy; dir: number; t: number }[] = [];
+  // poderes de memória: quanto falta da Lembrança (o resto do mundo parado), o véu cor de Âmbar dela,
+  // quem ela está segurando (e se o corpo dele andava antes), a cópia do Eco e o Remendo de joelhos
+  private stopT = 0;
+  // quanto durava a parada que está valendo (a da Lembrança ou a curta do Apito do Capataz)
+  private stopLen = 0;
+  private stopFx: Phaser.GameObjects.GameObject[] = [];
+  private held = new Map<Enemy, boolean>();
+  memEcho: MemoryEcho | null = null;
+  private mendT = 0;
+  private mendHp = 0;
+  // fragmentação com 1 de vida nas Minas: quanto falta da gravidade leve e quando pode rachar de novo
+  private fragLowT = 0;
+  private fragNext = 0;
 
   constructor() {
     super('game');
@@ -477,6 +505,12 @@ export class GameScene extends Phaser.Scene {
     this.transitioning = false;
     this.cinematic = false;
     this.hitstopT = 0;
+    this.stopT = 0;
+    this.stopFx = [];
+    this.held = new Map();
+    this.memEcho = null;
+    this.mendT = 0;
+    this.fragLowT = 0;
     this.room = ROOMS[data.room];
     this.controls = new Controls(this);
     document.body.classList.add('playing');
@@ -502,6 +536,9 @@ export class GameScene extends Phaser.Scene {
     this.fixtures = new Fixtures(this);
     this.npcs = new Npcs(this);
     this.mine = room.theme === 'mine' ? new Mine(this) : null;
+    this.finds = new Finds(this);
+    // começou de uma vela (jogo novo, continuar ou depois de morrer): a Flor prensada volta a valer
+    if (data.from === 'new' || data.from === 'continue' || data.from === 'death') progress.seen.delete('flower:spent');
 
     // as laterais com saída e o fundo do abismo (ou do buraco que leva para baixo) não seguram o jogador
     const W = this.level.widthPx;
@@ -560,6 +597,7 @@ export class GameScene extends Phaser.Scene {
       if (!progress.seen.has('arena:done')) this.arena = { wave: -1, foes: [], pending: 0, wait: 0, started: false };
       else if (!progress.seen.has('item:elo')) this.placeElo(false);
     }
+    this.placeFinds();
 
     this.makeParticles();
     this.placeEcho();
@@ -633,6 +671,7 @@ export class GameScene extends Phaser.Scene {
     this.dirty = false;
 
     this.arrive(data.from);
+    if (this.room.theme === 'mine') this.time.delayedCall(2200, () => this.catchUpPowers());
 
     ui.onStackChange = (open) => {
       if (!open) this.controls.reset();
@@ -930,16 +969,20 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     const p = this.player;
+    if (this.controls.pressed.memory) this.usePower();
     // o vagonete anda antes do cavaleiro (ele vai sentado no assento já no lugar novo)
-    this.mine?.update(time, dt);
+    this.mine?.update(time, dt, this.stopT > 0);
     p.update(dt, this.controls);
     this.hookHits();
     if (p.canHook) this.fixtures.markRing(p.hook || p.dead ? null : this.hookTarget(p));
-    for (const e of this.enemies) e.update(dt);
+    for (const e of this.enemies) if (!this.hold(e)) e.update(dt);
+    this.updatePowers(dt);
+    this.updateFragment(dt);
     this.trackPasses();
     this.updateQuakes(dt);
     this.updateCenserClouds(dt);
     this.updateWeaponDrop(dt);
+    this.finds.update(dt);
     this.props.update(time, p);
     this.fixtures.update(time, dt);
     this.npcs.update(dt);
@@ -996,6 +1039,7 @@ export class GameScene extends Phaser.Scene {
         hit = true;
         this.sparks.explode(10, c.centerX, c.centerY);
         this.sfx(e.alive ? 'hit' : 'kill');
+        this.gainAmber(e);
         if (!e.alive) this.onKill(e);
         // o gancho da corrente traz os leves para perto
         else if (p.weapon.pull && LIGHT.has(e.kind) && (p.atkDir === 'side' || p.atkDir === 'low')) this.pulls.push({ e, dir: Math.sign(p.x - e.zone.x) || 1, t: 0.16 });
@@ -1039,6 +1083,8 @@ export class GameScene extends Phaser.Scene {
     // deslizando, o cavaleiro passa por baixo; nas pernas do guarda ele derruba
     if (p.sliding) for (const e of this.enemies) if (e.alive) e.slideInto?.(pr, p.x);
     for (const e of this.enemies) {
+      // parado pela Lembrança, o golpe dele fica no ar sem chegar
+      if (this.held.has(e)) continue;
       if (e.alive && e.harms(pr, p.untouchable) && p.hurt(e.harmFrom ?? e.zone.x)) {
         this.onHurt();
         break;
@@ -1078,6 +1124,291 @@ export class GameScene extends Phaser.Scene {
     progress.kill(e.kind);
     const t = this.tracks.find((k) => k.e === e);
     if (t && t.f !== PASSED) this.markPassed(t);
+  }
+
+  // ---------- poderes de memória ----------
+  // o golpe que entra enche as contas de Âmbar (mais um pouco se derrubou). O primeiro golpe numa
+  // criatura das Minas é quando ele lembra da Lembrança: o Âmbar dela gruda na arma
+  private gainAmber(e: Enemy) {
+    if (!progress.powers.size) {
+      if (e.kind === 'miner' || e.kind === 'ambat') this.learnPower('lembranca');
+      return;
+    }
+    const k = progress.on('rawamber') ? MINE_ITEMS.rawAmber : 1;
+    if (progress.gainAmber((AMBER_BAR.hit + (e.alive ? 0 : AMBER_BAR.kill)) * k) > 0) this.registry.set('amber', progress.amber);
+  }
+
+  // quanto do golpe do cavaleiro o Eco tira (a Lasca do espelho devolve a força inteira)
+  get echoMul() {
+    return progress.on('mirror') ? MINE_ITEMS.mirrorDmg : AMBER_BAR.echoDmg;
+  }
+
+  learnPower(id: PowerId) {
+    if (!progress.learn(id)) return false;
+    const p = this.player;
+    const info = POWERS[id];
+    // o primeiro Âmbar enche as três contas de uma vez, para ele experimentar ali mesmo
+    if (progress.powers.size === 1) progress.amber = AMBER_BAR.max;
+    progress.save();
+    this.applyProgress();
+    this.sfx('chime');
+    this.sfx('glass', 0.6, 0.8);
+    this.gold.explode(18, p.x, p.body.center.y);
+    this.glowBurst(p.x, p.body.center.y, PAL.gold, 5);
+    ui.banner(info.name, `Poder de memória · ${info.text}`, 4200);
+    this.time.delayedCall(4400, () => ui.thought(ui.format(POWER_TIPS[id]), 6400, true));
+    return true;
+  }
+
+  // progresso de antes dos poderes: o que ele já passou vale o poder daquele ponto
+  private catchUpPowers() {
+    if (this.room.theme !== 'mine' || this.cinematic) return;
+    if (!progress.powers.has('lembranca') && (progress.seen.has('boss:reflexo') || progress.seen.has('boss:capataz'))) this.learnPower('lembranca');
+    else if (!progress.powers.has('eco') && progress.memories.has(BOSSES.reflexo.memory)) this.learnPower('eco');
+  }
+
+  private usePower() {
+    const p = this.player;
+    const id = progress.power;
+    if (!id || !progress.powers.has(id) || this.cinematic || this.transitioning || this.respawning || ui.open || p.dead || p.frozen) return;
+    if (id === 'lembranca' && this.stopT > 0) return;
+    if (id === 'remendo') {
+      if (p.hp >= progress.maxHp) return this.powerDeny('Nenhuma rachadura aberta. O ouro fica guardado.');
+      if (!p.onGround || p.ride || p.hook || p.inWater) return this.powerDeny('Preciso de chão firme para me ajoelhar.');
+    }
+    if (!progress.spendAmber(POWERS[id].cost)) return this.powerDeny(null);
+    this.registry.set('amber', progress.amber);
+    progress.seen.add('used:memory');
+    if (id === 'lembranca') this.startStop();
+    else if (id === 'eco') this.startEcho();
+    else this.startMend();
+  }
+
+  // sem Âmbar que chegue (ou sem como usar agora): as contas tremem no canto, com um som abafado
+  private powerDeny(why: string | null) {
+    this.sfx('locked', 0.45, 1.3);
+    this.registry.set('amber-deny', ((this.registry.get('amber-deny') as number | undefined) ?? 0) + 1);
+    if (why) ui.thought(why, 2600);
+  }
+
+  // Lembrança: o resto do mundo para e só o cavaleiro anda. A sala fica cor de Âmbar velho (tudo
+  // embaixo dele; ele mesmo continua com a cor dele), uma onda de ouro sai do corpo e a poeira para no ar
+  // O Apito do Capataz chama uma parada curta (whistle): o mesmo véu, mais leve, com o apito do turno
+  private startStop(whistle = false) {
+    const p = this.player;
+    const cam = this.cameras.main;
+    const len = whistle ? MINE_ITEMS.whistleStop : AMBER_BAR.stopTime + (progress.on('watch') ? MINE_ITEMS.watchStop : 0);
+    this.stopT = len;
+    this.stopLen = len;
+    if (whistle) {
+      this.sfx('chime', 0.8, 1.9);
+      this.sfx('chime', 0.5, 2.3);
+    } else {
+      this.sfx('veil', 0.9, 0.42);
+      this.sfx('chime', 0.55, 0.55);
+    }
+    pad.rumble(0.25, 0.5, 200);
+    for (const o of this.stopFx) o.destroy();
+    this.stopFx = [];
+    const so = screenOrigin(cam);
+    const tint = this.add.rectangle(so.x, so.y, VIEW_W, VIEW_H, 0xffd29a).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.enemy + 1.5).setBlendMode(Phaser.BlendModes.MULTIPLY).setAlpha(0);
+    const warm = this.add.rectangle(so.x, so.y, VIEW_W, VIEW_H, 0x3a2208).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.enemy + 1.6).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0);
+    this.tweens.add({ targets: tint, alpha: 1, duration: 160 });
+    this.tweens.add({ targets: warm, alpha: 0.4, duration: 160 });
+    this.stopFx.push(tint, warm);
+    const ring = this.add.graphics().setDepth(DEPTH.enemy + 1.7);
+    const cx = p.x;
+    const cy = p.body.center.y;
+    this.tweens.addCounter({
+      from: 0,
+      to: 1,
+      duration: 560,
+      ease: 'Quad.easeOut',
+      onUpdate: (tw) => {
+        const k = tw.getValue() ?? 0;
+        ring.clear().lineStyle(2, PAL.gold, 0.85 * (1 - k)).strokeCircle(cx, cy, 8 + k * 420);
+      },
+      onComplete: () => ring.destroy(),
+    });
+    const v = cam.worldView;
+    for (let i = 0; i < (whistle ? 12 : 28); i++) {
+      const m = this.add.image(v.x + Math.random() * v.width, v.y + Math.random() * v.height, 'px')
+        .setTint(i % 3 ? PAL.gold : 0xffe6a6).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.enemy + 1.8).setScale(0.5 + Math.random() * 0.8).setAlpha(0);
+      this.tweens.add({ targets: m, alpha: 0.45 + Math.random() * 0.4, duration: 200, delay: Math.random() * 220 });
+      this.stopFx.push(m);
+    }
+    if (whistle) this.thinkOnce('item:whistle:stop', 'O apito do fim do turno. Por um instante, até eles obedecem.');
+    else this.thinkOnce('power:stop', 'Tudo parou. A poeira, a pedra, eles. Só eu ando.');
+  }
+
+  private endStop() {
+    this.stopT = 0;
+    this.sfx('veil', 0.55, 0.75);
+    for (const o of this.stopFx) {
+      const g = o as Phaser.GameObjects.Image;
+      // a poeira volta a cair e a cor volta
+      if (g.type === 'Image') this.tweens.add({ targets: g, y: g.y + 16 + Math.random() * 24, alpha: 0, duration: 500 + Math.random() * 500, onComplete: () => g.destroy() });
+      else this.tweens.add({ targets: g, alpha: 0, duration: 320, onComplete: () => g.destroy() });
+    }
+    this.stopFx = [];
+  }
+
+  // a Lembrança segura o inimigo: o corpo para (guardando se ele andava), a animação para e ele não
+  // pensa. Os chefes se soltam antes do fim
+  private hold(e: Enemy) {
+    const on = this.stopT > 0 && e.alive && (e.kind !== 'boss' || this.stopT > this.stopLen * (1 - AMBER_BAR.bossStop));
+    const was = this.held.has(e);
+    const spr = (e as unknown as { sprite?: Phaser.GameObjects.Sprite }).sprite;
+    if (on && !was) {
+      this.held.set(e, e.body.moves);
+      e.body.moves = false;
+      spr?.anims?.pause();
+    } else if (!on && was) {
+      e.body.moves = this.held.get(e)!;
+      this.held.delete(e);
+      spr?.anims?.resume();
+    }
+    return on;
+  }
+
+  // Eco: a cópia de tinta sai do cavaleiro e passa a repetir tudo um instante depois
+  private startEcho() {
+    const p = this.player;
+    const len = AMBER_BAR.echoTime + (progress.on('watch') ? MINE_ITEMS.watchEcho : 0);
+    if (this.memEcho && !this.memEcho.done) this.memEcho.renew(len);
+    else this.memEcho = new MemoryEcho(this, len);
+    this.sfx('veil-form', 0.7, 1.2);
+    this.sfx('glass', 0.4, 1.5);
+    this.glowBurst(p.x, p.body.center.y, PAL.gold, 3);
+    this.thinkOnce('power:echo', 'A imagem do espelho veio comigo. Agora ela bate do meu lado.');
+  }
+
+  // o golpe do Eco: a mesma área do golpe do cavaleiro, um instante depois e mais fraco. Não enche o
+  // Âmbar nem segura o jogo no impacto
+  echoStrike(box: Phaser.Geom.Rectangle, fromX: number, dir: AttackDir, done: Set<unknown>) {
+    const p = this.player;
+    const dmg = p.weapon.dmg * progress.dmgFor(p.weapon.id) * this.echoMul;
+    for (const e of this.enemies) {
+      if (!e.alive || done.has(e) || !overlap(box, e.rect)) continue;
+      done.add(e);
+      const r = e.hit(fromX, dmg, dir);
+      const c = Phaser.Geom.Rectangle.Intersection(box, e.rect);
+      if (r === 'blocked') {
+        this.clangs.explode(6, c.centerX, c.centerY);
+        this.sfx('clang', 0.5, 1.1);
+        continue;
+      }
+      if (r !== 'hit') continue;
+      this.abyssDrips.explode(6, c.centerX, c.centerY);
+      this.gold.explode(4, c.centerX, c.centerY);
+      this.sfx(e.alive ? 'hit' : 'kill', 0.55, 0.85);
+      if (!e.alive) this.onKill(e);
+    }
+  }
+
+  // Remendo: ajoelha e o ouro escorre da máscara até a ferida. Machucado no meio, não fecha
+  private startMend() {
+    const p = this.player;
+    this.mendT = AMBER_BAR.mendTime;
+    this.mendHp = p.hp;
+    p.body.setVelocity(0, 0);
+    p.kneel();
+    this.sfx('mend', 0.9);
+    this.gold.explode(10, p.x, p.body.top + 8);
+  }
+
+  private cancelMend() {
+    this.mendT = 0;
+    const p = this.player;
+    this.gold.explode(6, p.x, p.body.bottom - 4);
+    if (p.pose === 'kneel' && !p.dead) p.getUp(() => {});
+  }
+
+  private updatePowers(dt: number) {
+    if (this.stopT > 0) {
+      this.stopT -= dt;
+      if (this.stopT <= 0) this.endStop();
+    }
+    if (this.memEcho) {
+      this.memEcho.update(dt);
+      if (this.memEcho.done) this.memEcho = null;
+    }
+    if (this.mendT > 0) {
+      const p = this.player;
+      this.mendT -= dt;
+      if (Math.random() < dt * 30) this.gold.emitParticle(1, p.x + (Math.random() - 0.5) * 8, p.body.top + 6);
+      if (this.mendT <= 0) {
+        this.mendT = 0;
+        if (!p.dead && p.hp >= this.mendHp) {
+          p.hp = Math.min(progress.maxHp, p.hp + 1);
+          this.registry.set('hp', p.hp);
+          this.sfx('chime', 0.7, 1.25);
+          this.glowBurst(p.x, p.body.center.y, PAL.gold, 3);
+          this.thinkOnce('power:mend', 'O ouro fecha a rachadura. Dói menos do que lembrar.');
+        }
+        if (p.pose === 'kneel' && !p.dead) p.getUp(() => {});
+      }
+    }
+  }
+
+  // ---------- fragmentação ----------
+  // a tela racha: linhas finas saindo de perto do meio, que somem devagar (devolve o desenho)
+  crackScreen() {
+    const cam = this.cameras.main;
+    const so = screenOrigin(cam);
+    const g = this.add.graphics().setScrollFactor(0).setDepth(200);
+    const cx = so.x + VIEW_W / 2 + (Math.random() - 0.5) * 80;
+    const cy = so.y + VIEW_H / 2 + (Math.random() - 0.5) * 40;
+    for (let k = 0; k < 9; k++) {
+      let a = (k / 9) * Math.PI * 2 + Math.random() * 0.4;
+      let x = cx;
+      let y = cy;
+      g.lineStyle(1, k % 2 ? 0xffe6a6 : 0xbca4ff, 0.9);
+      g.beginPath();
+      g.moveTo(x, y);
+      for (let j = 0; j < 7; j++) {
+        a += (Math.random() - 0.5) * 0.7;
+        const L = 14 + Math.random() * 26;
+        x += Math.cos(a) * L;
+        y += Math.sin(a) * L;
+        g.lineTo(x, y);
+      }
+      g.strokePath();
+    }
+    this.tweens.add({ targets: g, alpha: 0, delay: 900, duration: 1600, onComplete: () => g.destroy() });
+    return g;
+  }
+
+  // por um fio nas Minas (sem chefe na sala): a lembrança dele racha. A onda roxa passa, o chão
+  // fica leve e sobem fiapos de tinta longe dele, que caem com um golpe e dão Âmbar
+  private fragmentSelf() {
+    const p = this.player;
+    if (this.room.theme !== 'mine' || this.boss?.alive || this.clock < this.fragNext || this.cinematic) return;
+    this.fragNext = this.clock + FRAGMENT.every;
+    this.fragLowT = FRAGMENT.lowT;
+    p.gravMul = FRAGMENT.lowGrav;
+    this.sfx('veil', 0.9, 0.7);
+    this.sfx('glass', 0.9, 0.5);
+    this.cameras.main.shake(700, 0.006);
+    this.fragmentWave(p.x, p.body.center.y);
+    this.crackScreen();
+    const v = this.cameras.main.worldView;
+    const spots = [-150, 150, -230, 230].map((dx) => p.x + dx).filter((x) => x > v.x + 20 && x < v.right - 20);
+    for (const x of spots.slice(0, FRAGMENT.wisps)) {
+      const e = new InkWisp(this, x, p.body.bottom - 30 - Math.random() * 40);
+      this.enemies.push(e);
+    }
+    this.thinkOnce('fragment:self', 'Por um fio. A lembrança racha e o chão fica leve. Os fiapos têm Âmbar.');
+  }
+
+  private updateFragment(dt: number) {
+    if (this.fragLowT <= 0) return;
+    this.fragLowT -= dt;
+    const p = this.player;
+    if (this.fragLowT <= 0 || p.dead) {
+      this.fragLowT = 0;
+      p.gravMul = 1;
+    } else if (Math.random() < dt * 8) this.echoMotes(p.x + (Math.random() - 0.5) * 300, p.body.bottom - Math.random() * 10, false);
   }
 
   // ---------- trechos vencidos ----------
@@ -1248,8 +1579,15 @@ export class GameScene extends Phaser.Scene {
 
   spawnArrow(x: number, y: number, dx: number, dy: number, dmg: number) {
     this.arrows.push(new Arrow(this, x, y, dx, dy, dmg * progress.dmgFor('bow')));
-    // o espelho guarda a flechada também
+    // o espelho guarda a flechada também (e o Eco repete)
     if (this.boss instanceof Reflexo && this.boss.alive) this.boss.noteShot(x, y, dx, dy);
+    this.memEcho?.noteShot(x, y, dx, dy, dmg * progress.dmgFor('bow'));
+  }
+
+  // a flecha repetida pelo Eco, do lugar de onde o cavaleiro atirou
+  echoArrow(x: number, y: number, dx: number, dy: number, dmg: number) {
+    this.arrows.push(new Arrow(this, x, y, dx, dy, dmg, { echo: true }));
+    this.sfx('bow', 0.4, 1.2);
   }
 
   // a fragmentação: a onda roxa passa pela sala inteira e a cor some por um instante
@@ -1281,6 +1619,9 @@ export class GameScene extends Phaser.Scene {
     pad.rumble(0.35, 0.8, stun ? 140 : 80);
     this.player.onAttackHit();
     this.onPlayerAction('parry');
+    // o Apito do Capataz: aparar apita o fim do turno e o mundo para um instante, sem gastar Âmbar
+    // (uma Lembrança mais longa que ainda esteja valendo não encurta)
+    if (stun && progress.on('whistle') && this.stopT < MINE_ITEMS.whistleStop && !this.transitioning) this.startStop(true);
     if (!progress.seen.has('parry:first')) {
       progress.seen.add('parry:first');
       this.time.delayedCall(500, () => ui.thought(stun ? 'Bem na hora. O golpe voltou e ele ficou aberto.' : 'A flecha voltou para quem atirou.', 4200));
@@ -1291,6 +1632,8 @@ export class GameScene extends Phaser.Scene {
     const p = this.player;
     for (const a of this.arrows) {
       if (a.dead) continue;
+      // a Lembrança segura a flecha inimiga no ar
+      if (a.hostile && this.stopT > 0) continue;
       if (a.update(dt, this.level) === 'wall') {
         this.sparks.explode(4, a.tip.x, a.tip.y);
         this.sfx('thunk', a.hostile ? 0.6 : 1);
@@ -1325,9 +1668,10 @@ export class GameScene extends Phaser.Scene {
           this.sfx('clang', 0.7);
         } else {
           this.sparks.explode(8, a.tip.x, a.tip.y);
-          this.sfx(e.alive ? 'hit' : 'kill');
+          this.sfx(e.alive ? 'hit' : 'kill', a.echo ? 0.55 : 1);
+          if (!a.echo) this.gainAmber(e);
           if (!e.alive) this.onKill(e);
-          this.hitstop(0.035);
+          if (!a.echo) this.hitstop(0.035);
         }
         a.destroy();
         break;
@@ -1381,7 +1725,14 @@ export class GameScene extends Phaser.Scene {
 
   private onHurt() {
     const p = this.player;
+    // machucado de joelhos: o ouro escorre e a ferida não fecha
+    if (this.mendT > 0) this.cancelMend();
     this.registry.set('hp', p.hp);
+    // por um fio: a Flor prensada vale antes (uma vez por descanso); sem ela, nas Minas, a lembrança racha
+    if (p.hp === 1 && !p.dead) {
+      if (progress.on('flower') && !progress.seen.has('flower:spent')) this.flowerHeal();
+      else this.fragmentSelf();
+    }
     this.sfx('hurt');
     pad.rumble(0.75, 0.5, 230);
     this.hitstop(0.14);
@@ -1398,6 +1749,7 @@ export class GameScene extends Phaser.Scene {
     // 70% das moedas ficam com a sombra, onde ele caiu (a sombra antiga, se havia, some com as
     // dela). Grava junto o que mudou até aqui, sem mudar o ponto de retorno
     const spot = this.echoSpot();
+    progress.seen.delete('flower:spent');
     const { lost, gone } = progress.die(this.room.id, spot.x, spot.y);
     this.dirty = false;
     this.registry.set('echo-news', { lost, gone });
@@ -1990,12 +2342,121 @@ export class GameScene extends Phaser.Scene {
     if (!r) return;
     const first = !progress.seen.has(`record:${id}`);
     this.talk(r.title, r.lines, null, () => {
+      // a flor seca que estava entre as folhas da ficha de A. fica com ele
+      if (id === 'veio:1' && !progress.upgrades.has('flower')) {
+        this.time.delayedCall(first ? 3800 : 150, () => {
+          const p = this.player;
+          this.grantFind('flower', p.x, p.body.center.y);
+        });
+      }
       if (!first) return;
       progress.seen.add(`record:${id}`);
       progress.save();
       this.sfx('page');
       ui.banner('Registro guardado no Diário', r.title, 3600);
     });
+  }
+
+  // ---------- achados ----------
+  // os achados da sala que já estão lá, e os dos baús que um save de antes dos itens já abriu
+  private placeFinds() {
+    for (const d of this.room.finds ?? []) {
+      if (d.needs && !progress.seen.has(d.needs)) continue;
+      const { x, floor } = Finds.at(d.x, d.y);
+      this.finds.add(d.id, x, floor);
+    }
+    this.room.cacheItems?.forEach((id, i) => {
+      const c = this.fixtures.caches.find((k) => k.i === i);
+      if (id && c?.open && !hasFind(id)) this.finds.add(id, c.x + 22, c.y);
+    });
+  }
+
+  // a marca aconteceu agora, nesta sala: o que esperava por ela pula de onde sai
+  private unlockFinds(mark: string) {
+    if (this.transitioning) return;
+    for (const d of this.room.finds ?? []) {
+      if (d.needs !== mark) continue;
+      const { x, floor } = Finds.at(d.x, d.y);
+      this.finds.add(d.id, x, floor, d.from ? { x: x + d.from[0], y: floor + d.from[1] } : undefined);
+    }
+  }
+
+  // um baú abriu: além das moedas, o item que estava dentro pula para o lado do cavaleiro
+  cacheOpened(i: number, x: number, y: number) {
+    const id = this.room.cacheItems?.[i];
+    if (!id || hasFind(id)) return;
+    const side = this.player.x < x ? -1 : 1;
+    this.finds.add(id, x + side * 22, y, { x, y: y - 12 });
+  }
+
+  // pegou um achado: item novo (entra equipado se couber, senão fica guardado) ou um espaço a mais
+  grantFind(id: FindId, x: number, y: number) {
+    let thought: string | undefined;
+    if (isSlotFind(id)) {
+      if (progress.seen.has(`item:${id}`)) return;
+      progress.seen.add(`item:${id}`);
+      progress.save();
+      const info = SLOT_FINDS[id];
+      ui.banner(info.name, info.text, 4400);
+      thought = info.thought;
+    } else {
+      const r = progress.grant(id);
+      if (!r) return;
+      this.applyProgress();
+      const off = OFFERS.find((o) => o.id === id)!;
+      ui.banner(off.name, r === 'on' ? off.text : 'Guardado no inventário: não coube agora. Equipe na pausa.', 4400);
+      thought = FOUND_THOUGHTS[id];
+    }
+    this.sfx('chime');
+    this.sfx('equip', 0.8);
+    this.glowBurst(x, y, 0xffd8a0, 4);
+    pad.rumble(0.25, 0.5, 160);
+    if (thought) {
+      const t = thought;
+      this.time.delayedCall(4700, () => ui.thought(t, 4600));
+    }
+  }
+
+  // a Flor prensada: com 1 de vida, o cheiro traz uma lembrança boa e fecha uma rachadura (uma vez
+  // por descanso). As pétalas secas soltam um pó claro que sobe devagar
+  private flowerHeal() {
+    progress.seen.add('flower:spent');
+    const p = this.player;
+    this.time.delayedCall(450, () => {
+      if (p.dead || this.transitioning || p.hp >= progress.maxHp) return;
+      p.hp = Math.min(progress.maxHp, p.hp + MINE_ITEMS.flowerHeal);
+      this.registry.set('hp', p.hp);
+      this.sfx('chime', 0.6, 1.5);
+      this.glowBurst(p.x, p.body.center.y, 0xf0b8b0, 3);
+      for (let i = 0; i < 9; i++) {
+        const key = i % 2 ? 'petal-a' : 'petal-b';
+        if (!this.textures.exists(key)) break;
+        const pe = this.add.image(p.x + (Math.random() - 0.5) * 16, p.body.center.y + (Math.random() - 0.5) * 18, key)
+          .setTint(0xb86a62).setDepth(DEPTH.player + 0.5).setAlpha(0.9).setScale(0.8 + Math.random() * 0.4);
+        this.tweens.add({
+          targets: pe,
+          x: pe.x + (Math.random() - 0.5) * 50,
+          y: pe.y - 30 - Math.random() * 30,
+          angle: (Math.random() - 0.5) * 300,
+          alpha: 0,
+          duration: 1100 + Math.random() * 700,
+          ease: 'Sine.easeOut',
+          onComplete: () => pe.destroy(),
+        });
+      }
+      this.thinkOnce('item:flower', 'O cheiro da flor. Uma tarde de sol e alguém rindo do meu lado. A rachadura fecha.');
+    });
+  }
+
+  // o Capacete de mineiro aguentou uma pancada (pedra do teto ou viga baixa)
+  helmetBonk(x: number, y: number) {
+    this.sfx('clang', 0.7, 1.4);
+    this.sfx('tink', 0.7, 0.9);
+    this.sparks.explode(8, x, y);
+    this.dustBurst(x, y + 4, 4);
+    this.cameras.main.shake(90, 0.003);
+    pad.rumble(0.2, 0.3, 80);
+    this.thinkOnce('item:helmet', 'Bateu no capacete. Quem deixou ele no baú sabia o que caía aqui.');
   }
 
   talkTo(n: Npc) {
@@ -2031,15 +2492,19 @@ export class GameScene extends Phaser.Scene {
   // o mineiro que ficou: conta da mina na primeira vez, depois uma lembrança por conversa; com o
   // Capataz vencido, fala do silêncio
   private talkMiner(n: Npc) {
-    if (progress.seen.has('boss:capataz')) {
-      this.talk(OLD_MINER.name, [OLD_MINER.done[n.line++ % OLD_MINER.done.length]], n);
-      return;
-    }
-    if (!progress.seen.has('oldminer:met')) {
-      this.talk(OLD_MINER.name, OLD_MINER.first, n, () => {
+    // ele ensina a remendar com o ouro da máscara (na primeira conversa, ou na próxima de um
+    // progresso de antes do Remendo)
+    if (!progress.seen.has('oldminer:met') || !progress.powers.has('remendo')) {
+      const first = !progress.seen.has('oldminer:met');
+      this.talk(OLD_MINER.name, first ? [...OLD_MINER.first, ...OLD_MINER.mend] : OLD_MINER.mend, n, () => {
         progress.seen.add('oldminer:met');
         progress.save();
+        this.learnPower('remendo');
       });
+      return;
+    }
+    if (progress.seen.has('boss:capataz')) {
+      this.talk(OLD_MINER.name, [OLD_MINER.done[n.line++ % OLD_MINER.done.length]], n);
       return;
     }
     this.talk(OLD_MINER.name, [OLD_MINER.after[n.line++ % OLD_MINER.after.length]], n);
@@ -2149,6 +2614,9 @@ export class GameScene extends Phaser.Scene {
     this.registry.set('maxhp', progress.maxHp);
     this.registry.set('memories', [...progress.memories].map((m) => (progress.traded.has(m) ? 0 : 1)));
     this.registry.set('coins', progress.coins);
+    document.body.classList.toggle('has-memory', progress.powers.size > 0);
+    this.registry.set('power', progress.power ?? '');
+    this.registry.set('amber', progress.amber);
   }
 
   // descansar na vela: ajoelha, acende, cura e guarda o ponto de retorno
@@ -2164,6 +2632,8 @@ export class GameScene extends Phaser.Scene {
     this.sfx('rest');
     this.memWave?.start(sh.x, sh.y - 12, 'restore', { power: 0.5, radius: 240, hold: 1.0 });
     progress.seen.add(this.props.restKey(sh.i));
+    // a Flor prensada volta a valer
+    progress.seen.delete('flower:spent');
     // o caminho já vencido vira cinza (grava junto com o ponto de retorno)
     const cleared = this.clearPassed();
     progress.checkpoint(this.room.id, `R${sh.i}`, settings.data.weapon);
@@ -2224,6 +2694,8 @@ export class GameScene extends Phaser.Scene {
     }
     if (info) ui.banner(info.title, info.text, 4600);
     if (CHAPTERS[m.id]) this.chapterEnd(m.id);
+    // a imagem do espelho vem junto com a memória dela: o Eco
+    if (m.id === BOSSES.reflexo.memory) this.time.delayedCall(5000, () => this.learnPower('eco'));
   }
 
   // ---------- a sombra (Eco) ----------
@@ -2346,6 +2818,7 @@ export class GameScene extends Phaser.Scene {
     if (!progress.memories.has(info.memory)) this.props.addMemory(info.memory, this.bossX(x + f * info.orb), y - 26);
     const w = this.bossWeapon(id);
     if (w) this.dropWeapon(w, this.bossX(x + f * info.drop), y, false);
+    if (info.item) this.finds.add(info.item.id, this.bossX(x + f * info.item.dx), y);
   }
 
   // longe das paredes, para dar para pegar o que o chefe deixa
@@ -2406,6 +2879,10 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(700, () => this.memWave?.start(x, cy, b instanceof Sombra ? 'corrupt' : 'restore', { radius: 760, hold: 2.6 }));
     if (info.relic && b instanceof Sombra) this.time.delayedCall(2400, () => this.absorbShadow(b, info.relic!, () => this.bossAfter(id, x, f, bottom, 5600)));
     else this.time.delayedCall(2600, () => this.bossAfter(id, x, f, bottom));
+    // o achado dele cai do corpo, e o que a sala guardava para depois da luta aparece (a lasca do espelho)
+    const it = info.item;
+    if (it) this.time.delayedCall(1800, () => this.finds.add(it.id, this.bossX(x + f * it.dx), bottom, { x, y: bottom - 40 }));
+    this.time.delayedCall(900, () => this.unlockFinds(`boss:${id}`));
     // e a arma dele cai do outro lado (o incensário sai do chão onde rolou)
     const w = this.bossWeapon(id);
     if (w) {
@@ -2819,7 +3296,16 @@ export class GameScene extends Phaser.Scene {
     ui.pause({
       onResume: () => this.resumeGame(),
       onMap: MAP_POS[this.room.id] ? () => this.openMap(true) : undefined,
-      onInventory: () => ui.inventory({ toggle: (id) => this.toggleItem(id), onBack: () => ui.pop() }),
+      onInventory: () =>
+        ui.inventory({
+          toggle: (id) => this.toggleItem(id),
+          choosePower: (id) => {
+            if (!progress.choosePower(id)) return false;
+            this.registry.set('power', id);
+            return true;
+          },
+          onBack: () => ui.pop(),
+        }),
       onJournal: progress.seen.has('journal') ? () => ui.journal({ onBack: () => ui.pop() }) : undefined,
       onWeapon: () =>
         ui.weapons({

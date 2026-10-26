@@ -336,6 +336,10 @@ let r;
   check(!r.alive && r.state === 'dead' && r.mirror.broken && r.mirror.key === 'deco-amber-mirror-broken', `derrotada, o espelho racha (${JSON.stringify(r.mirror)})`);
   await waitGame(1.0);
   await shot('r05-espelho-rachou');
+  // uma lasca do espelho salta do meio dele e cai ao pé da base
+  await until(() => window.__progress.upgrades.has('mirror') || window.__scene.finds.placed.some((f) => f.id === 'mirror' && f.ready), null, 10000);
+  const lasca = await page.evaluate(() => window.__scene.finds.placed.find((f) => f.id === 'mirror') || (window.__progress.upgrades.has('mirror') && 'pega'));
+  check(lasca === 'pega' || Math.abs(lasca.x / 16 - 35.5) < 0.6, `uma lasca do espelho cai ao pé dele (${JSON.stringify(lasca)})`);
   await until(() => window.__scene.props.memories.some((m) => m.id === 'espelhos:boss'), null, 20000);
   await waitGame(1.0);
   const g2 = await page.evaluate(() => [6, 57].map((c) => window.__scene.level.tileAt(c * 16 + 8, 25 * 16 + 8)));
@@ -590,6 +594,10 @@ let r;
   check(!c.alive && c.state === 'dead' && gm === 1, `derrotado, cai e a gravidade volta (${c.state}, ${gm})`);
   await waitGame(1.4);
   await shot('c12-derrota');
+  // o apito cai do pescoço dele, do lado do corpo
+  await until(() => window.__progress.upgrades.has('whistle') || window.__scene.finds.placed.some((f) => f.id === 'whistle' && f.ready), null, 10000);
+  const apito = await page.evaluate(() => { const s = window.__scene; const f = s.finds.placed.find((f) => f.id === 'whistle'); return f ? { x: f.x, boss: s.boss.zone.x } : 'pego'; });
+  check(apito === 'pego' || Math.abs(apito.x - apito.boss) < 40, `o Apito do Capataz cai do lado do corpo (${JSON.stringify(apito)})`);
   await until(() => window.__scene.props.memories.some((m) => m.id === 'capataz:boss'), null, 20000);
   await until(() => window.__scene.weaponDrop && window.__scene.weaponDrop.ready, null, 20000);
   const drop = await page.evaluate(() => { const d = window.__scene.weaponDrop; return { id: d.id, x: d.x / 16 }; });

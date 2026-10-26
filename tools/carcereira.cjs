@@ -402,7 +402,7 @@ const FLOOR = 27; // linha do chão da sala (os pés ficam em 28 * 16)
   await page.click('#screen-pause [data-cmd="weapon"]').catch(() => {});
   await page.waitForTimeout(500);
   const cards = await page.evaluate(() => [...document.querySelectorAll('#screen-weapons .card')].map((c) => c.dataset.w + (c.classList.contains('locked') ? ':x' : '')));
-  check(cards.length === 7 && cards.includes('corrente'), `sete armas, a Corrente liberada (${cards.join(' ')})`);
+  check(cards.length === 8 && cards.includes('corrente'), `oito armas, a Corrente liberada (${cards.join(' ')})`);
   await shot('c14-armas');
 
   console.log(errs.length ? errs.join('\n') : 'sem erros no console');

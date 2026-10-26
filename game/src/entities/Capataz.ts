@@ -5,6 +5,7 @@ import { isGround, isSolid } from '../world/Level';
 import { DEPTH } from '../world/Decor';
 import { overlap, type BossFoe, type HitDir, type HitResult } from './Enemy';
 import { face, hd } from '../gfx/flip';
+import { progress } from '../systems/Save';
 
 type State =
   | 'sleep' | 'rise' | 'roar' | 'idle' | 'walk'
@@ -627,6 +628,24 @@ export class Capataz implements BossFoe {
     return new Phaser.Geom.Rectangle(r.x - 7, r.y - 6, 14, 12);
   }
 
+  // a pedra bateu no capacete: espirra para o lado contrário do meio do cavaleiro e cai rolando
+  private bounceRock(r: Rock, pr: Phaser.Geom.Rectangle) {
+    const s = this.scene;
+    r.done = true;
+    r.shadow.destroy();
+    s.helmetBonk(r.x, pr.top);
+    const dir = r.x < pr.centerX ? -1 : 1;
+    const x1 = r.x + dir * (26 + Math.random() * 14);
+    s.tweens.add({ targets: r.img, x: x1, duration: 520, ease: 'Linear' });
+    s.tweens.add({ targets: r.img, y: pr.top - 18, duration: 200, ease: 'Quad.easeOut', yoyo: false, onComplete: () => {
+      s.tweens.add({ targets: r.img, y: this.floorY - 6, duration: 320, ease: 'Quad.easeIn', onComplete: () => {
+        s.dustBurst(x1, this.floorY, 5);
+        s.tweens.add({ targets: r.img, alpha: 0, delay: 300, duration: 400, onComplete: () => r.img.destroy() });
+      } });
+    } });
+    s.tweens.add({ targets: r.img, angle: r.img.angle + dir * 360, duration: 520 });
+  }
+
   // ---------- segunda fase: a fragmentação ----------
   private fragment(again = false) {
     const s = this.scene;
@@ -639,35 +658,8 @@ export class Capataz implements BossFoe {
     this.fragCd = 0;
     s.player.gravMul = C.lowGrav;
     this.wispT = 0.4;
-    this.drawCrack();
+    this.crack = s.crackScreen();
     s.thinkOnce('capataz:fragment', 'A lembrança dele está rachando. O chão ficou leve.');
-  }
-
-  // a tela racha: linhas finas saindo do centro, que somem devagar
-  private drawCrack() {
-    const s = this.scene;
-    const cam = s.cameras.main;
-    const g = s.add.graphics().setScrollFactor(0).setDepth(200);
-    const cx = cam.width / 2 + (Math.random() - 0.5) * 80;
-    const cy = cam.height / 2 + (Math.random() - 0.5) * 40;
-    for (let k = 0; k < 9; k++) {
-      let a = (k / 9) * Math.PI * 2 + Math.random() * 0.4;
-      let x = cx;
-      let y = cy;
-      g.lineStyle(1, k % 2 ? 0xffe6a6 : 0xbca4ff, 0.9);
-      g.beginPath();
-      g.moveTo(x, y);
-      for (let j = 0; j < 7; j++) {
-        a += (Math.random() - 0.5) * 0.7;
-        const L = 14 + Math.random() * 26;
-        x += Math.cos(a) * L;
-        y += Math.sin(a) * L;
-        g.lineTo(x, y);
-      }
-      g.strokePath();
-    }
-    this.crack = g;
-    s.tweens.add({ targets: g, alpha: 0, delay: 900, duration: 1600, onComplete: () => g.destroy() });
   }
 
   private updateFragment(dt: number) {
@@ -692,7 +684,7 @@ export class Capataz implements BossFoe {
         const p = this.scene.player;
         const left = 3 - this.scene.enemies.filter((e) => e.kind === 'wisp' && e.alive).length;
         const spots = [this.x0 + 60, (this.x0 + this.x1) / 2, this.x1 - 60].filter((x) => Math.abs(x - p.x) > 90).slice(0, Math.max(0, left));
-        for (const x of spots) this.scene.summon('k', x, this.floorY - 30);
+        for (const x of spots) this.scene.summon('wisp', x, this.floorY - 30);
       }
     }
   }
@@ -706,7 +698,15 @@ export class Capataz implements BossFoe {
     };
     for (const k of this.spikes) if (k.img && k.h > 8 && overlap(pr, this.spikeRect(k))) return from(k.x - this.facing * 10);
     for (const q of this.shards) if (!q.back && this.shardSweep(pr, q)) return from(q.x - Math.sign(q.vx) * 10);
-    for (const r of this.rocks) if (r.falling && !r.done && overlap(pr, this.rockRect(r))) return from(r.x);
+    for (const r of this.rocks) {
+      if (!r.falling || r.done || !overlap(pr, this.rockRect(r))) continue;
+      // com o Capacete de mineiro a pedra bate nele e espirra para o lado, sem machucar
+      if (progress.on('helmet')) {
+        this.bounceRock(r, pr);
+        continue;
+      }
+      return from(r.x);
+    }
     if (!this.present) return false;
     if (sliding || this.state === 'stagger' || this.state === 'stun') return false;
     return overlap(pr, this.rect);

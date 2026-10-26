@@ -4,7 +4,8 @@ import { progress } from '../systems/Save';
 import { fixedCamera } from '../gfx/view';
 
 // Interface do jogo: a máscara (memórias seladas com ouro), os fragmentos de vida, as memórias
-// guardadas (as trocadas com o Cobrador ficam apagadas) e as moedas (texto em HTML, nítido em qualquer tela)
+// guardadas (as trocadas com o Cobrador ficam apagadas), as contas de Âmbar dos poderes e as moedas
+// (texto em HTML, nítido em qualquer tela)
 export class HudScene extends Phaser.Scene {
   private shards: Phaser.GameObjects.Image[] = [];
   private mems: Phaser.GameObjects.Image[] = [];
@@ -131,6 +132,42 @@ export class HudScene extends Phaser.Scene {
         this.tweens.add({ targets: this.mask, scale: { from: 1.5, to: 1 }, duration: 700, ease: 'Back.easeOut' });
       }
     };
+    // contas de Âmbar dos poderes de memória: três, penduradas embaixo da máscara, só depois do
+    // primeiro poder. Cada uma enche de baixo para cima; as que o poder escolhido gasta brilham
+    // quando dá para usar
+    const beads = [0, 1, 2].map((i) => {
+      const x = 15 + i * 9;
+      const y = i === 1 ? 47 : 45;
+      const glow = this.add.image(x, y, 'glow').setTint(0xffa63c).setBlendMode(Phaser.BlendModes.ADD).setScale(0.2).setAlpha(0);
+      const bg = this.add.image(x, y, 'amber-bead-empty').setOrigin(0.5);
+      const fill = this.add.image(x, y, 'amber-bead').setOrigin(0.5);
+      this.root.add([glow, bg, fill]);
+      return { x, y, glow, bg, fill };
+    });
+    let amberShown = -1;
+    const syncAmber = () => {
+      const known = progress.powers.size > 0;
+      const a = (this.registry.get('amber') as number | undefined) ?? 0;
+      const cost = progress.powerCost;
+      beads.forEach((b, i) => {
+        b.bg.setVisible(known);
+        b.fill.setVisible(known);
+        b.glow.setVisible(known);
+        const k = Phaser.Math.Clamp(a - i, 0, 1);
+        const h = b.fill.height;
+        const top = Math.round(h * (1 - k));
+        b.fill.setCrop(0, top, b.fill.width, h - top);
+        if (known && amberShown >= 0 && a >= i + 1 && amberShown < i + 1) {
+          sparks.explode(8, b.x, b.y);
+          this.tweens.add({ targets: [b.fill, b.bg], scale: { from: 1.6, to: 1 }, duration: 380, ease: 'Back.easeOut' });
+        }
+        b.glow.setAlpha(k >= 1 ? (cost > 0 && i < cost && a >= cost - 1e-6 ? 0.6 : 0.22) : 0);
+      });
+      amberShown = a;
+    };
+    const denyAmber = () => {
+      for (const b of beads) this.tweens.add({ targets: [b.bg, b.fill, b.glow], x: { from: b.x - 2.5, to: b.x }, duration: 260, ease: 'Bounce.easeOut' });
+    };
     const syncVis = () => {
       this.root.setAlpha(this.registry.get('hud-hidden') ? 0 : 1);
       syncCoinVis();
@@ -142,6 +179,9 @@ export class HudScene extends Phaser.Scene {
       ['changedata-kintsugi', syncMask], ['setdata-kintsugi', syncMask],
       ['changedata-hud-hidden', syncVis], ['setdata-hud-hidden', syncVis],
       ['changedata-coins', syncCoins], ['setdata-coins', syncCoins],
+      ['changedata-amber', syncAmber], ['setdata-amber', syncAmber],
+      ['changedata-power', syncAmber], ['setdata-power', syncAmber],
+      ['changedata-amber-deny', denyAmber], ['setdata-amber-deny', denyAmber],
     ];
     for (const [e, f] of events) this.registry.events.on(e, f);
     this.events.once('shutdown', () => {
@@ -166,6 +206,7 @@ export class HudScene extends Phaser.Scene {
     syncHp();
     syncMems();
     syncMask();
+    syncAmber();
     syncVis();
     if (coinNum) coinNum.textContent = String(coinsShown);
   }

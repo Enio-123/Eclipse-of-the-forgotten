@@ -33,6 +33,8 @@ export function buildTextures(scene: Phaser.Scene) {
   add(tex, 'shaft', makeShaft());
   add(tex, 'water', makeWater());
   for (let n = 0; n <= 3; n++) add(tex, `mask-icon-${n}`, makeMaskIcon(n));
+  add(tex, 'amber-bead', makeBead(false));
+  add(tex, 'amber-bead-empty', makeBead(true));
   add(tex, 'shard-drop', makeShardDrop());
   // moedas: quatro quadros do giro lado a lado
   for (const [key, c] of [['coin', COIN_SMALL], ['coin-big', COIN_BIG]] as const) {
@@ -380,6 +382,30 @@ function makeShard(empty: boolean) {
     r.poly([[6, 0], [11, 6], [7, 15], [7, 6]], PAL.maskShade);
     r.set(6, 3, 0xffffff);
   }
+  r.outline(empty ? 0x3a3e52 : PAL.ink);
+  commit();
+  return canvas;
+}
+
+// Conta de Âmbar dos poderes de memória: uma gota redonda de resina presa num aro de ouro.
+// Vazia, fica só o encaixe escuro com o aro apagado
+function makeBead(empty: boolean) {
+  const { canvas, r, commit } = canvasRaster(9, 12);
+  if (empty) {
+    r.ellipse(4.5, 6.8, 3.6, 4.2, 0x1a1c26);
+    r.set(3, 5, 0x2a2430);
+  } else {
+    r.ellipse(4.5, 6.8, 3.6, 4.2, 0xd27a26);
+    // embaixo a resina é mais funda; no meio, a luz presa dentro dela
+    r.poly([[1, 7.5], [8, 7.5], [7, 10.5], [4.5, 11.5], [2, 10.5]], 0x9a4c12);
+    r.ellipse(4.8, 7.4, 1.6, 2, 0xffa63c);
+    r.set(3, 4, 0xffe6a6);
+    r.set(3, 5, 0xffe6a6);
+    r.set(2, 6, 0xffd08a);
+  }
+  // o aro que prende a conta
+  r.rect(3, 1, 3, 2, empty ? 0x3a3e52 : PAL.gold);
+  r.set(4, 1, empty ? 0x4a4e62 : 0xfff4d2);
   r.outline(empty ? 0x3a3e52 : PAL.ink);
   commit();
   return canvas;

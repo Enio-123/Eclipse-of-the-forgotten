@@ -61,6 +61,8 @@ const IMAGES = [
   'deco-press', 'deco-press-plate', 'deco-press-screw', 'deco-press-bar', 'deco-press-bed', 'deco-timber', 'deco-timber-knee',
   'deco-ledger', 'deco-amber-block-0', 'deco-amber-block-1', 'deco-amber-block-2', 'deco-rubble', 'item-picareta',
   'deco-amber-mirror', 'deco-amber-mirror-broken', 'deco-ceiling-beam', 'deco-trolley',
+  // os achados das Minas (art/mine_items.py): os seis itens e os dois espaços do inventário
+  'item-flower', 'item-helmet', 'item-rawamber', 'item-watch', 'item-whistle', 'item-mirror', 'item-bornal', 'item-cinto',
 ];
 // tiras de quadros pequenos: [largura, altura] de cada quadro
 const STRIPS: Record<string, [number, number]> = {

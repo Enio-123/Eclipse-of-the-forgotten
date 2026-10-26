@@ -9,6 +9,8 @@ export interface ArrowOpts {
   hostile?: boolean;
   speed?: number;
   life?: number;
+  // a flecha que o Eco repete: de tinta, com o ouro da máscara em volta (não enche o Âmbar)
+  echo?: boolean;
 }
 
 // Flecha: anda em linha reta, crava na pedra e some depois de um tempo. As do arco do cavaleiro
@@ -19,12 +21,14 @@ export class Arrow {
   dead = false;
   stuck = false;
   hostile: boolean;
+  readonly echo: boolean;
   private speed: number;
   private life: number;
   private stuckT = 0;
 
   constructor(scene: Phaser.Scene, public x: number, public y: number, public dx: number, public dy: number, public dmg: number, opts: ArrowOpts = {}) {
     this.hostile = !!opts.hostile;
+    this.echo = !!opts.echo;
     this.speed = opts.speed ?? ARROW.speed;
     this.life = opts.life ?? ARROW.life;
     this.img = hd(scene.add.image(x, y, 'arrow').setDepth(11).setOrigin(0.85, 0.5));
@@ -33,6 +37,10 @@ export class Arrow {
       // a flecha do inimigo vem avermelhada, com um brilho fraco para dar tempo de reagir
       this.img.setTint(0xffb08c);
       this.glow = scene.add.image(x, y, 'glow').setDepth(10.9).setTint(0xff8a5c).setAlpha(0.32).setScale(0.45, 0.22).setBlendMode(Phaser.BlendModes.ADD);
+      this.glow.setRotation(this.img.rotation);
+    } else if (this.echo) {
+      this.img.setTintFill(0x1c1626).setAlpha(0.9);
+      this.glow = scene.add.image(x, y, 'glow').setDepth(10.9).setTint(0xf0c468).setAlpha(0.4).setScale(0.45, 0.22).setBlendMode(Phaser.BlendModes.ADD);
       this.glow.setRotation(this.img.rotation);
     }
   }

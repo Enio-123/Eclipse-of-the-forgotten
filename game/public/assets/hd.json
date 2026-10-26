@@ -68,5 +68,13 @@
  "deco-ceiling-beam": 2,
  "deco-trolley": 2,
  "mine-far": 2,
- "mine-mid": 2
+ "mine-mid": 2,
+ "item-flower": 4,
+ "item-helmet": 4,
+ "item-rawamber": 4,
+ "item-watch": 4,
+ "item-whistle": 4,
+ "item-mirror": 4,
+ "item-bornal": 4,
+ "item-cinto": 4
 }

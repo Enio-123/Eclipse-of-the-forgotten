@@ -769,7 +769,9 @@ export class Mine {
         if (L.overlapsRock(p.ride.x - b.width / 2 + 1, p.ride.y - 42, b.width - 2, 40)) {
           c.rider = false;
           p.leaveRide(-c.dir * 140, -120);
-          s.hazardHit(c.x + c.dir * 30);
+          // o Capacete de mineiro aguenta a pancada: ele cai do vagonete, mas sem se machucar
+          if (progress.on('helmet')) s.helmetBonk(p.x + c.dir * 6, p.body.top);
+          else s.hazardHit(c.x + c.dir * 30);
           s.sfx('thud', 0.9, 1.1);
           if (!this.warned) {
             this.warned = true;
@@ -1009,10 +1011,13 @@ export class Mine {
     return null;
   }
 
-  update(time: number, dt: number) {
+  // stopped: a Lembrança segura as prensas no lugar (o vagonete leva o cavaleiro, então segue)
+  update(time: number, dt: number, stopped = false) {
     this.updateCart(dt);
-    this.updatePresses(dt);
-    this.updateCeil(dt);
+    if (!stopped) {
+      this.updatePresses(dt);
+      this.updateCeil(dt);
+    }
     // o Âmbar respira devagar; a chama da lamparina treme e a lamparina mal balança
     for (const g of this.glows) {
       const k = g.fire ? 0.86 + 0.1 * Math.sin(time * 0.013 + g.ph) + 0.05 * Math.sin(time * 0.041 + g.ph * 3) : 0.86 + 0.14 * Math.sin(time * 0.0016 + g.ph);
