@@ -11,7 +11,7 @@ import { drawChain, drawWhip, type LashPose } from '../gfx/lash';
 
 export type AttackDir = 'side' | 'up' | 'down' | 'low';
 // ações que o jogador já descobriu (as dicas somem quando ele usa)
-export type PlayerAction = 'move' | 'attack' | 'jump' | 'dash' | 'slide' | 'pogo' | 'crouch' | 'trip' | 'walljump' | 'doublejump' | 'parry' | 'hook';
+export type PlayerAction = 'move' | 'attack' | 'jump' | 'dash' | 'slide' | 'pogo' | 'crouch' | 'trip' | 'walljump' | 'doublejump' | 'parry' | 'hook' | 'glide';
 
 // a ponta do gancho: voando até a argola (ou até o fim do alcance), puxando o cavaleiro, voltando
 export interface HookState {
@@ -29,6 +29,7 @@ const approach = (v: number, target: number, step: number) =>
 
 export const SLASH_KEY: Record<WeaponId, string | null> = {
   sword: 'slash', scythe: 'slash-big', daggers: 'slash-small', bow: null, badalo: 'slash-heavy', incensario: 'slash-censer', corrente: null, picareta: 'slash-heavy',
+  lanca: 'slash-thrust',
   // os cajados: o do Grimório bate como bordão (o arco do corte na cor dele); os outros têm o desenho próprio
   eclipse: null, necro: 'slash', veu: null, espaco: null,
 };
@@ -66,11 +67,22 @@ export class Player {
   // pose fixa de cena (ajoelhado no começo, levantando)
   pose: 'kneel' | 'getup' | null = null;
   // habilidades achadas no mapa
+  // Esporas do Carrasco: o dash (e o deslize agachado) só depois de achar
+  canDash = false;
   canWall = false;
   canDouble = false;
   canHook = false;
   // Véu Abissal: o dash vira tinta viva e atravessa grades de cela e membranas abissais
   canVeil = false;
+  // Capa de Arielle: segurando o pulo no ar (depois de um pulo feito no ar), o retalho abre e ele plana
+  canGlide = false;
+  gliding = false;
+  private glideArmed = false;
+  // Floresta Nevada (o Forest marca a cada quadro): gelo embaixo dos pés, o vento da rajada (px/s para
+  // o lado) e a corrente de ar subindo onde ele está (px/s para cima)
+  ice = false;
+  windX = 0;
+  draft = 0;
   hook: HookState | null = null;
   // vagonete das Minas: sentado dentro, preso ao assento que a cena põe a cada quadro (pés em x, y)
   ride: { x: number; y: number; vx: number; vy: number } | null = null;
@@ -108,6 +120,10 @@ export class Player {
   private shotPending = false;
   private hurtT = 0;
   private recoilT = 0;
+  // a estocada da lança: o tempo que o corpo ainda vai junto com a ponta
+  private lungeT = 0;
+  // a lanterna da lança (luz de Âmbar onde ela está pendurada, quadro a quadro)
+  private lantern: Phaser.GameObjects.Image | null = null;
   private wasGround = false;
   private prevVy = 0;
   private ghostT = 0;
@@ -115,6 +131,14 @@ export class Player {
   private stepT = 0;
   private landT = 0;
   private curAnim = '';
+  // o corpo estica no impulso e amassa na aterrissagem (escala em volta dos pés, com mola)
+  private sq = 0;
+  private sqV = 0;
+  private baseScale = 1;
+  // saiu do chão por um impulso (pulo, parede, gancho...) e não caindo de uma beirada
+  private airFromJump = false;
+  // quanto tempo já cai perto do máximo (a capa passa a tremular)
+  private fastFallT = 0;
   private moveTarget: number | null = null;
   private slashOx = 0.2;
   // corte no traço liso: a folha tem mais pixels que o mundo e é reduzida
@@ -166,6 +190,7 @@ export class Player {
     this.weapon = WEAPONS[id];
     const o = this.scene.registry.get(`knight-${id}-origin`) as { x: number; y: number };
     hd(this.sprite.setTexture(`knight-${id}`, 0).setOrigin(o.x, o.y));
+    this.baseScale = this.sprite.scaleX;
     const key = SLASH_KEY[id];
     if (key) {
       const meta = (this.scene.registry.get('slashes') as Record<string, SlashMeta>)[key];
@@ -179,7 +204,13 @@ export class Player {
       const c = MAGES[mage].color;
       this.slash.setTint(0xeafff8, 0xeafff8, c, c);
     } else this.slash.clearTint();
-    this.points = mage ? ((this.scene.cache.json.get(`knight-${id}-meta`) as { points?: Record<string, [number, number][]> } | undefined)?.points ?? null) : null;
+    this.points = mage || this.weapon.lantern ? ((this.scene.cache.json.get(`knight-${id}-meta`) as { points?: Record<string, [number, number][]> } | undefined)?.points ?? null) : null;
+    if (this.weapon.lantern && !this.lantern) {
+      this.lantern = this.scene.add.image(0, 0, 'glow').setTint(0xffa64a).setScale(1.15).setAlpha(0).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.player + 0.3);
+    } else if (!this.weapon.lantern && this.lantern) {
+      this.lantern.destroy();
+      this.lantern = null;
+    }
     this.cancelAttack();
     this.aiming = false;
     this.castT = 0;
@@ -309,7 +340,8 @@ export class Player {
       this.buffer = 0;
       this.atkBuffer = 0;
     } else if (this.slideT > 0) {
-      this.slideT -= dt;
+      // no gelo o deslize dura mais
+      this.slideT -= this.ice ? dt * 0.55 : dt;
       const k = Math.max(0, this.slideT / C.slideTime);
       b.velocity.x = this.dashDir * (C.crouchSpeed + (C.slideSpeed - C.crouchSpeed) * k);
       this.ghostT -= dt;
@@ -367,6 +399,7 @@ export class Player {
     // na gravidade leve a queda também é mais lenta (o teto de velocidade vale para cima também, então
     // só a descida é limitada aqui)
     if (this.gravMul < 1 && b.velocity.y > C.maxFall * 0.7) b.velocity.y = C.maxFall * 0.7;
+    this.updateGlide(dt, input, onGround);
 
     this.trackSafeSpot(onGround);
     this.visuals(dt, onGround);
@@ -403,13 +436,21 @@ export class Player {
     } else if (this.recoilT > 0) {
       this.recoilT -= dt;
       b.velocity.x = -this.facing * (this.recoilT > 0.09 ? Math.max(220, this.weapon.recoil) : this.weapon.recoil);
+    } else if (this.lungeT > 0) {
+      // a estocada: na preparação o peso vai um pouco para trás, no golpe o corpo vai junto com a ponta
+      this.lungeT -= dt;
+      b.velocity.x = this.windupT > 0 ? -this.facing * 30 : this.facing * (onGround ? 290 : 220);
     } else {
-      if (dir !== 0 && Math.sign(b.velocity.x) === -dir) b.velocity.x = 0;
+      const ice = this.ice && onGround;
+      // virar na hora só fora do gelo (no gelo o embalo vai embora devagar)
+      if (!ice && dir !== 0 && Math.sign(b.velocity.x) === -dir) b.velocity.x = 0;
       let speed = this.crouched && onGround ? C.crouchSpeed : this.runSpeed;
       if (this.atkAnimT > 0) speed *= this.weapon.moveMul;
       if (this.inWater) speed *= 0.72;
-      const accel = onGround ? (dir ? C.groundAccel : C.groundDecel) : dir ? C.airAccel : C.airDecel;
-      b.velocity.x = approach(b.velocity.x, dir * speed, accel * dt);
+      const accel = onGround ? (dir ? (ice ? C.iceAccel : C.groundAccel) : ice ? C.iceDecel : C.groundDecel) : dir ? C.airAccel : C.airDecel;
+      // a rajada empurra: no ar por inteiro (planando, a capa pega mais), no chão pela metade (no gelo, quase tudo)
+      const wind = this.windX * (onGround ? (ice ? 0.8 : 0.45) : this.gliding ? 1.5 : 1);
+      b.velocity.x = approach(b.velocity.x, dir * speed + wind, accel * dt);
       if (dir !== 0 && this.atkAnimT <= 0) this.facing = dir as 1 | -1;
     }
 
@@ -438,7 +479,7 @@ export class Player {
     }
     if (b.velocity.y >= 0 || b.blocked.up) this.jumping = false;
 
-    if (input.pressed.dash && this.dashCd <= 0) {
+    if (input.pressed.dash && this.dashCd <= 0 && this.canDash) {
       if (onGround && this.crouched) this.startSlide(dir);
       else if (onGround || this.airDash) this.startDash(dir, onGround);
     }
@@ -729,6 +770,37 @@ export class Player {
     this.scene.onPlayerAction('walljump');
   }
 
+  // Capa de Arielle: o pulo apertado no ar (o duplo, ou depois dele) e segurado abre o retalho quando ele
+  // para de subir; aberto, cai devagar e, na corrente de ar, sobe. Dash, gancho, parede, golpe sofrido
+  // ou mira fecham a capa
+  private updateGlide(dt: number, input: Controls, onGround: boolean) {
+    const b = this.body;
+    const blocked = onGround || this.dead || this.frozen || !!this.pose || !!this.ride || !!this.dive || this.dashT > 0 || !!this.hook ||
+      this.wallDir !== 0 || this.hurtT > 0 || this.aiming || this.castT > 0;
+    if (!this.canGlide || blocked) {
+      if (onGround || !input.held.jump) this.glideArmed = false;
+      this.setGlide(false);
+      return;
+    }
+    if (input.pressed.jump) this.glideArmed = true;
+    if (!input.held.jump) this.glideArmed = false;
+    this.setGlide(this.glideArmed && (b.velocity.y > -40 || this.draft > 0));
+    if (!this.gliding) return;
+    // a gravidade do mundo fica anulada: a capa decide a velocidade de queda (ou de subida)
+    b.gravity.y = -C.gravity;
+    if (this.draft > 0) b.velocity.y = approach(b.velocity.y, -this.draft, C.draftAccel * dt);
+    else b.velocity.y = approach(b.velocity.y, C.glideFall, C.glideAccel * dt);
+  }
+
+  private setGlide(on: boolean) {
+    if (on === this.gliding) return;
+    this.gliding = on;
+    if (on) {
+      this.scene.sfx('flap', 0.6, 0.9);
+      this.scene.onPlayerAction('glide');
+    }
+  }
+
   // Pena do Eclipse: um segundo pulo no ar, com uma nuvem de cinzas embaixo
   private doubleJump() {
     const b = this.body;
@@ -876,6 +948,7 @@ export class Player {
     }
     this.windupT = W.windup;
     this.atkT = W.ranged ? 0 : W.active;
+    this.lungeT = W.lunge && this.atkDir === 'side' ? W.windup + W.active * 0.9 : 0;
     this.shotPending = W.ranged;
     this.atkAnimT = Math.max(0.15, W.windup + Math.max(W.active, 0.08) + 0.06);
     this.curAnim = '';
@@ -886,12 +959,13 @@ export class Player {
     else if (W.smoke) {
       this.scene.sfx('censer', 0.8, 1.15);
       this.scene.sfx('heavy', 0.6, 0.9);
-    } else this.scene.sfx(W.id === 'scythe' ? 'heavy' : W.id === 'daggers' ? 'stab' : W.ranged ? 'bow' : 'slash');
+    } else this.scene.sfx(W.id === 'scythe' ? 'heavy' : W.id === 'daggers' || W.lunge ? 'stab' : W.ranged ? 'bow' : 'slash', 1, W.lunge ? 0.8 : 1);
     this.scene.onPlayerAction('attack');
   }
 
   private cancelAttack() {
     this.atkT = 0;
+    this.lungeT = 0;
     this.windupT = 0;
     this.atkAnimT = 0;
     this.shotPending = false;
@@ -1010,6 +1084,8 @@ export class Player {
       this.scene.onPlayerAction('pogo');
     } else if (this.atkDir === 'side' || this.atkDir === 'low') {
       this.recoilT = 0.08;
+      // a ponta parou no que acertou: o corpo para junto
+      this.lungeT = 0;
     }
   }
 
@@ -1194,20 +1270,41 @@ export class Player {
     const y = b.bottom + 2;
     if (!isGround(l.tileAt(b.left - 4, y)) || !isGround(l.tileAt(b.right + 4, y))) return;
     if (l.touchesSpikes(b.left - 28, b.top, b.width + 56, b.height + 4)) return;
+    // gelo fino não é chão firme: pode quebrar antes da volta
+    if (l.thinNear(b.left - 4, b.right + 4, y)) return;
     this.lastSafe.set(this.zone.x, b.bottom);
   }
 
   private visuals(dt: number, onGround: boolean) {
     const b = this.body;
     const s = this.sprite;
-    if (onGround && !this.wasGround && this.prevVy > 220) {
-      this.landT = 0.12;
-      this.scene.dustBurst(this.zone.x, b.bottom, 7);
-      this.scene.sfx('land');
+    const vy = b.velocity.y;
+    // um impulso para cima (pulo do chão, duplo, de parede, do gancho, quique): estica o corpo. O pulo do
+    // chão sai no quadro em que ele ainda pisa (a física só tira os pés no próximo), então o chão zera
+    // antes e o impulso vale mesmo com os pés no chão
+    if (onGround) this.airFromJump = false;
+    const kick = this.prevVy - vy;
+    if (kick > 260 && vy < -150) {
+      this.airFromJump = true;
+      this.sq = 0.05 + 0.07 * Math.min(1, kick / C.jumpVel);
+      this.sqV = 0;
+    }
+    if (onGround && !this.wasGround && this.prevVy > 150) {
+      // aterrissagem: amassa conforme a força da queda; nas quedas fortes dobra os joelhos
+      const k = Math.min(1, (this.prevVy - 150) / 320);
+      this.sq = -(0.05 + 0.13 * k);
+      this.sqV = 0;
+      if (this.prevVy > 220) {
+        this.landT = this.prevVy > 330 ? 0.2 : 0.13;
+        this.scene.dustBurst(this.zone.x, b.bottom, 7);
+        this.scene.sfx('land');
+      }
     }
     this.landT -= dt;
+    this.fastFallT = !onGround && vy > C.maxFall * 0.92 ? this.fastFallT + dt : 0;
     const vx = Math.abs(b.velocity.x);
     let anim: string;
+    let air = -1;
     if (this.pose) anim = this.pose;
     else if (this.dead || this.hurtT > 0) anim = 'hurt';
     else if (this.castT > 0) anim = 'cast';
@@ -1216,14 +1313,21 @@ export class Player {
     else if (this.dashT > 0) anim = 'dash';
     else if (this.hook?.phase === 'pull') anim = 'dash';
     else if (this.atkAnimT > 0) anim = this.atkAnim;
-    else if (this.wallDir !== 0) anim = 'fall';
+    else if (this.wallDir !== 0) anim = 'wall';
     else if (this.ride) anim = this.crouched ? 'crouch' : 'idle';
-    else if (!onGround) anim = b.velocity.y < 0 ? 'jump' : 'fall';
-    else if (this.crouched) anim = vx > 10 ? 'crouch_walk' : 'crouch';
+    else if (!onGround) {
+      // no ar o quadro vem da velocidade: impulso, subida, topo, queda; numa queda longa a capa tremula
+      if (this.fastFallT > 0.25) anim = 'fall';
+      else {
+        anim = 'air';
+        air = this.airFrame(vy);
+      }
+    } else if (this.crouched) anim = vx > 10 ? 'crouch_walk' : 'crouch';
     else if (this.landT > 0 && vx < 30) anim = 'land';
     else if (vx > 25) anim = 'run';
     else anim = 'idle';
-    this.play(anim);
+    if (air >= 0) this.holdFrame(anim, air);
+    else this.play(anim);
     // as pernas acompanham a velocidade da arma (a animação foi feita para 192 px/s)
     const pace = this.runSpeed / RUN_ANIM_SPEED;
     this.sprite.anims.timeScale = anim === 'run' ? pace : 1;
@@ -1237,6 +1341,7 @@ export class Player {
     } else this.stepT = 0.06;
     s.setPosition(Math.round(this.zone.x), Math.round(b.bottom));
     s.setFlipX(this.facing < 0);
+    this.squash(dt, onGround, vy);
     // no dash o cavaleiro fica translúcido e frio, como um fantasma (no Véu, vira tinta)
     const ghost = this.dashT > 0 && !this.veilDash;
     if (ghost !== this.ghostLook) {
@@ -1247,6 +1352,19 @@ export class Player {
     const blink = this.invuln > 0 && !this.dead && Math.floor(this.invuln * 18) % 2 === 0;
     s.setAlpha(blink ? 0.3 : ghost ? 0.55 : 1);
     if (this.veilFx?.active) this.veilFx.update(dt, s, b.center.x, b.bottom);
+    // a lanterna da lança fica onde ela está pendurada no quadro e treme como chama
+    const lan = this.lantern;
+    if (lan) {
+      const at = this.staffTip();
+      const t = this.scene.time.now / 1000;
+      const on = s.visible && !this.dead && !this.veilFx?.active;
+      lan.setPosition(at.x, at.y).setAlpha(on ? (blink ? 0.18 : 0.4) + 0.05 * Math.sin(t * 13) + 0.03 * Math.sin(t * 31) : 0);
+    }
+  }
+
+  // onde a lanterna da lança está agora (null sem ela)
+  get lanternAt() {
+    return this.lantern && this.lantern.alpha > 0 ? { x: this.lantern.x, y: this.lantern.y } : null;
   }
 
   play(name: string) {
@@ -1254,5 +1372,48 @@ export class Player {
     if (this.curAnim === key) return;
     this.curAnim = key;
     this.sprite.play(key);
+  }
+
+  // um quadro escolhido de uma animação, parado nele (o ar escolhe pela velocidade, não pelo relógio)
+  private holdFrame(name: string, i: number) {
+    const key = `knight-${this.weapon.id}-${name}`;
+    const a = this.scene.anims.get(key);
+    if (!a) {
+      this.play(name === 'air' ? (this.body.velocity.y < 0 ? 'jump' : 'fall') : name);
+      return;
+    }
+    const f = a.frames[Math.max(0, Math.min(a.frames.length - 1, i))];
+    if (this.curAnim !== key) {
+      this.curAnim = key;
+      this.sprite.play(key);
+    }
+    const st = this.sprite.anims;
+    if (st.isPlaying || st.currentFrame !== f) st.pause(f);
+  }
+
+  // o quadro do ar: 0 é o impulso logo depois de sair do chão, o do meio é o topo e o último a queda
+  // rápida. Quem sai de uma beirada andando já começa com as pernas descendo
+  private airFrame(vy: number) {
+    const n = this.scene.anims.get(`knight-${this.weapon.id}-air`)?.frames.length ?? 13;
+    const top = (n - 1) / 2;
+    const t = (vy + C.jumpVel) / (C.jumpVel + C.maxFall);
+    let i = Math.round(t * (n - 1));
+    if (!this.airFromJump) i = Math.max(i, Math.ceil(top + 1));
+    return Math.max(0, Math.min(n - 1, i));
+  }
+
+  // estica e amassa em volta dos pés: uma mola que volta sozinha. No ar estica um pouco com a
+  // velocidade, no dash achata e alonga para a frente
+  private squash(dt: number, onGround: boolean, vy: number) {
+    const s = this.sprite;
+    let target = 0;
+    if (this.dashT > 0 || this.slideT > 0) target = -0.05;
+    else if (!onGround && !this.wallDir && !this.ride) target = 0.04 * Math.min(1, Math.abs(vy) / C.jumpVel);
+    const k = Math.min(dt, 1 / 30);
+    this.sqV += (-420 * (this.sq - target) - 21 * this.sqV) * k;
+    this.sq += this.sqV * k;
+    if (this.veilFx?.active || this.diving) return;
+    const q = Math.max(-0.25, Math.min(0.2, this.sq));
+    s.setScale(this.baseScale * (1 - q * 0.75), this.baseScale * (1 + q));
   }
 }

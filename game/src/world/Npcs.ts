@@ -4,8 +4,10 @@ import type { Player } from '../entities/Player';
 import { DEPTH } from './Decor';
 import { face, hd, hdScale } from '../gfx/flip';
 import { progress } from '../systems/Save';
+import { TILE } from '../config';
+import { surveyorRegion } from './regions';
 
-export type NpcKind = 'nun' | 'smith' | 'folk' | 'prisoner' | 'miner';
+export type NpcKind = 'nun' | 'smith' | 'folk' | 'prisoner' | 'miner' | 'surveyor';
 
 export interface Npc {
   kind: NpcKind;
@@ -30,13 +32,14 @@ interface Walker {
   puffT: number;
 }
 
-const KEY: Record<NpcKind, string> = { nun: 'nun', smith: 'smith', folk: 'folk', prisoner: 'prisoner', miner: 'oldminer' };
+const KEY: Record<NpcKind, string> = { nun: 'nun', smith: 'smith', folk: 'folk', prisoner: 'prisoner', miner: 'oldminer', surveyor: 'surveyor' };
 const NAME: Record<NpcKind, (n: Npc) => string> = {
   nun: () => 'a irmã Luzia',
   smith: () => 'Brás',
   folk: (n) => (n.look === 'shawl' ? 'a esquecida' : 'o esquecido'),
   prisoner: () => 'Tomé',
   miner: () => 'o mineiro que ficou',
+  surveyor: () => 'o Agrimensor',
 };
 
 // Gente da Cidade-Catedral: a freira cega (N), o ferreiro (B), os esquecidos que falam (E) e a
@@ -49,6 +52,8 @@ export class Npcs {
   private cell: Phaser.GameObjects.TileSprite | null = null;
   // a vela acesa no capacete do mineiro que ficou
   private candle: { n: Npc; glow: Phaser.GameObjects.Image } | null = null;
+  // a lanterna pendurada na groma do Agrimensor
+  private lantern: Phaser.GameObjects.Image | null = null;
 
   constructor(private s: GameScene) {
     let folk = 0;
@@ -71,6 +76,9 @@ export class Npcs {
       }
     }
     if (route.length >= 2) this.procession(Math.min(...route), Math.max(...route), routeY);
+    // o Agrimensor, se esta é a sala onde ele espera agora (ele anda sempre uma região na frente)
+    const sv = surveyorRegion(s.room.id, (id) => (progress.visited.get(id)?.size ?? 0) > 0)?.surveyor;
+    if (sv && sv.room === s.room.id && s.textures.exists('surveyor')) this.add('surveyor', sv.x * TILE + TILE / 2, (sv.y + 1) * TILE, 0);
   }
 
   private add(kind: NpcKind, x: number, y: number, i: number) {
@@ -90,6 +98,13 @@ export class Npcs {
       const bars = s.textures.exists('deco-cellbars') ? 'deco-cellbars' : 'deco-portcullis';
       const k = hdScale(s, bars);
       this.cell = s.add.tileSprite(x - 24, y - 56, 48, 56, bars).setOrigin(0).setTileScale(k, k).setDepth(DEPTH.enemy - 0.3);
+    }
+    if (kind === 'surveyor') {
+      // a groma fincada do lado dele (fica parada quando ele vira para quem chega) e a lanterna
+      // pendurada no braço dela: a luz dele nas catacumbas e nas minas
+      const gx = x + 22;
+      if (s.textures.exists('deco-groma')) hd(s.add.image(gx, y + 1, 'deco-groma')).setOrigin(0.5, 71 / 72).setDepth(DEPTH.enemy - 0.6);
+      this.lantern = s.add.image(gx + 13.5, y - 53, 'glow').setTint(0xffb35a).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.enemy - 0.4).setScale(0.55).setAlpha(0.5);
     }
     if (kind === 'miner') {
       // a vela do capacete: a única luz dele
@@ -131,6 +146,7 @@ export class Npcs {
       if (Math.abs(p.x - n.x) < 140) face(n.sprite, p.x < n.x);
     }
     if (this.glow) this.glow.setAlpha(0.32 + Math.random() * 0.12);
+    if (this.lantern) this.lantern.setAlpha(0.44 + Math.random() * 0.08);
     if (this.candle) {
       const n = this.candle.n;
       const f = n.sprite.flipX ? -1 : 1;
@@ -157,6 +173,7 @@ export class Npcs {
     if (kind === 'folk') return `folk-${talk ? 'talk' : 'idle'}-${look}`;
     if (kind === 'miner') return `oldminer-${talk ? 'talk' : 'idle'}`;
     if (kind === 'smith') return talk ? 'smith-talk' : 'smith-work';
+    if (kind === 'surveyor') return `surveyor-${talk ? 'talk' : 'idle'}`;
     return `nun-${talk ? 'talk' : 'idle'}`;
   }
 

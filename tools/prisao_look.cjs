@@ -29,7 +29,7 @@ const SPOTS = {
     p.reset();
     p.prologueDone = true;
     p.kintsugi = 1;
-    p.abilities = new Set(['wall', 'double', 'hook']);
+    p.abilities = new Set(['dash', 'wall', 'double', 'hook']);
     for (const k of ['memory:vale', 'gate:catacumbas', 'boss:sineiro', 'weapon:badalo', 'boss:arcebispo', 'weapon:incensario', 'relic:hook']) p.seen.add(k);
     p.save();
   });

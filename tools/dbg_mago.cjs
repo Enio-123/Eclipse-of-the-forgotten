@@ -12,7 +12,7 @@ const { chromium } = require('playwright');
     const p = window.__progress;
     p.reset(); p.prologueDone = true; p.kintsugi = 1; p.starter = 'eclipse';
     window.__settings.data.weapon = 'eclipse'; window.__settings.save();
-    p.abilities = new Set(['wall', 'double', 'hook', 'veil']);
+    p.abilities = new Set(['dash', 'wall', 'double', 'hook', 'veil']);
     p.seen.add('memory:vale'); p.seen.add('gate:catacumbas');
     p.save();
     window.__ui.closeAll();

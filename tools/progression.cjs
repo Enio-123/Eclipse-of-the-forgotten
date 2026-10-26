@@ -26,6 +26,8 @@ const T = 16;
       const P = window.__progress;
       if (prog.reset) P.reset();
       for (const k of ['abilities', 'memories', 'traded', 'upgrades']) if (prog[k]) P[k] = new Set(prog[k]);
+      // as Esporas do Carrasco (o dash) já achadas no ossuário
+      if (!prog.noDash) P.abilities.add('dash');
       for (const k of prog.seen || []) P.seen.add(k);
       const t = g.scene.getScene('title');
       if (t && t.scene.isActive()) t.scene.stop();
@@ -205,7 +207,8 @@ const T = 16;
   const shopClosed = await page.evaluate(() => !document.querySelector('#screen-shop').classList.contains('show') && window.__scene.scene.isActive());
   ok(shopClosed, 'loja fecha e o jogo continua');
 
-  // 10. mapa abre com M e mostra o que foi visto
+  // 10. mapa abre com M e mostra o que foi visto (com a folha de Vespera comprada do Agrimensor)
+  await page.evaluate(() => window.__progress.maps.add('vespera'));
   await page.keyboard.down('KeyM'); await page.waitForTimeout(80); await page.keyboard.up('KeyM');
   await page.waitForSelector('#screen-map.show', { timeout: 8000 });
   await page.waitForTimeout(600);
@@ -217,7 +220,8 @@ const T = 16;
     for (let i = 3; i < d.length; i += 16) if (d[i] > 0) n++;
     return n;
   });
-  ok(ink > 500, `mapa desenhado (${ink} pontos)`);
+  const fit = await page.evaluate(() => !document.querySelector('#screen-map [data-cmd="fit"]').disabled);
+  ok(ink > 500 && fit, `mapa desenhado com a folha (${ink} pontos)`);
   await page.keyboard.down('KeyM'); await page.waitForTimeout(80); await page.keyboard.up('KeyM');
   await page.waitForTimeout(400);
   const mapClosed = await page.evaluate(() => !document.querySelector('#screen-map').classList.contains('show'));

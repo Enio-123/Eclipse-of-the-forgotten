@@ -28,7 +28,7 @@ const ONLY = process.argv.slice(4);
     p.reset();
     p.prologueDone = true;
     p.kintsugi = 1;
-    p.abilities = new Set(['wall', 'double', 'hook', 'veil']);
+    p.abilities = new Set(['dash', 'wall', 'double', 'hook', 'veil']);
     for (const k of ['memory:vale', 'gate:catacumbas', 'boss:sineiro', 'weapon:badalo', 'boss:arcebispo', 'weapon:incensario', 'relic:hook', 'item:chaves',
       'preso:met', 'preso:livre', 'boss:carcereira', 'weapon:corrente', 'boss:sombra', 'relic:veil']) p.seen.add(k);
     p.save();

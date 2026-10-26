@@ -369,7 +369,7 @@ def build(pose):
         links(prims, pts, 0.4)
         hook(prims, pts[-1], (1.0, 0.0), 0.42)
         loose += prims[n0:]
-    elif p['cl']:
+    elif p['cl'] > 2.6:
         hanging(prims, handF, p['ca'], p['cl'], zF + 0.12)
     # o punho por cima da corrente
     prims.append(Ellipse('fistF', 'flesh', zF + 0.2, handF, 3.3, 3.0))

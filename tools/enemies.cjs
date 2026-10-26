@@ -16,6 +16,7 @@ const T = 16;
     const g = window.__game;
     const t = g.scene.getScene('title');
     if (t && t.scene.isActive()) t.scene.stop();
+    window.__progress.abilities.add('dash');
     g.scene.start('game', { room: 'ponte', entry: '2', from: 'continue' });
   });
   await page.waitForFunction(() => window.__scene && window.__scene.player && window.__scene.room.id === 'ponte' && window.__scene.scene.isActive(), null, { timeout: 15000 });

@@ -293,7 +293,7 @@ export class RoomLighting {
   private srcOf(img: Phaser.GameObjects.Image): Src {
     const sc = Math.max(Math.abs(img.scaleX), Math.abs(img.scaleY));
     const rad = GLOW_R * sc;
-    return { x: img.x, y: img.y, r: rad * 1.35 + 10, i: img.alpha * (img.visible ? 1 : 0), c: rgbOf(img.tintTopLeft) };
+    return { x: img.x, y: img.y, r: (rad * 1.35 + 10) * this.feed.look.reach, i: img.alpha * (img.visible ? 1 : 0), c: rgbOf(img.tintTopLeft) };
   }
 
   private scan() {
@@ -342,14 +342,16 @@ export class RoomLighting {
       // penumbra
       if (this.flags.shadows) for (const a of [R, G, B]) blur(a, lw, lh, 1, 2);
     }
-    // luz do céu: desce reta até a primeira rocha e espalha um pouco nas beiradas
+    // luz do céu: desce reta até a primeira rocha (sumindo aos poucos num poço fundo) e espalha um pouco
+    // nas beiradas
     const sk = look.sky;
     if (sk[0] + sk[1] + sk[2] > 0) {
       const S = new Float32Array(lw * lh);
+      const fall = look.skyDepth;
       for (let x = 0; x < lw; x++) {
         for (let y = 0; y < lh; y++) {
           if (this.occ[y * lw + x]) break;
-          S[y * lw + x] = 1;
+          S[y * lw + x] = fall > 0 ? 1 / (1 + y / fall) : 1;
         }
       }
       blur(S, lw, lh, 3, 2);
@@ -475,7 +477,13 @@ export class RoomLighting {
       n++;
     };
     const look = f.look;
-    if (f.light && player && look.knight > 0) put({ x: player.x, y: player.y, r: 96, i: look.knight, c: [1, 0.94, 0.84] });
+    if (f.light && player && look.knight > 0) {
+      put({ x: player.x, y: player.y, r: look.knightR, i: look.knight, c: [1, 0.94, 0.84] });
+      // nas salas escuras, um núcleo pequeno a mais: o próprio cavaleiro continua legível no breu
+      const a = look.ambient;
+      const dark = 1 - (a[0] * 0.3 + a[1] * 0.59 + a[2] * 0.11);
+      if (dark > 0.2) put({ x: player.x, y: player.y - 3, r: 42, i: Math.min(0.48, dark * 0.75), c: [1, 0.97, 0.92] });
+    }
     for (const s of cand) {
       if (n >= MAX_LIGHTS) break;
       put(s);

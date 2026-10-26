@@ -6,7 +6,7 @@ const { chromium } = require('playwright');
   await page.goto('http://localhost:8765/index.html');
   await page.waitForSelector('#screen-menu.show', { timeout: 30000 });
   await page.evaluate(() => {
-    const p = window.__progress; p.reset(); p.prologueDone = true; p.abilities = new Set(['wall', 'double', 'hook', 'veil']);
+    const p = window.__progress; p.reset(); p.prologueDone = true; p.abilities = new Set(['dash', 'wall', 'double', 'hook', 'veil']);
     for (const k of ['boss:reflexo', 'boss:capataz', 'weapon:picareta']) p.seen.add(k); p.save();
     window.__ui.closeAll(); const g = window.__game; g.scene.getScene('title').scene.stop(); g.scene.start('game', { room: 'capataz', entry: '1', from: 'door' });
   });

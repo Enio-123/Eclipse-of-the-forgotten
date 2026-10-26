@@ -20,7 +20,7 @@ const STEP = Number(process.env.XSHOT_STEP || 0);
       p.reset();
       p.prologueDone = true;
       p.kintsugi = 1;
-      p.abilities = new Set(['wall', 'double', 'hook', 'veil']);
+      p.abilities = new Set(['dash', 'wall', 'double', 'hook', 'veil']);
       for (const k of ['memory:vale', 'gate:catacumbas', 'boss:sineiro', 'boss:arcebispo', 'boss:carcereira', 'weapon:corrente']) p.seen.add(k);
       p.save();
     });
@@ -46,6 +46,8 @@ const STEP = Number(process.env.XSHOT_STEP || 0);
       await page.waitForFunction((preset) => {
         const s = window.__scene;
         if (!s || s.clock < 0.25) return false;
+        // a sala ainda clareando da porta (a foto sairia escura)
+        if (s.cameras.main.fadeEffect.isRunning) return false;
         if (s.lighting && !s.lighting.ready) return false;
         if (preset === 'extreme' && s.terrainImg && !s.hdImgs.length && !window.__hdWaited) return false;
         return true;
@@ -57,9 +59,9 @@ const STEP = Number(process.env.XSHOT_STEP || 0);
         return (L ? `luz ${L.bakeMs.toFixed(1)} ms, ${L.feed.lightCount} luzes móveis, ${L.feed.waterCount} águas` : 'sem filtro') + `, hd ${s.hdImgs.length}`;
       });
       console.log(preset, room, info);
-      await page.evaluate(() => window.__scene.sys.pause());
+      await page.evaluate(() => { window.__scene.sys.pause(); });
       await page.screenshot({ path: `${OUT}/${room}${dx ? '_' + dx : ''}-${preset}.png` });
-      await page.evaluate(() => window.__scene.sys.resume());
+      await page.evaluate(() => { window.__scene.sys.resume(); });
     }
     console.log(preset, errs.slice(0, 10).join('\n') || 'sem erros');
     await page.close();

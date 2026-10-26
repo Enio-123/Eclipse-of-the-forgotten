@@ -59,7 +59,7 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
     p.reset();
     p.prologueDone = true;
     p.kintsugi = 1;
-    p.abilities = new Set(['wall', 'double', 'hook', 'veil']);
+    p.abilities = new Set(['dash', 'wall', 'double', 'hook', 'veil']);
     for (const k of ['memory:vale', 'gate:catacumbas', 'boss:sineiro', 'weapon:badalo', 'boss:arcebispo', 'weapon:incensario', 'relic:hook', 'item:chaves',
       'preso:met', 'preso:livre', 'boss:carcereira', 'weapon:corrente', 'fosso:aberto', 'boss:sombra', 'relic:veil', ...extra]) p.seen.add(k);
     p.save();

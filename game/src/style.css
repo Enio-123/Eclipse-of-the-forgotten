@@ -58,7 +58,8 @@ body.menu-open #banner, body.menu-open #thought, body.menu-open #hint, body.menu
 #touch svg { width: 30px; height: 30px; fill: none; stroke: var(--ink); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 #buttons [data-action="jump"] { right: 0; bottom: 0; width: 78px; height: 78px; }
 #buttons [data-action="attack"] { right: 94px; bottom: 6px; }
-#buttons [data-action="dash"] { right: 40px; bottom: 88px; }
+#buttons [data-action="dash"] { right: 40px; bottom: 88px; display: none; }
+body.has-dash #buttons [data-action="dash"] { display: flex; }
 /* o gancho só aparece depois de achar a relíquia */
 #buttons [data-action="hook"] { right: 120px; bottom: 82px; width: 54px; height: 54px; display: none; }
 body.has-hook #buttons [data-action="hook"] { display: flex; }
@@ -122,6 +123,12 @@ body.bright #banner p { color: #463f50; }
   text-shadow: 0 1px 2px #000, 0 0 14px rgba(0, 0, 0, 0.9); transition: opacity 1.2s ease; text-wrap: balance;
 }
 #thought.on { opacity: 1; }
+/* alguém fala (raro): o nome pequeno em cima, a fala sem itálico */
+#thought .who {
+  display: block; font-family: var(--display); font-style: normal; font-size: calc(var(--u) * 5.6);
+  letter-spacing: 0.18em; text-transform: uppercase; color: #b9a98a; margin-bottom: calc(var(--u) * 1.5);
+}
+#thought.speech { font-style: normal; color: #f0e8da; }
 #hint {
   position: absolute; left: 50%; bottom: 5.5%; margin: 0; transform: translateX(-50%); opacity: 0;
   padding: calc(var(--u) * 2.5) calc(var(--u) * 6); border-radius: 999px; white-space: nowrap;
@@ -455,11 +462,19 @@ span.key { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 2px;
 .map-head { display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap; }
 .map-head .sub { margin: 0; font-family: var(--italic); font-style: italic; }
 .map-body { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 18px; min-height: 0; }
+.map-frame { position: relative; min-width: 0; }
 .map-canvas {
-  width: 100%; height: min(56vh, 520px); display: block;
-  background: radial-gradient(ellipse at 50% 50%, rgba(214, 162, 74, 0.05), transparent 70%), rgba(255, 255, 255, 0.015);
-  border: 1px solid var(--faint);
+  width: 100%; height: min(56vh, 520px); display: block; cursor: grab; touch-action: none;
+  background: #2b2219; border: 1px solid rgba(214, 162, 74, 0.28); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
 }
+.map-canvas:active { cursor: grabbing; }
+.map-tools { position: absolute; top: 18px; right: 18px; display: flex; gap: 6px; }
+.map-tools button {
+  min-width: 30px; height: 28px; padding: 0 9px; font: 14px var(--body); color: var(--ink);
+  background: rgba(20, 15, 10, 0.72); border: 1px solid rgba(214, 162, 74, 0.35); border-radius: 3px; cursor: pointer;
+}
+.map-tools button:hover, .map-tools button:focus-visible { border-color: var(--gold); color: #fff6df; outline: none; }
+.map-tools button:disabled { opacity: 0.35; cursor: default; }
 .map-side { overflow: auto; max-height: min(56vh, 520px); padding-right: 4px; scrollbar-width: thin; }
 .map-side h3 { margin: 0 0 6px; font-family: var(--display); font-weight: 400; font-size: 18px; letter-spacing: 0.04em; color: var(--gold); }
 .map-side h3 span { color: var(--muted); font-family: var(--body); font-size: 13px; margin-left: 6px; }
@@ -474,7 +489,8 @@ span.key { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 2px;
 .legend { margin: 0; display: flex; flex-wrap: wrap; gap: 6px 18px; color: var(--muted); font-size: 13px; }
 .legend span { display: inline-flex; align-items: center; gap: 7px; }
 .lg { display: inline-block; width: 9px; height: 9px; }
-.lg.you { border-radius: 50%; background: #fff6df; box-shadow: 0 0 0 2px rgba(214, 162, 74, 0.8); }
+.lg.you { width: 11px; height: 11px; border-radius: 50% 50% 50% 50% / 55% 55% 45% 45%; background: radial-gradient(ellipse at 62% 52%, #f2ede2 0 38%, #8a1a24 40%); box-shadow: 0 0 0 1.5px rgba(214, 162, 74, 0.8); }
+.lg.surv { width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 10px solid #f0e4c8; }
 .lg.rest { background: var(--gold); border-radius: 50% 50% 2px 2px; width: 7px; height: 11px; }
 .lg.cob { border: 1.5px solid var(--gold); border-radius: 50%; }
 .lg.relic { background: #f2ede2; transform: rotate(45deg) scale(0.85); }
@@ -485,6 +501,7 @@ span.key { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 2px;
 @media (max-width: 860px) {
   .map-body { grid-template-columns: 1fr; }
   .map-canvas { height: 42vh; }
+  .map-tools button[data-cmd="fit"] { display: none; }
   .map-side { max-height: none; }
 }
 @media (max-height: 500px) and (orientation: landscape) {
@@ -522,6 +539,26 @@ span.key { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 2px;
 }
 .offer:hover:not([disabled]), .offer:focus-visible { border-color: var(--gold); background: var(--gold-soft); outline: none; }
 .offer[disabled] { cursor: default; opacity: 0.45; }
+
+/* ---------- o Agrimensor (as folhas do mapa) ---------- */
+.survey-panel { width: min(100%, 760px); }
+.sheets { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; max-height: min(52vh, 430px); overflow-y: auto; padding-right: 4px; }
+.offer.sheet { grid-template-columns: 136px minmax(0, 1fr) auto; gap: 2px 16px; }
+.offer.sheet canvas {
+  grid-column: 1; grid-row: 1 / 3; width: 136px; height: 64px; display: block;
+  background: radial-gradient(ellipse at 50% 40%, #30261c, #1c1610); border: 1px solid rgba(214, 162, 74, 0.32);
+}
+.offer.sheet b, .offer.sheet .what { grid-column: 2; }
+.offer.sheet .what { line-height: 1.4; }
+.offer.sheet .cost { grid-column: 3; }
+.offer.sheet.owned { opacity: 0.6; }
+.offer.sheet.owned .cost { color: var(--muted); font-size: 14px; }
+@media (max-width: 720px) {
+  .offer.sheet { grid-template-columns: 96px minmax(0, 1fr) auto; gap: 2px 10px; padding: 10px 12px; }
+  .offer.sheet canvas { width: 96px; height: 46px; }
+  .offer.sheet b { font-size: 17px; }
+  .offer.sheet .what { font-size: 12.5px; }
+}
 
 /* ---------- conversa (caixa embaixo, o jogo aparece atrás) ---------- */
 #screen-talk { align-items: flex-end; padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); background: linear-gradient(to top, rgba(4, 5, 9, 0.55), rgba(4, 5, 9, 0) 45%); }

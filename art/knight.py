@@ -1,7 +1,8 @@
 """Modelo do Cavaleiro de Máscara Partida (o carrasco de Vespera) para o renderizador de esqueleto.
 
-Armas: espada, foice, adagas duplas, arco, o badalo do Sineiro e o incensário do Arcebispo (liberados ao vencer cada chefe). A mão de trás pode usar cinemática inversa
-para segurar o cabo da foice ou puxar a corda do arco.
+Armas: espada, foice, adagas duplas, arco, o badalo do Sineiro, o incensário do Arcebispo, a corrente da
+Carcereira, a picareta do Capataz e a lança do Mestre da Caça (liberados ao vencer cada chefe). A mão de
+trás pode usar cinemática inversa para segurar o cabo da foice ou puxar a corda do arco.
 """
 import math
 import puppet
@@ -17,6 +18,11 @@ puppet.SHINY.setdefault('bronze', (0.5, 9))
 # Âmbar Mnêmico grudado na picareta do Capataz (brilha sozinho no miolo)
 puppet.RAMPS.setdefault('amber', [0x5a2a08, 0x9a4c12, 0xd27a26, 0xffa63c, 0xffe6a6])
 puppet.SHINY.setdefault('amber', (0.7, 16))
+# a lanterna da lança do Mestre da Caça (latão) e a geada que ficou no cabo
+puppet.RAMPS.setdefault('brass', [0x3a2a10, 0x5e4419, 0x8a6a2a, 0xb8923f, 0xdcc070])
+puppet.SHINY.setdefault('brass', (0.6, 10))
+puppet.RAMPS.setdefault('frost', [0x4f5f74, 0x7d90a8, 0xa9bdd3, 0xd3e2f0, 0xf4f9ff])
+puppet.SHINY.setdefault('frost', (0.45, 12))
 
 W, H = 144, 120
 BASE_HIP = (72.0, 87.0)
@@ -40,6 +46,7 @@ DEFAULT = dict(
     hoodtip=(0.0, 0.0), mask='partida', glow=False,
     hot=False,     # incensário: os furos acesos no golpe
     lash=False,    # corrente: lá fora no golpe (o jogo desenha), na mão só a volta enrolada
+    swing=0.0,     # lança: o quanto a lanterna balança (graus a partir da vertical; positivo = para a frente)
 )
 
 
@@ -279,6 +286,60 @@ def build(pose, weapon='sword'):
         if p['ikB'] and p['ikB'][0] == 'staff':
             back_target = add(handF, sd, p['ikB'][1])
 
+    elif weapon == 'lanca':
+        # a lança do Mestre da Caça: cabo de freixo com as tiras do punho, a lâmina em folha, as asas de
+        # travar logo atrás dela e a lanterna de latão pendurada no cabo, caindo reto (o vidro de Âmbar aceso)
+        grip = p['grip'] if p['grip'] is not None else 22.0
+        LEN = 54.0
+        butt = add(handF, sd, -grip)
+        tip = add(butt, sd, LEN)
+        side = (sd[1], -sd[0])
+        prims.append(Capsule('haft', 'wood', 6.4, butt, add(butt, sd, LEN - 7.5), 0.95, 0.85, shade=0.85))
+        prims.append(Ellipse('ferrule', 'steel', 6.41, add(butt, sd, 0.6), 1.15, 1.15, shade=0.8))
+        # as tiras de couro onde as mãos seguram
+        for t in (0.34, 0.39, 0.44, 0.49):
+            c = add(butt, sd, LEN * t)
+            prims.append(Capsule('wrap', 'leather', 6.42, add(c, sd, -0.8), add(c, sd, 0.8), 1.2, 1.2, shade=0.75))
+        # a geada que ficou no cabo
+        c = add(butt, sd, LEN * 0.68)
+        prims.append(Capsule('hfrost', 'frost', 6.415, add(c, sd, -1.5), add(c, sd, 1.2), 1.05, 0.95))
+        wing_c = add(butt, sd, LEN - 8.2)
+        prims.append(Capsule('lug', 'steel', 6.43, add(wing_c, side, -2.6), add(wing_c, side, 2.6), 0.75, 0.55, shade=0.9))
+        socket = add(butt, sd, LEN - 7.8)
+        blade = [add(socket, side, -1.0), add(add(socket, sd, 2.4), side, -2.2), add(add(socket, sd, 5.2), side, -1.5), tip,
+                 add(add(socket, sd, 5.2), side, 1.5), add(add(socket, sd, 2.4), side, 2.2), add(socket, side, 1.0)]
+        nb = norm((side[0] * 0.2, side[1] * 0.2 - 0.4, 0.88))
+        prims.append(Poly('lblade', 'steel', 6.44, blade, nf=lambda x, y, nb=nb: nb))
+        prims.append(Capsule('ridge', 'steel', 6.45, add(socket, sd, 0.6), add(tip, sd, -1.0), 0.32, 0.22, flat=4))
+        # a lanterna: a corrente curta, a argola, a gaiola de latão e o vidro de Âmbar
+        hook = add(butt, sd, LEN - 9.4)
+        hang = dirv(p['swing'])
+        hs = (hang[1], -hang[0])
+        lan = add(hook, hang, 4.4)
+        prims.append(Capsule('lchain', 'steel', 6.46, hook, lan, 0.32, 0.32, flat=2))
+        prims.append(Ellipse('lring', 'brass', 6.47, lan, 0.85, 0.85, shade=0.8))
+        cage = [add(add(lan, hang, 0.9), hs, -1.4), add(add(lan, hang, 0.9), hs, 1.4), add(add(lan, hang, 2.0), hs, 2.1),
+                add(add(lan, hang, 4.8), hs, 2.1), add(add(lan, hang, 5.8), hs, 1.5), add(add(lan, hang, 5.8), hs, -1.5),
+                add(add(lan, hang, 4.8), hs, -2.1), add(add(lan, hang, 2.0), hs, -2.1)]
+        prims.append(Poly('lcage', 'brass', 6.48, cage, nf=lambda x, y: norm((0.0, -0.3, 0.95)), shade=0.95))
+        body_c = add(lan, hang, 3.3)
+        glass = Ellipse('lglass', 'amber', 6.49, body_c, 1.45, 1.85, flat=4)
+        prims.append(glass)
+        for s_ in (-0.75, 0.75):
+            prims.append(Capsule('lbar', 'brass', 6.5, add(add(lan, hang, 1.7), hs, s_), add(add(lan, hang, 5.1), hs, s_), 0.28, 0.28, shade=0.7))
+
+        def flame(x, y, cur, glass=glass):
+            lx, ly = glass.local(x, y)
+            if lx * lx / 0.5 + (ly - 0.25) ** 2 / 1.0 < 1.0:
+                return ('amber', 4)
+            return None
+
+        decals.append(Decal('lglass', flame))
+        # a luz da lanterna (o jogo acende ali)
+        LAST['focus'] = body_c
+        if p['ikB'] and p['ikB'][0] == 'staff':
+            back_target = add(handF, sd, p['ikB'][1])
+
     elif weapon == 'incensario':
         # o incensário do Arcebispo: corrente curta na mão e o incensário de ouro na ponta
         L = 12.0
@@ -467,7 +528,8 @@ def build(pose, weapon='sword'):
 
 
 def focus_point(pose, weapon):
-    """Onde fica o foco do cajado (de onde a magia sai) no quadro, em pixels do mundo a partir dos pés."""
+    """Onde fica o foco do cajado (de onde a magia sai) ou a lanterna da lança no quadro, em pixels do
+    mundo a partir dos pés."""
     build(pose, weapon)
     fx, fy = LAST['focus']
     return [round(fx - FEET[0], 1), round(fy - FEET[1], 1)]

@@ -18,6 +18,10 @@ export const MEMORIES: Record<string, { title: string; text: string }> = {
   'abismo:boss': { title: 'O machado', text: 'Ergui o machado sobre alguém ajoelhado no tablado. Numa versão, ele desceu. Na outra, caiu da minha mão, e a praça inteira ficou em silêncio.' },
   'espelhos:boss': { title: 'O reflexo', text: 'No Âmbar polido eu me vi de capuz, com a foice na mão. Atrás de mim, alguém de capa vermelha chamava. Numa versão eu me virei para ver. Na outra, segui em frente.' },
   'capataz:boss': { title: 'A fuga pelo túnel', text: 'Uma moça de capa vermelha correndo pelos túneis, com um caderno apertado no peito. Numa versão eu corria atrás dela com a ordem na mão. Na outra, eu segurava a grade para ela passar.' },
+  'lago:0': { title: 'O lago congelado', text: 'Ela riu tanto quando eu escorreguei no gelo que caiu também. Ficamos deitados no lago, olhando o céu branco, sem frio nenhum.' },
+  // NAME_MEMORY: a primeira vez que o nome dela aparece no jogo
+  'cabana:0': { title: 'O nome dela', text: 'Arielle. O nome volta inteiro, com a voz dela dizendo, rindo do nó torto da minha capa. Arielle.' },
+  'clareira:boss': { title: 'A trilha na neve', text: 'As pegadas dela na neve e as minhas atrás. Numa versão eu mandei a matilha para o vale e fiquei olhando ela subir a serra. Na outra, eu mostrei o caminho aos cães.' },
 };
 export const MEMORY_TOTAL = Object.keys(MEMORIES).length;
 
@@ -37,14 +41,25 @@ export const MEMORY_ECHO: Record<string, { kind: EchoKind; mode: WaveMode }> = {
   'abismo:boss': { kind: 'carrasco', mode: 'corrupt' },
   'espelhos:boss': { kind: 'carrasco', mode: 'corrupt' },
   'capataz:boss': { kind: 'ela', mode: 'corrupt' },
+  'lago:0': { kind: 'ela', mode: 'restore' },
+  'cabana:0': { kind: 'ela', mode: 'restore' },
+  'clareira:boss': { kind: 'ela', mode: 'corrupt' },
 };
 
 // as provas que cada registro carrega (lore/continuidade.md, 6.1)
 export type Proof = 'vhalor' | 'inocentes' | 'ambar' | 'nucleo' | 'arielle';
 
 // Registros: documentos, livros e fichas espalhados pelas salas (sala:ordem no mapa). Ficam no Diário,
-// aba Registros. Por enquanto só nas Minas; as outras regiões entram com a integração da lore.
-export const RECORDS: Record<string, { title: string; region: string; lines: string[]; proofs: Proof[] }> = {
+// aba Registros. Por enquanto nas Minas e na Floresta; as outras regiões entram com a integração da lore.
+// named: como o registro fica depois que ele lembra o nome dela (ver NAME_MEMORY)
+export interface RecordInfo {
+  title: string;
+  region: string;
+  lines: string[];
+  proofs: Proof[];
+  named?: { title?: string; lines: string[] };
+}
+export const RECORDS: Record<string, RecordInfo> = {
   'boca:0': {
     title: 'O livro da entrada',
     region: 'Minas Abandonadas',
@@ -92,10 +107,83 @@ export const RECORDS: Record<string, { title: string; region: string; lines: str
     ],
     proofs: ['ambar', 'vhalor'],
   },
+  'pinhal:0': {
+    title: 'O bilhete na casca',
+    region: 'Floresta Nevada',
+    lines: [
+      'Um papel dobrado, preso na casca com uma fita vermelha. Outras fitas iguais seguem pelos troncos, mata adentro.',
+      '"Se a neve apagar a trilha, siga as fitas: elas levam à casa da minha avó. Os cães da Casa não passam do lago. A."',
+    ],
+    proofs: ['arielle'],
+  },
+  'cabana:0': {
+    title: 'O herbário',
+    region: 'Floresta Nevada',
+    lines: [
+      'Um caderno grosso de capa de couro, cheio de flores prensadas. Embaixo de cada uma, o lugar e o dia, numa letra miúda.',
+      'Na capa, um nome bordado em linha vermelha. Ele lê letra por letra, e quando junta as letras a palavra escorrega, como um nome na areia que a água leva.',
+    ],
+    named: {
+      lines: [
+        'Um caderno grosso de capa de couro, cheio de flores prensadas. Embaixo de cada uma, o lugar e o dia, numa letra miúda.',
+        'Na capa, bordado em linha vermelha: Arielle. A última página guarda uma flor da serra e uma frase: "para lembrar o caminho de volta".',
+      ],
+    },
+    proofs: ['arielle'],
+  },
+  'cabana:1': {
+    title: 'A carta que ficou',
+    region: 'Floresta Nevada',
+    lines: [
+      'Uma carta sem envelope, debaixo da lamparina da mesa. A data é de três dias depois do casamento que não houve.',
+      '"Se te disserem que o Arcebispo cobrou a minha memória e que eu te esqueci no caminho do altar, não acredite. Eu lembro de você inteiro, até do nó torto da capa."',
+      '"Não cheguei ao altar porque naquela manhã descobri para onde a Casa leva o Âmbar das prensas. Não dava para esperar. Volte pela serra, que eu explico tudo. A."',
+    ],
+    proofs: ['arielle', 'ambar'],
+  },
+  'clareira:0': {
+    title: 'O livro da caça',
+    region: 'Floresta Nevada',
+    lines: [
+      'Fugitivos trazidos de volta nesta estação: um arquivista, duas testemunhas do tablado, um copista e a filha dele. Entregues ao carrasco no fim da trilha.',
+      'Última caçada: o carrasco mandou a matilha para o vale. A trilha era falsa. A arquivista passou a serra.',
+      'Avisar a Casa Vhalor: ele não serve para caçar.',
+    ],
+    proofs: ['vhalor', 'inocentes'],
+  },
 };
 export const RECORD_IDS = Object.keys(RECORDS);
 
+export function recordInfo(id: string, knowsName: boolean) {
+  const r = RECORDS[id];
+  return knowsName && r.named ? { ...r, title: r.named.title ?? r.title, lines: r.named.lines } : r;
+}
+
 // o mineiro que ficou (Veio de Âmbar, no alojamento): esqueceu o próprio nome na mina
+// O Agrimensor: mede o que o Eclipse apaga (o que tem medida não some tão fácil), anda sempre uma
+// região na frente e vende as folhas do mapa
+export const SURVEYOR = {
+  name: 'O Agrimensor',
+  first: [
+    'Pare aí. Três passos para trás. Você está em cima da minha linha.',
+    'Sou o Agrimensor. Meço o que o Eclipse apaga: o que tem medida não some tão fácil.',
+    'Capuz vermelho... Faz tempo que eu não anoto um desses. Pensei que a ordem tinha acabado.',
+    'Desenho cada região, sala por sala. A folha custa moedas: papel e tinta não caem do céu.',
+    'Com a folha, o que você pisar fica a tinta e o resto a lápis. Eu vou na frente. Você me acha mais adiante.',
+  ],
+  // quando ele abre a banca de novo
+  again: [
+    'Cheguei antes de você, como sempre. Quem mede anda devagar, mas não se perde.',
+    'Quarenta e dois passos daqui até a parede. Contei duas vezes.',
+    'Não encoste na groma. O prumo leva meia hora para parar.',
+    'O que você não pisou fica a lápis. Lápis apaga; tinta não.',
+    'Já mediu alguma coisa na vida? Não? Então compre a folha.',
+  ],
+  broke: 'Moeda curta. Volte com mais; eu não saio daqui até fechar a conta desta região.',
+  bought: 'Tinta fresca. Não dobre no meio.',
+  done: 'Você já tem todas as folhas que eu fiz até aqui. Mais adiante eu sigo medindo.',
+};
+
 export const OLD_MINER = {
   name: 'O mineiro que ficou',
   first: [
@@ -143,7 +231,24 @@ export const PAGE_IDS = Object.keys(PAGES);
 // os três sinos que a irmã Luzia pede para tocar
 export const BELLS = ['bell:telhados:0', 'bell:claustro:0', 'bell:nave:0'];
 
-export const RELICS: Record<Ability, { name: string; text: string; how: string }> = {
+// a memória que devolve o nome dela: antes dela (ou se ele trocar essa memória com o Cobrador), os
+// textos não dizem o nome, só "ela", "a moça de capa vermelha" ou "A."
+export const NAME_MEMORY = 'cabana:0';
+
+export interface RelicInfo {
+  name: string;
+  text: string;
+  how: string;
+  // como fica depois que ele lembra o nome dela
+  named?: { name: string; text: string };
+}
+
+export const RELICS: Record<Ability, RelicInfo> = {
+  dash: {
+    name: 'Esporas do Carrasco',
+    text: 'Presas nas botas de um carrasco que dorme no ossuário. O ferro lembra do galope antes de você.',
+    how: '{dash} dash · também funciona no ar. Agachado, {dash} desliza',
+  },
   wall: {
     name: 'Garras de Ferro',
     text: 'Garras de um sineiro antigo. Seguram em qualquer pedra.',
@@ -164,7 +269,21 @@ export const RELICS: Record<Ability, { name: string; text: string; how: string }
     text: 'Um pedaço da sombra dele. Pesa como um pano molhado e passa por onde a pedra não deixa.',
     how: 'O {dash} vira tinta: atravessa golpes, grades de cela e membranas abissais',
   },
+  cape: {
+    name: 'Retalho Vermelho',
+    text: 'Um pedaço de capa vermelha, pendurado num prego da porta. O nó ainda está feito, do jeito que ela amarrava.',
+    how: 'No ar, segure {jump} para planar. Nas correntes de ar que sobem, o retalho abre e leva você para cima',
+    named: {
+      name: 'A Capa de Arielle',
+      text: 'O retalho da capa de Arielle. Ela amarrava no pescoço dele quando ventava na serra, e ria do nó torto.',
+    },
+  },
 };
+
+export function relicInfo(a: Ability, knowsName: boolean) {
+  const r = RELICS[a];
+  return knowsName && r.named ? { ...r, ...r.named } : r;
+}
 
 // O que o Cobrador aceita: memórias (que o cavaleiro esquece) ou moedas. Cada item ocupa
 // espaços no inventário (slots) e só vale enquanto estiver equipado. Os presentes ('gift') não
@@ -347,6 +466,36 @@ export const BESTIARY: { kind: string; name: string; text: string; tip: string }
     kind: 'boss:carcereira', name: 'A Carcereira',
     text: 'Guarda as chaves de todos e a máscara de cada um. Foi ela quem fechou o ferro no rosto dele.',
     tip: 'Agache na corrente alta, pule a varrida, apare a ponta do gancho e fuja das sombras das gaiolas.',
+  },
+  {
+    kind: 'boss:sombra', name: 'A Sombra do Carrasco',
+    text: 'Tudo o que ele não quis lembrar, numa tinta preta viva com a forma dele de antes: o capuz, o machado. Dormia como uma poça no fundo do abismo.',
+    tip: 'Quando o chão borbulhar embaixo de você, saia: ela sobe dali. Pule a investida rente ao chão e apare o machado no fim da preparação.',
+  },
+  {
+    kind: 'boss:reflexo', name: 'O Reflexo',
+    text: 'O que o espelho de Âmbar guardou dele: repete o caminho, os pulos e os golpes, sempre um instante atrasado.',
+    tip: 'Não fique onde o seu próprio golpe vai cair. Cada acerto trava a imagem; ande sabendo que ela vai passar por onde você passou.',
+  },
+  {
+    kind: 'boss:capataz', name: 'O Capataz de Âmbar',
+    text: 'Tocava as prensas da Casa Vhalor e ficou depois do último turno, picando o veio até o Âmbar crescer nele.',
+    tip: 'Pule a fileira de cristais, rebata as lascas e deixe a investida bater na parede. Quando o apito tocar, saia da sombra da chapa.',
+  },
+  {
+    kind: 'wolf', name: 'Lobo da Caça',
+    text: 'Cão da Casa Vhalor. Congelou correndo atrás de alguém e continua correndo, mesmo sem cheiro para seguir.',
+    tip: 'O uivo chama os outros. Pule por cima do salto e bata enquanto ele derrapa; no gelo ele escorrega bem mais longe.',
+  },
+  {
+    kind: 'owl', name: 'Coruja de Geada',
+    text: 'Dorme pousada nos galhos da caça. Acorda com passos embaixo e mergulha numa curva, soltando geada das penas.',
+    tip: 'Quando ela se solta do galho, saia da curva e bata na volta. Se ela bater na pedra, cai tonta.',
+  },
+  {
+    kind: 'boss:cacador', name: 'O Mestre da Caça',
+    text: 'Caçador-mor da Casa Vhalor. Trazia os fugitivos de volta pela neve e entregava ao carrasco no fim da trilha. Congelou esperando uma presa que passou a serra.',
+    tip: 'Agache na estocada alta, pule a baixa e saia de baixo do salto. Na nevasca, olhe a lanterna: ela pisca antes do golpe.',
   },
 ];
 

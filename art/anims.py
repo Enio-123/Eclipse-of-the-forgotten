@@ -2,7 +2,7 @@
 import math
 
 TAU = math.pi * 2
-WEAPONS = ['sword', 'scythe', 'daggers', 'bow', 'badalo', 'incensario', 'corrente', 'picareta']
+WEAPONS = ['sword', 'scythe', 'daggers', 'bow', 'badalo', 'incensario', 'corrente', 'picareta', 'lanca']
 # os cajados dos magos (staffs.py desenha)
 STAFFS = ['eclipse', 'necro', 'veu', 'espaco']
 
@@ -110,22 +110,68 @@ def run_body(i, n):
                 head=(0, round(-0.6 * math.cos(2 * ph)))), ph
 
 
-JUMP = [dict(legF=(38, 72), legB=(-8, 52), footF=20, footB=10, lean=4, armF=(-30, 70), armB=(30, 40),
-             cape=dict(lift=4, wave=5, phase=1.0, length=1.04), hoodtip=(0, 2)),
-        dict(legF=(30, 60), legB=(-4, 44), footF=20, footB=10, lean=4, armF=(-30, 70), armB=(30, 40),
-             cape=dict(lift=8, wave=6, phase=1.6, length=1.03), hoodtip=(0, 2))]
-FALL = [dict(legF=(18, 12), legB=(-16, 26), footF=25, footB=20, lean=-2, armF=(-50, 60), armB=(60, 30),
-             cape=dict(lift=72, wave=12, phase=0.0, flare=3), hoodtip=(2, -7), head=(0, -1)),
-        dict(legF=(18, 12), legB=(-16, 26), footF=25, footB=20, lean=-2, armF=(-50, 60), armB=(60, 30),
-             cape=dict(lift=80, wave=12, phase=1.7, flare=3), hoodtip=(3, -8), head=(0, -1))]
-LAND = [dict(hip=(0, 6), lean=16, legF=(58, 104), legB=(12, 84), armF=(-4, 50), armB=(28, 40),
-             cape=dict(lift=14, wave=4, phase=2.0), hoodtip=(-1, 2), head=(0, 1)),
-        dict(hip=(0, 3), lean=10, legF=(34, 60), legB=(2, 46), armF=(-4, 50), armB=(28, 40),
-             cape=dict(lift=9, wave=3, phase=2.6), hoodtip=(-1, 2), head=(0, 1))]
+# No ar: uma tira de poses que o jogo escolhe pela velocidade vertical (não pelo relógio), do impulso
+# logo depois de sair do chão até a queda rápida. Assim o corpo acompanha o arco de qualquer pulo, curto
+# ou longo: empurra o chão com as pernas esticadas, encolhe os joelhos subindo, flutua no topo com a
+# capa abrindo e desce as pernas para a aterrissagem enquanto a capa sobe.
+AIR = [
+    # 0 impulso: pernas esticadas empurrando, braços subindo, capa puxada para baixo pela arrancada
+    dict(hip=(0, -1), lean=6, head=(0, -1), legF=(10, 16), legB=(-24, 34), footF=34, footB=40,
+         armF=(30, 40), armB=(-30, 30), cape=dict(lift=2, wave=3, phase=0.5, length=1.07), hoodtip=(0, 3)),
+    # 1 subida: os joelhos começam a vir
+    dict(lean=5, legF=(28, 46), legB=(-10, 42), footF=26, footB=20, armF=(-10, 60), armB=(16, 36),
+         cape=dict(lift=5, wave=4, phase=1.0, length=1.05), hoodtip=(0, 2)),
+    # 2 subida encolhida
+    dict(lean=6, legF=(42, 76), legB=(2, 60), footF=20, footB=12, armF=(-28, 68), armB=(30, 40),
+         cape=dict(lift=10, wave=6, phase=1.5, length=1.03), hoodtip=(0, 1)),
+    # 3 topo: joelhos no alto, a capa começa a flutuar
+    dict(lean=8, hip=(0, 0.5), legF=(50, 92), legB=(10, 72), footF=16, footB=10, armF=(-20, 56), armB=(44, 32),
+         cape=dict(lift=26, wave=8, phase=2.0, flare=1), hoodtip=(1, -1)),
+    # 4 começo da queda: as pernas descem procurando o chão
+    dict(lean=4, legF=(36, 52), legB=(-6, 44), footF=22, footB=16, armF=(-36, 64), armB=(52, 32),
+         cape=dict(lift=46, wave=10, phase=2.6, flare=2), hoodtip=(2, -4)),
+    # 5 queda
+    dict(lean=0, legF=(22, 22), legB=(-14, 30), footF=25, footB=20, armF=(-46, 62), armB=(58, 30),
+         cape=dict(lift=64, wave=12, phase=3.2, flare=3), hoodtip=(2, -6), head=(0, -1)),
+    # 6 queda rápida: a capa toda para cima
+    dict(lean=-2, legF=(18, 12), legB=(-16, 26), footF=25, footB=20, armF=(-50, 60), armB=(60, 30),
+         cape=dict(lift=78, wave=12, phase=3.9, flare=3), hoodtip=(3, -8), head=(0, -1)),
+]
+# quanto cada quadro do ar já carrega a arma como na queda (0 = como no pulo)
+AIR_CARRY = [0, 0, 0.1, 0.45, 0.75, 1, 1]
+
+
+# queda longa: a capa tremulando para cima e os braços se equilibrando
+def fall_frames(n=4):
+    out = []
+    for i in range(n):
+        ph = TAU * i / n
+        s, c = math.sin(ph), math.cos(ph)
+        out.append(dict(lean=-2, legF=(18 + 2 * s, 12), legB=(-16, 26 + 3 * s), footF=25, footB=20,
+                        armF=(-50 + 5 * s, 60), armB=(60 - 5 * s, 30),
+                        cape=dict(lift=80 + 4 * s, wave=12, phase=3.9 + ph, flare=3), hoodtip=(3, round(-8 + c)), head=(0, -1)))
+    return out
+
+
+# aterrissagem: o peso desce nos joelhos e volta, a capa ainda caindo por cima
+LAND = [dict(hip=(0, 7), lean=18, legF=(62, 112), legB=(14, 92), armF=(-2, 46), armB=(34, 44),
+             cape=dict(lift=34, wave=8, phase=3.6, flare=2), hoodtip=(-1, -2), head=(0, 2)),
+        dict(hip=(0, 5), lean=14, legF=(50, 92), legB=(8, 72), armF=(-4, 48), armB=(30, 42),
+             cape=dict(lift=18, wave=6, phase=4.2, flare=1), hoodtip=(-1, 1), head=(0, 1)),
+        dict(hip=(0, 2.5), lean=8, legF=(30, 50), legB=(0, 38), armF=(-6, 44), armB=(22, 34),
+             cape=dict(lift=10, wave=5, phase=4.8), hoodtip=(-1, 2), head=(0, 1)),
+        dict(hip=(0, 1), lean=3, legF=(14, 18), legB=(-4, 14), armF=(-7, 36), armB=(14, 24),
+             cape=dict(lift=8, wave=4, phase=5.4), hoodtip=(0, 1))]
 DASH = [dict(hip=(0, -1), lean=30, legF=(-6, 26), legB=(-48, 34), footF=-20, footB=-50,
              armF=(-76, 8), armB=(-40, 20),
-             cape=dict(lift=88, wave=5, phase=i * 2.0, length=1.08, flare=1), hoodtip=(-6, -6), head=(1, 0))
-        for i in range(3)]
+             cape=dict(lift=88, wave=5, phase=i * 1.6, length=1.08, flare=1), hoodtip=(-6, -6 + (i % 2)), head=(1, 0))
+        for i in range(4)]
+# na parede: de costas para ela, a mão de trás e o pé de trás apoiados, o joelho da frente alto; a capa
+# raspa na pedra e o capuz sobe com a descida
+WALL = [dict(hip=(-1, 2), lean=-8, head=(0, 0), tilt=-4, legF=(46, 84), legB=(-34, 66), footF=8, footB=-30,
+             armF=(16, 50), armB=(-72, 26), zB=0.5,
+             cape=dict(lift=10 + 3 * i, wave=2, phase=0.8 + i * 1.4, length=0.94), hoodtip=(1, -2 - i))
+        for i in range(2)]
 HURT = [dict(lean=-18, tilt=-14, head=(-1, 0), legF=(26, 36), legB=(-14, 42), armF=(40, 40), armB=(-50, 30),
              cape=dict(lift=34, wave=10, phase=0.8), hoodtip=(2, -3)),
         dict(lean=-12, tilt=-8, head=(-1, 0), legF=(26, 36), legB=(-14, 42), armF=(40, 40), armB=(-50, 30),
@@ -228,6 +274,19 @@ def carry(w, name, i=0, n=1, ph=0.0, b=0.0):
                 'crouch': dict(armF=(40, 50), wpn=70),
                 'slide': dict(armF=(-70, 30), wpn=-110),
                 'kneel': dict(armF=(96, 34), wpn=0)}[name]
+    if w == 'lanca':
+        # a lança do Mestre da Caça: parado, fincada em pé do lado da frente (a lanterna pendurada perto
+        # do capuz); correndo, levada pelo meio do cabo com a ponta para a frente e a lanterna balançando
+        return {'idle': dict(armF=(24 + b * 2, 60 - b * 2), wpn=174 - b, grip=25, swing=2 * math.sin(ph)),
+                'run': dict(armF=(38 + 10 * s, 42), wpn=106 + 4 * s, grip=24, swing=-14 + 9 * s),
+                'jump': dict(armF=(52, 40), wpn=122, grip=24, swing=14),
+                'fall': dict(armF=(40, 46), wpn=100, grip=24, swing=-26),
+                'land': dict(armF=(32, 50), wpn=98, grip=24, swing=16),
+                'dash': dict(armF=(76, 10), wpn=92, grip=27, swing=-48),
+                'hurt': dict(armF=(40, 40), wpn=128, grip=22, swing=24),
+                'crouch': dict(armF=(58, 32), wpn=94, grip=24, swing=4),
+                'slide': dict(armF=(-60, 30), wpn=-112, grip=20, swing=-30),
+                'kneel': dict(armF=(100, 30), wpn=178, grip=31, swing=0)}[name]
     if w in STAFFS:
         # o cajado: parado, em pé na frente do corpo com a cabeça acima do capuz; andando, levado
         # inclinado para trás, como a foice
@@ -519,6 +578,42 @@ def attacks(w):
             lerp(CROUCH, dict(armF=(86, 2), lean=36, lash=True), 1),
             lerp(CROUCH, dict(armF=(20, 30), wpn=10, lean=32), 1),
         ], 20)
+    elif w == 'lanca':
+        # a estocada: as duas mãos no cabo, puxa para trás e empurra a ponta reta (o jogo leva o corpo
+        # junto no golpe para o lado); a lanterna fica para trás no tranco e volta balançando
+        two = lambda s: ('staff', s)
+        L = dict(legF=(30, 28), legB=(-28, 22), footF=-4, footB=-8)
+        Lx = dict(legF=(44, 30), legB=(-40, 8), footF=-2, footB=-14)
+        A['attack'] = ([
+            dict(L, lean=-6, hip=(-1, 0), armF=(46, 44), wpn=96, grip=31, ikB=two(-11), zB=4.9, swing=10, cape=dict(lift=8, wave=4, phase=0.3), hoodtip=(1, 1)),
+            dict(L, lean=-8, hip=(-2, 0), armF=(36, 50), wpn=94, grip=33, ikB=two(-11), zB=4.9, swing=16, cape=dict(lift=8, wave=4, phase=0.8), hoodtip=(2, 1)),
+            dict(Lx, lean=16, hip=(3, 2), armF=(92, -2), wpn=90, grip=20, ikB=two(-12), zB=4.9, swing=-34, cape=dict(lift=34, wave=7, phase=1.5), hoodtip=(-3, -2)),
+            dict(Lx, lean=18, hip=(4, 2), armF=(94, -4), wpn=90, grip=19, ikB=two(-12), zB=4.9, swing=-24, cape=dict(lift=34, wave=7, phase=2.2), hoodtip=(-3, -2)),
+            dict(L, lean=8, armF=(64, 26), wpn=96, grip=25, swing=8, cape=dict(lift=16, wave=5, phase=2.9), hoodtip=(-1, 0)),
+        ], 20)
+        U = dict(legF=(20, 22), legB=(-20, 20))
+        A['attack_up'] = ([
+            dict(U, lean=8, armF=(30, 40), wpn=166, grip=34, ikB=two(-10), zB=4.9, swing=0, cape=dict(lift=10, wave=4, phase=0.4)),
+            dict(U, lean=10, armF=(20, 44), wpn=170, grip=36, ikB=two(-10), zB=4.9, swing=6, cape=dict(lift=12, wave=4, phase=0.9)),
+            dict(U, lean=-8, armF=(168, 6), wpn=180, grip=20, ikB=two(-11), zB=4.9, head=(0, -1), tilt=-10, swing=10, cape=dict(lift=18, wave=6, phase=1.5)),
+            dict(U, lean=-10, armF=(176, 2), wpn=182, grip=19, ikB=two(-11), zB=4.9, head=(0, -1), tilt=-10, swing=-6, cape=dict(lift=20, wave=6, phase=2.1)),
+            dict(U, lean=-2, armF=(120, 24), wpn=170, grip=25, swing=4, cape=dict(lift=12, wave=4, phase=2.8)),
+        ], 20)
+        D = dict(legF=(40, 70), legB=(-6, 50), footF=20)
+        A['attack_down'] = ([
+            dict(D, lean=-2, armF=(150, 24), wpn=4, grip=40, ikB=two(-10), zB=4.9, swing=150, cape=dict(lift=56, wave=8, phase=0.3), hoodtip=(2, -5)),
+            dict(D, lean=4, armF=(60, 4), wpn=2, grip=26, ikB=two(-10), zB=4.9, swing=170, cape=dict(lift=64, wave=9, phase=1.0), hoodtip=(2, -6)),
+            dict(D, lean=8, armF=(14, -4), wpn=0, grip=18, ikB=two(-10), zB=4.9, swing=176, cape=dict(lift=72, wave=10, phase=1.7), hoodtip=(3, -6)),
+            dict(D, lean=6, armF=(10, 0), wpn=0, grip=18, ikB=two(-10), zB=4.9, swing=176, cape=dict(lift=74, wave=10, phase=2.4), hoodtip=(3, -6)),
+            dict(D, lean=4, armF=(30, 30), wpn=60, grip=24, swing=160, cape=dict(lift=70, wave=10, phase=3.1), hoodtip=(3, -6)),
+        ], 20)
+        A['crouch_attack'] = ([
+            lerp(CROUCH, dict(armF=(40, 40), wpn=94, grip=32, ikB=two(-10), zB=4.9, swing=10, lean=24), 1),
+            lerp(CROUCH, dict(armF=(30, 46), wpn=93, grip=34, ikB=two(-10), zB=4.9, swing=14, lean=22), 1),
+            lerp(CROUCH, dict(armF=(90, 0), wpn=91, grip=20, ikB=two(-11), zB=4.9, swing=-30, lean=36), 1),
+            lerp(CROUCH, dict(armF=(92, -2), wpn=91, grip=19, ikB=two(-11), zB=4.9, swing=-20, lean=38), 1),
+            lerp(CROUCH, dict(armF=(58, 32), wpn=94, grip=24, swing=6, lean=32), 1),
+        ], 20)
     elif w in STAFFS:
         A.update(staff_attacks(w))
     return A
@@ -623,23 +718,33 @@ def staff_attacks(w):
 
 def anims_for(w):
     A = {}
+    # repouso e corrida com 12 quadros por ciclo (o mesmo tempo de antes, o dobro de suavidade quase)
     idle = []
-    for i in range(8):
-        body, b, ph = idle_body(i, 8)
+    for i in range(12):
+        body, b, ph = idle_body(i, 12)
         idle.append(lerp(body, carry(w, 'idle', b=b, ph=ph), 1))
-    A['idle'] = (idle, 7, True)
+    A['idle'] = (idle, 10.5, True)
     run = []
-    for i in range(8):
-        body, ph = run_body(i, 8)
+    for i in range(12):
+        body, ph = run_body(i, 12)
         run.append(lerp(body, carry(w, 'run', ph=ph), 1))
-    A['run'] = (run, 13, True)
-    A['jump'] = ([lerp(f, carry(w, 'jump'), 1) for f in JUMP], 10, True)
-    A['fall'] = ([lerp(f, carry(w, 'fall'), 1) for f in FALL], 10, True)
-    A['land'] = ([lerp(f, carry(w, 'land'), 1) for f in LAND], 16, False)
-    A['dash'] = ([lerp(f, carry(w, 'dash'), 1) for f in DASH], 18, True)
-    A['hurt'] = ([lerp(f, carry(w, 'hurt'), 1) for f in HURT], 10, False)
-    A['crouch'] = ([lerp(f, carry(w, 'crouch'), 1) for f in crouch_frames()], 5, True)
-    A['crouch_walk'] = ([lerp(f, carry(w, 'crouch'), 1) for f in crouch_walk_frames()], 10, True)
+    A['run'] = (run, 19.5, True)
+    cj, cf = carry(w, 'jump'), carry(w, 'fall')
+    # o jogo escolhe o quadro do ar pela velocidade: as 7 poses-chave com uma pose de passagem entre
+    # cada duas (13 quadros), para o corpo mudar sem salto em qualquer arco
+    air, _ = smooth([lerp(f, lerp(cj, cf, k), 1) for f, k in zip(AIR, AIR_CARRY)], 1, target=2)
+    A['air'] = (air, 12, False)
+    # 'jump' fica para quem toca a subida pelo relógio
+    A['jump'] = (air[:5], 12, False)
+    A['fall'] = ([lerp(f, cf, 1) for f in fall_frames()], 12, True)
+    land, fps = smooth([lerp(f, carry(w, 'land'), 1) for f in LAND], 22, target=44)
+    A['land'] = (land, fps, False)
+    A['dash'] = ([lerp(f, carry(w, 'dash'), 1) for f in DASH], 24, True)
+    A['wall'] = ([lerp(f, cf, 1) for f in WALL], 5, True)
+    hurt, fps = smooth([lerp(f, carry(w, 'hurt'), 1) for f in HURT], 10, target=30)
+    A['hurt'] = (hurt, fps, False)
+    A['crouch'] = ([lerp(f, carry(w, 'crouch'), 1) for f in crouch_frames(6)], 7.5, True)
+    A['crouch_walk'] = ([lerp(f, carry(w, 'crouch'), 1) for f in crouch_walk_frames(8)], 13.3, True)
     A['slide'] = ([lerp(f, carry(w, 'slide'), 1) for f in slide_frames()], 12, True)
     kneel = lerp(KNEEL, carry(w, 'kneel'), 1)
     A['kneel'] = ([kneel, lerp(kneel, dict(hip=(0, 11.6), head=(1, 3.5), cape=dict(lift=5, wave=2, phase=1.5)), 1)], 2, True)

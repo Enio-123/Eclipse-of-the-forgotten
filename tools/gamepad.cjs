@@ -130,8 +130,11 @@ const check = (name, ok, extra = '') => {
   check('botão de baixo pula', vy < -50, `vy=${Math.round(vy)}`);
   await page.waitForTimeout(900);
   // o dash dura 0,2 s: quem confere é o próprio jogo, quadro a quadro (o navegador pode demorar a responder)
+  // (o dash vem das Esporas do Carrasco: o jogo novo começa sem)
   await page.evaluate(() => {
     const s = window.__scene;
+    window.__progress.abilities.add('dash');
+    s.applyProgress();
     window.__dashed = false;
     const f = () => { if (s.player.dashT > 0) window.__dashed = true; };
     s.events.on('postupdate', f);

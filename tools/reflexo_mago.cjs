@@ -77,7 +77,7 @@ const URL = process.argv[3] || 'http://localhost:8765/index.html';
       p.starter = starter;
       window.__settings.data.weapon = weapon;
       window.__settings.save();
-      p.abilities = new Set(['wall', 'double', 'hook', 'veil']);
+      p.abilities = new Set(['dash', 'wall', 'double', 'hook', 'veil']);
       for (const k of ['memory:vale', 'gate:catacumbas', 'boss:sineiro', 'weapon:badalo', 'boss:arcebispo', 'weapon:incensario', 'relic:hook', 'item:chaves',
         'preso:met', 'preso:livre', 'boss:carcereira', 'weapon:corrente', 'fosso:aberto', 'boss:sombra', 'relic:veil', ...(o.seen || [])]) p.seen.add(k);
       if (o.echo) {

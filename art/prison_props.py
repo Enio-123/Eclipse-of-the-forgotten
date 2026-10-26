@@ -287,6 +287,39 @@ def relic_hook():
     return prims, decals, W, H
 
 
+# ---------------------------------------------------------------- relíquia: Esporas do Carrasco
+def relic_dash():
+    """A relíquia do dash (18x18, pelo meio): o par de esporas de ferro de um carrasco antigo, com a
+    roseta em forma de sol eclipsado (raios de latão em volta de um disco escuro) e a correia de couro
+    com a fivela. Uma na frente e a outra atrás, mais escura."""
+    W, H = 18, 18
+    prims, decals = [], []
+
+    def spur(ox, oy, z, shade):
+        # a ferradura do calcanhar: meio anel aberto para a frente (onde entra a bota)
+        ring(prims, 'heel', 'iron', z, (ox + 5.6, oy + 7.4), 4.4, 3.2, 0.95, n=20, ang0=0.0,
+             gap=(math.pi * 0.62, math.pi * 1.38), shade=shade)
+        # o pescoço indo para trás, um pouco para baixo, até a roseta
+        pts, nf = rod(ox + 9.8, oy + 7.6, ox + 12.8, oy + 9.0, 0.65)
+        prims.append(Poly('neck', 'iron', z + 0.05, pts, nf=nf, shade=shade))
+        c = (ox + 13.9, oy + 9.5)
+        for i in range(8):
+            a = i / 8 * 2 * math.pi + 0.2
+            tip = (c[0] + math.cos(a) * 3.1, c[1] + math.sin(a) * 3.1)
+            prims.append(Capsule('ray', 'keybrass', z + 0.1, c, tip, 0.7, 0.18, shade=shade))
+        prims.append(Ellipse('disc', 'keybrass', z + 0.12, c, 1.55, 1.55, flat=3, shade=shade))
+        prims.append(Ellipse('eclipse', 'void', z + 0.14, (c[0] + 0.35, c[1] - 0.25), 1.1, 1.1, flat=1))
+        # a correia que passa por cima do pé, com a fivela
+        pts, nf = rod(ox + 1.4, oy + 5.0, ox + 9.4, oy + 4.4, 0.75)
+        prims.append(Poly('strap', 'leather', z + 0.2, pts, nf=nf, shade=shade))
+        prims.append(Ellipse('buckle', 'keybrass', z + 0.25, (ox + 4.6, oy + 4.8), 1.0, 0.9, flat=3, shade=shade))
+        prims.append(Capsule('tongue', 'iron', z + 0.26, (ox + 4.6, oy + 4.2), (ox + 4.6, oy + 5.4), 0.25, 0.25, flat=2, shade=shade))
+
+    spur(1.6, 0.6, 1.0, 0.7)
+    spur(0.0, 3.8, 2.0, 1.0)
+    return prims, decals, W, H
+
+
 # ---------------------------------------------------------------- arma: Corrente da Carcereira
 def corrente():
     """A Corrente da Carcereira no chão (32x32, pelo meio): enrolada em duas voltas e o gancho
@@ -329,6 +362,7 @@ PROPS = {
     'deco-anvil': anvil,
     'cage': cage,
     'relic-hook': relic_hook,
+    'relic-dash': relic_dash,
     'item-corrente': corrente,
     'item-elo': elo,
 }

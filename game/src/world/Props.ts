@@ -9,6 +9,8 @@ import { face, hd } from '../gfx/flip';
 
 // pavios das cinco velas do altar (em relação ao pé do desenho)
 const WICKS: [number, number][] = [[-9, -41], [-4, -46], [1, -50], [6, -44], [11, -40]];
+// na neve o descanso é uma fogueira (ou a lareira da cabana): três chamas grandes no meio da lenha
+const FIRE: [number, number, number][] = [[-4, -2, 2.1], [0, -3, 2.7], [4, -2, 1.9]];
 
 export interface Shrine {
   i: number;
@@ -61,9 +63,11 @@ export class Props {
     let mi = 0;
     for (const s of L.spawns) {
       if (s.kind === 'R') this.addShrine(ri++, s.x, s.y);
+      else if (s.kind === '>') this.addRelic('dash', s.x, s.y);
       else if (s.kind === 'J') this.addRelic('wall', s.x, s.y);
       else if (s.kind === 'U') this.addRelic('double', s.x, s.y);
       else if (s.kind === 'w') this.addRelic('hook', s.x, s.y);
+      else if (s.kind === '{') this.addRelic('cape', s.x, s.y);
       else if (s.kind === 'K') this.addCobrador(s.x, s.y);
       else if (s.kind === 'm') {
         const id = `${room}:${mi++}`;
@@ -77,7 +81,9 @@ export class Props {
       const top = Math.min(...ys);
       const h = (Math.max(...ys) - top + 1) * TILE;
       // atrás da pintura do terreno: ao subir, some dentro da pedra
-      const sprite = scene.add.image(x * TILE, top * TILE, 'deco-portcullis').setOrigin(0).setDepth(DEPTH.tiles - 0.5);
+      // na floresta, a paliçada de troncos afiados
+      const key = L.theme === 'snow' && scene.textures.exists('deco-palisade') ? 'deco-palisade' : 'deco-portcullis';
+      const sprite = scene.add.image(x * TILE, top * TILE, key).setOrigin(0).setDepth(DEPTH.tiles - 0.5);
       sprite.setDisplaySize(TILE, h);
       this.gates.push({ x: x * TILE, y: top * TILE, h, sprite, open: false });
     }
@@ -85,13 +91,18 @@ export class Props {
   }
 
   // ---------- velas de descanso ----------
+  private get fire() {
+    return this.scene.level.theme === 'snow';
+  }
+
   private addShrine(i: number, x: number, y: number) {
     const s = this.scene;
-    s.add.image(x, y, 'deco-shrine').setOrigin(0.5, 1).setDepth(DEPTH.prop);
+    // na neve a fogueira (ou a lareira) já está na pintura da sala
+    if (!this.fire) s.add.image(x, y, 'deco-shrine').setOrigin(0.5, 1).setDepth(DEPTH.prop);
     const sh: Shrine = { i, x, y, lit: false, flames: [], glows: [] };
     this.shrines.push(sh);
-    // brasa fraca nos pavios antes de acender
-    const ember = s.add.image(x + 1, y - 46, 'glow').setScale(0.9).setTint(0xff7a2a).setAlpha(0.22).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.front);
+    // brasa fraca nos pavios (ou na lenha) antes de acender
+    const ember = s.add.image(x + 1, this.fire ? y - 4 : y - 46, 'glow').setScale(0.9).setTint(0xff7a2a).setAlpha(0.22).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.front);
     sh.glows.push(ember);
     if (progress.seen.has(this.restKey(i))) this.light(sh, false);
   }
@@ -104,6 +115,10 @@ export class Props {
     if (sh.lit) return;
     sh.lit = true;
     const s = this.scene;
+    if (this.fire) {
+      this.lightFire(sh, animate);
+      return;
+    }
     WICKS.forEach(([dx, dy], k) => {
       const f = s.add.sprite(sh.x + dx + 0.5, sh.y + dy + 1, 'flame', 0).setOrigin(0.5, 1).setDepth(DEPTH.prop + 0.1);
       f.play({ key: 'flame', startFrame: k % 4 });
@@ -123,14 +138,41 @@ export class Props {
     sh.glows[0]?.setVisible(false);
   }
 
+  // a fogueira acende: chamas grandes na lenha e a luz quente em volta
+  private lightFire(sh: Shrine, animate: boolean) {
+    const s = this.scene;
+    FIRE.forEach(([dx, dy, k], i) => {
+      const f = s.add.sprite(sh.x + dx, sh.y + dy, 'flame', 0).setOrigin(0.5, 1).setScale(k).setDepth(DEPTH.prop + 0.1);
+      f.play({ key: 'flame', startFrame: i % 4 });
+      if (animate) {
+        f.setScale(0);
+        s.tweens.add({ targets: f, scale: k, delay: 120 * i, duration: 320, ease: 'Back.easeOut' });
+      }
+      sh.flames.push(f);
+    });
+    const add = Phaser.BlendModes.ADD;
+    const core = s.add.image(sh.x, sh.y - 10, 'glow').setScale(1.7).setTint(0xffb04a).setAlpha(0.75).setBlendMode(add).setDepth(DEPTH.front);
+    const wide = s.add.image(sh.x, sh.y - 14, 'glow').setScale(6).setTint(0xff9a3c).setAlpha(0.24).setBlendMode(add).setDepth(DEPTH.front);
+    for (const [img, base] of [[core, 0.75], [wide, 0.24]] as const) {
+      this.flickers.push({ img, base, phase: Math.random() * 10 });
+      if (animate) s.tweens.add({ targets: img, alpha: { from: 0, to: base }, duration: 800 });
+    }
+    sh.glows[0]?.setVisible(false);
+  }
+
   // ---------- relíquias ----------
   private addRelic(kind: Ability, x: number, y: number) {
     const s = this.scene;
-    s.add.image(x, y, 'deco-pedestal').setOrigin(0.5, 1).setDepth(DEPTH.prop);
+    // o retalho vermelho fica pendurado no prego da porta da cabana (sem pedestal)
+    const hung = kind === 'cape';
+    if (!hung) s.add.image(x, y, 'deco-pedestal').setOrigin(0.5, 1).setDepth(DEPTH.prop);
     const r: Relic = { kind, x, y, sprite: null, glow: null };
     if (!progress.abilities.has(kind)) {
-      r.glow = s.add.image(x, y - 50, 'glow').setScale(1.8).setTint(kind === 'wall' || kind === 'hook' ? 0xbcd4ff : 0xfff0c8).setAlpha(0.55).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.front);
-      r.sprite = hd(s.add.image(x, y - 50, `relic-${kind}`).setDepth(DEPTH.enemy));
+      const tint = kind === 'wall' || kind === 'hook' ? 0xbcd4ff : kind === 'cape' ? 0xffb8a0 : 0xfff0c8;
+      r.glow = s.add.image(x, y - 50, 'glow').setScale(hung ? 1.4 : 1.8).setTint(tint).setAlpha(0.55).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.front);
+      const key = s.textures.exists(`relic-${kind}`) ? `relic-${kind}` : 'relic-double';
+      r.sprite = hd(s.add.image(x, hung ? y - 63 : y - 50, key).setDepth(DEPTH.enemy));
+      if (hung) r.sprite.setOrigin(0.5, 0.04);
     }
     this.relics.push(r);
   }
@@ -270,10 +312,15 @@ export class Props {
   update(time: number, p: Player) {
     for (const r of this.relics) {
       if (!r.sprite || !r.glow) continue;
+      r.glow.alpha = 0.5 + Math.sin(time * 0.004) * 0.12;
+      // o retalho no prego balança com o vento que entra pela porta
+      if (r.kind === 'cape') {
+        r.sprite.rotation = Math.sin(time * 0.0017) * 0.07 + Math.sin(time * 0.0041) * 0.03;
+        continue;
+      }
       const y = r.y - 50 + Math.sin(time * 0.0024) * 3;
       r.sprite.y = y;
       r.glow.y = y;
-      r.glow.alpha = 0.5 + Math.sin(time * 0.004) * 0.12;
     }
     for (const m of this.memories) {
       if (m.taken) continue;

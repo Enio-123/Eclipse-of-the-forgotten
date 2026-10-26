@@ -19,6 +19,9 @@ interface Rec {
   flip: boolean;
   ox: number;
   oy: number;
+  // o corpo esticado ou amassado do cavaleiro naquele quadro
+  sx: number;
+  sy: number;
   body: Box;
   atk: Box | null;
   slash: { tex: string; frame: string | number; x: number; y: number; ang: number; fx: boolean; fy: boolean; ox: number; oy: number; sx: number; sy: number } | null;
@@ -155,6 +158,8 @@ export class Reflexo implements BossFoe {
       flip: s.flipX,
       ox: s.originX,
       oy: s.originY,
+      sx: s.scaleX,
+      sy: s.scaleY,
       body: box(p.rect),
       atk: p.attacking && !p.dead ? box(p.attackBox()) : null,
       slash: sl.visible
@@ -185,7 +190,7 @@ export class Reflexo implements BossFoe {
     const s = this.sprite;
     if (s.texture.key !== r.tex) hd(s.setTexture(r.tex, r.frame));
     else s.setFrame(r.frame);
-    s.setFlipX(r.flip).setOrigin(r.ox, r.oy).setPosition(r.x, r.y);
+    s.setFlipX(r.flip).setOrigin(r.ox, r.oy).setScale(r.sx, r.sy).setPosition(r.x, r.y);
     this.facing = r.flip ? -1 : 1;
     const b = r.body;
     this.body.reset(b[0] + b[2] / 2, b[1] + b[3] / 2);

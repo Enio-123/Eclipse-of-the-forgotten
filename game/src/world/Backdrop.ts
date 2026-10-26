@@ -18,6 +18,29 @@ export const HD_LAYERS: Record<string, string[]> = {
   memory: ['mem-sky', 'mem-far', 'mem-mid'],
 };
 
+// as imagens de fundo que a sala usa (vêm quando ela abre: gfx/roomAssets.ts); as nuvens ficam sempre,
+// a tela de título usa também
+export function backdropKeys(theme: string, room: string): string[] {
+  switch (theme) {
+    case 'bridge':
+      return ['bridge-sky', 'bridge-far', 'bridge-far-rim', 'bridge-mid', 'bridge-mid-rim', 'bridge-fg'];
+    case 'catacomb':
+      return ['cat-far', 'cat-mid'];
+    case 'city':
+      return ['city-sky', 'city-far', room === 'claustro' ? 'claustro-mid' : 'city-mid'];
+    case 'nave':
+      return ['nave-far', 'nave-mid'];
+    case 'prison':
+      return room === 'fosso' || room === 'abismo' ? ['fosso-far', 'fosso-mid'] : ['prison-far', 'prison-mid'];
+    case 'mine':
+      return ['mine-far', 'mine-mid'];
+    case 'snow':
+      return room === 'serra' ? ['snow-sky', 'serra-far', 'serra-mid'] : ['snow-sky', 'snow-far', 'snow-mid'];
+    default:
+      return ['mem-sky', 'mem-far', 'mem-mid'];
+  }
+}
+
 // Camadas de fundo com parallax para cada tema. As camadas "rim" acendem nos relâmpagos.
 export class Backdrop {
   readonly rims: Layer[] = [];
@@ -43,8 +66,9 @@ export class Backdrop {
     else if (theme === 'nave') this.nave();
     else if (theme === 'prison') this.prison();
     else if (theme === 'mine') this.mine();
+    else if (theme === 'snow') this.snow();
     else this.memory();
-    this.bg = { bridge: 0x161a2b, catacomb: 0x07080d, city: 0x0b1020, nave: 0x07080d, memory: 0x5c9a3e, prison: 0x08070b, mine: 0x0a0807 }[theme];
+    this.bg = { bridge: 0x161a2b, catacomb: 0x07080d, city: 0x0b1020, nave: 0x07080d, memory: 0x5c9a3e, prison: 0x08070b, mine: 0x0a0807, snow: 0x9fb3c8 }[theme];
   }
 
   private img(key: string, depth: number) {
@@ -351,6 +375,85 @@ export class Backdrop {
     const glow = this.scene.add.image(this.so.x + VIEW_W / 2, this.so.y + VIEW_H + 40, 'glow').setScale(15, 5).setTint(0xb8641c).setAlpha(0.09)
       .setBlendMode(add).setScrollFactor(0).setDepth(BG.fog);
     this.layers.push({ o: glow, update: (_sx, _sy, t) => void (glow.alpha = 0.075 + 0.025 * Math.sin(t * 0.0005)) });
+  }
+
+  // Floresta Nevada: o céu branco de neve preso na tela, os pinheiros distantes sumindo na névoa e os
+  // mais perto, escuros e grossos; a névoa na altura do chão e os fachos de luz fria entre as copas,
+  // como na abertura. Na serra, a fenda: paredes de rocha com gelo dos dois lados (repetem na vertical)
+  private snow() {
+    this.snowFallback();
+    const shaft = this.room === 'serra';
+    hd(this.img('snow-sky', BG.sky));
+    const far = this.hdTile(shaft ? 'serra-far' : 'snow-far', BG.far, VIEW_H);
+    const mid = this.hdTile(shaft ? 'serra-mid' : 'snow-mid', BG.mid, VIEW_H);
+    const fog = this.tile('fog', BG.fog, 140, 236).setAlpha(0.32).setTint(0xe4ecf6);
+    // na fenda as duas camadas repetem na vertical e andam com a câmera; no resto elas ficam presas
+    // embaixo, no chão da sala, e descem quando a câmera sobe (aparece o céu por cima das copas)
+    this.layers.push(
+      {
+        o: far,
+        update: (sx, sy) => {
+          far.tilePositionX = (sx * 0.12) / far.tileScaleX;
+          if (shaft) far.tilePositionY = (sy * 0.1) / far.tileScaleY;
+          else far.y = this.so.y + Math.round(this.lift(sy) * 0.06);
+        },
+      },
+      {
+        o: mid,
+        update: (sx, sy) => {
+          mid.tilePositionX = (sx * 0.34) / mid.tileScaleX;
+          if (shaft) mid.tilePositionY = (sy * 0.3) / mid.tileScaleY;
+          else mid.y = this.so.y + Math.round(this.lift(sy) * 0.18);
+        },
+      },
+      {
+        o: fog,
+        update: (sx, sy, t) => {
+          fog.tilePositionX = sx * 0.5 + t * 0.006;
+          fog.y = this.so.y + 236 + Math.round(this.lift(sy) * 0.4);
+        },
+      },
+    );
+    const add = Phaser.BlendModes.ADD;
+    for (const [x, a, rot] of [[110, 0.1, 0.32], [330, 0.07, 0.28], [540, 0.09, 0.36]] as const) {
+      const beam = this.scene.add.image(x + this.so.x * 0.7, -30 + this.so.y * 0.9, 'beam').setOrigin(0.5, 0).setScale(2.4, 2.8).setRotation(rot).setAlpha(a)
+        .setTint(0xeaf2ff).setBlendMode(add).setScrollFactor(0.3, 0.1).setDepth(BG.beams);
+      this.layers.push({ o: beam, update: (_sx, _sy, t) => void (beam.alpha = a * (0.7 + 0.3 * Math.sin(t * 0.0004 + x))) });
+    }
+  }
+
+  // enquanto a pintura dos fundos da floresta não chega: o céu em degradê e troncos lisos em duas
+  // distâncias (os de longe claros, quase sumindo; os de perto mais escuros)
+  private snowFallback() {
+    const sc = this.scene;
+    const make = (key: string, w: number, h: number, draw: (g: Phaser.GameObjects.Graphics) => void) => {
+      if (sc.textures.exists(key)) return;
+      const g = sc.add.graphics();
+      draw(g);
+      g.generateTexture(key, w, h);
+      g.destroy();
+    };
+    make('snow-sky', VIEW_W, VIEW_H, (g) => {
+      for (let y = 0; y < VIEW_H; y += 4) {
+        const k = y / VIEW_H;
+        const c = Phaser.Display.Color.Interpolate.ColorWithColor(Phaser.Display.Color.ValueToColor(0x8fa6c0), Phaser.Display.Color.ValueToColor(0xdfe8f2), 100, k * 100);
+        g.fillStyle(Phaser.Display.Color.GetColor(c.r, c.g, c.b)).fillRect(0, y, VIEW_W, 4);
+      }
+    });
+    const trunks = (key: string, color: number, alpha: number, wMin: number, wMax: number, gap: number, seed: number) =>
+      make(key, 640, VIEW_H, (g) => {
+        let r = seed;
+        const rand = () => ((r = (r * 16807) % 2147483647) / 2147483647);
+        for (let x = 10; x < 640; x += gap + rand() * gap) {
+          const w = wMin + rand() * (wMax - wMin);
+          g.fillStyle(color, alpha).fillRect(Math.round(x), 0, Math.round(w), VIEW_H);
+          g.fillStyle(0xffffff, alpha * 0.25).fillRect(Math.round(x), 0, 1, VIEW_H);
+        }
+      });
+    trunks('snow-far', 0x9fb1c6, 0.55, 6, 12, 34, 7);
+    trunks('snow-mid', 0x51647e, 0.75, 12, 22, 70, 13);
+    trunks('serra-far', 0x8a9db3, 0.5, 30, 60, 120, 5);
+    trunks('serra-mid', 0x46566c, 0.7, 20, 40, 160, 11);
   }
 
   private memory() {

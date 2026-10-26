@@ -291,13 +291,18 @@ type RGB = [number, number, number];
 export interface Look {
   // luz de fundo, longe das lâmpadas
   ambient: RGB;
-  // luz do céu nas partes abertas para cima (zero nas salas fechadas)
+  // luz do céu nas partes abertas para cima (zero nas salas fechadas) e em quantas células de 8 px ela
+  // cai pela metade descendo por um poço ou fenda (0 = não cai)
   sky: RGB;
-  // luz fraca em volta do cavaleiro (ajuda a ler o chão no escuro)
+  skyDepth: number;
+  // luz fraca em volta do cavaleiro (ajuda a ler o chão no escuro) e até onde ela chega (px do mundo)
   knight: number;
+  knightR: number;
   // escurecimento perto das paredes e nos cantos
   ao: number;
   lightGain: number;
+  // até onde as luzes chegam (1 = o tamanho do brilho); nas salas escuras a poça de luz é maior
+  reach: number;
   // luz que bate na pedra e volta (fração da direta)
   bounce: number;
   relief: number;

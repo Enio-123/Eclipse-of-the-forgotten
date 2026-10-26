@@ -15,7 +15,7 @@ const OUT = process.argv[2] || '.';
       P.reset();
       P.upgrades = new Set(['mask', 'blade', 'breath', 'purse']);
       P.equipped = new Set(['mask', 'blade']);
-      P.abilities = new Set(['wall']);
+      P.abilities = new Set(['dash', 'wall']);
       P.save();
     });
     await page.evaluate(() => window.__ui.menu({ hasSave: true, onContinue() {}, onNew() {}, onErase() {} }));

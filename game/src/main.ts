@@ -12,6 +12,7 @@ import { ui } from './ui/ui';
 import { pad } from './systems/Pad';
 import { settings } from './systems/Settings';
 import { applyFpsLimit } from './systems/Graphics';
+import { ROOMS } from './world/rooms';
 import './systems/Audio';
 
 pad.vibration = settings.data.vibration;
@@ -42,4 +43,4 @@ watchSpeed(game, () => {
   return !!g && g.scene.isActive() && g.live;
 });
 // acesso para os testes automatizados
-Object.assign(window as object, { __game: game, __ui: ui, __progress: progress, __settings: settings, __res: () => RES });
+Object.assign(window as object, { __game: game, __ui: ui, __progress: progress, __settings: settings, __res: () => RES, __rooms: ROOMS });

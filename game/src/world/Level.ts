@@ -3,7 +3,11 @@ import { TILE } from '../config';
 import { SOLID_VARIANTS, TILE_ONEWAY, TILE_SOLID, TILE_SPIKE } from '../gfx/textures';
 import { findBreakables, type Breakable } from './secrets';
 
-export type Theme = 'bridge' | 'catacomb' | 'memory' | 'city' | 'nave' | 'prison' | 'mine';
+export type Theme = 'bridge' | 'catacomb' | 'memory' | 'city' | 'nave' | 'prison' | 'mine' | 'snow';
+
+// o que conta como rocha no grid: pedra, ferro liso (na neve, parede de gelo) e o chão de gelo do lago
+const ROCK = '#+_';
+const rock = (c: string | undefined) => c !== undefined && c.length === 1 && ROCK.includes(c);
 
 // bloco liso usado nas grades, nas paredes falsas e nos vitrais (sólidos enquanto fechados)
 export const BLOCK = TILE_SOLID + 15 * SOLID_VARIANTS;
@@ -32,6 +36,7 @@ export const isGround = (i: number) => i >= TILE_SOLID || i === TILE_ONEWAY;
 // '%' parede falsa, 'V' vitral quebrável; na prisão: '+' ferro liso (as garras escorregam),
 // '=' alçapão, ':' grade de cela e '!' grade do alarme (aberta até cair); '&' membrana abissal (como a
 // grade de cela, só o Véu Abissal atravessa); nas Minas, '@' bloco de Âmbar (só a Picareta quebra);
+// na Floresta Nevada, '_' gelo (chão que escorrega) e ';' gelo fino (racha e quebra; o Forest cuida);
 // letras e números são objetos
 export class Level {
   readonly map: Phaser.Tilemaps.Tilemap;
@@ -45,6 +50,8 @@ export class Level {
   readonly alarms: { x: number; y: number }[] = [];
   // blocos de Âmbar ainda de pé (cada grupo encostado é um só; só a Picareta quebra)
   readonly ambers: { id: string; cells: [number, number][] }[] = [];
+  // gelo fino ainda inteiro (cada célula racha sozinha)
+  readonly thin: { x: number; y: number }[] = [];
   // paredes falsas e vitrais ainda de pé (os já quebrados viram vão no grid)
   readonly breakables: Breakable[] = [];
   readonly widthPx: number;
@@ -93,14 +100,14 @@ export class Level {
     this.grid = grid;
     this.w = w;
     this.h = h;
-    const solid = (x: number, y: number) => x < 0 || y < 0 || x >= w || y >= h || grid[y][x] === '#' || grid[y][x] === '+';
+    const solid = (x: number, y: number) => x < 0 || y < 0 || x >= w || y >= h || rock(grid[y][x]);
 
     const data: number[][] = [];
     for (let y = 0; y < h; y++) {
       const row: number[] = [];
       for (let x = 0; x < w; x++) {
         const c = grid[y][x];
-        if (c === '#' || c === '+') {
+        if (rock(c)) {
           // fundo de riacho não ganha grama: a água conta como coberta por cima
           const top = solid(x, y - 1) || grid[y - 1]?.[x] === '~';
           const mask = (top ? 0 : 1) | (solid(x + 1, y) ? 0 : 2) | (solid(x, y + 1) ? 0 : 4) | (solid(x - 1, y) ? 0 : 8);
@@ -126,6 +133,9 @@ export class Level {
         } else if (c === '!') {
           row.push(-1);
           this.alarms.push({ x, y });
+        } else if (c === ';') {
+          row.push(BLOCK);
+          this.thin.push({ x, y });
         } else if (c === '%' || c === 'V' || c === '@') row.push(BLOCK);
         else if (c === '-') row.push(TILE_ONEWAY);
         else if (c === '^') row.push(TILE_SPIKE);
@@ -171,8 +181,13 @@ export class Level {
   }
 
   solidCell(x: number, y: number) {
+    return rock(this.ch(x, y));
+  }
+
+  // chão que escorrega: o gelo do lago (e o gelo fino, enquanto não quebra)
+  iceCell(x: number, y: number) {
     const c = this.ch(x, y);
-    return c === '#' || c === '+';
+    return c === '_' || c === ';';
   }
 
   // parede de ferro liso: as garras não seguram
@@ -214,7 +229,7 @@ export class Level {
   // célula vazia de verdade (sem chão, plataforma ou espinho)
   openCell(x: number, y: number) {
     const c = this.ch(x, y);
-    return c !== '#' && c !== '+' && c !== '-' && c !== '^';
+    return !rock(c) && c !== '-' && c !== '^' && c !== ';';
   }
 
   // põe ou tira um bloco liso (alçapões e grades do alarme)
@@ -244,6 +259,23 @@ export class Level {
       if (open) this.layer.removeTileAt(l.x, l.y);
       else this.layer.putTileAt(BLOCK, l.x, l.y);
     }
+  }
+
+  // tem gelo fino na linha y (px) entre x0 e x1 (px)?
+  thinNear(x0: number, x1: number, y: number) {
+    if (!this.thin.length) return false;
+    const ty = Math.floor(y / TILE);
+    const a = Math.floor(x0 / TILE);
+    const z = Math.floor(x1 / TILE);
+    return this.thin.some((t) => t.y === ty && t.x >= a && t.x <= z);
+  }
+
+  // o gelo fino quebrou: a célula vira vão (embaixo, a água)
+  breakThin(x: number, y: number) {
+    this.layer.removeTileAt(x, y);
+    this.grid[y] = this.grid[y].slice(0, x) + '.' + this.grid[y].slice(x + 1);
+    const i = this.thin.findIndex((t) => t.x === x && t.y === y);
+    if (i >= 0) this.thin.splice(i, 1);
   }
 
   // a parede falsa (ou o vitral) cai: as células viram vão
@@ -318,7 +350,7 @@ export class Level {
   private depthField() {
     const { grid, w, h } = this;
     const INF = 99;
-    const d: number[][] = grid.map((r) => [...r].map((c) => (c === '#' || c === '+' ? INF : 0)));
+    const d: number[][] = grid.map((r) => [...r].map((c) => (rock(c) ? INF : 0)));
     const q: [number, number][] = [];
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (d[y][x] === 0) q.push([x, y]);
     for (let i = 0; i < q.length; i++) {

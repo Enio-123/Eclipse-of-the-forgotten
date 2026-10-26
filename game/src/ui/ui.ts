@@ -4,14 +4,19 @@ import { raw } from '../systems/RawInput';
 import { ACTIONS, ACTION_LABEL, PAD_ACTIONS, codeName, settings, type Action, type Quality } from '../systems/Settings';
 import { audio } from '../systems/Audio';
 import { BRAND_LABEL, BTN, buttonGlyph, buttonName, pad, stickGlyph, type PadBrand } from '../systems/Pad';
-import { LEVEL_MUL, MAX_LEVEL, SLOT_IDS, progress, type SlotFind, type Upgrade } from '../systems/Save';
-import { BESTIARY, ELO, FORGE, MATERIALS, MEMORIES, MEMORY_TOTAL, OFFERS, PAGES, PAGE_IDS, RECORDS, RECORD_IDS, RELICS, SLOT_FINDS } from '../world/lore';
-import { MAP_POS, ROOMS, type Ability, type RoomId } from '../world/rooms';
-import { drawMarker, renderMap, type MapHere } from './mapview';
+import { ABILITIES, LEVEL_MUL, MAX_LEVEL, SLOT_IDS, progress, type SlotFind, type Upgrade } from '../systems/Save';
+import { BESTIARY, ELO, FORGE, MATERIALS, MEMORIES, MEMORY_TOTAL, OFFERS, PAGES, PAGE_IDS, RECORD_IDS, SLOT_FINDS, recordInfo, relicInfo } from '../world/lore';
+import { MAP_POS, ROOMS, type RoomId } from '../world/rooms';
+import { MapView, regionThumb, type MapHere } from './mapview';
+import type { RegionDef, RegionId } from '../world/regions';
 import { RES, applyRes, resFor } from '../gfx/view';
 import { FORCED_PRESET, PRESETS, PRESET_LABEL, applyFpsLimit, presetOf, type FpsLimit, type GfxFlags, type Level3, type Preset } from '../systems/Graphics';
 
-type ScreenId = 'loading' | 'intro' | 'menu' | 'erase' | 'path' | 'mages' | 'weapons' | 'settings' | 'pause' | 'end' | 'map' | 'shop' | 'inventory' | 'talk' | 'forge' | 'journal';
+// teclas que arrastam o mapa (direção em que o desenho anda)
+const MAP_PAN: Record<string, [number, number]> = {
+  ArrowUp: [0, 1], ArrowDown: [0, -1], ArrowLeft: [1, 0], ArrowRight: [-1, 0], KeyW: [0, 1], KeyS: [0, -1], KeyA: [1, 0], KeyD: [-1, 0],
+};
+type ScreenId = 'loading' | 'intro' | 'menu' | 'erase' | 'path' | 'mages' | 'weapons' | 'settings' | 'pause' | 'end' | 'map' | 'shop' | 'surveyor' | 'inventory' | 'talk' | 'forge' | 'journal';
 
 const COBRADOR_LINES = [
   'Voltou. Sempre voltam.',
@@ -53,7 +58,7 @@ const PREVIEW_SCREENS: (ScreenId | null)[] = ['weapons', 'path', 'mages'];
 const hex = (c: number) => `#${c.toString(16).padStart(6, '0')}`;
 const rgba = (c: number, a: number) => `rgba(${(c >> 16) & 255}, ${(c >> 8) & 255}, ${c & 255}, ${a})`;
 
-const WEAPON_ORDER: WeaponId[] = ['scythe', 'sword', 'daggers', 'bow', 'badalo', 'incensario', 'corrente', 'picareta'];
+const WEAPON_ORDER: WeaponId[] = ['scythe', 'sword', 'daggers', 'bow', 'badalo', 'incensario', 'corrente', 'picareta', 'lanca'];
 const TAGS: Partial<Record<WeaponId, string>> = { scythe: 'Arma do carrasco · recomendada' };
 const TOUCH_LABEL: Record<Action, string> = {
   left: 'Analógico', right: 'Analógico', up: 'Analógico para cima', down: 'Analógico para baixo',
@@ -84,6 +89,8 @@ class UI {
   init(game: Phaser.Game) {
     this.game = game;
     window.addEventListener('keydown', (e) => this.onKey(e));
+    window.addEventListener('keyup', (e) => this.mapKeys.delete(e.code));
+    window.addEventListener('blur', () => this.mapKeys.clear());
     const sync = () => this.syncLayer();
     window.addEventListener('resize', sync);
     game.scale.on('resize', sync);
@@ -170,6 +177,32 @@ class UI {
       return;
     }
     if (this.top === 'intro') return;
+    // no mapa: setas ou WASD arrastam (segurando, continua), Q e E (ou - e +) aproximam, C volta para ele
+    if (this.top === 'map' && this.mapView) {
+      if (MAP_PAN[e.code]) {
+        e.preventDefault();
+        this.mapKeys.add(e.code);
+        return;
+      }
+      const v = this.mapView;
+      const cv = $<HTMLCanvasElement>('#screen-map canvas');
+      const zoom = { KeyQ: 1 / 1.35, Minus: 1 / 1.35, NumpadSubtract: 1 / 1.35, KeyE: 1.35, Equal: 1.35, NumpadAdd: 1.35 }[e.code];
+      if (zoom) {
+        e.preventDefault();
+        v.zoom(zoom, cv.clientWidth, cv.clientHeight);
+        return;
+      }
+      if (e.code === 'KeyC') {
+        e.preventDefault();
+        v.center();
+        return;
+      }
+      if (e.code === 'KeyF') {
+        e.preventDefault();
+        v.fit(cv.clientWidth, cv.clientHeight);
+        return;
+      }
+    }
     // na conversa, atacar, pular ou cima também passam a fala
     if (this.top === 'talk') {
       const next = ['attack', 'jump', 'up'].some((a) => settings.codesFor(a as Action).includes(e.code));
@@ -277,6 +310,15 @@ class UI {
     if (!now.slice(0, 4).some(Boolean)) this.padRepeat = 0;
     if (this.top === 'intro') {
       if (now.slice(4).some((v, k) => v && !this.padPrev[k + 4])) this.back();
+    } else if (this.top === 'map' && this.mapView) {
+      // no mapa o direcional e o analógico arrastam (no laço do mapa), L1 e R1 aproximam, Y volta para
+      // ele e X mostra tudo
+      const cv = $<HTMLCanvasElement>('#screen-map canvas');
+      if (edge(7)) this.mapView.zoom(1 / 1.35, cv.clientWidth, cv.clientHeight);
+      if (edge(8)) this.mapView.zoom(1.35, cv.clientWidth, cv.clientHeight);
+      if (edge(10)) this.mapView.center();
+      if (edge(9)) this.mapView.fit(cv.clientWidth, cv.clientHeight);
+      if (edge(5) || edge(6) || edge(11)) this.back();
     } else {
       if (dir === 0) this.move(-1, false);
       if (dir === 1) this.move(1, false);
@@ -893,6 +935,11 @@ class UI {
 
   // ---------- mapa e inventário ----------
   private mapLoop = 0;
+  private mapView: MapView | null = null;
+  private mapKeys = new Set<string>();
+  private mapBound = false;
+  // dedos (ou o mouse) apertados no mapa: um arrasta, dois aproximam
+  private mapPins = new Map<number, { x: number; y: number }>();
 
   map(o: MapHere & { onClose: () => void }) {
     const s = $('#screen-map');
@@ -901,11 +948,12 @@ class UI {
     // relíquias, memórias e trocas
     const rel = $('.map-relics', s);
     rel.replaceChildren();
-    for (const a of ['wall', 'double', 'hook', 'veil'] as Ability[]) {
+    for (const a of ABILITIES) {
       const li = el('li');
       if (progress.abilities.has(a)) {
-        li.append(el('b', '', RELICS[a].name), el('span', 'how'));
-        $('.how', li).innerHTML = this.format(RELICS[a].how);
+        const info = relicInfo(a, progress.knowsHerName);
+        li.append(el('b', '', info.name), el('span', 'how'));
+        $('.how', li).innerHTML = this.format(info.how);
       } else li.append(el('span', 'unknown', 'Ainda não encontrada'));
       rel.append(li);
     }
@@ -934,39 +982,108 @@ class UI {
     $('.map-coins', s).textContent = plural(progress.coins, 'moeda', 'moedas') + (echo ? ` · ${echo.coins} com a sombra` : '');
     $<HTMLElement>('.lg-echo', s).hidden = !echo;
     if (!progress.upgrades.size) up.append(el('li', 'unknown', 'Nenhum'));
-    this.push('map', o.onClose);
-    // desenha depois que a tela aparece (precisa do tamanho do canvas)
-    cancelAnimationFrame(this.mapLoop);
     const cv = $<HTMLCanvasElement>('canvas', s);
-    let base: ReturnType<typeof renderMap> | null = null;
-    let w = 0;
-    let h = 0;
+    const view = new MapView(o);
+    this.mapView = view;
+    this.mapKeys.clear();
+    this.mapPins.clear();
+    this.bindMap(cv);
+    const size = () => [cv.clientWidth, cv.clientHeight] as const;
+    const tool = (cmd: string, fn: () => void) => {
+      const b = $<HTMLButtonElement>(`.map-tools [data-cmd="${cmd}"]`, s);
+      b.disabled = view.empty;
+      b.onclick = fn;
+    };
+    tool('zoom-out', () => view.zoom(1 / 1.35, ...size()));
+    tool('zoom-in', () => view.zoom(1.35, ...size()));
+    tool('center', () => view.center());
+    tool('fit', () => view.fit(...size()));
+    $<HTMLButtonElement>('.map-tools [data-cmd="center"]', s).disabled = !view.hereMapped;
+    this.push('map', o.onClose);
+    // a primeira tecla do mapa é o Fechar (as do mapa mexem nele, não no foco)
+    window.setTimeout(() => $<HTMLButtonElement>('[data-cmd="close"]', s).focus({ preventScroll: true }), 40);
+    // desenha a cada quadro (arrastar, aproximar e o anel pulsando); precisa do tamanho do canvas
+    cancelAnimationFrame(this.mapLoop);
+    let last = performance.now();
     const draw = (t: number) => {
-      if (this.top !== 'map') return;
+      if (this.top !== 'map' || this.mapView !== view) return;
+      const dt = Math.min(0.05, (t - last) / 1000);
+      last = t;
       const dpr = window.devicePixelRatio || 1;
-      if (!base || cv.clientWidth !== w || cv.clientHeight !== h) {
-        w = cv.clientWidth;
-        h = cv.clientHeight;
+      const [w, h] = size();
+      if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) {
         cv.width = Math.round(w * dpr);
         cv.height = Math.round(h * dpr);
-        base = renderMap(w, h, dpr, o);
       }
+      // arrastar segurando as setas, o direcional ou o analógico
+      let dx = 0;
+      let dy = 0;
+      for (const k of this.mapKeys) {
+        const d = MAP_PAN[k];
+        if (d) {
+          dx += d[0];
+          dy += d[1];
+        }
+      }
+      const p = pad.pad;
+      if (p) {
+        const ax = p.axes[0] ?? 0;
+        const ay = p.axes[1] ?? 0;
+        if (Math.abs(ax) > 0.2) dx -= ax;
+        if (Math.abs(ay) > 0.2) dy -= ay;
+        if (p.buttons[BTN.left]?.pressed) dx += 1;
+        if (p.buttons[BTN.right]?.pressed) dx -= 1;
+        if (p.buttons[BTN.up]?.pressed) dy += 1;
+        if (p.buttons[BTN.down]?.pressed) dy -= 1;
+      }
+      if (dx || dy) view.pan(dx * 520 * dt, dy * 520 * dt);
       const ctx = cv.getContext('2d')!;
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, cv.width, cv.height);
-      ctx.drawImage(base.canvas, 0, 0);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      // o cavaleiro: anel dourado pulsando
-      const pulse = 0.5 + 0.5 * Math.sin(t * 0.006);
-      ctx.strokeStyle = `rgba(214, 162, 74, ${0.5 + pulse * 0.5})`;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(base.player.x, base.player.y, base.size * (1.1 + pulse * 0.6), 0, Math.PI * 2);
-      ctx.stroke();
-      drawMarker(ctx, 'you', base.player.x, base.player.y, base.size * 1.2);
+      view.draw(ctx, w, h, dpr, t);
       this.mapLoop = requestAnimationFrame(draw);
     };
     this.mapLoop = requestAnimationFrame(draw);
+  }
+
+  // arrastar com o mouse ou o dedo, a roda aproxima no cursor e dois dedos aproximam
+  private bindMap(cv: HTMLCanvasElement) {
+    if (this.mapBound) return;
+    this.mapBound = true;
+    const local = (e: { clientX: number; clientY: number }) => {
+      const r = cv.getBoundingClientRect();
+      return { x: e.clientX - r.left, y: e.clientY - r.top };
+    };
+    cv.addEventListener(
+      'wheel',
+      (e) => {
+        const v = this.mapView;
+        if (!v || this.top !== 'map') return;
+        e.preventDefault();
+        const p = local(e);
+        v.zoom(Math.pow(1.0015, -e.deltaY), cv.clientWidth, cv.clientHeight, p.x, p.y);
+      },
+      { passive: false },
+    );
+    cv.addEventListener('pointerdown', (e) => {
+      if (!this.mapView || this.top !== 'map') return;
+      cv.setPointerCapture(e.pointerId);
+      this.mapPins.set(e.pointerId, local(e));
+    });
+    cv.addEventListener('pointermove', (e) => {
+      const v = this.mapView;
+      const prev = this.mapPins.get(e.pointerId);
+      if (!v || !prev || this.top !== 'map') return;
+      const p = local(e);
+      if (this.mapPins.size >= 2) {
+        const other = [...this.mapPins.entries()].find(([id]) => id !== e.pointerId)![1];
+        const d0 = Math.hypot(prev.x - other.x, prev.y - other.y);
+        const d1 = Math.hypot(p.x - other.x, p.y - other.y);
+        if (d0 > 4) v.zoom(d1 / d0, cv.clientWidth, cv.clientHeight, (p.x + other.x) / 2, (p.y + other.y) / 2);
+      } else v.pan(p.x - prev.x, p.y - prev.y);
+      this.mapPins.set(e.pointerId, p);
+    });
+    const up = (e: PointerEvent) => this.mapPins.delete(e.pointerId);
+    cv.addEventListener('pointerup', up);
+    cv.addEventListener('pointercancel', up);
   }
 
   // ---------- inventário ----------
@@ -1109,11 +1226,12 @@ class UI {
     $<HTMLElement>('.inv-extra-wrap', s).hidden = !extra.children.length;
     const rel = $('.inv-relics', s);
     rel.replaceChildren();
-    for (const a of ['wall', 'double', 'hook', 'veil'] as Ability[]) {
+    for (const a of ABILITIES) {
       const li = el('li');
       if (progress.abilities.has(a)) {
-        li.append(el('b', '', RELICS[a].name), el('span', 'how'));
-        $('.how', li).innerHTML = this.format(RELICS[a].how);
+        const info = relicInfo(a, progress.knowsHerName);
+        li.append(el('b', '', info.name), el('span', 'how'));
+        $('.how', li).innerHTML = this.format(info.how);
       } else li.append(el('span', 'unknown', 'Ainda não encontrada'));
       rel.append(li);
     }
@@ -1173,6 +1291,49 @@ class UI {
     };
     render();
     this.push('shop', o.onClose);
+  }
+
+  // ---------- o Agrimensor: as folhas do mapa ----------
+  // buy: true quando comprou (o jogo cobra e grava); sheets vem na ordem do caminho
+  surveyor(o: { quote: string; sheets: RegionDef[]; current: RegionId; lines: { broke: string; bought: string; done: string }; buy: (id: RegionId) => boolean; onClose: () => void }) {
+    const s = $('#screen-surveyor');
+    const quote = $('.quote', s);
+    quote.textContent = o.quote;
+    $<HTMLButtonElement>('[data-cmd="close"]', s).onclick = () => o.onClose();
+    const list = $('.sheets', s);
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    // a folha da região de agora primeiro, depois as de antes (da mais perto para a mais longe)
+    const order = [...o.sheets].reverse();
+    const render = (focusId?: RegionId) => {
+      $('.survey-coins', s).textContent = plural(progress.coins, 'moeda', 'moedas');
+      list.replaceChildren();
+      for (const r of order) {
+        const owned = progress.maps.has(r.id);
+        const b = el('button', owned ? 'offer sheet owned' : 'offer sheet');
+        b.dataset.id = r.id;
+        b.disabled = owned || progress.coins < r.price;
+        const thumb = regionThumb(r, 136, 64, dpr);
+        const name = r.id === o.current ? `${r.name} · aqui` : r.name;
+        const cost = el('span', owned ? 'cost' : 'cost coins');
+        if (owned) cost.append(el('span', '', 'Já comprada'));
+        else cost.append(el('i'), el('span', '', String(r.price)));
+        b.append(thumb, el('b', '', name), el('span', 'what', r.blurb), cost);
+        b.onclick = () => {
+          if (!o.buy(r.id)) {
+            quote.textContent = o.lines.broke;
+            return;
+          }
+          quote.textContent = order.every((x) => progress.maps.has(x.id)) ? `${o.lines.bought} ${o.lines.done}` : o.lines.bought;
+          render(r.id);
+        };
+        list.append(b);
+      }
+      const next = [...list.querySelectorAll<HTMLButtonElement>('button:not([disabled])')][0];
+      const target = focusId ? next ?? $<HTMLButtonElement>('[data-cmd="close"]', s) : null;
+      target?.focus({ preventScroll: true });
+    };
+    render();
+    this.push('surveyor', o.onClose);
   }
 
   // ---------- conversa ----------
@@ -1336,7 +1497,11 @@ class UI {
     const recs = RECORD_IDS.filter((id) => progress.seen.has(`record:${id}`));
     $('.j-count', panel('records')).textContent = `Registros: ${recs.length} de ${RECORD_IDS.length}`;
     $('.j-list', panel('records')).replaceChildren(
-      ...RECORD_IDS.map((id) => (progress.seen.has(`record:${id}`) ? entry(RECORDS[id].title, RECORDS[id].lines.join(' '), undefined, RECORDS[id].region) : entry('Registro não encontrado', undefined, undefined, undefined, true))),
+      ...RECORD_IDS.map((id) => {
+        if (!progress.seen.has(`record:${id}`)) return entry('Registro não encontrado', undefined, undefined, undefined, true);
+        const r = recordInfo(id, progress.knowsHerName);
+        return entry(r.title, r.lines.join(' '), undefined, r.region);
+      }),
     );
     show('story');
     $<HTMLButtonElement>('[data-cmd="back"]', s).onclick = () => o.onBack();
@@ -1353,8 +1518,19 @@ class UI {
     this.timers.banner = window.setTimeout(() => b.classList.remove('on'), hold);
   }
 
+  // alguém fala (o chefe vencido, uma vez): o nome em cima e a fala
+  say(name: string, text: string, hold = 5200) {
+    const t = $('#thought');
+    t.replaceChildren(el('span', 'who', name), document.createTextNode(text));
+    t.classList.add('speech');
+    clearTimeout(this.timers.thought);
+    t.classList.add('on');
+    this.timers.thought = window.setTimeout(() => t.classList.remove('on'), hold);
+  }
+
   thought(text: string, hold = 4200, html = false) {
     const t = $('#thought');
+    t.classList.remove('speech');
     if (html) t.innerHTML = text;
     else t.textContent = text;
     clearTimeout(this.timers.thought);

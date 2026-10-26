@@ -18,7 +18,7 @@ const URL = process.argv[5] || (process.env.GAME || 'http://localhost:8765') + '
     p.reset();
     p.prologueDone = true;
     p.kintsugi = 1;
-    p.abilities = new Set(['wall', 'double', 'hook', 'veil']);
+    p.abilities = new Set(['dash', 'wall', 'double', 'hook', 'veil']);
     for (const k of ['memory:vale', 'gate:catacumbas', 'boss:sineiro', 'boss:arcebispo', 'boss:carcereira', 'weapon:corrente']) p.seen.add(k);
     p.save();
   });

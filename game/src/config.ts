@@ -50,6 +50,13 @@ export const PLAYER = {
   hookMaxPull: 0.75,
   hookCd: 0.22,
   hookDmg: 0.5,
+  // Floresta Nevada: no gelo a corrida pega e freia devagar (o deslize vai mais longe)
+  iceAccel: 900,
+  iceDecel: 420,
+  // Capa de Arielle: planando, a queda fica nesta velocidade; na corrente de ar, sobe até draftRise
+  glideFall: 70,
+  glideAccel: 1100,
+  draftAccel: 950,
   maxHp: 5,
   invuln: 1.1,
   hurtLock: 0.22,
@@ -57,8 +64,8 @@ export const PLAYER = {
   knockY: 230,
 };
 
-export type WeaponId = 'sword' | 'scythe' | 'daggers' | 'bow' | 'badalo' | 'incensario' | 'corrente' | 'picareta' | MageId;
-export const WEAPON_IDS: WeaponId[] = ['sword', 'scythe', 'daggers', 'bow', 'badalo', 'incensario', 'corrente', 'picareta', 'eclipse', 'necro', 'veu', 'espaco'];
+export type WeaponId = 'sword' | 'scythe' | 'daggers' | 'bow' | 'badalo' | 'incensario' | 'corrente' | 'picareta' | 'lanca' | MageId;
+export const WEAPON_IDS: WeaponId[] = ['sword', 'scythe', 'daggers', 'bow', 'badalo', 'incensario', 'corrente', 'picareta', 'lanca', 'eclipse', 'necro', 'veu', 'espaco'];
 
 // os quatro magos (o caminho do Mago): cada um com o cajado dele (o golpe básico é a "arma" do
 // cajado em WEAPONS) e a habilidade forte com versões de escolha
@@ -91,6 +98,11 @@ export interface WeaponDef {
   pull?: boolean;
   // a ponta feita para a pedra: quebra os blocos de Âmbar das minas (a picareta)
   pick?: boolean;
+  // a estocada: no golpe para o lado o cavaleiro avança junto com a ponta (a lança)
+  lunge?: boolean;
+  // a lanterna de Âmbar pendurada na arma: ilumina em volta e mostra o rastro de quem lembra demais
+  // (as rachaduras das paredes falsas e as pegadas dela, de mais longe)
+  lantern?: boolean;
   // cajado de mago: a bolinha de eclipse (no lugar da flecha), o chicote de tinta e o pulso do espaço
   mage?: MageId;
   orb?: boolean;
@@ -146,6 +158,13 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
     boss: { id: 'capataz', name: 'Capataz', art: 'o', found: 'O cabo ainda está morno. Com ela, o Âmbar cede. Dá para usar em Trocar arma, no menu de pausa.' },
     pick: true,
     stats: { dano: 4, velocidade: 2, alcance: 2, corrida: 2 },
+  },
+  lanca: {
+    id: 'lanca', name: 'Lança do Caçador', summary: 'A mais comprida. A estocada leva o corpo junto, e a lanterna mostra o que foi escondido.',
+    dmg: 1.5, cooldown: 0.46, windup: 0.1, active: 0.1, reach: 104, height: 18, recoil: 70, moveMul: 0.55, ranged: false, speed: 0.97,
+    boss: { id: 'cacador', name: 'Mestre da Caça', art: 'o', found: 'A lanterna acendeu de novo na minha mão. Ela mostra o rastro de quem lembra demais. Dá para usar em Trocar arma, no menu de pausa.' },
+    lunge: true, lantern: true,
+    stats: { dano: 3, velocidade: 3, alcance: 5, corrida: 3 },
   },
   eclipse: {
     id: 'eclipse', name: 'Cajado do Eclipse', summary: 'A bolinha de eclipse vai reta e longe. Fraca, mas sai rápido.',
@@ -421,6 +440,81 @@ export const AMBAT = {
   cooldown: 1.6,
 };
 
+// Lobo da Caça (Floresta Nevada): trota em volta de onde está; quando vê o cavaleiro para, uiva (os
+// olhos acendem e os lobos perto respondem) e corre atrás. Perto, agacha e salta mordendo; depois do
+// salto escorrega (no gelo, bem mais longe) e fica aberto
+export const WOLF = {
+  bodyW: 30,
+  bodyH: 20,
+  hp: 4,
+  trot: 64,
+  run: 196,
+  sight: 250,
+  // quem uiva chama os lobos até esta distância
+  call: 320,
+  howl: 0.75,
+  crouch: 0.34,
+  pounceApex: 34,
+  pounceMax: 190,
+  pounceSpeed: 330,
+  skid: 0.55,
+  atkCd: 1.1,
+};
+
+// Coruja de Geada: dorme pousada num galho. Quando o cavaleiro passa embaixo, abre os olhos, vira a
+// cabeça e solta num mergulho em curva; depois voa para outro galho (as penas soltam geada)
+export const OWL = {
+  bodyW: 18,
+  bodyH: 16,
+  hp: 2,
+  // distância na horizontal em que ela acorda (ele precisa estar embaixo)
+  wake: 96,
+  below: 230,
+  alert: 0.42,
+  diveSpeed: 320,
+  turn: 820,
+  diveTime: 1.05,
+  fly: 150,
+  rest: 1.6,
+};
+
+// O Mestre da Caça (Clareira da Caça): o caçador-mor da Casa Vhalor, congelado no fim da trilha.
+// Estocadas longas da lança (alta: agache; baixa: pule), salto com a lança para baixo (saia de baixo)
+// e a trompa que chama dois lobos (uma vez por fase). Na metade, a nevasca: a tela embranquece, ele
+// some na neve e só a lanterna anda pela arena; antes de atacar, a lanterna pisca
+export const CACADOR = {
+  bodyW: 28,
+  bodyH: 78,
+  hp: 64,
+  walk: 70,
+  phase2: 0.5,
+  think: 0.62,
+  thrustWind: 0.58,
+  thrustLunge: 150,
+  thrustActive: 0.24,
+  thrustRec: 0.62,
+  // altura da estocada alta (acima do cavaleiro agachado) e da baixa (dá para pular), a partir do chão
+  highY: [30, 52],
+  lowY: [2, 22],
+  reach: 112,
+  leapWind: 0.5,
+  leapApex: 150,
+  leapTime: 0.95,
+  leapRec: 0.9,
+  shockGap: 30,
+  shockN: 4,
+  hornWind: 0.5,
+  horn: 1.3,
+  stagger: 1.5,
+  // a nevasca: quanto dura, quanto tempo fica limpa entre uma e outra, o branco da tela e o aviso da
+  // lanterna antes da investida que sai da neve
+  blizzard: 9,
+  clear: 5.5,
+  whiteout: 0.62,
+  blink: 0.8,
+  rushSpeed: 430,
+};
+
 // O Reflexo (Câmara de Âmbar): o espelho de Âmbar devolve o cavaleiro com atraso. Ele repete tudo
 // o que o cavaleiro fez um instante antes, no mesmo lugar: encostar nele ou ficar onde o próprio
 // golpe vai cair machuca. Cada golpe nele trava a imagem um pouco (o atraso cresce e depois ele
@@ -622,6 +716,8 @@ export const LOOT = {
   miner: { coins: [5, 8], life: 0.75 },
   ambat: { coins: [3, 6], life: 0.5 },
   wisp: { coins: [0, 1], life: 0.25 },
+  wolf: { coins: [5, 8], life: 0.75 },
+  owl: { coins: [3, 6], life: 0.5 },
   boss: { coins: [40, 40], life: 2 },
   // a sombra devolve as moedas dela direto na bolsa
   echo: { coins: [0, 0], life: 0 },

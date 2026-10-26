@@ -120,7 +120,7 @@ const URL = process.argv[3] || 'http://localhost:8765/index.html';
       p.starter = mage;
       window.__settings.data.weapon = mage;
       window.__settings.save();
-      p.abilities = new Set(['wall', 'double', 'hook', 'veil']);
+      p.abilities = new Set(['dash', 'wall', 'double', 'hook', 'veil']);
       for (const k of ['memory:vale', 'gate:catacumbas', ...(o.seen || [])]) p.seen.add(k);
       for (const [k, n] of Object.entries(o.kills || {})) p.kills.set(k, n);
       p.save();

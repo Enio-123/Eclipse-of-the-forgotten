@@ -20,56 +20,90 @@ ICON_S = 4   # ícones do inventário: 24 -> 96 (a tela mostra com 48)
 
 def sheets():
     import anims, knight, guard, crow, archer, censer, sineiro, arcebispo, townsfolk, enemy, props, deco, jailer, carcereira, sombra
-    import miner, ambat, capataz
+    import miner, ambat, capataz, wolf, owl, cacador
     out = {}
     for w in anims.WEAPONS:
         out[f'knight-{w}'] = dict(anims=anims.anims_for(w), mod='knight', W=knight.W, H=knight.H, feet=knight.FEET,
                                   pixel=ink.KNIGHT_PIXEL, extra={'kw': {'weapon': w}})
+    # a lança do Mestre da Caça: onde fica a lanterna em cada quadro (o jogo acende a luz ali)
+    A = anims.anims_for('lanca')
+    out['knight-lanca']['meta_extra'] = {'points': {n: [knight.focus_point(p, 'lanca') for p in poses] for n, (poses, _, _) in A.items()}}
     # os cajados dos magos: o foco de cada quadro (de onde sai a magia e onde fica a luz dela)
     for w in anims.STAFFS:
         A = anims.anims_for(w)
         out[f'knight-{w}'] = dict(anims=A, mod='knight', W=knight.W, H=knight.H, feet=knight.FEET,
                                   pixel=ink.KNIGHT_PIXEL, extra={'kw': {'weapon': w}},
                                   meta_extra={'points': {n: [knight.focus_point(p, w) for p in poses] for n, (poses, _, _) in A.items()}})
-    out['penitent'] = dict(anims=enemy.ANIMS, mod='enemy', W=enemy.W, H=enemy.H, feet=enemy.FEET)
-    out['guard'] = dict(anims=guard.ANIMS, mod='guard', W=guard.W, H=guard.H, feet=guard.FEET)
-    out['crow'] = dict(anims=crow.ANIMS, mod='crow', W=crow.W, H=crow.H, feet=crow.FEET)
+    # todos os outros bonecos ganham poses de passagem (fluid.py): os chefes grandes um pouco menos, para
+    # o atlas não crescer demais
+    import fluid
+
+    def add(key, mod, A, points=None, which=None, cap=4, skip=(), extra=None, loop_fps=16):
+        A, holds = fluid.densify(A, mod, cap=cap, skip=skip, loop_fps=loop_fps)
+        meta = {}
+        if points:
+            meta['points'] = {n: [points(p) for p in poses] for n, (poses, _, _) in A.items() if which is None or which(n)}
+        if holds:
+            meta['holds'] = holds
+        d = dict(anims=A, mod=mod.__name__, W=mod.W, H=mod.H, feet=mod.FEET, meta_extra=meta or None)
+        if extra:
+            d['extra'] = extra
+        out[key] = d
+
+    def add_npc(key, mod, A, W, H, feet, build, cap=4, skip=()):
+        A, holds = fluid.densify(A, mod, cap=cap, skip=skip)
+        out[key] = dict(anims=A, mod=mod.__name__, W=W, H=H, feet=feet, extra={'build': build},
+                        meta_extra={'holds': holds} if holds else None)
+
+    add('penitent', enemy, enemy.ANIMS)
+    add('guard', guard, guard.ANIMS)
+    add('crow', crow, crow.ANIMS)
     # de onde sai a flecha (o jogo usa o último quadro de 'draw'), em pixels do mundo
-    out['archer'] = dict(anims=archer.ANIMS, mod='archer', W=archer.W, H=archer.H, feet=archer.FEET,
-                         meta_extra={'points': {n: [archer.frame_points(p) for p in poses] for n, (poses, _, _) in archer.ANIMS.items() if n.startswith('draw')}})
-    out['censer'] = dict(anims=censer.ANIMS, mod='censer', W=censer.W, H=censer.H, feet=censer.FEET,
-                         meta_extra={'points': {n: [censer.censer_point(p) for p in poses] for n, (poses, _, _) in censer.ANIMS.items()}})
-    out['sineiro'] = dict(anims=sineiro.ANIMS, mod='sineiro', W=sineiro.W, H=sineiro.H, feet=sineiro.FEET)
-    out['arcebispo'] = dict(anims=arcebispo.ANIMS, mod='arcebispo', W=arcebispo.W, H=arcebispo.H, feet=arcebispo.FEET,
-                            meta_extra={'points': {n: [arcebispo.points(p) for p in poses] for n, (poses, _, _) in arcebispo.ANIMS.items()}})
+    add('archer', archer, archer.ANIMS, points=archer.frame_points, which=lambda n: n.startswith('draw'))
+    add('censer', censer, censer.ANIMS, points=censer.censer_point)
+    add('sineiro', sineiro, sineiro.ANIMS, cap=3)
+    add('arcebispo', arcebispo, arcebispo.ANIMS, points=arcebispo.points, cap=3)
     # Carcereiro: a mão da corrente em cada quadro (o jogo desenha a corrente estalada)
-    out['jailer'] = dict(anims=jailer.ANIMS, mod='jailer', W=jailer.W, H=jailer.H, feet=jailer.FEET,
-                         meta_extra={'points': {n: [jailer.points(p) for p in poses] for n, (poses, _, _) in jailer.ANIMS.items()}})
-    out['carcereira'] = dict(anims=carcereira.ANIMS, mod='carcereira', W=carcereira.W, H=carcereira.H, feet=carcereira.FEET,
-                             meta_extra={'points': {n: [carcereira.points(p) for p in poses] for n, (poses, _, _) in carcereira.ANIMS.items()}})
+    add('jailer', jailer, jailer.ANIMS, points=jailer.points)
+    add('carcereira', carcereira, carcereira.ANIMS, points=carcereira.points, cap=3)
     # Sombra do Carrasco: a mão e a ponta do machado em cada quadro (o respingo da machadada)
-    out['sombra'] = dict(anims=sombra.ANIMS, mod='sombra', W=sombra.W, H=sombra.H, feet=sombra.FEET,
-                         meta_extra={'points': {n: [sombra.points(p) for p in poses] for n, (poses, _, _) in sombra.ANIMS.items()}})
+    add('sombra', sombra, sombra.ANIMS, points=sombra.points, cap=2)
     # Mineiro esquecido: a ponta da picareta em cada quadro (onde o golpe acerta)
-    out['miner'] = dict(anims=miner.ANIMS, mod='miner', W=miner.W, H=miner.H, feet=miner.FEET,
-                        meta_extra={'points': {n: [miner.tip_point(p) for p in poses] for n, (poses, _, _) in miner.ANIMS.items()}})
+    add('miner', miner, miner.ANIMS, points=miner.tip_point)
     # O Capataz de Âmbar: a ponta da picareta, a cabeça dela e a mão em cada quadro
-    out['capataz'] = dict(anims=capataz.ANIMS, mod='capataz', W=capataz.W, H=capataz.H, feet=capataz.FEET,
-                          meta_extra={'points': {n: [capataz.points(p) for p in poses] for n, (poses, _, _) in capataz.ANIMS.items()}})
-    out['ambat'] = dict(anims=ambat.ANIMS, mod='ambat', W=ambat.W, H=ambat.H, feet=ambat.FEET)
+    add('capataz', capataz, capataz.ANIMS, points=capataz.points, cap=3)
+    add('ambat', ambat, ambat.ANIMS)
+    # Floresta Nevada: o Lobo da Caça e a Coruja de Geada
+    # o lobo corre rápido: a corrida também ganha poses de passagem
+    add('wolf', wolf, wolf.ANIMS, loop_fps=24)
+    add('owl', owl, owl.ANIMS)
+    # O Mestre da Caça: a ponta da lança, a lanterna e a mão em cada quadro
+    add('cacador', cacador, cacador.ANIMS, points=cacador.points, cap=3)
     # o mineiro que ficou (NPC do Veio de Âmbar): o mesmo boneco, sentado, com a vela acesa
-    out['oldminer'] = dict(anims=miner.NPC_ANIMS, mod='miner', W=miner.W, H=miner.H, feet=miner.FEET)
-    out['nun'] = dict(anims=townsfolk.NUN_ANIMS, mod='townsfolk', W=townsfolk.NUN_W, H=townsfolk.NUN_H, feet=townsfolk.NUN_FEET, extra={'build': 'nun'})
-    out['smith'] = dict(anims=townsfolk.SMITH_ANIMS, mod='townsfolk', W=townsfolk.SMITH_W, H=townsfolk.SMITH_H, feet=townsfolk.SMITH_FEET, extra={'build': 'smith'})
-    out['folk'] = dict(anims=townsfolk.FOLK_ANIMS, mod='townsfolk', W=townsfolk.FOLK_W, H=townsfolk.FOLK_H, feet=townsfolk.FOLK_FEET, extra={'build': 'folk'})
-    out['prisoner'] = dict(anims=townsfolk.PRISONER_ANIMS, mod='townsfolk', W=townsfolk.PRISONER_W, H=townsfolk.PRISONER_H, feet=townsfolk.PRISONER_FEET, extra={'build': 'prisoner'})
-    out['cobrador'] = dict(anims=props.COB_ANIMS, mod='props', W=props.CW, H=props.CH, feet=props.CFEET, extra={'build': 'cobrador_build'})
-    out['figure'] = dict(anims=deco.FIGURE_ANIMS, mod='deco', W=deco.FIGURE_W, H=deco.FIGURE_H, feet=deco.FIGURE_FEET, extra={'build': 'figure_build'})
+    A, holds = fluid.densify(miner.NPC_ANIMS, miner)
+    out['oldminer'] = dict(anims=A, mod='miner', W=miner.W, H=miner.H, feet=miner.FEET, meta_extra={'holds': holds} if holds else None)
+    add_npc('nun', townsfolk, townsfolk.NUN_ANIMS, townsfolk.NUN_W, townsfolk.NUN_H, townsfolk.NUN_FEET, 'nun')
+    # a forja: o jogo solta a faísca num quadro certo da martelada, então ela fica como está
+    add_npc('smith', townsfolk, townsfolk.SMITH_ANIMS, townsfolk.SMITH_W, townsfolk.SMITH_H, townsfolk.SMITH_FEET, 'smith', skip=('work',))
+    add_npc('folk', townsfolk, townsfolk.FOLK_ANIMS, townsfolk.FOLK_W, townsfolk.FOLK_H, townsfolk.FOLK_FEET, 'folk')
+    add_npc('prisoner', townsfolk, townsfolk.PRISONER_ANIMS, townsfolk.PRISONER_W, townsfolk.PRISONER_H, townsfolk.PRISONER_FEET, 'prisoner')
+    # o Agrimensor, que vende as folhas do mapa (a groma dele sai solta, em singles)
+    add_npc('surveyor', townsfolk, townsfolk.SURVEYOR_ANIMS, townsfolk.SURVEYOR_W, townsfolk.SURVEYOR_H, townsfolk.SURVEYOR_FEET, 'surveyor')
+    add_npc('cobrador', props, props.COB_ANIMS, props.CW, props.CH, props.CFEET, 'cobrador_build')
+    add_npc('figure', deco, deco.FIGURE_ANIMS, deco.FIGURE_W, deco.FIGURE_H, deco.FIGURE_FEET, 'figure_build')
     return out
 
 
 def to_png(a):
     return Image.fromarray((np.clip(a, 0, 1) * 255 + 0.5).astype(np.uint8), 'RGBA')
+
+
+def groma(out_dir, made):
+    """A groma do Agrimensor (fica fincada no chão ao lado dele e não vira junto)."""
+    import townsfolk
+    prims, decals, W, H = townsfolk.groma()
+    to_png(ink.render_frame(prims, decals, W, H, style=ink.HK)).save(f'{out_dir}/deco-groma.png')
+    made['deco-groma'] = ink.S
 
 
 def singles(out_dir):
@@ -90,6 +124,7 @@ def singles(out_dir):
     items.badalo().save(f'{out_dir}/item-badalo.png')
     items.incensario().save(f'{out_dir}/item-incensario.png')
     made['item-badalo'] = made['item-incensario'] = ink.S
+    groma(out_dir, made)
     # enfeites da Cidade-Catedral e da Prisão Subterrânea
     import props_hd, prison_props
     for k, fn in list(props_hd.PROPS.items()) + list(prison_props.PROPS.items()):
@@ -122,6 +157,13 @@ def main():
                                       extra=d.get('extra'), meta_extra=d.get('meta_extra'),
                                       preview=f'{prev_dir}/{name}.png' if prev_dir else None)
         print(f'{name}: {sheet.shape[1]}x{sheet.shape[0]}, {len(meta["frames"])} quadros, {time.time() - t0:.0f}s', flush=True)
+    if 'groma' in only:
+        made = {}
+        groma(out_dir, made)
+        path = f'{out_dir}/hd.json'
+        hd = json.load(open(path)) if os.path.exists(path) else {}
+        hd.update(made)
+        json.dump(hd, open(path, 'w'), indent=1)
     if not only or 'singles' in only:
         made = singles(out_dir)
         path = f'{out_dir}/hd.json'

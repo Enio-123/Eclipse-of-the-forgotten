@@ -56,7 +56,7 @@ const FLOOR = 27; // linha do chão do Leito do Abismo (os pés ficam em 28 * 16
     p.reset();
     p.prologueDone = true;
     p.kintsugi = 1;
-    p.abilities = new Set(ab);
+    p.abilities = new Set(['dash', ...ab]);
     for (const k of ['memory:vale', 'gate:catacumbas', 'boss:sineiro', 'weapon:badalo', 'boss:arcebispo', 'weapon:incensario', 'relic:hook', 'item:chaves',
       'preso:met', 'preso:livre', 'boss:carcereira', 'weapon:corrente', 'fosso:aberto', ...extra]) p.seen.add(k);
     p.save();

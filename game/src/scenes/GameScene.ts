@@ -16,6 +16,9 @@ import { Miner } from '../entities/Miner';
 import { AmberBat } from '../entities/AmberBat';
 import { Reflexo } from '../entities/Reflexo';
 import { Capataz } from '../entities/Capataz';
+import { Cacador } from '../entities/Cacador';
+import { Wolf } from '../entities/Wolf';
+import { Owl } from '../entities/Owl';
 import { InkWisp } from '../entities/InkWisp';
 import { ABYSS, Echo } from '../entities/Echo';
 import { overlap, type BossFoe, type Enemy } from '../entities/Enemy';
@@ -31,6 +34,8 @@ import { Decor, DEPTH } from '../world/Decor';
 import { Backdrop } from '../world/Backdrop';
 import { Weather } from '../world/Weather';
 import { MAP_POS, ROOMS, type Ability, type BossId, type Exit, type RoomDef, type RoomId, type Side } from '../world/rooms';
+import { Forest } from '../world/Forest';
+import { CapeFx } from '../gfx/cape';
 import { Props, type MemoryOrb, type Relic, type Shrine } from '../world/Props';
 import { Fixtures, type Door, type Ring } from '../world/Fixtures';
 import { Npcs, type Npc } from '../world/Npcs';
@@ -38,7 +43,8 @@ import { Mine } from '../world/Mine';
 import { Finds, hasFind, isSlotFind, type FindId } from '../world/Finds';
 import type { Breakable } from '../world/secrets';
 import { Loot } from '../world/Loot';
-import { ARENA_WAVES, BELLS, ELO, FORGE, FOUND_THOUGHTS, LEVERS, MATERIALS, MEMORIES, MEMORY_ECHO, NUN, OFFERS, OLD_MINER, PAGES, PRISONER, RECORDS, RELICS, SLOT_FINDS, SMITH } from '../world/lore';
+import { ARENA_WAVES, BELLS, ELO, FORGE, FOUND_THOUGHTS, LEVERS, MATERIALS, MEMORIES, MEMORY_ECHO, NAME_MEMORY, NUN, OFFERS, OLD_MINER, PAGES, PRISONER, RECORDS, SLOT_FINDS, SMITH, SURVEYOR, recordInfo, relicInfo } from '../world/lore';
+import { REGION_BY_ID, sheetsFor, surveyorRegion } from '../world/regions';
 import { TILE_ONEWAY, smoothGlow } from '../gfx/textures';
 import { ui } from '../ui/ui';
 import { pad } from '../systems/Pad';
@@ -49,6 +55,7 @@ import { extremeCamera, type ExtremePipeline, type Look } from '../gfx/extreme';
 import { RoomLighting, type TerrainPiece } from '../gfx/lighting';
 import { lookFor } from '../gfx/looks';
 import { ensure, hdKey, hdTerrain, prefetch, release, roomFiles } from '../gfx/hdAssets';
+import { queueRoom, settleRoom } from '../gfx/roomAssets';
 import { HD_LAYERS } from '../world/Backdrop';
 import { Life } from '../world/Life';
 import { Mist } from '../world/Mist';
@@ -129,6 +136,8 @@ interface BossInfo {
   item?: { id: Upgrade; dx: number };
   // o que ele devolve ao cavaleiro além da memória (a Sombra vira o Véu Abissal)
   relic?: Ability;
+  // o registro que ele carregava e cai do corpo (dx como em item)
+  note?: { id: string; dx: number };
 }
 
 const BOSSES: Record<BossId, BossInfo> = {
@@ -219,7 +228,25 @@ const BOSSES: Record<BossId, BossInfo> = {
     after: ['O apito caiu do pescoço dele. Pela primeira vez, ninguém chama o turno.', 'A picareta dele quebra o Âmbar. O bloco do túnel não vai segurar.'],
     item: { id: 'whistle', dx: 22 },
   },
+  cacador: {
+    make: (s, x, y) => new Cacador(s, x, y),
+    sheet: 'cacador',
+    name: 'O Mestre da Caça',
+    title: 'Ele espera no fim da trilha',
+    music: 'boss5',
+    memory: 'clareira:boss',
+    wakeX: 12,
+    orb: -40,
+    drop: 64,
+    corpse: 'death',
+    corpseFacing: -1,
+    after: ['A lanterna apagou. Pela primeira vez, ninguém segue a trilha.', 'Do outro lado da clareira, a neve fechou a descida para o vale. Por enquanto.'],
+    note: { id: 'clareira:0', dx: 30 },
+  },
 };
+
+// as folhas grandes que a sala carrega quando abre (a do chefe dela)
+const roomSheets = (room: RoomDef) => (room.boss ? [BOSSES[room.boss].sheet] : []);
 
 // fim de cada capítulo (a memória do chefe fecha o capítulo)
 const CHAPTERS: Record<string, { title: string; text: string }> = {
@@ -234,6 +261,10 @@ const CHAPTERS: Record<string, { title: string; text: string }> = {
   'capataz:boss': {
     title: 'Fim do quarto capítulo',
     text: 'As luzes douradas que ele junta desde a ponte são Âmbar: memória de gente, tirada nas minas e espremida nas prensas da Casa Vhalor. O que a Casa cobrava não era dízimo. Eram lembranças. E uma delas era dela, fugindo pelo túnel.',
+  },
+  'clareira:boss': {
+    title: 'Fim do quinto capítulo',
+    text: 'Na floresta da Casa Vhalor ficou a cabana onde ela guardava as cópias dos registros, e o retalho da capa dela. Numa noite de caçada ele mandou a matilha para o lado errado e ela passou a serra. Foi a única vez que ele desobedeceu. Ele sabia que podia escolher.',
   },
   'abismo:boss': {
     title: 'Fim do terceiro capítulo',
@@ -257,7 +288,7 @@ export interface Rose {
 }
 
 // pintura a óleo de cada tema quando a sala não diz (depois do Arcebispo ela vai crescendo)
-const PAINT: Partial<Record<Theme, number>> = { prison: 0.15 };
+const PAINT: Partial<Record<Theme, number>> = { prison: 0.15, snow: 0.12 };
 
 // quem nasce de cada letra do mapa
 const SPAWNERS: Record<string, (s: GameScene, x: number, y: number) => Enemy> = {
@@ -269,6 +300,8 @@ const SPAWNERS: Record<string, (s: GameScene, x: number, y: number) => Enemy> = 
   W: (s, x, y) => new Jailer(s, x, y),
   u: (s, x, y) => new Miner(s, x, y),
   z: (s, x, y) => new AmberBat(s, x, y - 10),
+  d: (s, x, y) => new Wolf(s, x, y),
+  e: (s, x, y) => new Owl(s, x, y),
   // fiapo de tinta da fragmentação: só o Capataz chama, na segunda fase (nome comprido de propósito,
   // nenhuma letra do mapa cai aqui; o 'k' é das chaves da guarita)
   wisp: (s, x, y) => new InkWisp(s, x, y),
@@ -287,6 +320,13 @@ export class GameScene extends Phaser.Scene {
   npcs!: Npcs;
   // as Minas: cristais, escoras, trilhos e vagonete, prensas, registros e blocos de Âmbar
   mine: Mine | null = null;
+  // a Floresta Nevada: neve, vento, correntes de ar, gelo, gelo fino, pegadas e registros
+  forest: Forest | null = null;
+  // a Capa de Arielle no pescoço dele (depois que ele pega)
+  private cape: CapeFx | null = null;
+  // a nevasca do Mestre da Caça (0 limpo, 1 tudo branco): a neve engrossa e só a lanterna e os olhos
+  // dos lobos aparecem através dela
+  whiteout = 0;
   // o caminho do Mago: a mira da habilidade, as magias e os ecos do Grimório (null no Cavaleiro)
   magic: Magic | null = null;
   // os achados no chão da sala (itens e espaços do inventário)
@@ -485,6 +525,13 @@ export class GameScene extends Phaser.Scene {
     this.fixtures?.useHdVeils(null, 1);
   }
 
+  // o que só esta sala usa (terreno pintado, fundos, a folha do chefe) chega antes de ela montar
+  preload() {
+    const data = this.sys.settings.data as GameInit | undefined;
+    const room = data && ROOMS[data.room];
+    if (room) queueRoom(this, room, roomSheets(room));
+  }
+
   create(data: GameInit) {
     this.enemies = [];
     this.arrows = [];
@@ -515,6 +562,7 @@ export class GameScene extends Phaser.Scene {
     this.mendT = 0;
     this.fragLowT = 0;
     this.room = ROOMS[data.room];
+    settleRoom(this, this.room, roomSheets(this.room));
     this.controls = new Controls(this);
     document.body.classList.add('playing');
 
@@ -531,6 +579,8 @@ export class GameScene extends Phaser.Scene {
       this.terrainImg = this.add.image(0, 0, terrain).setOrigin(0).setDepth(DEPTH.tiles);
       this.level.layer.setVisible(false);
     }
+    // a floresta: os pinheiros, a espera de caça e a cabana por dentro, numa camada atrás de tudo que tem física
+    if (this.textures.exists(`pinhos-${room.id}`)) this.add.image(0, 0, `pinhos-${room.id}`).setOrigin(0).setDepth(DEPTH.prop - 0.5);
     this.backdrop = new Backdrop(this, this.level, room.id);
     this.decor = new Decor(this, this.level, room);
     // na volta da memória o ouro novo só aparece depois do efeito (e a grade abre na frente do jogador)
@@ -539,6 +589,7 @@ export class GameScene extends Phaser.Scene {
     this.fixtures = new Fixtures(this);
     this.npcs = new Npcs(this);
     this.mine = room.theme === 'mine' ? new Mine(this) : null;
+    this.forest = room.theme === 'snow' ? new Forest(this) : null;
     this.finds = new Finds(this);
     // começou de uma vela (jogo novo, continuar ou depois de morrer): a Flor prensada volta a valer
     if (data.from === 'new' || data.from === 'continue' || data.from === 'death') progress.seen.delete('flower:spent');
@@ -568,6 +619,7 @@ export class GameScene extends Phaser.Scene {
     this.magic = progress.mage ? new Magic(this, progress.mage) : null;
     // o cavaleiro não tem habilidade: o ícone dela some do HUD
     if (!this.magic) this.registry.set('skill', null);
+    this.cape = null;
     this.applyProgress();
     const keepHp = data.from === 'door' ? (this.registry.get('hp') as number | undefined) : undefined;
     this.player.hp = keepHp && keepHp > 0 ? Math.min(keepHp, progress.maxHp) : progress.maxHp;
@@ -623,7 +675,7 @@ export class GameScene extends Phaser.Scene {
     });
     const so = screenOrigin(this.cameras.main);
     if (room.theme !== 'memory') {
-      const dark = { bridge: 0.5, catacomb: 0.9, city: 0.55, nave: 0.8, prison: 0.85, mine: 0.85 }[room.theme];
+      const dark = { bridge: 0.5, catacomb: 0.9, city: 0.55, nave: 0.8, prison: 0.85, mine: 0.85, snow: 0.45 }[room.theme];
       this.add.image(so.x, so.y, 'vignette').setOrigin(0).setScrollFactor(0).setDepth(29).setAlpha(dark);
     }
     if (room.theme === 'bridge') {
@@ -638,7 +690,7 @@ export class GameScene extends Phaser.Scene {
     this.camY = room.theme === 'memory' ? 72 : 26;
     document.body.classList.toggle('bright', room.theme === 'memory');
     // nos fundos lisos da Cidade-Catedral o grão é mais leve (o traço não some no ruído)
-    this.fx.setGrain({ bridge: 0.09, catacomb: 0.09, memory: 0.035, city: 0.07, nave: 0.07, prison: 0.08, mine: 0.08 }[room.theme]);
+    this.fx.setGrain({ bridge: 0.09, catacomb: 0.09, memory: 0.035, city: 0.07, nave: 0.07, prison: 0.08, mine: 0.08, snow: 0.05 }[room.theme]);
     cam.setFollowOffset(-this.lookX, this.camY);
     this.look = lookFor(room.theme, room.id, room.paint ?? PAINT[room.theme]);
     this.xp = null;
@@ -662,9 +714,9 @@ export class GameScene extends Phaser.Scene {
 
     audio.music(room.music);
     audio.ambience(room.ambience);
-    audio.stepKind = room.theme === 'bridge' ? 'wet' : room.theme === 'memory' ? 'grass' : 'stone';
-    // a nave ecoa mais que tudo; a cidade aberta quase nada
-    audio.space = { bridge: 0.12, catacomb: 0.45, memory: 0.12, city: 0.16, nave: 0.62, prison: 0.5, mine: 0.55 }[room.theme];
+    audio.stepKind = room.theme === 'bridge' ? 'wet' : room.theme === 'memory' ? 'grass' : room.theme === 'snow' ? 'snow' : 'stone';
+    // a nave ecoa mais que tudo; a cidade aberta quase nada (a neve abafa)
+    audio.space = { bridge: 0.12, catacomb: 0.45, memory: 0.12, city: 0.16, nave: 0.62, prison: 0.5, mine: 0.55, snow: 0.1 }[room.theme];
 
     // o ponto de retorno é a última vela acesa (no começo, a ponte); da memória volta-se para a vela do espelho
     if (data.from === 'new') progress.checkpoint(room.id, data.entry, settings.data.weapon);
@@ -791,7 +843,7 @@ export class GameScene extends Phaser.Scene {
       gravityY: -20,
       scale: { start: 1, end: 0 },
       alpha: { start: 0.55, end: 0 },
-      tint: this.room.theme === 'memory' ? 0xb7c98f : 0x7a819a,
+      tint: this.room.theme === 'memory' ? 0xb7c98f : this.room.theme === 'snow' ? 0xe8eff9 : 0x7a819a,
       emitting: false,
     }).setDepth(9);
     this.sparks = this.add.particles(0, 0, 'px', {
@@ -981,7 +1033,9 @@ export class GameScene extends Phaser.Scene {
     if (this.controls.pressed.memory && !this.magic?.aiming) this.usePower();
     // o vagonete anda antes do cavaleiro (ele vai sentado no assento já no lugar novo)
     this.mine?.update(time, dt, this.stopT > 0);
+    this.forest?.update(dt);
     p.update(dt, this.controls);
+    this.cape?.update(dt, this.forest?.wind.x ?? 0);
     this.magic?.update(dt, this.controls);
     this.hookHits();
     if (p.canHook) this.fixtures.markRing(p.hook || p.dead ? null : this.hookTarget(p));
@@ -1790,7 +1844,14 @@ export class GameScene extends Phaser.Scene {
     const b = p.body;
     const spiked = this.level.touchesSpikes(b.x + 1, b.y, b.width - 2, b.height);
     const fell = this.room.pit && b.top > this.level.heightPx + 8;
-    if (!spiked && !fell) return;
+    // a água gelada do lago (e a da fonte quente, que ferve): machuca e devolve ao chão firme
+    const frozen = this.room.theme === 'snow' && this.level.inWater(b.center.x, b.bottom - 4);
+    if (!spiked && !fell && !frozen) return;
+    if (frozen) {
+      this.sfx('freeze');
+      this.waterFx.explode(16, b.center.x, Math.floor((b.bottom - 4) / TILE) * TILE + 3);
+      this.thinkOnce('forest:water', 'A água morde. Não dá para ficar nela nem um instante.');
+    }
     this.respawning = true;
     if (p.hurt(b.center.x)) this.onHurt();
     if (p.dead) return;
@@ -1911,7 +1972,7 @@ export class GameScene extends Phaser.Scene {
     if (!hint && !this.cinematic && !this.transitioning && !p.dead) {
       this.props.touch(p);
       this.fixtures.touch(p);
-      const near = this.mine?.nearby(p) ?? this.props.nearby(p) ?? this.fixtures.nearby(p) ?? this.npcs.nearby(p);
+      const near = this.mine?.nearby(p) ?? this.forest?.nearby(p) ?? this.props.nearby(p) ?? this.fixtures.nearby(p) ?? this.npcs.nearby(p);
       if (near) {
         hint = near.hint;
         if (this.controls.pressed.up) {
@@ -2432,6 +2493,14 @@ export class GameScene extends Phaser.Scene {
   }
 
   // pensamento que só aparece uma vez no jogo
+  // true só na primeira vez (fica gravado)
+  once(key: string) {
+    if (progress.seen.has(`once:${key}`)) return false;
+    progress.seen.add(`once:${key}`);
+    progress.save();
+    return true;
+  }
+
   thinkOnce(key: string, text: string) {
     if (progress.seen.has(`thought:${key}`)) return;
     progress.seen.add(`thought:${key}`);
@@ -2441,8 +2510,8 @@ export class GameScene extends Phaser.Scene {
 
   // os registros das Minas: o livro em cima do caixote (fica guardado no Diário, aba Registros)
   readRecord(id: string) {
-    const r = RECORDS[id];
-    if (!r) return;
+    if (!RECORDS[id]) return;
+    const r = recordInfo(id, progress.knowsHerName);
     const first = !progress.seen.has(`record:${id}`);
     this.talk(r.title, r.lines, null, () => {
       // a flor seca que estava entre as folhas da ficha de A. fica com ele
@@ -2567,6 +2636,7 @@ export class GameScene extends Phaser.Scene {
     else if (n.kind === 'nun') this.talkNun(n);
     else if (n.kind === 'prisoner') this.talkPrisoner(n);
     else if (n.kind === 'miner') this.talkMiner(n);
+    else if (n.kind === 'surveyor') this.talkSurveyor(n);
     else {
       const lines = this.room.npcs?.[n.i] ?? ['...'];
       const line = lines[n.line % lines.length];
@@ -2611,6 +2681,53 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     this.talk(OLD_MINER.name, [OLD_MINER.after[n.line++ % OLD_MINER.after.length]], n);
+  }
+
+  // o Agrimensor: na primeira vez se apresenta; depois abre a banca das folhas do mapa direto
+  private talkSurveyor(n: Npc) {
+    if (!progress.seen.has('agrimensor:met')) {
+      this.talk(SURVEYOR.name, SURVEYOR.first, n, () => {
+        progress.seen.add('agrimensor:met');
+        progress.save();
+        this.openSurveyor(n, SURVEYOR.first[SURVEYOR.first.length - 1]);
+      });
+      return;
+    }
+    this.openSurveyor(n, SURVEYOR.again[n.line++ % SURVEYOR.again.length]);
+  }
+
+  private openSurveyor(n: Npc, quote: string) {
+    if (ui.open || this.transitioning) return;
+    const at = surveyorRegion(this.room.id, (id) => (progress.visited.get(id)?.size ?? 0) > 0);
+    if (!at) return;
+    const sheets = sheetsFor(at);
+    this.scene.pause();
+    ui.hint(null);
+    this.npcs.talking(n, true);
+    const bought: string[] = [];
+    ui.surveyor({
+      quote: sheets.every((r) => progress.maps.has(r.id)) ? SURVEYOR.done : quote,
+      sheets,
+      current: at.id,
+      lines: SURVEYOR,
+      buy: (id) => {
+        const r = REGION_BY_ID[id];
+        if (progress.maps.has(id) || progress.coins < r.price) return false;
+        progress.coins -= r.price;
+        progress.maps.add(id);
+        progress.save();
+        this.registry.set('coins', progress.coins);
+        audio.sfx('coin');
+        this.sfx('page');
+        bought.push(r.name);
+        return true;
+      },
+      onClose: () => {
+        this.npcs.talking(n, false);
+        this.resumeGame();
+        if (bought.length) ui.banner(bought.length > 1 ? 'Folhas do mapa' : `Mapa: ${bought[0]}`, pad.device === 'pad' ? 'Abra com Select' : 'Abra com M', 3600);
+      },
+    });
   }
 
   // a irmã Luzia: dá o diário, pede os três sinos e recompensa quando todos tocam
@@ -2708,11 +2825,15 @@ export class GameScene extends Phaser.Scene {
   // ---------- progresso: habilidades, melhorias, velas, relíquias e memórias ----------
   applyProgress() {
     const p = this.player;
+    p.canDash = progress.abilities.has('dash');
     p.canWall = progress.abilities.has('wall');
     p.canDouble = progress.abilities.has('double');
     p.canHook = progress.abilities.has('hook');
     p.canVeil = progress.abilities.has('veil');
+    p.canGlide = progress.abilities.has('cape');
+    if (p.canGlide && !this.cape) this.cape = new CapeFx(this, p);
     document.body.classList.toggle('has-hook', p.canHook);
+    document.body.classList.toggle('has-dash', p.canDash);
     p.dashCdMul = progress.on('breath') ? 0.55 : 1;
     this.registry.set('maxhp', progress.maxHp);
     this.registry.set('memories', [...progress.memories].map((m) => (progress.traded.has(m) ? 0 : 1)));
@@ -2754,7 +2875,7 @@ export class GameScene extends Phaser.Scene {
 
   takeRelic(r: Relic) {
     const p = this.player;
-    const info = RELICS[r.kind];
+    const info = relicInfo(r.kind, progress.knowsHerName);
     this.cinematic = true;
     ui.hint(null);
     p.frozen = true;
@@ -2800,6 +2921,10 @@ export class GameScene extends Phaser.Scene {
     if (CHAPTERS[m.id]) this.chapterEnd(m.id);
     // a imagem do espelho vem junto com a memória dela: o Eco
     if (m.id === BOSSES.reflexo.memory) this.time.delayedCall(5000, () => this.learnPower('eco'));
+    // o nome que escorregava na capa do herbário agora fica parado
+    if (m.id === NAME_MEMORY && progress.seen.has('record:cabana:0')) {
+      this.time.delayedCall(5000, () => ui.thought('O nome bordado na capa do herbário. Agora as letras ficam paradas: Arielle.', 4600));
+    }
   }
 
   // ---------- a sombra (Eco) ----------
@@ -2923,6 +3048,7 @@ export class GameScene extends Phaser.Scene {
     const w = this.bossWeapon(id);
     if (w) this.dropWeapon(w, this.bossX(x + f * info.drop), y, false);
     if (info.item) this.finds.add(info.item.id, this.bossX(x + f * info.item.dx), y);
+    if (info.note) this.forest?.addNote(info.note.id, this.bossX(x + f * info.note.dx), y);
   }
 
   // longe das paredes, para dar para pegar o que o chefe deixa
@@ -2986,6 +3112,14 @@ export class GameScene extends Phaser.Scene {
     // o achado dele cai do corpo, e o que a sala guardava para depois da luta aparece (a lasca do espelho)
     const it = info.item;
     if (it) this.time.delayedCall(1800, () => this.finds.add(it.id, this.bossX(x + f * it.dx), bottom, { x, y: bottom - 40 }));
+    const note = info.note;
+    if (note) {
+      this.time.delayedCall(2000, () => {
+        const nx = this.bossX(x + f * note.dx);
+        const top = this.level.groundBelow(Math.floor(nx / TILE), Math.floor((bottom - 8) / TILE));
+        this.forest?.addNote(note.id, nx, top >= 0 ? top * TILE : bottom, true);
+      });
+    }
     this.time.delayedCall(900, () => this.unlockFinds(`boss:${id}`));
     // e a arma dele cai do outro lado (o incensário sai do chão onde rolou)
     const w = this.bossWeapon(id);
@@ -3011,7 +3145,7 @@ export class GameScene extends Phaser.Scene {
   // a Sombra vencida: a tinta da poça salta num fio até o cavaleiro e entra nele (vira o Véu)
   private absorbShadow(b: Sombra, kind: Ability, done: () => void) {
     const p = this.player;
-    const info = RELICS[kind];
+    const info = relicInfo(kind, progress.knowsHerName);
     this.cinematic = true;
     ui.hint(null);
     p.frozen = true;
@@ -3363,6 +3497,7 @@ export class GameScene extends Phaser.Scene {
       room: this.room.id,
       x: this.player.x / TILE,
       y: this.player.body.center.y / TILE,
+      facing: this.player.facing,
       onClose: () => (fromPause ? ui.pop() : this.resumeGame()),
     });
   }
@@ -3513,6 +3648,18 @@ export class GameScene extends Phaser.Scene {
 
   dustBurst(x: number, y: number, n: number) {
     this.dust.explode(n, x, y - 1);
+  }
+
+  // geada que estoura (lobo, coruja, o caçador): lascas de gelo e um sopro de neve; fora da neve, poeira
+  frostBurst(x: number, y: number, n: number) {
+    if (this.forest) this.forest.frost(x, y, n);
+    else this.dust.explode(n, x, y - 1);
+  }
+
+  // algo caiu na água (a superfície em y)
+  splash(x: number, y: number) {
+    this.waterFx.explode(14, x, y);
+    this.sfx('splash', 0.6);
   }
 
   // cinzas e penas do pulo duplo

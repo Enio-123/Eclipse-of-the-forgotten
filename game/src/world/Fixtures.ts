@@ -136,6 +136,9 @@ export class Fixtures {
   readonly doors: Door[] = [];
   readonly locks: LockGate[] = [];
   readonly walls: Wall[] = [];
+  // a lanterna da Lança do Caçador: as rachaduras acesas nas paredes falsas perto dela
+  private revealG: Phaser.GameObjects.Graphics | null = null;
+  private cracks = new Map<Wall, { x: number; y: number }[][]>();
   readonly bells: Bell[] = [];
   readonly caches: Cache[] = [];
   readonly pages: Page[] = [];
@@ -364,6 +367,53 @@ export class Fixtures {
       return;
     }
     this.breakWall(w, true);
+  }
+
+  // a lanterna mostra o rastro de quem lembra demais: perto dela, as rachaduras da parede falsa acendem
+  // por dentro (a pedra continua inteira; é só o aviso de que tem passagem ali)
+  private updateReveal(time: number) {
+    const s = this.scene;
+    const at = s.player?.lanternAt ?? null;
+    if (!at && !this.revealG) return;
+    const g = (this.revealG ??= s.add.graphics().setBlendMode(Phaser.BlendModes.ADD).setDepth(VEIL_DEPTH + 0.1));
+    g.clear();
+    if (!at) return;
+    for (const w of this.walls) {
+      const r = w.rect;
+      const d = Math.hypot(Math.max(r.x - at.x, 0, at.x - r.right), Math.max(r.y - at.y, 0, at.y - r.bottom));
+      if (d > 110) continue;
+      const k = (1 - d / 110) * (0.75 + 0.25 * Math.sin(time * 0.005 + r.x * 0.1));
+      for (const line of this.crackLines(w)) {
+        g.lineStyle(3, 0xff8a2a, 0.16 * k).strokePoints(line);
+        g.lineStyle(1, 0xffd49a, 0.7 * k).strokePoints(line);
+      }
+      if (d < 60) s.thinkOnce('lanca:wall', 'A lanterna acendeu rachaduras na pedra. Tem passagem aí atrás.');
+    }
+  }
+
+  // rachaduras tortas atravessando cada bloco da parede (sempre as mesmas para a mesma parede)
+  private crackLines(w: Wall) {
+    let lines = this.cracks.get(w);
+    if (lines) return lines;
+    lines = [];
+    const rand = rng(w.b.cells.length * 977 + w.b.x0 * 131 + w.b.y0 * 31);
+    for (const [cx, cy] of w.b.cells) {
+      const x0 = cx * TILE;
+      const y0 = cy * TILE;
+      const down = rand() < 0.6;
+      const pts: { x: number; y: number }[] = [];
+      for (let i = 0; i <= 4; i++) {
+        const t = i / 4;
+        const j = (rand() - 0.5) * 7;
+        pts.push(down ? { x: x0 + 8 + j, y: y0 + t * TILE } : { x: x0 + t * TILE, y: y0 + 8 + j });
+      }
+      lines.push(pts);
+      // um galho curto saindo da rachadura
+      const m = pts[2];
+      lines.push([m, { x: m.x + (rand() - 0.5) * 9, y: m.y + 3 + rand() * 4 }]);
+    }
+    this.cracks.set(w, lines);
+    return lines;
   }
 
   breakWall(w: Wall, loud: boolean) {
@@ -1051,6 +1101,7 @@ export class Fixtures {
 
   update(time: number, dt: number) {
     this.updateTrapdoors(dt);
+    this.updateReveal(time);
     for (const m of this.membranes) {
       // a tinta desce sem parar e a pele ondula um pouco
       m.skin.tilePositionY -= (dt * 9) / m.k;

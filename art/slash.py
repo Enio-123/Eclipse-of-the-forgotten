@@ -2,7 +2,7 @@
 
 uso: python3 slash.py <pasta_saida> [--hd]
 Gera slash.png (espada), slash-big.png (foice), slash-small.png (adagas), slash-heavy.png (badalo),
-slash-censer.png (incensário) e arrow.png. Com --hd (ou main(out, hd=2)) sai no traço liso, com 2
+slash-censer.png (incensário), slash-thrust.png (a estocada da lança) e arrow.png. Com --hd (ou main(out, hd=2)) sai no traço liso, com 2
 pixels por pixel do mundo: o fio sem serrilhado e o rastro em degradê no lugar do xadrez de pixels;
 slashes.json guarda o tamanho do quadro na folha e a escala.
 """
@@ -19,6 +19,9 @@ D_CORE, D_MID, D_EDGE = (240, 246, 255), (176, 196, 228), (104, 124, 168)
 H_CORE, H_MID, H_EDGE, H_DEEP = (255, 240, 208), (232, 184, 108), (156, 100, 44), (78, 46, 20)
 # incensário: brasa dourada com rastro de fumaça cinza
 C_CORE, C_MID, C_EDGE, C_DEEP = (255, 238, 196), (236, 190, 110), (150, 132, 120), (92, 88, 100)
+# lança: a estocada reta e fria, com as brasas de Âmbar da lanterna caindo atrás
+T_CORE, T_MID, T_EDGE, T_DEEP = (250, 248, 240), (198, 214, 232), (112, 136, 170), (60, 74, 104)
+EMBER = (255, 166, 60)
 
 
 def arc_frame(W, H, cx, R, squash, start, end, thick, alpha, cols, a0=-80, a1=80, trail=2.2, sparkle=None):
@@ -108,6 +111,60 @@ def arc_hd(W, H, cx, R, squash, start, end, thick, alpha, cols, a0=-80, a1=80, t
             rgb = (gold * g[..., None] + rgb * (a * (1 - g))[..., None]) / np.maximum(na[..., None], 1e-5)
             a = na
     # reduz para s pixels por pixel do mundo (média com alfa pré-multiplicado)
+    h, w = H * s, W * s
+    pm = (rgb * a[..., None]).reshape(h, aa, w, aa, 3).mean((1, 3))
+    am = a.reshape(h, aa, w, aa).mean((1, 3))
+    out = np.dstack([pm / np.maximum(am[..., None], 1e-5), am])
+    return Image.fromarray((np.clip(out, 0, 1) * 255 + 0.5).astype(np.uint8), 'RGBA')
+
+
+def thrust_hd(W, H, cx, L, tail, head, thick, alpha, cols, s=2, aa=3, seed=None):
+    """A estocada da lança: um risco reto que sai do corpo (cx) e vai até `head` (0..1 do comprimento
+    L), cheio perto da ponta e afiado nela, afinando para trás até `tail`; um halo fraco em volta, dois
+    riscos de velocidade e as brasas da lanterna que ficam para trás, um pouco abaixo da linha."""
+    core, mid, edge, rim = [np.array(c, np.float32) / 255 for c in cols]
+    k = s * aa
+    yy, xx = np.mgrid[0:H * k, 0:W * k].astype(np.float32)
+    x = (xx + 0.5) / k
+    y = (yy + 0.5) / k
+    cy = H / 2
+    x0, x1 = cx + tail * L, cx + head * L
+    t = (x - x0) / max(1e-6, x1 - x0)
+    ok = (t >= 0) & (t <= 1)
+    tc = np.clip(t, 0, 1)
+    th = thick * tc ** 0.8 * np.clip((1 - tc) / 0.12, 0, 1) ** 0.6
+    d = np.abs(y - cy)
+    q = d / np.maximum(th, 1e-6)
+    stops = [0.0, 0.3, 0.6, 0.85, 1.0]
+    pal = [core, core, mid, edge, (edge + rim) / 2]
+    col = np.stack([np.interp(q, stops, [c[i] for c in pal]) for i in range(3)], -1)
+    body = ok & (d <= th)
+    a_body = alpha * np.interp(q, [0.0, 0.5, 0.85, 1.0], [1.0, 1.0, 0.75, 0.4]) * np.clip(tc * 3, 0, 1)
+    halo = ok & (d > th) & (d < th * 2.4 + 0.5)
+    a_halo = alpha * 0.16 * np.clip(1 - (d - th) / (th * 1.4 + 0.5), 0, 1) * tc
+    a = np.where(body, a_body, np.where(halo, a_halo, 0.0)).astype(np.float32)
+    rgb = np.where(body[..., None], col, mid).astype(np.float32)
+    # dois riscos de velocidade, curtos, atrás da ponta (um acima, outro abaixo)
+    for off, t0, t1 in ((-thick * 2.1, 0.3, 0.72), (thick * 2.3, 0.18, 0.6)):
+        on = ok & (tc > t0) & (tc < t1) & (np.abs(y - (cy + off)) < 0.42)
+        g = alpha * 0.45 * np.sin(np.pi * np.clip((tc - t0) / (t1 - t0), 0, 1))
+        na = np.where(on, g + a * (1 - g), a)
+        rgb = np.where(on[..., None], (mid * g[..., None] + rgb * (a * (1 - g))[..., None]) / np.maximum(na[..., None], 1e-5), rgb)
+        a = na.astype(np.float32)
+    if seed is not None:
+        import random
+        rnd = random.Random(seed)
+        em = np.array(EMBER, np.float32) / 255
+        for _ in range(7):
+            ts = rnd.uniform(0.05, 0.45)
+            if ts < tail or ts > head:
+                continue
+            sx = cx + ts * L
+            sy = cy + rnd.uniform(1.5, 4.5)
+            g = (np.exp(-((x - sx) ** 2 + (y - sy) ** 2) / (2 * 0.45 ** 2)) * 0.95 * alpha).astype(np.float32)
+            na = g + a * (1 - g)
+            rgb = (em * g[..., None] + rgb * (a * (1 - g))[..., None]) / np.maximum(na[..., None], 1e-5)
+            a = na
     h, w = H * s, W * s
     pm = (rgb * a[..., None]).reshape(h, aa, w, aa, 3).mean((1, 3))
     am = a.reshape(h, aa, w, aa).mean((1, 3))
@@ -231,6 +288,21 @@ def main(out, hd=0):
                     cols, 20, seed=9, a0=-100, a1=72)
     sheet(fr, f'{out}/slash-censer.png')
     meta['slash-censer'] = dict(w=W, h=H, ox=12 / W, frames=len(fr), fps=fps)
+    # lança: a estocada reta (no pixel art sai no traço liso de 1 pixel por pixel)
+    W, H = 112, 20
+    cols = (T_CORE, T_MID, T_EDGE, T_DEEP)
+    keys = [dict(tail=0.0, head=0.3, thick=2.0, alpha=1.0), dict(tail=0.04, head=1.0, thick=3.0, alpha=1.0),
+            dict(tail=0.5, head=1.0, thick=2.4, alpha=0.8), dict(tail=0.88, head=1.0, thick=1.2, alpha=0.3)]
+    fr = []
+    m = 3
+    for i in range(len(keys) - 1):
+        ka, kb = keys[i], keys[i + 1]
+        for j in range(m):
+            e = (j / m) ** 2 * (3 - 2 * j / m)
+            fr.append(thrust_hd(W, H, 6, 98, cols=cols, s=hd or 1, seed=13, **{q: ka[q] + (kb[q] - ka[q]) * e for q in ka}))
+    fr.append(thrust_hd(W, H, 6, 98, cols=cols, s=hd or 1, seed=13, **keys[-1]))
+    sheet(fr, f'{out}/slash-thrust.png')
+    meta['slash-thrust'] = dict(w=W, h=H, ox=6 / W, frames=len(fr), fps=54)
     # flecha
     a = Image.new('RGBA', (24, 7), (0, 0, 0, 0))
     px = a.putpixel
@@ -255,7 +327,7 @@ def main(out, hd=0):
     # prévia
     prev = Image.new('RGBA', (520 * max(1, hd), 500 * max(1, hd)), (24, 28, 42, 255))
     y = 4
-    for k in ('slash', 'slash-big', 'slash-small', 'slash-heavy', 'slash-censer'):
+    for k in ('slash', 'slash-big', 'slash-small', 'slash-heavy', 'slash-censer', 'slash-thrust'):
         im = Image.open(f'{out}/{k}.png')
         prev.alpha_composite(im, (4, y))
         y += im.height + 4

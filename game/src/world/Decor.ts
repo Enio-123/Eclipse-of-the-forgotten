@@ -90,7 +90,10 @@ export class Decor {
   // ---------- suportes: nenhuma plataforma flutua solta ----------
   private supports() {
     const L = this.level;
+    // na neve, o galho que sai de um pinheiro (T, ou s, o seco) já está preso no tronco
+    const trunks = L.theme === 'snow' ? L.spawns.filter((sp) => sp.kind === 'T' || sp.kind === 's') : [];
     for (const r of L.spans((x, y) => L.ch(x, y) === '-')) {
+      if (trunks.some((t) => t.tx >= r.x0 - 1 && t.tx <= r.x1 + 1 && t.ty > r.y)) continue;
       const yTop = r.y * TILE;
       const yBot = yTop + PLANK_H;
       const leftWall = L.solidCell(r.x0 - 1, r.y);
@@ -151,7 +154,7 @@ export class Decor {
   // ---------- musgo pendurado nos tetos ----------
   private moss() {
     const L = this.level;
-    const p = { bridge: 0.4, catacomb: 0.55, memory: 0, city: 0.3, nave: 0.22, prison: 0.3, mine: 0.08 }[L.theme];
+    const p = { bridge: 0.4, catacomb: 0.55, memory: 0, city: 0.3, nave: 0.22, prison: 0.3, mine: 0.08, snow: 0 }[L.theme];
     for (let y = 0; y < L.h; y++) {
       for (let x = 0; x < L.w; x++) {
         if (!L.ceilingCell(x, y)) continue;
@@ -177,7 +180,7 @@ export class Decor {
     const L = this.level;
     const own = `deco-tufts-${L.theme}`;
     const key = this.scene.textures.exists(own) ? own : 'deco-tufts-catacomb';
-    const p = { bridge: 0.3, catacomb: 0.45, memory: 0.8, city: 0.28, nave: 0.1, prison: 0.14, mine: 0 }[L.theme];
+    const p = { bridge: 0.3, catacomb: 0.45, memory: 0.8, city: 0.28, nave: 0.1, prison: 0.14, mine: 0, snow: 0 }[L.theme];
     for (let y = 1; y < L.h; y++) {
       for (let x = 0; x < L.w; x++) {
         if (!L.floorCell(x, y) || this.rand() > p) continue;
@@ -214,13 +217,28 @@ export class Decor {
 
   private waterBodies() {
     const L = this.level;
-    for (const s of L.spans((x, y) => L.ch(x, y) === '~')) {
+    // o lago da floresta é fundo: só a água que dá para o ar tem a linha da superfície; embaixo do gelo
+    // (e mais para baixo) é água escura e fria, inteira, e dá para ver o que está parado nela
+    const snow = L.theme === 'snow';
+    const open = (x: number, y: number) => !snow || L.ch(x, y - 1) === '.';
+    if (snow && !this.scene.textures.exists('water-deep')) {
+      const g = this.scene.add.graphics();
+      for (let y = 0; y < 16; y++) g.fillStyle(Phaser.Display.Color.GetColor(30 + y, 70 + y * 2, 104 + y * 2), 1).fillRect(0, y, 16, 1);
+      g.generateTexture('water-deep', 16, 16);
+      g.destroy();
+    }
+    for (const s of L.spans((x, y) => L.ch(x, y) === '~' && open(x, y))) {
       const sprite = this.scene.add
         .tileSprite(s.x0 * TILE, s.y * TILE + 3, (s.x1 - s.x0 + 1) * TILE, TILE - 3, 'water')
         .setOrigin(0)
-        .setAlpha(0.82)
+        .setAlpha(snow ? 0.7 : 0.82)
         .setDepth(DEPTH.water);
+      if (snow) sprite.setTint(0xb8d8ec);
       this.water.push({ sprite, x0: s.x0 * TILE, x1: (s.x1 + 1) * TILE, y: s.y * TILE + 3 });
+    }
+    if (!snow) return;
+    for (const s of L.spans((x, y) => L.ch(x, y) === '~' && !open(x, y))) {
+      this.scene.add.tileSprite(s.x0 * TILE, s.y * TILE, (s.x1 - s.x0 + 1) * TILE, TILE, 'water-deep').setOrigin(0).setAlpha(0.6).setDepth(DEPTH.water);
     }
   }
 
@@ -293,9 +311,11 @@ export class Decor {
           break;
         }
         case 'T':
+          if (this.level.theme === 'snow') break;
           s.add.image(p.x, p.y + 2, 'deco-tree-big').setOrigin(0.5, 1).setDepth(DEPTH.prop);
           break;
         case 't':
+          if (this.level.theme === 'snow') break;
           s.add.image(p.x, p.y + 2, this.rand() < 0.6 ? 'deco-tree-pink' : 'deco-tree-green').setOrigin(0.5, 1).setDepth(DEPTH.prop).setFlipX(this.rand() < 0.5);
           break;
         case 'F':

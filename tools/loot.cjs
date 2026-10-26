@@ -21,6 +21,7 @@ let fails = 0;
       const t = g.scene.getScene('title');
       if (t && t.scene.isActive()) t.scene.stop();
       const gs = g.scene.getScene('game');
+      window.__progress.abilities.add('dash');
       if (gs && gs.scene.isActive()) gs.scene.restart({ room, entry, from: 'door' });
       else g.scene.start('game', { room, entry, from: 'door' });
     }, [room, entry]);

@@ -5,7 +5,7 @@ P início (acordar)  1-9 entradas  c penitente  g guarda de escudo  v corvo (pai
 L poste aceso  l poste apagado  S estátua  G cadafalso  D portão  C velas  M espelho
 T árvore grande  t árvore pequena  F figura de capa vermelha  ~ água
 R vela de descanso (cura e salva)  K o Cobrador  m fragmento de memória
-J Garras de Ferro (pulo na parede)  U Pena do Eclipse (pulo duplo)
+> Esporas do Carrasco (dash)  J Garras de Ferro (pulo na parede)  U Pena do Eclipse (pulo duplo)
 | grade de ferro (sólida enquanto fechada)  X onde o chefe aparece
 Cidade-Catedral:
 % parede falsa (quebra com golpes)  V vitral quebrável  Y grade com chave (RoomDef.locks)
@@ -162,6 +162,12 @@ def catacumbas():
     g.put(58, 13, 'm')
     # página do diário no fundo do poço da esquerda
     g.put(30, 41, 'p')
+    # o ossuário: um nicho cavado na parede do poço, no fundo, onde dorme um carrasco antigo; as
+    # Esporas do Carrasco (o dash) ficam no pedestal, entre as velas
+    g.fill(13, 37, 23, 41, '.')
+    g.put(17, 41, '>')
+    g.put(14, 41, 'C')
+    g.put(21, 41, 'C')
     return g.rows()
 
 
@@ -1163,8 +1169,9 @@ def capataz():
         g.put(7, y, '|')
     plank(g, 15, 21, 23)
     plank(g, 44, 50, 23)
-    # o túnel tapado pelo âmbar: segue para leste e desabou adiante (o vento frio passa pelas frestas)
-    g.fill(64, 24, 70, 29, '.')
+    # o túnel tapado pelo âmbar: segue para leste e sobe até a encosta da serra (o vento frio passa
+    # pelas frestas)
+    g.fill(64, 24, 71, 29, '.')
     for y in range(24, 30):
         g.put(64, y, '@')
         g.put(65, y, '@')
@@ -1173,9 +1180,282 @@ def capataz():
     g.put(46, r, 'X')
     g.put(50, r, 'x')
     g.put(68, r, 'r')
+    g.put(70, r, '2')
     for (x, y) in ((10, 6), (24, 5), (40, 5), (58, 7), (33, 4)):
         g.put(x, y, 'x')
     snap_crystals(g)
+    return g.rows()
+
+
+
+# ======================================================================================
+# Floresta Nevada (capítulo 5). Atrás do bloco de Âmbar da Galeria do Capataz: o túnel sobe e sai
+# na encosta da serra. A floresta é a da abertura do jogo. Ver lore/floresta.md. Caracteres novos:
+# _ gelo (chão que escorrega)  ; gelo fino (racha com peso e quebra; embaixo, água gelada)
+# ~ água gelada (machuca e devolve ao último chão firme)  d lobo da caça  e coruja de geada
+# { a Capa de Arielle (relíquia: plana)  T pinheiro grande  s pinheiro seco  t pinheiro novo (enfeite)
+# Na neve, '-' é galho (sai sempre de um tronco T ou s, ou é tábua da espera de caça, com postes) e
+# '+' é parede de gelo (as garras escorregam). Nenhum galho fica solto: check_forest confere.
+# ======================================================================================
+def ground(g, x0, x1, top, bottom=None):
+    """Chão de neve: pedra do topo até o fundo da sala."""
+    g.fill(x0, top, x1, (g.h - 1) if bottom is None else bottom, '#')
+
+
+def pine(g, x, top, branches=(), kind='T'):
+    """Pinheiro (T) ou pinheiro seco (s) de pé no chão cuja superfície é a linha top. Cada galho que
+    segura o peso dele é (lado, comprimento, linha): sai do tronco para a esquerda (-1) ou para a
+    direita (1). Os galhos de enfeite (finos, sem neve em cima) são da pintura, não do mapa."""
+    g.put(x, top - 1, kind)
+    for side, n, y in branches:
+        for bx in (range(x + 1, x + 1 + n) if side > 0 else range(x - n, x)):
+            g.put(bx, y, '-')
+
+
+def check_forest(name, rows, stands=()):
+    """Cada galho tem tronco: o trecho de '-' encosta num T ou s da mesma coluna (o tronco sobe do pé
+    da árvore até o alto), ou está na lista das tábuas com poste (stands)."""
+    trunks = [(x, y) for y, r in enumerate(rows) for x, c in enumerate(r) if c in 'Ts']
+    bad = []
+    for y, r in enumerate(rows):
+        x = 0
+        while x < len(r):
+            if r[x] != '-':
+                x += 1
+                continue
+            x0 = x
+            while x < len(r) and r[x] == '-':
+                x += 1
+            x1 = x - 1
+            ok = any(x0 - 1 <= tx <= x1 + 1 and ty > y for tx, ty in trunks) or (x0, x1, y) in stands
+            if not ok:
+                bad.append((x0, x1, y))
+    if bad:
+        raise SystemExit(f'{name}: galho sem tronco em {bad}')
+
+
+def encosta():
+    """Encosta Gelada: o túnel da mina sai na encosta da serra, ao ar livre. No pé do túnel, o braseiro
+    dos mineiros (descanso). Em cima da boca do túnel, o paredão da montanha e uma laje de pedra presa
+    nele, com o baú dos mineiros (sobe-se pelos galhos do primeiro pinheiro). A neve desce em degraus
+    até o pinhal, lá embaixo à direita. Um córrego congelado corta a encosta: o fundo é de lascas de
+    gelo e o vento sopra contra quem atravessa."""
+    W, H = 112, 44
+    g = Grid(W, H, '.')
+    # a montanha à esquerda, com o túnel cavado nela (a boca vai da linha 24 à 29)
+    g.fill(0, 0, 13, 23, '#')
+    g.fill(14, 0, 16, 19, '#')
+    # a laje presa no paredão
+    g.fill(17, 11, 20, 12, '#')
+    ground(g, 0, 24, 30)
+    # degraus da encosta (com uma pedra grande no segundo)
+    ground(g, 25, 36, 32)
+    ground(g, 37, 50, 34)
+    g.fill(44, 32, 46, 33, '#')
+    ground(g, 51, 64, 36)
+    # o córrego congelado: vão com lascas de gelo no fundo
+    ground(g, 65, 71, 41)
+    for x in range(65, 72):
+        g.put(x, 40, '^')
+    ground(g, 72, 111, 38)
+    pine(g, 28, 32, [(1, 6, 24), (-1, 6, 17)])
+    pine(g, 58, 36, [(1, 7, 28)])
+    pine(g, 80, 38)
+    pine(g, 97, 38)
+    for (x, top) in ((33, 32), (49, 34), (86, 38), (104, 38)):
+        g.put(x, top - 1, 't')
+    g.put(1, 29, '1')
+    g.put(110, 37, '2')
+    g.put(8, 29, 'R')
+    g.put(18, 10, '$')
+    g.put(55, 35, 'd')
+    g.put(92, 37, 'd')
+    return g.rows()
+
+
+def pinhal():
+    """O Pinhal: os pinheiros altos da abertura. Os galhos baixos seguram o peso dele. No meio, a espera
+    de caça (o tablado de madeira dos caçadores, em postes). Dali, as pegadas pequenas e as fitas
+    vermelhas amarradas nos troncos sobem de galho em galho até o alto do pinheiro velho, onde ela
+    escondia uma caixa. Um córrego congelado corta o chão e um tronco caído atravessa o caminho."""
+    W, H = 172, 40
+    g = Grid(W, H, '.')
+    ground(g, 0, 20, 34)
+    ground(g, 21, 40, 33)
+    ground(g, 41, 60, 34)
+    # córrego congelado
+    ground(g, 61, 68, 38)
+    for x in range(61, 69):
+        g.put(x, 37, '^')
+    ground(g, 69, 100, 34)
+    # tronco caído
+    g.fill(84, 32, 90, 33, '#')
+    ground(g, 101, 118, 35)
+    ground(g, 119, 140, 34)
+    ground(g, 141, 171, 33)
+    # a espera de caça
+    plank(g, 103, 110, 27)
+    pine(g, 12, 34)
+    pine(g, 33, 33, [(1, 6, 26)])
+    pine(g, 52, 34)
+    pine(g, 78, 34, [(-1, 6, 26)])
+    pine(g, 96, 34)
+    pine(g, 122, 34, [(-1, 6, 23)])
+    pine(g, 132, 34, [(-1, 6, 19)])
+    pine(g, 141, 33, [(-1, 6, 15), (1, 7, 11)])
+    pine(g, 160, 33)
+    for (x, top) in ((25, 33), (70, 34), (113, 35), (151, 33)):
+        g.put(x, top - 1, 't')
+    g.put(1, 33, '1')
+    g.put(170, 32, '2')
+    g.put(147, 10, '$')
+    g.put(54, 33, 'r')
+    g.put(45, 33, 'd')
+    g.put(95, 33, 'd')
+    g.put(128, 33, 'd')
+    g.put(37, 25, 'e')
+    g.put(74, 25, 'e')
+    g.put(128, 18, 'e')
+    return g.rows(), {(103, 110, 27)}
+
+
+def lago():
+    """Lago Congelado: o lago todo coberto de gelo, com três trechos de gelo fino. Embaixo do gelo, a
+    água gelada (e os rostos parados de quem a caçada empurrou para o gelo fino). Na ilha do meio, um
+    pinheiro seco e uma memória. Do lado da ilha, a fonte quente: um buraco no gelo de onde o vapor
+    sobe alto; com a capa aberta, ele leva até o galho de cima do pinheiro seco, onde ficou a caixa de
+    um caçador. Do outro lado, a margem sobe em degraus de pedra para a cabana."""
+    W, H = 150, 42
+    g = Grid(W, H, '.')
+    ground(g, 0, 24, 32)
+    # o leito do lago, a água e o gelo por cima
+    ground(g, 25, 118, 38)
+    g.fill(25, 34, 118, 37, '~')
+    for x in range(25, 119):
+        g.put(x, 33, '_')
+    for (x0, x1) in ((40, 45), (78, 84), (98, 103)):
+        for x in range(x0, x1 + 1):
+            g.put(x, 33, ';')
+    # a ilha
+    g.fill(55, 30, 63, 37, '#')
+    g.fill(57, 29, 61, 29, '#')
+    # a fonte quente: o gelo aberto do lado da ilha
+    for x in range(67, 70):
+        g.put(x, 33, '~')
+    pine(g, 59, 29, [(-1, 6, 24), (1, 9, 12)], kind='s')
+    # a margem da direita em degraus
+    ground(g, 119, 128, 33)
+    ground(g, 129, 136, 28)
+    ground(g, 137, 143, 23)
+    ground(g, 144, 149, 18)
+    pine(g, 10, 32)
+    pine(g, 21, 32, [(-1, 6, 24)])
+    pine(g, 124, 33)
+    pine(g, 140, 23)
+    for (x, top) in ((4, 32), (133, 28)):
+        g.put(x, top - 1, 't')
+    g.put(1, 31, '1')
+    g.put(148, 17, '2')
+    g.put(57, 28, 'm')
+    g.put(67, 11, '$')
+    g.put(48, 32, 'd')
+    g.put(110, 32, 'd')
+    g.put(17, 23, 'e')
+    return g.rows()
+
+
+def cabana():
+    """A Cabana: a clareira onde ela guardava as flores. A cabana fica em corte, como uma casa de
+    bonecas: paredes de tronco com uma porta de cada lado, o forro e o telhado de duas águas, a chaminé
+    de pedra em cima da lareira (descanso). Lá dentro, a capa pendurada no prego da porta, o herbário
+    na estante e a carta na mesa. Nenhum inimigo chega aqui."""
+    W, H = 84, 34
+    g = Grid(W, H, '.')
+    ground(g, 0, 83, 29)
+    # a beirada do morro dos dois lados
+    ground(g, 0, 8, 28)
+    ground(g, 76, 83, 28)
+    # as paredes (as portas vão da linha 26 à 28) e o telhado
+    for y in range(21, 26):
+        g.put(29, y, '#')
+        g.put(55, y, '#')
+    for y, (x0, x1) in zip(range(20, 13, -1), ((27, 57), (28, 56), (30, 54), (32, 52), (34, 50), (36, 48), (38, 46))):
+        g.fill(x0, y, x1, y, '#')
+    g.fill(50, 11, 51, 16, '#')
+    g.put(1, 27, '1')
+    g.put(82, 27, '2')
+    g.put(32, 28, '{')
+    g.put(37, 28, 'r')
+    g.put(44, 28, 'r')
+    g.put(47, 25, 'm')
+    g.put(51, 28, 'R')
+    pine(g, 14, 29)
+    pine(g, 22, 29)
+    pine(g, 64, 29)
+    pine(g, 71, 29)
+    for (x, top) in ((18, 29), (68, 29)):
+        g.put(x, top - 1, 't')
+    return g.rows()
+
+
+def serra():
+    """A Serra: a subida pela fenda da montanha, por onde ela passou. Embaixo, a saída da clareira da
+    cabana. À esquerda, a chaminé de pedra (saliências dos dois lados, para as garras e o pulo duplo),
+    que termina num beco com um baú. À direita, o poço do vento: as paredes são de gelo liso (as garras
+    escorregam) e o vento sobe da fenda até o céu; com a capa aberta, ele leva até a saliência de cima e
+    à saída, no alto à direita. No meio da subida, rajadas de lado tiram quem plana da corrente."""
+    W, H = 60, 100
+    g = Grid(W, H, '#')
+    # a base
+    g.fill(0, 88, 46, 95, '.')
+    # a chaminé
+    g.fill(10, 40, 22, 87, '.')
+    for (x0, x1, y) in ((10, 13, 82), (19, 22, 76), (10, 13, 70), (19, 22, 64), (10, 13, 58), (19, 22, 52), (10, 13, 46)):
+        g.fill(x0, y, x1, y + 1, '#')
+    # o poço do vento, aberto para o céu, com as paredes de gelo
+    g.fill(28, 0, 46, 87, '.')
+    for y in range(8, 88):
+        g.put(26, y, '+')
+        g.put(27, y, '+')
+    for y in range(14, 88):
+        g.put(47, y, '+')
+        g.put(48, y, '+')
+    # saliências de pedra no poço e a de cima, com a saída
+    g.fill(28, 60, 31, 61, '#')
+    g.fill(43, 38, 46, 39, '#')
+    g.fill(40, 12, 59, 13, '#')
+    g.fill(47, 4, 59, 11, '.')
+    g.put(1, 95, '1')
+    g.put(58, 11, '2')
+    g.put(12, 45, '$')
+    g.put(16, 87, 't')
+    g.put(21, 75, 'e')
+    g.put(11, 57, 'e')
+    g.put(29, 59, 'e')
+    return g.rows()
+
+
+def clareira():
+    """Clareira da Caça: o fim da trilha, onde o Mestre da Caça entregava os fugitivos ao carrasco. Um
+    vale fechado por paredões; entra-se por uma passagem estreita, e a paliçada de estacas desce atrás
+    dele. Dois pinheiros grandes dos lados, com um galho cada. A passagem do outro lado desce para o
+    vale (a neve fechou, até o Vale das Cachoeiras existir)."""
+    W, H = 76, 34
+    g = Grid(W, H, '.')
+    ground(g, 0, 75, 29)
+    # os paredões e a passagem de entrada (linha 24 a 28)
+    g.fill(0, 0, 6, 23, '#')
+    g.fill(70, 0, 75, 28, '#')
+    for y in range(24, 29):
+        g.put(6, y, '|')
+    pine(g, 16, 29, [(1, 7, 22)])
+    pine(g, 59, 29, [(-1, 7, 22)])
+    pine(g, 10, 29)
+    pine(g, 65, 29)
+    for (x, top) in ((22, 29), (54, 29)):
+        g.put(x, top - 1, 't')
+    g.put(1, 28, '1')
+    g.put(44, 28, 'X')
     return g.rows()
 
 
@@ -1191,6 +1471,13 @@ if __name__ == '__main__':
     if MINES:
         maps.update({'boca': boca(), 'trilhos': trilhos(), 'prensas': prensas(), 'veio': veio(), 'espelhos': espelhos(),
                      'capataz': capataz()})
+    # a Floresta Nevada (--floresta)
+    if '--floresta' in sys.argv:
+        pin, stands = pinhal()
+        forest = {'encosta': encosta(), 'pinhal': pin, 'lago': lago(), 'cabana': cabana(), 'serra': serra(), 'clareira': clareira()}
+        for k, rows in forest.items():
+            check_forest(k, rows, stands if k == 'pinhal' else ())
+        maps.update(forest)
     lines = ['// Gerado por ferramentas/rooms.py: não edite à mão', '']
     for k, rows in maps.items():
         lines.append(f'export const MAP_{k.upper()} = [')

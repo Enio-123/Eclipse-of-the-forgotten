@@ -218,7 +218,15 @@
           <p class="sub map-room"></p>
         </div>
         <div class="map-body">
-          <canvas class="map-canvas" aria-label="Mapa das áreas já vistas"></canvas>
+          <div class="map-frame">
+            <canvas class="map-canvas" aria-label="Mapa das regiões compradas"></canvas>
+            <div class="map-tools">
+              <button data-cmd="zoom-out" aria-label="Afastar">−</button>
+              <button data-cmd="zoom-in" aria-label="Aproximar">+</button>
+              <button data-cmd="center">Onde estou</button>
+              <button data-cmd="fit">Ver tudo</button>
+            </div>
+          </div>
           <aside class="map-side">
             <h3>Relíquias</h3>
             <ul class="map-relics"></ul>
@@ -229,11 +237,11 @@
           </aside>
         </div>
         <p class="legend">
-          <span><i class="lg you"></i>Você</span><span><i class="lg rest"></i>Vela de descanso</span><span><i class="lg cob"></i>Cobrador</span>
+          <span><i class="lg you"></i>Você</span><span><i class="lg rest"></i>Vela de descanso</span><span><i class="lg cob"></i>Cobrador</span><span><i class="lg surv"></i>Agrimensor</span>
           <span><i class="lg relic"></i>Relíquia</span><span><i class="lg mem"></i>Memória</span><span><i class="lg boss"></i>Chefe</span><span class="lg-echo"><i class="lg echo"></i>Sua sombra</span>
         </p>
         <div class="row">
-          <span class="keys-note kbd-only">M ou Tab também fecham</span>
+          <span class="keys-note kbd-only">Setas movem · Q e E aproximam · C volta para você · M ou Tab fecham</span>
           <button data-cmd="close" class="primary">Fechar</button>
         </div>
       </div>
@@ -245,6 +253,18 @@
         <p class="quote"></p>
         <p class="sub">Você tem <b class="shop-held">0 memórias</b> e <b class="shop-coins">0 moedas</b>. Memória trocada é esquecida. O que você leva vai para o inventário.</p>
         <nav class="offers"></nav>
+        <div class="row">
+          <button data-cmd="close" class="primary">Ir embora</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-surveyor" class="screen dim">
+      <div class="panel shop-panel survey-panel">
+        <h2>O Agrimensor</h2>
+        <p class="quote"></p>
+        <p class="sub">Você tem <b class="survey-coins">0 moedas</b>. A folha comprada entra no mapa: o que você já pisou aparece a tinta, o resto a lápis.</p>
+        <nav class="sheets"></nav>
         <div class="row">
           <button data-cmd="close" class="primary">Ir embora</button>
         </div>

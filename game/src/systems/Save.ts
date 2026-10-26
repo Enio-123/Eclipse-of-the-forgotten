@@ -5,7 +5,8 @@ export const STARTERS: WeaponId[] = WEAPON_IDS.filter((w) => !WEAPONS[w].boss &&
 // as armas que os chefes deixam: para o mago, cada uma vira uma Energia
 export const BOSS_WEAPONS: WeaponId[] = WEAPON_IDS.filter((w) => !!WEAPONS[w].boss);
 import type { Ability, RoomId } from '../world/rooms';
-import { OFFERS, SLOTS } from '../world/lore';
+import { NAME_MEMORY, OFFERS, SLOTS } from '../world/lore';
+import { REGIONS, type RegionId } from '../world/regions';
 
 // Progresso salvo no navegador: sala e entrada do último ponto, arma e memórias
 export interface SaveData {
@@ -36,6 +37,8 @@ export interface SaveData {
   powers: PowerId[];
   power: PowerId | null;
   amber: number;
+  // as folhas do mapa compradas do Agrimensor (null num save de antes delas: ganha as das regiões já visitadas)
+  maps: RegionId[] | null;
 }
 
 export interface Echo {
@@ -92,8 +95,9 @@ const ROOM_IDS: RoomId[] = [
   'escadaria', 'praca', 'rua', 'telhados', 'nave', 'claustro', 'galeria', 'altar',
   'poco', 'celas', 'correntes', 'guarita', 'fuga', 'arena', 'mascara', 'fosso', 'abismo',
   'boca', 'trilhos', 'prensas', 'veio', 'espelhos', 'capataz',
+  'encosta', 'pinhal', 'lago', 'cabana', 'serra', 'clareira',
 ];
-const ABILITIES: Ability[] = ['wall', 'double', 'hook', 'veil'];
+export const ABILITIES: Ability[] = ['dash', 'wall', 'double', 'hook', 'veil', 'cape'];
 
 export function loadSave(): SaveData | null {
   try {
@@ -122,6 +126,7 @@ export function loadSave(): SaveData | null {
       powers: strs(d.powers).filter((w) => POWER_IDS.includes(w as PowerId)) as PowerId[],
       power: POWER_IDS.includes(d.power as PowerId) ? (d.power as PowerId) : null,
       amber: num(d.amber) ? Math.max(0, Math.min(AMBER_BAR.max, d.amber!)) : 0,
+      maps: Array.isArray(d.maps) ? (strs(d.maps).filter((m) => REGIONS.some((r) => r.id === m)) as RegionId[]) : null,
     };
   } catch {
     return null;
@@ -171,6 +176,8 @@ export const progress = {
   powers: new Set<PowerId>(),
   power: null as PowerId | null,
   amber: 0,
+  // folhas do mapa (uma por região): sem a folha, a região não aparece no mapa
+  maps: new Set<RegionId>(),
 
   reset() {
     this.kintsugi = 0;
@@ -193,6 +200,7 @@ export const progress = {
     this.powers = new Set();
     this.power = null;
     this.amber = 0;
+    this.maps = new Set();
     clearSave();
   },
 
@@ -205,6 +213,8 @@ export const progress = {
     this.weapon = d.weapon;
     this.starter = d.starter;
     this.abilities = new Set(d.abilities);
+    // num save de antes das Esporas, o dash vinha de começo: quem já jogava continua com ele
+    if (!d.maps) this.abilities.add('dash');
     this.memories = new Set(d.memories);
     this.traded = new Set(d.traded);
     this.upgrades = new Set(d.upgrades.filter((u) => UPGRADES.includes(u as Upgrade)) as Upgrade[]);
@@ -227,6 +237,8 @@ export const progress = {
     this.powers = new Set(d.powers);
     this.power = d.power && this.powers.has(d.power) ? d.power : (d.powers[0] ?? null);
     this.amber = this.powers.size ? d.amber : 0;
+    // num save de antes das folhas, o mapa era de graça: ficam as das regiões que ele já pisou
+    this.maps = new Set(d.maps ?? REGIONS.filter((r) => r.rooms.some((id) => this.visited.get(id)?.size)).map((r) => r.id));
   },
 
   // ---------- poderes de memória ----------
@@ -361,6 +373,11 @@ export const progress = {
     this.save();
   },
 
+  // ele lembra o nome dela (achou "O nome dela" e não trocou com o Cobrador)
+  get knowsHerName() {
+    return this.memories.has(NAME_MEMORY) && !this.traded.has(NAME_MEMORY);
+  },
+
   // memórias que ainda dá para trocar
   get held() {
     return [...this.memories].filter((m) => !this.traded.has(m)).length;
@@ -383,7 +400,7 @@ export const progress = {
       seen: [...this.seen], abilities: [...this.abilities], memories: [...this.memories], traded: [...this.traded],
       upgrades: [...this.upgrades], visited, coins: this.coins, equipped: [...this.equipped],
       kills: Object.fromEntries(this.kills), levels: Object.fromEntries(this.levels), echo: this.echo,
-      powers: [...this.powers], power: this.power, amber: Math.round(this.amber * 100) / 100,
+      powers: [...this.powers], power: this.power, amber: Math.round(this.amber * 100) / 100, maps: [...this.maps],
     });
   },
 

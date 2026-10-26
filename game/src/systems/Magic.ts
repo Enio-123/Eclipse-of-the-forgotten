@@ -8,6 +8,7 @@ import { DEPTH } from '../world/Decor';
 import { isGround, isSolid } from '../world/Level';
 import { BESTIARY } from '../world/lore';
 import { face, hd } from '../gfx/flip';
+import { ensureSheet } from '../gfx/sheets';
 
 // uma escolha da habilidade forte: a versão (Eclipse, Véu, Espaço) ou quem volta do Grimório
 export interface Choice {
@@ -42,6 +43,8 @@ const REV: Record<string, RevKind> = {
   jailer: { sheet: 'jailer', move: 'walk', idle: 'idle', wind: 'lashwind', strike: 'lash', range: 60, w: 16, h: 32 },
   miner: { sheet: 'miner', move: 'walk', idle: 'idle', wind: 'windup', strike: 'strike', range: 30, w: 14, h: 30 },
   ambat: { sheet: 'ambat', move: 'fly', idle: 'fly', wind: 'windup', strike: 'dive', range: 8, w: 16, h: 12, fly: true },
+  wolf: { sheet: 'wolf', move: 'run', idle: 'idle', wind: 'crouch', strike: 'pounce', range: 34, w: 26, h: 18 },
+  owl: { sheet: 'owl', move: 'fly', idle: 'fly', wind: 'alert', strike: 'dive', range: 8, w: 16, h: 14, fly: true },
 };
 
 // os chefes vencidos que voltam por um instante: a folha, o golpe (preparo e batida) e o nome
@@ -52,6 +55,7 @@ const BOSS_ECHO: Record<string, { sheet: string; name: string; wind: string | nu
   sombra: { sheet: 'sombra', name: 'A Sombra do Carrasco', wind: 'cleavewind', strike: 'cleave' },
   reflexo: { sheet: 'knight-scythe', name: 'O Reflexo', wind: null, strike: 'attack' },
   capataz: { sheet: 'capataz', name: 'O Capataz de Âmbar', wind: 'slamwind', strike: 'slam' },
+  cacador: { sheet: 'cacador', name: 'O Mestre da Caça', wind: 'thrustwind-lo', strike: 'thrust-lo' },
 };
 
 const NECRO = 0x7fe0c8;
@@ -826,6 +830,15 @@ export class Magic {
     const s = this.s;
     const info = BOSS_ECHO[id];
     if (!info) return;
+    // a folha do chefe só fica carregada na sala dele: fora dela, vem agora (um instante) e o eco sai
+    // quando chegar
+    if (!s.textures.exists(info.sheet)) {
+      this.circle(x, floor, NECRO, 2);
+      void ensureSheet(s, info.sheet).then((ok) => {
+        if (ok && s.scene.isActive() && s.player && !s.player.dead) this.bossEcho(id, x, floor);
+      });
+      return;
+    }
     // vira para o inimigo mais perto (sem ninguém, para onde o mago olha)
     let f: 1 | -1 = s.player.facing;
     let d = Infinity;

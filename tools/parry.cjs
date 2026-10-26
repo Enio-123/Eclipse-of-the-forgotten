@@ -34,7 +34,7 @@ const URL = process.argv[3] || 'http://localhost:8765/index.html';
     p.reset();
     p.prologueDone = true;
     p.kintsugi = 1;
-    p.abilities = new Set(['wall', 'double']);
+    p.abilities = new Set(['dash', 'wall', 'double']);
     for (const k of ['memory:vale', 'gate:catacumbas', 'boss:sineiro', 'weapon:badalo', ...extra]) p.seen.add(k);
     p.save();
   }, extra);

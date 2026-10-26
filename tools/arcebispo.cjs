@@ -46,7 +46,7 @@ const FLOOR = 28; // linha do chão do altar (os pés ficam em 29 * 16)
     p.reset();
     p.prologueDone = true;
     p.kintsugi = 1;
-    p.abilities = new Set(['wall', 'double']);
+    p.abilities = new Set(['dash', 'wall', 'double']);
     for (const k of ['memory:vale', 'gate:catacumbas', 'boss:sineiro', 'weapon:badalo', ...extra]) p.seen.add(k);
     p.save();
   }, extra);

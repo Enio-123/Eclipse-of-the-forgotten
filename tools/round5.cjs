@@ -280,7 +280,7 @@ let fails = 0;
   await page.evaluate(() => {
     const P = window.__progress;
     P.reset();
-    P.abilities = new Set(['wall', 'double']);
+    P.abilities = new Set(['dash', 'wall', 'double']);
     for (const k of ['memory:vale', 'gate:catacumbas']) P.seen.add(k);
   });
   await start('cripta', '1');

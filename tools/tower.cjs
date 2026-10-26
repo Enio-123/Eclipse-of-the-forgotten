@@ -14,7 +14,7 @@ const OUT = process.argv[2] || '.';
     window.__ui.closeAll();
     const P = window.__progress;
     P.reset();
-    P.abilities = new Set(abilities);
+    P.abilities = new Set(['dash', ...abilities]);
     for (const k of ['memory:vale', 'gate:catacumbas', 'intro']) P.seen.add(k);
     const g = window.__game;
     const t = g.scene.getScene('title');

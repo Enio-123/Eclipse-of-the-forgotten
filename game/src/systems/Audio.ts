@@ -8,13 +8,14 @@ export type SfxName =
   | 'clang' | 'caw' | 'swoosh' | 'thud' | 'chime' | 'bell' | 'rest' | 'coin' | 'roar' | 'tink' | 'mend' | 'ghost'
   | 'ash' | 'quake' | 'equip' | 'erase'
   | 'parry' | 'break' | 'glass' | 'page' | 'anvil' | 'smoke' | 'coinrain' | 'door' | 'locked' | 'censer' | 'draw' | 'gate'
-  | 'echo' | 'echo-die' | 'veil' | 'veil-form';
-export type TrackId = 'title' | 'bridge' | 'crypt' | 'memory' | 'boss' | 'city' | 'nave' | 'boss2' | 'boss3' | 'mine' | 'mirror' | 'boss4' | FileTrackId | 'none';
-export type AmbienceId = 'rain' | 'crypt' | 'wind' | 'city' | 'nave' | 'prison' | 'mine' | 'none';
+  | 'echo' | 'echo-die' | 'veil' | 'veil-form'
+  | 'howl' | 'hoot' | 'horn' | 'gust' | 'flap' | 'crunch' | 'ice-crack' | 'ice-break' | 'freeze' | 'growl' | 'yelp' | 'lantern';
+export type TrackId = 'title' | 'bridge' | 'crypt' | 'memory' | 'boss' | 'city' | 'nave' | 'boss2' | 'boss3' | 'mine' | 'mirror' | 'boss4' | 'forest' | 'cabin' | 'boss5' | FileTrackId | 'none';
+export type AmbienceId = 'rain' | 'crypt' | 'wind' | 'city' | 'nave' | 'prison' | 'mine' | 'snow' | 'hearth' | 'none';
 // faixas gravadas, em arquivo (as trilhas que o Enio escolheu)
 type FileTrackId = 'prison' | 'fosso' | 'shadow';
 type SynthTrackId = Exclude<TrackId, FileTrackId | 'none'>;
-export type StepKind = 'wet' | 'stone' | 'grass';
+export type StepKind = 'wet' | 'stone' | 'grass' | 'snow' | 'ice' | 'wood';
 
 const mtof = (m: number) => 440 * Math.pow(2, (m - 69) / 12);
 
@@ -46,6 +47,14 @@ const EM = [52, 55, 59], CMAJ = [48, 52, 55], AMIN = [45, 48, 52], BMAJ = [47, 5
 const CMIN = [48, 51, 55], AB = [44, 48, 51], FMIN = [41, 44, 48], GMAJ3 = [43, 47, 50];
 // capítulo 4 (as minas): lá menor frígio, com o si bemol que pesa e o mi maior que não resolve
 const AMIN4 = [45, 48, 52], BB4 = [46, 50, 53], EMAJ4 = [40, 44, 47], DMIN4 = [50, 53, 57];
+// capítulo 5 (a floresta): si menor aberto; o chefe em mi menor, com o si maior da caçada
+const BMIN5 = [47, 50, 54], GMAJ5 = [43, 47, 50], DMAJ5 = [50, 54, 57], FSM5 = [42, 45, 49];
+const EMIN5 = [40, 43, 47], CMAJ5 = [48, 52, 55], AMIN5 = [45, 48, 52], BMAJ5 = [47, 51, 54];
+// a cantiga que ela cantarolava na cabana (oito compassos de colcheias; 0 é pausa)
+const CANTIGA = [
+  [78, 0, 81, 0, 78, 0, 74, 0], [79, 0, 83, 0, 81, 0, 79, 0], [78, 0, 74, 0, 71, 0, 74, 0], [76, 0, 0, 0, 69, 0, 0, 0],
+  [78, 0, 81, 0, 86, 0, 81, 0], [83, 0, 81, 0, 79, 0, 76, 0], [78, 0, 76, 0, 74, 0, 71, 0], [73, 0, 76, 0, 74, 0, 0, 0],
+];
 
 // Trilha gravada: o arquivo toca uma vez a partir de 'from' e depois repete o trecho [início, fim]
 // (em segundos), cruzando 'xf' segundos na emenda. Os dois pontos caem no mesmo tempo do compasso,
@@ -288,6 +297,71 @@ const TRACKS: Record<SynthTrackId, TrackDef> = {
       if (i === 0 && bar % 2 === 0) e.pad(p.bus, t, ch.map((n) => n + 12), d * 16, 0.028, 1000);
       if (i === 0 && bar % 8 === 4) e.choir(p.bus, t, ch[2] + 12, d * 14, 0.024);
       if (i === 4 && bar % 8 === 7) e.choir(p.bus, t, ch[1] + 12, d * 10, 0.02);
+    },
+  },
+  // Floresta Nevada: si menor, aberta e fria. O piano agudo cai como neve (notas soltas, sem pressa),
+  // a flauta lembra a abertura de oito em oito compassos e o pad respira devagar sobre o si grave
+  forest: {
+    bpm: 60,
+    start(e, p) {
+      p.stop.push(e.drone(p.bus, 35, 0.03), e.drone(p.bus, 42, 0.012));
+    },
+    step(e, p, s, t, d) {
+      const prog = [BMIN5, GMAJ5, DMAJ5, FSM5];
+      const bar = Math.floor(s / 8);
+      const ch = prog[Math.floor(bar / 2) % 4];
+      const i = s % 8;
+      if (i === 0 && bar % 2 === 0) e.pad(p.bus, t, ch.map((n) => n + 12), d * 16, 0.028, 1000);
+      if (i === 0) e.piano(p.bus, t, ch[0] - 12, 0.08, d * 8);
+      if (chance([0.5, 0.12, 0.3, 0.1, 0.4, 0.12, 0.25, 0.08][i])) {
+        e.piano(p.bus, t, pick([ch[0] + 24, ch[1] + 24, ch[2] + 24, ch[0] + 36]), 0.03 + Math.random() * 0.025, d * 6);
+      }
+      if (chance(0.05)) e.musicbox(p.bus, t, pick([ch[0] + 36, ch[2] + 36, ch[1] + 36]), 0.014);
+      if (bar % 8 === 4 && (i === 0 || i === 3 || i === 6)) e.flute(p.bus, t, [ch[2] + 24, ch[1] + 24, ch[0] + 24][(i / 3) | 0], d * 3.5, 0.028);
+      if (bar % 8 === 5 && i === 0) e.flute(p.bus, t, ch[1] + 24, d * 7, 0.026);
+      if (s % 64 === 32) e.choir(p.bus, t, ch[2] + 12, d * 16, 0.011);
+    },
+  },
+  // A Cabana: ré maior, a cantiga que ela cantarolava, na caixinha de música, com o piano baixo e
+  // quente; a cada duas voltas a cantiga descansa e só o piano fica
+  cabin: {
+    bpm: 70,
+    step(e, p, s, t, d) {
+      const prog = [DMAJ, GMAJ, BMIN, AMAJ, DMAJ, GMAJ, BMIN, AMAJ];
+      const bar = Math.floor(s / 8);
+      const ch = prog[bar % 8];
+      const i = s % 8;
+      if (i === 0) e.pad(p.bus, t, ch.map((n) => n + 12), d * 8, 0.02, 900);
+      if (i === 0) e.piano(p.bus, t, ch[0] - 12, 0.08, d * 8);
+      if (i === 4) e.piano(p.bus, t, ch[2], 0.045, d * 4);
+      const sing = Math.floor(bar / 8) % 2 === 0;
+      const m = CANTIGA[bar % 8][i];
+      if (sing && m) e.musicbox(p.bus, t, m, 0.05);
+      if (!sing && (i === 2 || i === 6) && chance(0.6)) e.piano(p.bus, t, pick([ch[0] + 24, ch[1] + 24, ch[2] + 24]), 0.035, d * 5);
+    },
+  },
+  // O Mestre da Caça: mi menor a galope. O bumbo bate como cascos na neve, a trompa de caça chama em
+  // quartas e quintas, as cordas seguram e o coro entra no fim de cada volta
+  boss5: {
+    bpm: 116,
+    start(e, p) {
+      p.stop.push(e.drone(p.bus, 40, 0.04), e.drone(p.bus, 47, 0.016));
+    },
+    step(e, p, s, t, d) {
+      const bar = Math.floor(s / 8);
+      const i = s % 8;
+      const ch = [EMIN5, EMIN5, CMAJ5, BMAJ5, EMIN5, AMIN5, CMAJ5, BMAJ5][bar % 8];
+      if (i === 0 || i === 3 || i === 4 || i === 7) e.drum(p.bus, t, i === 0 ? 0.2 : i === 4 ? 0.14 : 0.08);
+      e.piano(p.bus, t, ch[0] - 12 + [0, 12, 7, 12, 0, 12, 7, 10][i], i % 2 === 0 ? 0.1 : 0.05, d * 2);
+      if (i === 0 && bar % 2 === 0) e.pad(p.bus, t, ch.map((n) => n + 12), d * 16, 0.03, 1100);
+      // a chamada da trompa: quinta, quarta e a tônica comprida
+      if (bar % 4 === 1) {
+        if (i === 0) e.horn(p.bus, t, ch[0] + 19, d * 1.5, 0.05);
+        if (i === 2) e.horn(p.bus, t, ch[0] + 17, d * 1.5, 0.05);
+        if (i === 4) e.horn(p.bus, t, ch[0] + 12, d * 4, 0.055);
+      }
+      if (bar % 8 === 6 && i === 0) e.horn(p.bus, t, ch[2] + 12, d * 8, 0.045);
+      if (i === 0 && bar % 8 === 7) e.choir(p.bus, t, ch[2] + 12, d * 10, 0.024);
     },
   },
   // Memória: ré maior, caixinha de música, pad quente e uma flauta
@@ -696,6 +770,44 @@ class AudioEngine {
     lfo.stop(t + len + 0.05);
   }
 
+  // trompa de caça: a nota entra um pouco abaixo e sobe (o lábio na boquilha), o filtro abre no ataque
+  // e o vibrato só vem no fim
+  horn(dest: AudioNode, t: number, m: number, len: number, vol: number) {
+    const ctx = this.ctx!;
+    const f = mtof(m);
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.Q.value = 2;
+    lp.frequency.setValueAtTime(f * 1.5, t);
+    lp.frequency.linearRampToValueAtTime(f * 5, t + 0.08);
+    lp.frequency.setTargetAtTime(f * 3, t + 0.1, 0.3);
+    lp.connect(dest);
+    const g = this.env(t, 0.05, vol, lp);
+    g.gain.setValueAtTime(vol, t + len * 0.75);
+    g.gain.linearRampToValueAtTime(0, t + len);
+    const end = t + len + 0.05;
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = 5;
+    const lg = ctx.createGain();
+    lg.gain.setValueAtTime(0, t);
+    lg.gain.linearRampToValueAtTime(f * 0.006, t + len * 0.6);
+    lfo.connect(lg);
+    for (const det of [-4, 4]) {
+      const o = this.osc('sawtooth', f, t, end, g, det);
+      o.frequency.setValueAtTime(f * 0.94, t);
+      o.frequency.exponentialRampToValueAtTime(f, t + 0.06);
+      lg.connect(o.frequency);
+    }
+    lfo.start(t);
+    lfo.stop(end);
+  }
+
+  // bumbo abafado (cascos na neve): o seno que despenca e um sopro grave
+  drum(dest: AudioNode, t: number, vol: number) {
+    this.tone(dest, t, 0.22, 'sine', 120, 42, vol);
+    this.nz(dest, t, 0.08, 'lowpass', 500, 120, vol * 0.5, 0.8);
+  }
+
   // nota contínua com filtro respirando; devolve a função que a desliga
   drone(dest: AudioNode, m: number, vol: number) {
     const ctx = this.ctx!;
@@ -914,7 +1026,107 @@ class AudioEngine {
       window.setTimeout(strike, 8000 + Math.random() * 6000);
       stops.push(() => (alive = false));
     }
+    if (id === 'snow') {
+      // a floresta na neve: vento frio que sobe e desce entre os troncos, um assobio fino nos galhos,
+      // a madeira dos pinheiros rangendo, neve que despenca de um galho e, de longe, uma coruja ou um
+      // uivo (nunca perto)
+      const w = noise('bandpass', 620, 0.7, 0.05);
+      lfo(w.bf.frequency, 0.05, 240);
+      lfo(w.g.gain, 0.08, 0.028);
+      const whistle = noise('bandpass', 2300, 6, 0.006);
+      lfo(whistle.bf.frequency, 0.11, 500);
+      lfo(whistle.g.gain, 0.13, 0.004);
+      noise('lowpass', 140, 0.6, 0.07);
+      let alive = true;
+      const creak = () => {
+        if (!alive) return;
+        const now = ctx.currentTime;
+        this.nz(bus, now, 0.7 + Math.random() * 0.5, 'bandpass', 260 + Math.random() * 120, 190, 0.03, 12);
+        window.setTimeout(creak, 6000 + Math.random() * 10000);
+      };
+      const slump = () => {
+        if (!alive) return;
+        this.nz(bus, ctx.currentTime, 0.5, 'lowpass', 900, 200, 0.05, 0.7);
+        window.setTimeout(slump, 9000 + Math.random() * 14000);
+      };
+      const far = () => {
+        if (!alive) return;
+        const now = ctx.currentTime;
+        if (Math.random() < 0.6) this.hoot(bus, now, 0.012);
+        else this.howl(bus, now, 0.01, 0.9);
+        window.setTimeout(far, 16000 + Math.random() * 20000);
+      };
+      window.setTimeout(creak, 2500);
+      window.setTimeout(slump, 5000);
+      window.setTimeout(far, 7000 + Math.random() * 6000);
+      stops.push(() => (alive = false));
+    }
+    if (id === 'hearth') {
+      // dentro da cabana: a lenha estalando, o fogo respirando e o vento lá fora, abafado pelas paredes
+      noise('lowpass', 300, 0.5, 0.05);
+      const fire = noise('bandpass', 900, 0.8, 0.018);
+      lfo(fire.g.gain, 0.6, 0.008);
+      const out = noise('bandpass', 420, 0.7, 0.018);
+      lfo(out.g.gain, 0.07, 0.01);
+      let alive = true;
+      const crackle = () => {
+        if (!alive) return;
+        const now = ctx.currentTime;
+        const n = 1 + Math.floor(Math.random() * 4);
+        for (let k = 0; k < n; k++) this.nz(bus, now + k * (0.04 + Math.random() * 0.09), 0.015, 'highpass', 3600 + Math.random() * 2400, 3000, 0.035, 1.5);
+        window.setTimeout(crackle, 300 + Math.random() * 1500);
+      };
+      window.setTimeout(crackle, 400);
+      stops.push(() => (alive = false));
+    }
     this.amb = { id, bus, stop: () => stops.forEach((f) => f()) };
+  }
+
+  // a coruja ao longe: duas notas graves e redondas
+  hoot(dest: AudioNode, t: number, vol: number) {
+    for (const [dt, f0, f1, len] of [[0, 410, 380, 0.22], [0.42, 400, 350, 0.5]] as const) {
+      const o = this.ctx!.createOscillator();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(f0, t + dt);
+      o.frequency.exponentialRampToValueAtTime(f1, t + dt + len);
+      const g = this.env(t + dt, 0.04, vol, dest);
+      g.gain.setValueAtTime(vol, t + dt + len * 0.6);
+      g.gain.linearRampToValueAtTime(0, t + dt + len);
+      o.connect(g);
+      o.start(t + dt);
+      o.stop(t + dt + len + 0.05);
+    }
+  }
+
+  // uivo: a voz sobe, segura tremendo e cai; um pouco de ar por cima
+  howl(dest: AudioNode, t: number, vol: number, rate = 1) {
+    const ctx = this.ctx!;
+    const len = 2.2 / rate;
+    const base = 330 * rate;
+    const o = ctx.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(base * 0.7, t);
+    o.frequency.linearRampToValueAtTime(base * 1.6, t + len * 0.3);
+    o.frequency.setValueAtTime(base * 1.6, t + len * 0.65);
+    o.frequency.linearRampToValueAtTime(base * 1.05, t + len);
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = 6;
+    const lg = ctx.createGain();
+    lg.gain.value = base * 0.02;
+    lfo.connect(lg).connect(o.frequency);
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = base * 2.4;
+    bp.Q.value = 3;
+    const g = this.env(t, 0.25, vol, dest);
+    g.gain.setValueAtTime(vol, t + len * 0.7);
+    g.gain.linearRampToValueAtTime(0, t + len);
+    o.connect(bp).connect(g);
+    o.start(t);
+    lfo.start(t);
+    o.stop(t + len + 0.05);
+    lfo.stop(t + len + 0.05);
+    this.nz(dest, t + 0.1, len * 0.8, 'bandpass', 1800, 1200, vol * 0.4, 2);
   }
 
   // ---------- efeitos ----------
@@ -963,7 +1175,17 @@ class AudioEngine {
         break;
       case 'step':
         if (this.stepKind === 'grass') this.nz(out, t, 0.05, 'bandpass', 3000 * r, 1800, 0.07, 0.9);
-        else this.nz(out, t, 0.035, 'lowpass', 520 * r, 180, 0.1, 0.8);
+        else if (this.stepKind === 'snow') {
+          // neve: o rangido curto da neve fofa sendo pisada
+          this.nz(out, t, 0.07, 'bandpass', 1500 * r, 900, 0.09, 1.6);
+          this.nz(out, t + 0.02, 0.05, 'highpass', 3800 * r, 2600, 0.03, 1);
+        } else if (this.stepKind === 'ice') {
+          this.nz(out, t, 0.03, 'highpass', 2600 * r, 1800, 0.06, 1.2);
+          this.tone(out, t, 0.05, 'sine', 1900 * r, 1700 * r, 0.012);
+        } else if (this.stepKind === 'wood') {
+          this.tone(out, t, 0.06, 'triangle', 190 * r, 120, 0.09);
+          this.nz(out, t, 0.04, 'bandpass', 900 * r, 500, 0.06, 2);
+        } else this.nz(out, t, 0.035, 'lowpass', 520 * r, 180, 0.1, 0.8);
         if (this.stepKind === 'wet') this.nz(out, t + 0.01, 0.06, 'bandpass', 2600 * r, 1100, 0.07, 1.4);
         break;
       case 'hit':
@@ -1224,6 +1446,67 @@ class AudioEngine {
         }
         break;
       }
+      case 'howl':
+        this.howl(out, t, 0.32, r);
+        break;
+      case 'hoot':
+        this.hoot(out, t, 0.2);
+        break;
+      case 'growl':
+        // rosnado: um ronco grave que treme, com o ar passando entre os dentes
+        this.tone(out, t, 0.42, 'sawtooth', 74 * r, 62 * r, 0.07);
+        for (let k = 0; k < 7; k++) this.nz(out, t + k * 0.055, 0.07, 'lowpass', 420 * r, 220 * r, 0.16, 3);
+        this.nz(out, t + 0.05, 0.3, 'bandpass', 2400 * r, 1800 * r, 0.03, 2);
+        break;
+      case 'yelp':
+        // ganido: sobe e quebra
+        this.tone(out, t, 0.09, 'triangle', 980 * r, 1650 * r, 0.11);
+        this.tone(out, t + 0.08, 0.16, 'triangle', 1500 * r, 640 * r, 0.09);
+        this.nz(out, t, 0.12, 'bandpass', 2600 * r, 1500 * r, 0.05, 2);
+        break;
+      case 'lantern':
+        // a lanterna do caçador balançando na ponta da lança: o rangido da alça e o vidro tocando
+        this.nz(out, t, 0.08, 'bandpass', 3200 * r, 2600 * r, 0.05, 6);
+        this.tone(out, t + 0.03, 0.5, 'sine', 2093 * r, 2080 * r, 0.03);
+        this.tone(out, t + 0.03, 0.4, 'sine', 3136 * r, 3120 * r, 0.015);
+        break;
+      case 'horn':
+        // a trompa do Mestre da Caça: a chamada inteira, longa e rouca
+        this.horn(out, t, 52, 0.45, 0.22);
+        this.horn(out, t + 0.5, 59, 0.45, 0.22);
+        this.horn(out, t + 1, 64, 1.6, 0.26);
+        break;
+      case 'gust':
+        // rajada: o vento que chega, passa e vai embora
+        this.nz(out, t, 1.4, 'bandpass', 380 * r, 1400 * r, 0.22, 0.9);
+        this.nz(out, t + 0.2, 1.1, 'bandpass', 2200 * r, 900 * r, 0.06, 2);
+        break;
+      case 'flap':
+        this.nz(out, t, 0.12, 'bandpass', 700 * r, 300 * r, 0.22, 1.2);
+        this.nz(out, t + 0.14, 0.1, 'bandpass', 650 * r, 280 * r, 0.14, 1.2);
+        break;
+      case 'crunch':
+        // aterrissou na neve: o baque fofo e o rangido
+        this.nz(out, t, 0.16, 'lowpass', 900 * r, 200, 0.22, 0.8);
+        this.nz(out, t + 0.01, 0.1, 'bandpass', 1700 * r, 1000, 0.12, 1.4);
+        break;
+      case 'ice-crack':
+        // o gelo fino racha: estalos secos que correm e um gemido grave por baixo
+        for (let k = 0; k < 4; k++) this.nz(out, t + k * 0.045 + Math.random() * 0.02, 0.025, 'highpass', 3400 + Math.random() * 2400, 2600, 0.28, 1);
+        this.tone(out, t, 0.6, 'sine', 210 * r, 120 * r, 0.08);
+        break;
+      case 'ice-break':
+        this.nz(out, t, 0.12, 'highpass', 4200, 2000, 0.45, 1);
+        this.nz(out, t + 0.05, 0.5, 'bandpass', 1100, 300, 0.3, 1);
+        [1760, 2349, 2960].forEach((f, i) => this.tone(out, t + 0.02 + i * 0.05, 0.4, 'sine', f * r, f * r * 0.97, 0.05));
+        this.tone(out, t + 0.08, 0.5, 'sine', 140, 60, 0.2);
+        break;
+      case 'freeze':
+        // a água gelada: o mergulho e o frio que morde
+        this.nz(out, t, 0.3, 'bandpass', 1200, 400, 0.3, 1);
+        this.tone(out, t + 0.1, 0.5, 'sine', 2600 * r, 3400 * r, 0.04);
+        this.nz(out, t + 0.12, 0.5, 'highpass', 6000, 4000, 0.06, 2);
+        break;
       case 'veil-form':
         // a tinta volta a ser gente: um respingo que sobe e assenta
         this.nz(out, t, 0.14, 'bandpass', 1700 * r, 600 * r, 0.16, 2);

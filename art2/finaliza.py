@@ -16,6 +16,7 @@ ASSETS = os.path.join(HERE, '..', 'game', 'public', 'assets')
 
 GOLD = [hexc(0xb4702e), hexc(0xe7ad55), hexc(0xfff0c8)]
 WIN = [hexc(0xd9772e), hexc(0xffc46e)]
+FOREST = ['encosta', 'pinhal', 'lago', 'cabana', 'serra', 'clareira']
 
 # tipo de cada camada: 'opaque' (sem transparência), 'soft' (alfa suave em 16 níveis), 'exact'
 # (já está em 1x com o alfa certo, como o terreno, que segue a física) ou 'veil' (já em 1x, alfa
@@ -96,6 +97,15 @@ THEMES = {
         rename={f'terreno-{n}': f'terrain-{n}' for n in ['boca', 'trilhos', 'prensas', 'veio', 'espelhos', 'capataz']},
         accents=[hexc(0xffa63c), hexc(0xffe6a6), hexc(0x8a4a12), hexc(0xd27a26), hexc(0x9a8064), hexc(0x4c5670), hexc(0x07060a)],
         colors=96,
+    ),
+    # Floresta Nevada: granito, gelo e neve no terreno (exato, segue a física); os pinheiros, a cabana
+    # por dentro e o resto do que fica atrás numa camada própria, com alfa suave
+    'snow': dict(
+        layers={**{f'terreno-{n}': 'exact' for n in FOREST}, **{f'pinhos-{n}': 'soft1x' for n in FOREST}},
+        rename={f'terreno-{n}': f'terrain-{n}' for n in FOREST},
+        accents=[hexc(0xf6faff), hexc(0xdfeaf6), hexc(0x9fd0f2), hexc(0x5a92c4), hexc(0xffa63c), hexc(0xffd27a), hexc(0xb4222b),
+                 hexc(0x2f4a46), hexc(0x05070c)],
+        colors=128,
     ),
     'forest': dict(
         layers={'intro-back': 'opaque', 'intro-near': 'soft', 'intro-fore': 'soft', 'intro-beams': 'soft'},

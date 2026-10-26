@@ -15,7 +15,7 @@ const OUT = process.argv[5] || 'shots/x';
     const p = window.__progress;
     p.reset();
     p.prologueDone = true;
-    p.abilities = new Set(['wall', 'double', 'hook', 'veil']);
+    p.abilities = new Set(['dash', 'wall', 'double', 'hook', 'veil']);
     for (const k of ['memory:vale', 'gate:catacumbas', 'boss:sineiro', 'boss:arcebispo', 'boss:carcereira', 'weapon:corrente', `banner:${room}`]) p.seen.add(k);
     p.save();
     window.__ui.closeAll();

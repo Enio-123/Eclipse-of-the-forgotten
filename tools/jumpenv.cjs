@@ -11,7 +11,7 @@ const { chromium } = require('playwright');
     window.__ui.closeAll();
     const P = window.__progress;
     P.reset();
-    P.abilities = new Set(['wall', 'double']);
+    P.abilities = new Set(['dash', 'wall', 'double']);
     for (const k of ['memory:vale', 'gate:catacumbas', 'boss:sineiro']) P.seen.add(k);
     P.memories.add('cripta:boss');
     const g = window.__game;

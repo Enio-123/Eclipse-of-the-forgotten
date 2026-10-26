@@ -1,8 +1,9 @@
 import type { Theme } from './Level';
 import {
-  MAP_ABISMO, MAP_ALTAR, MAP_ARENA, MAP_BOCA, MAP_CAPATAZ, MAP_CATACUMBAS, MAP_CELAS, MAP_CLAUSTRO, MAP_CORRENTES, MAP_CRIPTA,
-  MAP_ESCADARIA, MAP_ESPELHOS, MAP_FOSSO, MAP_FUGA, MAP_GALERIA, MAP_GUARITA, MAP_MASCARA, MAP_MEMORIA, MAP_NAVE, MAP_POCO,
-  MAP_PONTE, MAP_PRACA, MAP_PRENSAS, MAP_RUA, MAP_SINOS, MAP_TELHADOS, MAP_TRILHOS, MAP_VEIO,
+  MAP_ABISMO, MAP_ALTAR, MAP_ARENA, MAP_BOCA, MAP_CABANA, MAP_CAPATAZ, MAP_CATACUMBAS, MAP_CELAS, MAP_CLAREIRA, MAP_CLAUSTRO,
+  MAP_CORRENTES, MAP_CRIPTA, MAP_ENCOSTA, MAP_ESCADARIA, MAP_ESPELHOS, MAP_FOSSO, MAP_FUGA, MAP_GALERIA, MAP_GUARITA, MAP_LAGO,
+  MAP_MASCARA, MAP_MEMORIA, MAP_NAVE, MAP_PINHAL, MAP_POCO, MAP_PONTE, MAP_PRACA, MAP_PRENSAS, MAP_RUA, MAP_SERRA, MAP_SINOS,
+  MAP_TELHADOS, MAP_TRILHOS, MAP_VEIO,
 } from './maps';
 import type { AmbienceId, TrackId } from '../systems/Audio';
 import type { Upgrade } from '../systems/Save';
@@ -12,8 +13,10 @@ export type RoomId =
   | 'ponte' | 'catacumbas' | 'memoria' | 'sinos' | 'cripta'
   | 'escadaria' | 'praca' | 'rua' | 'telhados' | 'nave' | 'claustro' | 'galeria' | 'altar'
   | 'poco' | 'celas' | 'correntes' | 'guarita' | 'fuga' | 'arena' | 'mascara' | 'fosso' | 'abismo'
-  | 'boca' | 'trilhos' | 'prensas' | 'veio' | 'espelhos' | 'capataz';
-export type Ability = 'wall' | 'double' | 'hook' | 'veil';
+  | 'boca' | 'trilhos' | 'prensas' | 'veio' | 'espelhos' | 'capataz'
+  | 'encosta' | 'pinhal' | 'lago' | 'cabana' | 'serra' | 'clareira';
+// 'cape': a Capa de Arielle (segurando o pulo no ar, plana; nas correntes de ar, sobe)
+export type Ability = 'dash' | 'wall' | 'double' | 'hook' | 'veil' | 'cape';
 export type Side = 'left' | 'right' | 'up' | 'down';
 
 export interface Exit {
@@ -35,7 +38,7 @@ export interface DoorDef {
   bar?: boolean;
 }
 
-export type BossId = 'sineiro' | 'arcebispo' | 'carcereira' | 'sombra' | 'reflexo' | 'capataz';
+export type BossId = 'sineiro' | 'arcebispo' | 'carcereira' | 'sombra' | 'reflexo' | 'capataz' | 'cacador';
 
 // alçapão (cada grupo de '=' do mapa, de cima para baixo e da esquerda para a direita): sólido até a
 // marca existir. auto: com esta outra marca, ele cai sozinho quando o cavaleiro chega perto
@@ -108,6 +111,37 @@ export interface RoomDef {
   // aparecer (sem ela ainda não está lá); from: de onde ele pula quando a marca acontece na sala
   // (em pixels, a partir do ponto onde fica)
   finds?: { id: FindId; x: number; y: number; needs?: string; from?: [number, number] }[];
+  // Floresta Nevada: quantos flocos de neve caem na tela (sem isto, nenhum)
+  snow?: number;
+  // rajadas de vento (em tiles, de x0 a x1 e de y0 a y1) soprando para dir: uma a cada every segundos,
+  // durando len (a neve avisa um pouco antes); phase adianta a primeira
+  gusts?: GustDef[];
+  // correntes de ar subindo (em tiles, de x0 a x1, do fundo y1 até o alto y0): com a capa aberta, ele
+  // sobe; steam: é o vapor da fonte quente (e não o vento da serra)
+  drafts?: DraftDef[];
+  // as pegadas pequenas dela: trechos de x0 a x1 (em tiles) no chão ou, com a linha, num galho
+  trail?: [number, number, number?][];
+  // fitas vermelhas amarradas nos troncos (tile do nó)
+  ribbons?: [number, number][];
+}
+
+export interface GustDef {
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
+  dir: 1 | -1;
+  every: number;
+  len: number;
+  phase?: number;
+}
+
+export interface DraftDef {
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
+  steam?: boolean;
 }
 
 // salas do prólogo
@@ -131,10 +165,9 @@ const PROLOGUE: Record<'ponte' | 'catacumbas' | 'sinos' | 'cripta' | 'memoria', 
       { x0: 9, x1: 25, text: '{left} {right} andar', until: 'move' },
       { x0: 27, x1: 44, text: '{attack} atacar', until: 'attack' },
       { x0: 46, x1: 53, text: '{jump} pular · segure para subir mais', until: 'jump' },
-      { x0: 78, x1: 86, text: '{dash} dash · também funciona no ar', until: 'dash' },
       { x0: 104, x1: 116, text: 'No ar, {down} + {attack} golpeia para baixo e rebate nos espinhos', until: 'pogo' },
-      { x0: 126, x1: 134, text: '{crouch} agachar · agachado + {dash} desliza', until: 'slide' },
-      { x0: 144, x1: 150, text: 'O guarda bloqueia de frente. Deslize nas pernas dele ou bata pelas costas', until: 'trip' },
+      { x0: 126, x1: 134, text: '{crouch} agachar', until: 'crouch' },
+      { x0: 144, x1: 150, text: 'O guarda bloqueia de frente. Pule por cima dele e bata pelas costas', until: 'trip' },
     ],
     thoughts: [
       { x: 16, text: 'A chuva sabe o meu nome. Eu não.' },
@@ -160,6 +193,8 @@ const PROLOGUE: Record<'ponte' | 'catacumbas' | 'sinos' | 'cripta' | 'memoria', 
     ambience: 'crypt',
     hints: [
       { x0: 26, x1: 40, text: '{down} + {jump} desce das plataformas finas' },
+      { x0: 45, x1: 51, text: '{crouch} agachar · agachado, {dash} desliza por baixo', needs: 'dash', until: 'slide' },
+      { x0: 58, x1: 64, text: '{dash} dash · também funciona no ar', needs: 'dash', until: 'dash' },
       { x0: 58, x1: 63, text: 'No ar, encostado na parede, {jump} pula para o outro lado', needs: 'wall', until: 'walljump' },
     ],
     thoughts: [
@@ -718,7 +753,10 @@ const CHAPTER4: Record<'boca' | 'trilhos' | 'prensas' | 'veio' | 'espelhos' | 'c
     theme: 'mine',
     title: 'Galeria do Capataz',
     subtitle: 'O último turno',
-    exits: [{ side: 'left', to: 'espelhos', entry: '2', range: [24, 29] }],
+    exits: [
+      { side: 'left', to: 'espelhos', entry: '2', range: [24, 29] },
+      { side: 'right', to: 'encosta', entry: '1', range: [24, 29] },
+    ],
     boss: 'capataz',
     ...MINE,
     drips: 10,
@@ -733,7 +771,144 @@ const CHAPTER4: Record<'boca' | 'trilhos' | 'prensas' | 'veio' | 'espelhos' | 'c
   },
 };
 
-export const ROOMS: Record<RoomId, RoomDef> = { ...PROLOGUE, ...CHAPTER2, ...CHAPTER3, ...CHAPTER4 };
+const SNOW: Pick<RoomDef, 'pit' | 'rain' | 'lightning' | 'petals' | 'motes' | 'drips'> = { pit: false, rain: false, lightning: false, petals: false, motes: false, drips: 0 };
+
+// capítulo 5: a Floresta Nevada, atrás do bloco de Âmbar da Galeria do Capataz. A floresta da abertura
+// do jogo, onde a Casa Vhalor caçava quem fugia com memórias proibidas (lore/floresta.md)
+const CHAPTER5: Record<'encosta' | 'pinhal' | 'lago' | 'cabana' | 'serra' | 'clareira', RoomDef> = {
+  encosta: {
+    id: 'encosta',
+    map: MAP_ENCOSTA,
+    theme: 'snow',
+    title: 'Encosta Gelada',
+    subtitle: 'Floresta Nevada',
+    exits: [
+      { side: 'left', to: 'capataz', entry: '2', range: [24, 29] },
+      { side: 'right', to: 'pinhal', entry: '1', range: [30, 37] },
+    ],
+    ...SNOW,
+    snow: 70,
+    music: 'forest',
+    ambience: 'snow',
+    // o vento desce a serra e sopra contra quem atravessa o córrego
+    gusts: [{ x0: 60, x1: 78, y0: 22, y1: 41, dir: -1, every: 3.6, len: 1.3 }],
+    hints: [],
+    thoughts: [
+      { x: 6, text: 'Ar frio. Cheiro de pinheiro. Eu conheço este lugar.' },
+      { x: 62, y: 35, text: 'O vento desce a serra em rajadas. A neve corre antes, avisando.' },
+      { x: 90, text: 'Os lobos da lembrança. Os mesmos olhos.' },
+    ],
+  },
+  pinhal: {
+    id: 'pinhal',
+    map: MAP_PINHAL,
+    theme: 'snow',
+    title: 'O Pinhal',
+    subtitle: 'Onde a caça passava',
+    exits: [
+      { side: 'left', to: 'encosta', entry: '2', range: [28, 33] },
+      { side: 'right', to: 'lago', entry: '1', range: [27, 32] },
+    ],
+    ...SNOW,
+    snow: 60,
+    music: 'forest',
+    ambience: 'snow',
+    trail: [[92, 102], [104, 110, 27], [116, 121, 23], [126, 131, 19], [135, 140, 15], [142, 146, 11]],
+    ribbons: [[122, 21], [132, 17], [141, 13], [141, 9]],
+    hints: [],
+    thoughts: [
+      { x: 8, text: 'Os pinheiros da abertura. Eu já estive embaixo deles.' },
+      { x: 100, text: 'Uma espera de caçador. Daqui de cima se via a trilha inteira.' },
+      { x: 118, y: 33, text: 'Pegadas pequenas, de luz fraca. Não são minhas.' },
+    ],
+  },
+  lago: {
+    id: 'lago',
+    map: MAP_LAGO,
+    theme: 'snow',
+    title: 'Lago Congelado',
+    subtitle: 'O gelo guarda',
+    exits: [
+      { side: 'left', to: 'pinhal', entry: '2', range: [26, 31] },
+      { side: 'right', to: 'cabana', entry: '1', range: [12, 17] },
+    ],
+    ...SNOW,
+    snow: 50,
+    music: 'forest',
+    ambience: 'snow',
+    // o vapor da fonte quente sobe até o galho de cima do pinheiro seco
+    drafts: [{ x0: 66, x1: 70, y0: 8, y1: 33, steam: true }],
+    hints: [],
+    thoughts: [
+      { x: 20, text: 'O lago inteiro congelado. Embaixo, alguma coisa me olha.' },
+      { x: 38, y: 32, text: 'Tem gente embaixo do gelo. Parada. Como se esperasse alguém atravessar.' },
+      { x: 66, y: 28, text: 'A água ferve ali, no meio do gelo. O vapor sobe até o galho de cima.' },
+    ],
+  },
+  cabana: {
+    id: 'cabana',
+    map: MAP_CABANA,
+    theme: 'snow',
+    title: 'A Cabana',
+    subtitle: 'Onde ela guardava as flores',
+    exits: [
+      { side: 'left', to: 'lago', entry: '2', range: [22, 27] },
+      { side: 'right', to: 'serra', entry: '1', range: [22, 27] },
+    ],
+    ...SNOW,
+    snow: 30,
+    music: 'cabin',
+    ambience: 'snow',
+    hints: [],
+    thoughts: [
+      { x: 10, text: 'Uma cabana. Fumaça nenhuma, mas a lenha está empilhada como se alguém fosse voltar.' },
+      { x: 34, text: 'Tem cheiro de flor seca aqui dentro. No meio da neve.' },
+    ],
+  },
+  serra: {
+    id: 'serra',
+    map: MAP_SERRA,
+    theme: 'snow',
+    title: 'A Serra',
+    subtitle: 'A trilha que ela abriu',
+    exits: [
+      { side: 'left', to: 'cabana', entry: '2', range: [90, 95] },
+      { side: 'right', to: 'clareira', entry: '1', range: [4, 11] },
+    ],
+    ...SNOW,
+    snow: 60,
+    music: 'forest',
+    ambience: 'snow',
+    // o vento sobe pela fenda até o céu; no meio, rajadas de lado tiram quem plana da corrente
+    drafts: [{ x0: 33, x1: 41, y0: 2, y1: 87 }],
+    gusts: [
+      { x0: 28, x1: 46, y0: 44, y1: 58, dir: 1, every: 4, len: 1.2 },
+      { x0: 28, x1: 46, y0: 20, y1: 32, dir: -1, every: 4.4, len: 1.1, phase: 2 },
+    ],
+    hints: [],
+    thoughts: [
+      { x: 6, y: 95, text: 'A fenda sobe até o céu. O vento passa por ela como por uma chaminé.' },
+      { x: 36, y: 86, text: 'As paredes são de gelo. As garras não seguram. O vento, sim.' },
+    ],
+  },
+  clareira: {
+    id: 'clareira',
+    map: MAP_CLAREIRA,
+    theme: 'snow',
+    title: 'Clareira da Caça',
+    subtitle: 'O fim da trilha',
+    exits: [{ side: 'left', to: 'serra', entry: '2', range: [24, 28] }],
+    boss: 'cacador',
+    ...SNOW,
+    snow: 50,
+    music: 'forest',
+    ambience: 'snow',
+    hints: [],
+    thoughts: [{ x: 4, text: 'Estacas fincadas em roda. Aqui a trilha terminava. Aqui eu esperava.' }],
+  },
+};
+
+export const ROOMS: Record<RoomId, RoomDef> = { ...PROLOGUE, ...CHAPTER2, ...CHAPTER3, ...CHAPTER4, ...CHAPTER5 };
 
 // Onde cada sala fica no mapa (em tiles). A memória do vale não aparece no mapa.
 export const MAP_POS: Partial<Record<RoomId, { x: number; y: number }>> = {
@@ -764,4 +939,10 @@ export const MAP_POS: Partial<Record<RoomId, { x: number; y: number }>> = {
   veio: { x: 1062, y: 191 },
   espelhos: { x: 1126, y: 243 },
   capataz: { x: 1190, y: 239 },
+  encosta: { x: 1262, y: 239 },
+  pinhal: { x: 1374, y: 243 },
+  lago: { x: 1546, y: 244 },
+  cabana: { x: 1696, y: 234 },
+  serra: { x: 1780, y: 166 },
+  clareira: { x: 1840, y: 149 },
 };
