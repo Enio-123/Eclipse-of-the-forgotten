@@ -5,7 +5,7 @@ import type Phaser from 'phaser';
 export type HitDir = 'side' | 'up' | 'down' | 'low' | 'arrow' | 'quake' | 'smoke';
 export type HitResult = 'hit' | 'blocked' | 'ignored';
 // quem é (decide as moedas e a vida que deixa ao morrer)
-export type EnemyKind = 'crawler' | 'crow' | 'guard' | 'archer' | 'censer' | 'jailer' | 'miner' | 'ambat' | 'wisp' | 'wolf' | 'owl' | 'trout' | 'boss' | 'echo';
+export type EnemyKind = 'crawler' | 'crow' | 'guard' | 'archer' | 'censer' | 'jailer' | 'miner' | 'ambat' | 'wisp' | 'wolf' | 'owl' | 'trout' | 'heron' | 'boss' | 'echo';
 
 // O que a cena precisa saber de qualquer inimigo
 export interface Enemy {

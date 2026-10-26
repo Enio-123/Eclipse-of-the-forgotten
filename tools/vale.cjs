@@ -5,7 +5,7 @@
 const { chromium } = require('playwright');
 const OUT = process.argv[2] || '.';
 const URL = process.argv[3] || process.env.GAME && process.env.GAME + '/index.html' || 'http://localhost:8765/index.html';
-// ONLY=links,neve roda só essas partes (neve, links, agrimensor, agua, nado, quedas, rio, alagada, gruta, presente, truta, fotos)
+// ONLY=links,neve roda só essas partes (neve, links, agrimensor, agua, nado, quedas, rio, alagada, gruta, presente, truta, garca, fotos)
 const ONLY = (process.env.ONLY || '').split(',').filter(Boolean);
 const part = (k) => !ONLY.length || ONLY.includes(k);
 (async () => {
@@ -534,6 +534,79 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
     t = await T();
     check(t.sy < 35, `morta, ela boia até a linha d'água (y ${t.sy.toFixed(1)}, linha 34.2)`);
     await shot('v43-truta-morta');
+  }
+
+  if (part('garca')) {
+    // ---------- 15. a Garça Cinzenta: parada no raso; com ele na frente, o Z do pescoço e o bote; aparar deixa
+    // tonta; apanhou, voa para outro ponto do raso ----------
+    await setProgress(['boss:cacador']);
+    await start('descida', '1');
+    await page.evaluate(() => { const s = window.__scene; for (const e of s.enemies) if (e.kind !== 'heron' && e.vanish) e.vanish(); window.__hr = s.enemies.find((e) => e.kind === 'heron'); s.player.invuln = 99; });
+    const G = () => page.evaluate(() => { const e = window.__hr; return e ? { st: e.state, x: e.pos.x / 16, y: e.pos.y / 16, wet: e.spot.wet, hp: e.hp, alive: e.alive, f: e.facing, spots: e.spots.length } : null; });
+    let h = await G();
+    check(h && h.st === 'stand' && h.wet && Math.abs(h.y - 29) < 0.05, `a garça fica parada no raso da garganta, os pés no fundo (${JSON.stringify(h)})`);
+    const hwatch = () => page.evaluate(() => {
+      const s = window.__scene;
+      window.__hrLog = { states: [], hp0: s.player.hp, hurt: false };
+      if (!window.__hrHook) {
+        window.__hrHook = true;
+        s.events.on('postupdate', () => { const e = window.__hr; const L = window.__hrLog; if (!e || !L) return; if (L.states[L.states.length - 1] !== e.state) L.states.push(e.state); if (s.player.hp < L.hp0) L.hurt = true; });
+      }
+    });
+    // o cavaleiro entra no raso, na frente dela: ela encolhe o pescoço e dá o bote
+    await put(79, 29);
+    await hwatch();
+    await page.evaluate(() => { window.__scene.player.invuln = 0; });
+    await until(() => window.__hrLog.states.includes('cock'), null, 8000).catch(() => null);
+    await waitGame(0.2);
+    await shot('v44-garca-z');
+    await until(() => window.__hrLog.states.includes('hold'), null, 6000).catch(() => null);
+    await shot('v45-garca-bote');
+    await waitGame(0.8);
+    let hl = await page.evaluate(() => window.__hrLog);
+    h = await G();
+    check(hl.states.join(' ').includes('turn') || h.f === 1, `ela vira para ele (${hl.states.join(' > ')})`);
+    check(hl.states.includes('cock') && hl.states.includes('stab') && hl.states.includes('hold'), `o Z do pescoço avisa e o bote vem (${hl.states.join(' > ')})`);
+    check(hl.hurt, `parado na frente dela, ele leva o bote`);
+    // aparar: o golpe encontra o bico no bote
+    await page.evaluate(() => { const s = window.__scene; s.player.invuln = 99; s.player.teleport(79 * 16 + 8, 29 * 16); });
+    await hwatch();
+    await page.evaluate(() => {
+      const s = window.__scene;
+      window.__hrParry = null;
+      const fn = () => { const e = window.__hr; if (e.state !== 'stab' || window.__hrParry) return; const b = e.beakBox; window.__hrParry = { ok: e.parry(new Phaser.Geom.Rectangle(b.centerX - 6, b.centerY - 6, 12, 12), s.player.x) }; s.events.off('postupdate', fn); };
+      s.events.on('postupdate', fn);
+    });
+    await until(() => window.__hrParry, null, 8000).catch(() => null);
+    const pr = await page.evaluate(() => window.__hrParry);
+    h = await G();
+    check(pr && pr.ok && h.st === 'stun', `aparar o bico deixa a garça tonta (${JSON.stringify(pr)}, ${h.st})`);
+    // (a foto não para o jogo: o golpe vem antes dela)
+    const tt = await page.evaluate(() => { const e = window.__hr; const r = { st: e.state, hp0: e.hp }; e.hit(window.__scene.player.x, 1, 'side'); r.hp = e.hp; r.st2 = e.state; return r; });
+    check(Math.abs(tt.hp0 - tt.hp - 1.5) < 0.01 && tt.st === 'stun' && tt.st2 === 'stun', `tonta, o golpe tira mais e ela não foge (${tt.st}: ${tt.hp0} -> ${tt.hp}, ${tt.st2})`);
+    await shot('v46-garca-tonta');
+    // apanhou parada: voa para outro ponto do raso
+    await page.evaluate(() => { const e = window.__hr; e.state = 'stand'; e.t = 0; e.hp = 3; window.__hrFrom = { x: e.pos.x, y: e.pos.y }; });
+    await hwatch();
+    await page.evaluate(() => window.__hr.hit(window.__scene.player.x, 1, 'side'));
+    await until(() => window.__hrLog.states.includes('fly'), null, 6000).catch(() => null);
+    await waitGame(0.3);
+    await shot('v47-garca-voo');
+    await until(() => window.__hrLog.states.includes('land'), null, 10000).catch(() => null);
+    await waitGame(0.5);
+    hl = await page.evaluate(() => window.__hrLog);
+    h = await G();
+    const from = await page.evaluate(() => window.__hrFrom);
+    const solid = await page.evaluate(() => { const e = window.__hr; const L = window.__scene.level; return L.solidCell(Math.floor(e.pos.x / 16), Math.floor(e.pos.y / 16)) && !L.solidCell(Math.floor(e.pos.x / 16), Math.floor(e.pos.y / 16) - 1); });
+    check(hl.states.includes('takeoff') && hl.states.includes('fly') && hl.states.includes('land'), `apanhou: levanta voo e pousa (${hl.states.join(' > ')})`);
+    check(Math.abs(h.x * 16 - from.x) > 60 && solid, `pousou em outro ponto, de pé no chão (x ${(from.x / 16).toFixed(1)} -> ${h.x.toFixed(1)}, pés ${h.y.toFixed(1)}, raso ${h.wet})`);
+    await page.evaluate(() => { const e = window.__hr; for (let i = 0; i < 3; i++) e.hit(e.pos.x - 20, 1, 'side'); });
+    h = await G();
+    check(!h.alive, `três golpes e ela cai`);
+    // as do Prado: nas beiradas rasas do lago, com a água na canela
+    await start('prado', '1');
+    const pr2 = await page.evaluate(() => window.__scene.enemies.filter((e) => e.kind === 'heron').map((e) => ({ x: e.pos.x / 16, y: e.pos.y / 16, wet: e.spot.wet })));
+    check(pr2.length === 2 && pr2.every((q) => q.wet && Math.abs(q.y - 37) < 0.05), `as duas garças do Prado ficam no raso da beirada (${JSON.stringify(pr2)})`);
   }
 
   if (part('fotos')) {

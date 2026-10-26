@@ -28,8 +28,8 @@ const SHEETS = ['knight-scythe', 'knight-sword', 'knight-daggers', 'knight-bow',
   'wolf', 'owl', 'cacador', 'knight-lanca',
   // o Agrimensor, que vende as folhas do mapa
   'surveyor',
-  // Vale das Cachoeiras: a Truta de Âmbar
-  'trout'];
+  // Vale das Cachoeiras: a Truta de Âmbar e a Garça Cinzenta
+  'trout', 'heron'];
 // (o terreno pintado, os pinheiros e os fundos de cada sala vêm quando ela abre: gfx/roomAssets.ts)
 const IMAGES = [
   'title-sky', 'title-land', 'title-rim', 'clouds-far', 'clouds-near',

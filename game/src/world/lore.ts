@@ -628,6 +628,11 @@ export const BESTIARY: { kind: string; name: string; text: string; tip: string }
     tip: 'Bolhas e um círculo na água: ela vai saltar ali. Saia de cima e bata quando ela cair. Na terra ela se debate e apanha mais.',
   },
   {
+    kind: 'heron', name: 'Garça Cinzenta',
+    text: 'A única coisa sem cor dentro da lembrança. Fica parada no raso a vida inteira, esperando o que passa, como se fosse do vale de agora e não do de antes.',
+    tip: 'Quando o pescoço encolhe num Z, o bote vem. Apare o bico na hora e ela fica tonta; errou, o bico fica um instante lá na frente.',
+  },
+  {
     kind: 'boss:cacador', name: 'O Mestre da Caça',
     text: 'Caçador-mor da Casa Vhalor. Trazia os fugitivos de volta pela neve e entregava ao carrasco no fim da trilha. Congelou esperando uma presa que passou a serra.',
     tip: 'Agache na estocada alta, pule a baixa e saia de baixo do salto. Na nevasca, olhe a lanterna: ela pisca antes do golpe.',

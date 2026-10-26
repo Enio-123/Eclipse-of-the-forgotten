@@ -1851,7 +1851,7 @@ def descida():
     g.put(110, 39, '2')
     g.put(100, 39, 'R')
     g.put(77, 34, '$')
-    g.put(73, 27, '(')
+    g.put(77, 28, '(')
     g.put(90, 41, ')')
     g.put(60, 39, '?')
     g.put(79, 32, '?')
@@ -1872,9 +1872,12 @@ def prado():
     # a pedra grande do fim do campo, um arco com uma loca embaixo
     g.fill(156, 30, 166, 35, '#')
     g.fill(158, 32, 164, 35, '.')
-    # o lago raso das garças (dá pé: a água bate no peito dele)
+    # o lago raso das garças (dá pé: a água bate no peito dele); nas beiradas o fundo sobe e a água fica na
+    # canela das garças
     ground(g, 41, 56, 38)
     g.fill(41, 36, 56, 37, '~')
+    g.fill(41, 37, 44, 37, '#')
+    g.fill(53, 37, 56, 37, '#')
     # o lago fundo
     ground(g, 113, 128, 40)
     g.fill(113, 35, 128, 39, '~')
@@ -1889,8 +1892,8 @@ def prado():
     g.put(174, 35, '2')
     g.put(91, 9, '$')
     g.put(120, 39, '$')
-    g.put(45, 37, '(')
-    g.put(52, 37, '(')
+    g.put(43, 36, '(')
+    g.put(54, 36, '(')
     g.put(117, 35, ')')
     g.put(100, 24, '?')
     g.put(161, 34, '?')

@@ -20,7 +20,7 @@ ICON_S = 4   # ícones do inventário: 24 -> 96 (a tela mostra com 48)
 
 def sheets():
     import anims, knight, guard, crow, archer, censer, sineiro, arcebispo, townsfolk, enemy, props, deco, jailer, carcereira, sombra
-    import miner, ambat, capataz, wolf, owl, cacador, trout
+    import miner, ambat, capataz, wolf, owl, cacador, trout, heron
     out = {}
     for w in anims.WEAPONS:
         out[f'knight-{w}'] = dict(anims=anims.anims_for(w), mod='knight', W=knight.W, H=knight.H, feet=knight.FEET,
@@ -79,8 +79,9 @@ def sheets():
     add('owl', owl, owl.ANIMS)
     # O Mestre da Caça: a ponta da lança, a lanterna e a mão em cada quadro
     add('cacador', cacador, cacador.ANIMS, points=cacador.points, cap=3)
-    # Vale das Cachoeiras: a Truta de Âmbar
+    # Vale das Cachoeiras: a Truta de Âmbar e a Garça Cinzenta (a ponta do bico em cada quadro: o bote)
     add('trout', trout, trout.ANIMS)
+    add('heron', heron, heron.ANIMS, points=heron.points)
     # o mineiro que ficou (NPC do Veio de Âmbar): o mesmo boneco, sentado, com a vela acesa
     A, holds = fluid.densify(miner.NPC_ANIMS, miner)
     out['oldminer'] = dict(anims=A, mod='miner', W=miner.W, H=miner.H, feet=miner.FEET, meta_extra={'holds': holds} if holds else None)

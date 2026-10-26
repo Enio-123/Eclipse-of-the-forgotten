@@ -525,6 +525,27 @@ export const TROUT = {
   air: 8,
 };
 
+// Garça Cinzenta (Vale das Cachoeiras): parada no raso como uma estátua. Com o cavaleiro perto, na
+// frente, encolhe o pescoço num Z (o aviso) e dá o bote: o pescoço inteiro estica de uma vez e o bico fica
+// um instante lá na frente (a hora de bater). Aparar o bico na hora deixa ela tonta. Apanhou: voa para
+// outro ponto do raso
+export const HERON = {
+  bodyW: 14,
+  bodyH: 34,
+  hp: 3,
+  sight: 200,
+  // até onde o bote alcança na frente dela (a ponta do bico chega a uns 33 px dos pés)
+  reach: 44,
+  windup: 0.36,
+  hold: 0.34,
+  recover: 0.3,
+  cooldown: 1.0,
+  stun: 1.4,
+  fly: 150,
+  // os outros pontos para onde ela voa (px dos pés de agora)
+  range: 260,
+};
+
 // O Mestre da Caça (Clareira da Caça): o caçador-mor da Casa Vhalor, congelado no fim da trilha.
 // Estocadas longas da lança (alta: agache; baixa: pule), salto com a lança para baixo (saia de baixo)
 // e a trompa que chama dois lobos (uma vez por fase). Na metade, a nevasca: a tela embranquece, ele
@@ -766,6 +787,7 @@ export const LOOT = {
   wolf: { coins: [5, 8], life: 0.75 },
   owl: { coins: [3, 6], life: 0.5 },
   trout: { coins: [3, 5], life: 0.5 },
+  heron: { coins: [4, 7], life: 0.5 },
   boss: { coins: [40, 40], life: 2 },
   // a sombra devolve as moedas dela direto na bolsa
   echo: { coins: [0, 0], life: 0 },
