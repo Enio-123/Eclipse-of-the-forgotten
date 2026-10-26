@@ -4,6 +4,7 @@ import type { GameScene } from '../scenes/GameScene';
 import { overlap, type BossFoe, type HitDir, type HitResult } from './Enemy';
 import { DEPTH } from '../world/Decor';
 import { hd } from '../gfx/flip';
+import { drawLash, type LashLook, type LashPose } from '../gfx/lash';
 
 type State = 'sleep' | 'emerge' | 'fight' | 'dead';
 type Box = [number, number, number, number];
@@ -21,6 +22,9 @@ interface Rec {
   body: Box;
   atk: Box | null;
   slash: { tex: string; frame: string | number; x: number; y: number; ang: number; fx: boolean; fy: boolean; ox: number; oy: number; sx: number; sy: number } | null;
+  // o chicote do Véu ou a corrente naquele quadro, e a conta dos pulsos do Cajado da Dobra
+  lash: LashPose | null;
+  pulse: number;
 }
 
 interface Shot {
@@ -29,7 +33,12 @@ interface Shot {
   y: number;
   dx: number;
   dy: number;
+  // a bolinha do Cajado do Eclipse (volta como bolinha, não como flecha)
+  orb: boolean;
 }
+
+// o chicote e a corrente feitos de Âmbar aceso
+const LASH_LOOK: LashLook = { body: 0xc8641c, edge: 0xffe6a6, tip: 0xfff4dc, hook: 0xb0581a };
 
 const box = (r: Phaser.Geom.Rectangle): Box => [r.x, r.y, r.width, r.height];
 const rectOf = (b: Box) => new Phaser.Geom.Rectangle(b[0], b[1], b[2], b[3]);
@@ -62,7 +71,9 @@ export class Reflexo implements BossFoe {
   private shots: Shot[] = [];
   private cur: Rec | null = null;
   private lastSlash = false;
+  private lastPulse = -1;
   private readonly slash: Phaser.GameObjects.Sprite;
+  private readonly lashG: Phaser.GameObjects.Graphics;
   private readonly glow: Phaser.GameObjects.Image;
   private readonly maskG: Phaser.GameObjects.Graphics;
   private readonly mask: Phaser.Display.Masks.GeometryMask;
@@ -81,6 +92,7 @@ export class Reflexo implements BossFoe {
     const tex = scene.player?.sprite.texture.key ?? 'knight-scythe';
     this.sprite = hd(scene.add.sprite(x, feetY, tex, 0).setDepth(DEPTH.prop + 0.2));
     this.slash = scene.add.sprite(0, 0, 'slash', 0).setDepth(DEPTH.slash).setVisible(false);
+    this.lashG = scene.add.graphics().setDepth(DEPTH.slash);
     this.glow = scene.add.image(x, feetY - 24, 'glow').setTint(0xffa63c).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.enemy - 0.2).setAlpha(0).setScale(1.4, 1.8);
     // dentro do espelho: só aparece o que cai na face polida
     const pane = scene.mine?.mirror?.pane ?? { cx: x, cy: feetY - 72, rx: 27, ry: 64 };
@@ -114,9 +126,9 @@ export class Reflexo implements BossFoe {
     }
   }
 
-  // o cavaleiro atirou com o arco: o reflexo atira igual, depois do atraso
-  noteShot(x: number, y: number, dx: number, dy: number) {
-    this.shots.push({ t: this.now, x, y, dx, dy });
+  // o cavaleiro atirou com o arco (ou o mago soltou a bolinha): o reflexo atira igual, depois do atraso
+  noteShot(x: number, y: number, dx: number, dy: number, orb = false) {
+    this.shots.push({ t: this.now, x, y, dx, dy, orb });
   }
 
   wake() {
@@ -148,6 +160,8 @@ export class Reflexo implements BossFoe {
       slash: sl.visible
         ? { tex: sl.texture.key, frame: sl.frame.name, x: sl.x, y: sl.y, ang: sl.angle, fx: sl.flipX, fy: sl.flipY, ox: sl.originX, oy: sl.originY, sx: sl.scaleX, sy: sl.scaleY }
         : null,
+      lash: p.lashPose && !p.dead ? { ...p.lashPose } : null,
+      pulse: p.pulseN,
     });
     while (this.recs.length > 2 && this.recs[1].t < this.now - 3) this.recs.shift();
   }
@@ -183,6 +197,17 @@ export class Reflexo implements BossFoe {
       if (!this.lastSlash) this.scene.sfx('slash', 0.45, 1.25);
     } else this.slash.setVisible(false);
     this.lastSlash = !!sl;
+    // o chicote e a corrente não têm arco de corte: o espelho desenha os dois de Âmbar
+    this.lashG.clear();
+    if (r.lash && this.state !== 'sleep') drawLash(this.lashG, r.lash, LASH_LOOK);
+    // o pulso do Cajado da Dobra acende uma vez, no quadro em que o mago bateu
+    if (r.pulse !== this.lastPulse) {
+      if (this.lastPulse >= 0 && r.atk && this.state !== 'sleep') {
+        this.scene.magic?.pulseFx(rectOf(r.atk), this.facing, 0xffa63c, 0xfff4dc);
+        this.scene.sfx('glass', 0.3, 1.6);
+      }
+      this.lastPulse = r.pulse;
+    }
   }
 
   update(dt: number) {
@@ -263,7 +288,8 @@ export class Reflexo implements BossFoe {
     const t = this.now - this.lag;
     while (this.shots.length && this.shots[0].t <= t) {
       const q = this.shots.shift()!;
-      this.scene.spawnEnemyArrow(q.x, q.y, q.dx, q.dy);
+      if (q.orb) this.scene.spawnEnemyOrb(q.x, q.y, q.dx, q.dy);
+      else this.scene.spawnEnemyArrow(q.x, q.y, q.dx, q.dy);
     }
   }
 
@@ -313,6 +339,7 @@ export class Reflexo implements BossFoe {
     this.go('dead');
     this.body.enable = false;
     this.slash.setVisible(false);
+    this.lashG.clear();
     // a imagem estoura em lascas e o espelho racha de cima a baixo
     const x = this.sprite.x;
     const y = this.sprite.y - 24;
@@ -337,6 +364,7 @@ export class Reflexo implements BossFoe {
 
   destroy() {
     this.slash.destroy();
+    this.lashG.destroy();
     this.glow.destroy();
     this.maskG.destroy();
   }

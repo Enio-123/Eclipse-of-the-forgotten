@@ -4,6 +4,7 @@ import type { GameScene } from '../scenes/GameScene';
 import type { AttackDir } from './Player';
 import { DEPTH } from '../world/Decor';
 import { hd } from '../gfx/flip';
+import { drawLash, type LashLook, type LashPose } from '../gfx/lash';
 
 type Box = [number, number, number, number];
 
@@ -25,6 +26,9 @@ interface Rec {
   dir: AttackDir;
   fromX: number;
   slash: { tex: string; frame: string | number; x: number; y: number; ang: number; fx: boolean; fy: boolean; ox: number; oy: number; sx: number; sy: number } | null;
+  // o chicote do Véu ou a corrente naquele quadro, e a conta dos pulsos do Cajado da Dobra
+  lash: LashPose | null;
+  pulse: number;
 }
 
 interface Shot {
@@ -37,6 +41,8 @@ interface Shot {
 }
 
 const INK = 0x1c1626;
+// o chicote e a corrente de tinta com a borda de ouro
+const LASH_LOOK: LashLook = { body: INK, edge: PAL.gold, tip: PAL.gold, alpha: 0.85 };
 const box = (r: Phaser.Geom.Rectangle): Box => [r.x, r.y, r.width, r.height];
 export const rectOf = (b: Box) => new Phaser.Geom.Rectangle(b[0], b[1], b[2], b[3]);
 
@@ -54,8 +60,10 @@ export class MemoryEcho {
   private struck = new Map<number, Set<unknown>>();
   private played = -1;
   private lastSlash = false;
+  private lastPulse: number;
   private readonly sprite: Phaser.GameObjects.Sprite;
   private readonly slash: Phaser.GameObjects.Sprite;
+  private readonly lashG: Phaser.GameObjects.Graphics;
   private readonly glow: Phaser.GameObjects.Image;
 
   // len: quanto tempo ela fica (o Relógio do turno estica)
@@ -71,6 +79,8 @@ export class MemoryEcho {
       .setAlpha(0);
     this.sprite.preFX?.addGlow(PAL.gold, 2, 0, false, 0.1, 8);
     this.slash = scene.add.sprite(0, 0, 'slash', 0).setDepth(DEPTH.slash - 0.1).setVisible(false).setTint(PAL.gold, PAL.gold, 0x6a4a9a, 0x6a4a9a).setAlpha(0.8);
+    this.lashG = scene.add.graphics().setDepth(DEPTH.slash - 0.1);
+    this.lastPulse = p.pulseN;
     this.glow = scene.add.image(s.x, s.y - 22, 'glow').setTint(PAL.gold).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.player - 0.4).setAlpha(0).setScale(1.1, 1.5);
     scene.tweens.add({ targets: this.sprite, alpha: 0.86, duration: 220 });
     scene.tweens.add({ targets: this.glow, alpha: 0.22, duration: 220 });
@@ -114,6 +124,8 @@ export class MemoryEcho {
       slash: sl.visible
         ? { tex: sl.texture.key, frame: sl.frame.name, x: sl.x, y: sl.y, ang: sl.angle, fx: sl.flipX, fy: sl.flipY, ox: sl.originX, oy: sl.originY, sx: sl.scaleX, sy: sl.scaleY }
         : null,
+      lash: p.lashPose && !p.dead ? { ...p.lashPose } : null,
+      pulse: p.pulseN,
     });
     while (this.recs.length > 2 && this.recs[1].t < this.now - 1) this.recs.shift();
   }
@@ -147,6 +159,13 @@ export class MemoryEcho {
       if (!this.lastSlash) this.scene.sfx('slash', 0.3, 1.35);
     } else this.slash.setVisible(false);
     this.lastSlash = !!sl;
+    // o chicote, a corrente e o pulso do Cajado da Dobra não têm arco de corte: o Eco desenha
+    this.lashG.clear();
+    if (r.lash) drawLash(this.lashG, r.lash, LASH_LOOK);
+    if (r.pulse !== this.lastPulse) {
+      if (r.atk) this.scene.magic?.pulseFx(rectOf(r.atk), r.flip ? -1 : 1, PAL.gold, 0xfff0c0);
+      this.lastPulse = r.pulse;
+    }
   }
 
   update(dt: number) {
@@ -186,6 +205,7 @@ export class MemoryEcho {
     s.echoMotes(this.sprite.x, this.sprite.y - 20, true, 12);
     s.echoMotes(this.sprite.x, this.sprite.y - 20, false, 6);
     this.slash.setVisible(false);
+    this.lashG.clear();
     s.tweens.add({ targets: [this.sprite, this.glow], alpha: 0, duration: 320, onComplete: () => this.destroy() });
   }
 
@@ -193,6 +213,7 @@ export class MemoryEcho {
     this.done = true;
     this.sprite.destroy();
     this.slash.destroy();
+    this.lashG.destroy();
     this.glow.destroy();
   }
 }

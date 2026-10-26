@@ -1629,7 +1629,7 @@ export class GameScene extends Phaser.Scene {
     this.arrows.push(new Arrow(this, x, y, dx, dy, d, { orb: true, speed: MAGIC.orb.speed, life: MAGIC.orb.life }));
     this.sfx('swoosh', 0.55, 1.7);
     this.sfx('censer', 0.25, 1.9);
-    if (this.boss instanceof Reflexo && this.boss.alive) this.boss.noteShot(x, y, dx, dy);
+    if (this.boss instanceof Reflexo && this.boss.alive) this.boss.noteShot(x, y, dx, dy, true);
     this.memEcho?.noteShot(x, y, dx, dy, d);
   }
 
@@ -1654,6 +1654,15 @@ export class GameScene extends Phaser.Scene {
   spawnEnemyArrow(x: number, y: number, dx: number, dy: number) {
     this.arrows.push(new Arrow(this, x, y, dx, dy, 1, { hostile: true, speed: ARCHER.arrowSpeed, life: ARCHER.arrowLife }));
     this.sfx('bow', 0.75, 0.8);
+  }
+
+  // a bolinha do eclipse que o espelho devolve: de Âmbar, um pouco mais lenta (vai até onde a do mago
+  // foi) e machuca o mago até ser rebatida
+  spawnEnemyOrb(x: number, y: number, dx: number, dy: number) {
+    const k = 0.8;
+    this.arrows.push(new Arrow(this, x, y, dx, dy, 1, { hostile: true, orb: true, speed: MAGIC.orb.speed * k, life: MAGIC.orb.life / k, tint: 0xffc870 }));
+    this.sfx('swoosh', 0.5, 1.4);
+    this.sfx('glass', 0.25, 1.8);
   }
 
   // incenso subindo (do incensário e das nuvens no chão)
@@ -1696,7 +1705,7 @@ export class GameScene extends Phaser.Scene {
         else this.sfx('thunk', a.hostile ? 0.6 : 1);
         if (!a.hostile) this.fixtures.arrow(a.rect, a.tip, a.x - a.dx * 20);
         if (a.orb) {
-          this.mine?.magicHit(a.rect);
+          if (!a.hostile) this.mine?.magicHit(a.rect);
           a.destroy();
         }
         continue;

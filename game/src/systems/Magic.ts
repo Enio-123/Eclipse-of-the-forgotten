@@ -1240,7 +1240,8 @@ export class Magic {
   }
 
   // ---------- golpe básico do Cajado da Dobra ----------
-  pulseFx(box: Phaser.Geom.Rectangle, facing: number) {
+  // (o espelho e o Eco repetem o pulso com as cores deles)
+  pulseFx(box: Phaser.Geom.Rectangle, facing: number, ring = SPACE, core = 0xdce8ff) {
     const s = this.s;
     const g = s.add.graphics().setDepth(DEPTH.slash).setBlendMode(Phaser.BlendModes.ADD);
     const cx = facing > 0 ? box.x + 6 : box.right - 6;
@@ -1258,7 +1259,7 @@ export class Magic {
           const kk = Math.max(0, k - i * 0.16);
           if (kk <= 0) continue;
           const r = 4 + kk * R;
-          g.lineStyle(2 - i * 0.5, i ? SPACE : 0xdce8ff, 0.85 * (1 - kk));
+          g.lineStyle(2 - i * 0.5, i ? ring : core, 0.85 * (1 - kk));
           g.beginPath();
           g.arc(cx, cy, r, facing > 0 ? -1.1 : Math.PI - 1.1, facing > 0 ? 1.1 : Math.PI + 1.1);
           g.strokePath();
@@ -1267,7 +1268,7 @@ export class Magic {
       },
       onComplete: () => g.destroy(),
     });
-    this.dots.setParticleTint(SPACE);
+    this.dots.setParticleTint(ring);
     this.dots.explode(5, cx + facing * 10, cy);
   }
 

@@ -7,6 +7,7 @@ import { TILE_ONEWAY } from '../gfx/textures';
 import { DEPTH } from '../world/Decor';
 import { hd } from '../gfx/flip';
 import { VeilFx } from '../gfx/veil';
+import { drawChain, drawWhip, type LashPose } from '../gfx/lash';
 
 export type AttackDir = 'side' | 'up' | 'down' | 'low';
 // ações que o jogador já descobriu (as dicas somem quando ele usa)
@@ -134,6 +135,10 @@ export class Player {
   // golpe da corrente: ela estica até a ponta do golpe e volta (no lugar do arco de corte)
   private lashG: Phaser.GameObjects.Graphics;
   private lashT = -1;
+  // a pose do chicote ou da corrente neste quadro e a conta dos pulsos do Cajado da Dobra (o espelho e o
+  // Eco repetem os dois, que não usam o arco de corte)
+  lashPose: LashPose | null = null;
+  pulseN = 0;
   // mago: mirando a habilidade (parado, a cena mexe a mira), soltando (a animação de lançar) e o
   // Mergulho do Véu (some no chão e sai na mira)
   aiming = false;
@@ -525,7 +530,7 @@ export class Player {
       h.x += (dx / d) * step;
       h.y += (dy / d) * step;
     }
-    this.drawChain(from.x, from.y, h.x, h.y);
+    drawChain(this.chain, from.x, from.y, h.x, h.y);
   }
 
   // a ponta bateu em alguém no caminho: volta (a cena aplica o dano)
@@ -586,6 +591,7 @@ export class Player {
   private updateLash(dt: number) {
     const g = this.lashG;
     g.clear();
+    this.lashPose = null;
     if (this.lashT < 0) return;
     this.lashT += dt;
     if (this.weapon.whip) {
@@ -619,7 +625,8 @@ export class Player {
       tx = this.facing > 0 ? box.right - 3 : box.x + 3;
       ty = this.atkDir === 'low' ? b.bottom - 9 : box.centerY;
     }
-    this.drawChain(from.x, from.y, from.x + (tx - from.x) * k, from.y + (ty - from.y) * k, g);
+    this.lashPose = { ax: from.x, ay: from.y, bx: from.x + (tx - from.x) * k, by: from.y + (ty - from.y) * k, t, wave: 0, whip: false };
+    drawChain(g, this.lashPose.ax, this.lashPose.ay, this.lashPose.bx, this.lashPose.by);
   }
 
   // o chicote de tinta do Mago do Véu: sai da forquilha do cajado, estala na ponta da área do golpe
@@ -652,50 +659,9 @@ export class Player {
       tx = this.facing > 0 ? box.right - 2 : box.x + 2;
       ty = this.atkDir === 'low' ? b.bottom - 8 : box.centerY;
     }
-    const ex = from.x + (tx - from.x) * k;
-    const ey = from.y + (ty - from.y) * k;
-    const len = Math.hypot(ex - from.x, ey - from.y) || 1;
-    const nx = -(ey - from.y) / len;
-    const ny = (ex - from.x) / len;
-    const n = Math.max(6, Math.floor(len / 4));
     const wave = Math.sin(t * 40) * 3 * (1 - Math.min(1, t / (out + hold)));
-    const pts: { x: number; y: number }[] = [];
-    for (let i = 0; i <= n; i++) {
-      const u = i / n;
-      const off = Math.sin(u * Math.PI) * (wave + 2 * Math.sin(u * 9 - t * 30));
-      pts.push({ x: from.x + (ex - from.x) * u + nx * off, y: from.y + (ey - from.y) * u + ny * off });
-    }
-    // corpo escuro e grosso perto do cajado, fino na ponta; o brilho lilás por cima
-    for (let i = 0; i < n; i++) {
-      const w = 3.4 - (i / n) * 2.4;
-      g.lineStyle(w, 0x140c1e, 1).lineBetween(pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y);
-    }
-    for (let i = 0; i < n; i += 2) {
-      g.lineStyle(1, 0xb27fea, 0.75 * (1 - i / n) + 0.2).lineBetween(pts[i].x, pts[i].y - 0.6, pts[i + 1].x, pts[i + 1].y - 0.6);
-    }
-    g.fillStyle(0x140c1e, 1).fillCircle(ex, ey, 2.2);
-    g.fillStyle(0xe2c8ff, 0.9).fillCircle(ex, ey - 0.5, 0.9);
-  }
-
-  private drawChain(ax: number, ay: number, bx: number, by: number, g = this.chain) {
-    const len = Math.hypot(bx - ax, by - ay);
-    const n = Math.max(2, Math.floor(len / 5));
-    const ux = (bx - ax) / (len || 1);
-    const uy = (by - ay) / (len || 1);
-    g.lineStyle(2, 0x272c3a, 1).lineBetween(ax, ay, bx, by);
-    g.fillStyle(0x8a93a8, 1);
-    for (let i = 1; i < n; i++) {
-      const t = i / n;
-      const x = ax + (bx - ax) * t;
-      const y = ay + (by - ay) * t;
-      if (i % 2) g.fillRect(Math.round(x - ux), Math.round(y - uy), 2, 2);
-      else g.fillRect(Math.round(x), Math.round(y), 1, 1);
-    }
-    // a ponta: um gancho de ferro virado para trás
-    const px = -uy;
-    const py = ux;
-    g.fillStyle(0x3a3f4e, 1).fillTriangle(bx + ux * 4, by + uy * 4, bx - ux * 3 + px * 4, by - uy * 3 + py * 4, bx - ux * 3 - px * 4, by - uy * 3 - py * 4);
-    g.fillStyle(0xbcc6da, 1).fillRect(Math.round(bx + ux * 2), Math.round(by + uy * 2), 1, 1);
+    this.lashPose = { ax: from.x, ay: from.y, bx: from.x + (tx - from.x) * k, by: from.y + (ty - from.y) * k, t, wave, whip: true };
+    drawWhip(g, this.lashPose);
   }
 
   // cena trocando de sala, morte, cinemática: o gancho some
@@ -931,6 +897,7 @@ export class Player {
     this.shotPending = false;
     this.slash.setVisible(false);
     this.lashT = -1;
+    this.lashPose = null;
     this.lashG.clear();
   }
 
@@ -990,6 +957,7 @@ export class Player {
     }
     // o pulso do Cajado da Dobra: o espaço entorta na área do golpe (a cena desenha)
     if (this.weapon.pulse) {
+      this.pulseN++;
       this.scene.spacePulse(this.attackBox(), this.facing, this.atkDir);
       return;
     }

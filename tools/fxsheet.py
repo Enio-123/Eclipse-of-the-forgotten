@@ -4,7 +4,7 @@ from PIL import Image, ImageDraw
 D = sys.argv[1]
 OUT = sys.argv[2]
 rows = sys.argv[3].split(',')
-cols = ['mira', '0.12', '0.15', '0.3']
+cols = (os.environ.get('COLS') or 'mira,0.12,0.15,0.3').split(',')
 W, H = 400, 200
 sheet = Image.new('RGB', (W * 4, H * len(rows)), (0, 0, 0))
 for r, name in enumerate(rows):

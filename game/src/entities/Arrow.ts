@@ -39,9 +39,10 @@ export class Arrow {
     this.speed = opts.speed ?? ARROW.speed;
     this.life = opts.life ?? ARROW.life;
     if (this.orb) {
-      // a esfera escura com a coroa de fogo em volta (no Eco, a coroa vira ouro)
+      // a esfera escura com a coroa de fogo em volta (no Eco, a coroa vira ouro; no espelho, Âmbar)
       this.img = hd(scene.add.image(x, y, 'orb-eclipse').setDepth(11));
-      this.glow = scene.add.image(x, y, 'glow').setDepth(10.9).setTint(this.echo ? 0xf0c468 : 0xf28c22).setAlpha(0.55).setScale(0.42).setBlendMode(Phaser.BlendModes.ADD);
+      this.glow = scene.add.image(x, y, 'glow').setDepth(10.9).setTint(opts.tint ?? (this.echo ? 0xf0c468 : 0xf28c22)).setAlpha(0.55).setScale(0.42).setBlendMode(Phaser.BlendModes.ADD);
+      if (opts.tint !== undefined) this.img.setTint(opts.tint);
       if (this.echo) this.img.setAlpha(0.8);
       return;
     }
