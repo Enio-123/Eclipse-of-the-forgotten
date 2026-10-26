@@ -33,7 +33,7 @@ export const REGIONS: RegionDef[] = [
     blurb: 'Celas, correntes e a guarita. Contei os passos dos carcereiros para medir os corredores.',
   },
   {
-    id: 'fosso', name: 'Fosso dos Esquecidos', rooms: ['fosso', 'abismo'], wash: '#7a64a4', price: 15, surveyor: { room: 'fosso', x: 50, y: 77 },
+    id: 'fosso', name: 'Fosso dos Esquecidos', rooms: ['fosso', 'margem', 'abismo'], wash: '#7a64a4', price: 15, surveyor: { room: 'fosso', x: 50, y: 77 },
     blurb: 'Só o que a corda alcançou. Lá embaixo a tinta escorre do papel.',
   },
   {

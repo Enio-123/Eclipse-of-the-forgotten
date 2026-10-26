@@ -2,7 +2,7 @@ import type { Theme } from './Level';
 import {
   MAP_ABISMO, MAP_ALTAR, MAP_ARENA, MAP_BOCA, MAP_CABANA, MAP_CAPATAZ, MAP_CATACUMBAS, MAP_CELAS, MAP_CLAREIRA, MAP_CLAUSTRO,
   MAP_CORRENTES, MAP_CRIPTA, MAP_ENCOSTA, MAP_ESCADARIA, MAP_ESPELHOS, MAP_FOSSO, MAP_FUGA, MAP_GALERIA, MAP_GUARITA, MAP_LAGO,
-  MAP_MASCARA, MAP_MEMORIA, MAP_MERCADO, MAP_NAVE, MAP_NICHOS, MAP_PINHAL, MAP_POCO, MAP_PONTE, MAP_PRACA, MAP_PRENSAS, MAP_RUA, MAP_SERRA, MAP_SINOS, MAP_SOLITARIAS,
+  MAP_MARGEM, MAP_MASCARA, MAP_MEMORIA, MAP_MERCADO, MAP_NAVE, MAP_NICHOS, MAP_PINHAL, MAP_POCO, MAP_PONTE, MAP_PRACA, MAP_PRENSAS, MAP_RUA, MAP_SERRA, MAP_SINOS, MAP_SOLITARIAS,
   MAP_TELHADOS, MAP_TRILHOS, MAP_VEIO,
 } from './maps';
 import type { AmbienceId, TrackId } from '../systems/Audio';
@@ -12,7 +12,7 @@ import type { FindId } from './Finds';
 export type RoomId =
   | 'ponte' | 'catacumbas' | 'nichos' | 'memoria' | 'sinos' | 'cripta'
   | 'escadaria' | 'praca' | 'mercado' | 'rua' | 'telhados' | 'nave' | 'claustro' | 'galeria' | 'altar'
-  | 'poco' | 'solitarias' | 'celas' | 'correntes' | 'guarita' | 'fuga' | 'arena' | 'mascara' | 'fosso' | 'abismo'
+  | 'poco' | 'solitarias' | 'celas' | 'correntes' | 'guarita' | 'fuga' | 'arena' | 'mascara' | 'fosso' | 'margem' | 'abismo'
   | 'boca' | 'trilhos' | 'prensas' | 'veio' | 'espelhos' | 'capataz'
   | 'encosta' | 'pinhal' | 'lago' | 'cabana' | 'serra' | 'clareira';
 // 'cape': a Capa de Arielle (segurando o pulo no ar, plana; nas correntes de ar, sobe)
@@ -493,7 +493,7 @@ const CHAPTER2: Record<'escadaria' | 'praca' | 'mercado' | 'rua' | 'telhados' | 
 // ---------- capítulo 3: a Prisão Subterrânea ----------
 const PRISON: Pick<RoomDef, 'pit' | 'rain' | 'lightning' | 'petals' | 'motes'> = { pit: false, rain: false, lightning: false, petals: false, motes: true };
 
-const CHAPTER3: Record<'poco' | 'solitarias' | 'celas' | 'correntes' | 'guarita' | 'fuga' | 'arena' | 'mascara' | 'fosso' | 'abismo', RoomDef> = {
+const CHAPTER3: Record<'poco' | 'solitarias' | 'celas' | 'correntes' | 'guarita' | 'fuga' | 'arena' | 'mascara' | 'fosso' | 'margem' | 'abismo', RoomDef> = {
   poco: {
     id: 'poco',
     map: MAP_POCO,
@@ -668,7 +668,7 @@ const CHAPTER3: Record<'poco' | 'solitarias' | 'celas' | 'correntes' | 'guarita'
     subtitle: 'Onde caía o que a prisão arrancava',
     exits: [
       { side: 'up', to: 'mascara', entry: '2', range: [34, 37] },
-      { side: 'right', to: 'abismo', entry: '1', range: [73, 77] },
+      { side: 'right', to: 'margem', entry: '1', range: [73, 77] },
     ],
     ...PRISON,
     drips: 34,
@@ -684,6 +684,32 @@ const CHAPTER3: Record<'poco' | 'solitarias' | 'celas' | 'correntes' | 'guarita'
       { x: 46, y: 77, text: 'Lá adiante, uma luz roxa. E passos iguais aos meus.' },
     ],
   },
+  margem: {
+    id: 'margem',
+    map: MAP_MARGEM,
+    theme: 'prison',
+    title: 'A Margem da Tinta',
+    subtitle: 'A calha das sentenças',
+    exits: [
+      { side: 'left', to: 'fosso', entry: '2', range: [28, 32] },
+      { side: 'right', to: 'abismo', entry: '1', range: [28, 32] },
+    ],
+    ...PRISON,
+    drips: 26,
+    music: 'fosso',
+    ambience: 'prison',
+    paint: 0.2,
+    lanterns: [[10, 28], [18, 24], [30, 15], [40, 20], [60, 24], [78, 12], [92, 28], [86, 12]],
+    fungus: 12,
+    hints: [],
+    thoughts: [
+      { x: 8, text: 'A tinta das sentenças escorria por aqui. Tudo o que foi escrito lá em cima desce nesta calha.' },
+      { x: 30, y: 16, text: 'A sacada dos copistas. Era aqui que assinavam o que eu ia cumprir lá embaixo.' },
+      { x: 52, y: 30, text: 'A comporta quebrou e a tinta nunca mais parou de correr.' },
+      { x: 86, y: 13, text: 'Alguém escondeu isto atrás da membrana. Um copista que não aguentou copiar.' },
+      { x: 94, text: 'Daqui para frente a tinta fica parada. É ali que ela espera.' },
+    ],
+  },
   abismo: {
     id: 'abismo',
     map: MAP_ABISMO,
@@ -691,7 +717,7 @@ const CHAPTER3: Record<'poco' | 'solitarias' | 'celas' | 'correntes' | 'guarita'
     title: 'Leito do Abismo',
     subtitle: 'O fundo de tudo o que ele esqueceu',
     exits: [
-      { side: 'left', to: 'fosso', entry: '2', range: [23, 27] },
+      { side: 'left', to: 'margem', entry: '2', range: [23, 27] },
       { side: 'right', to: 'boca', entry: '1', range: [24, 27] },
     ],
     boss: 'sombra',
@@ -1013,17 +1039,18 @@ export const MAP_POS: Partial<Record<RoomId, { x: number; y: number }>> = {
   arena: { x: 694, y: 37 },
   mascara: { x: 824, y: 63 },
   fosso: { x: 844, y: 95 },
-  abismo: { x: 900, y: 145 },
-  boca: { x: 970, y: 143 },
-  trilhos: { x: 1070, y: 149 },
-  prensas: { x: 1220, y: 149 },
-  veio: { x: 1286, y: 193 },
-  espelhos: { x: 1350, y: 245 },
-  capataz: { x: 1414, y: 241 },
-  encosta: { x: 1486, y: 241 },
-  pinhal: { x: 1598, y: 245 },
-  lago: { x: 1770, y: 246 },
-  cabana: { x: 1920, y: 236 },
-  serra: { x: 2004, y: 168 },
-  clareira: { x: 2064, y: 151 },
+  margem: { x: 900, y: 140 },
+  abismo: { x: 1004, y: 145 },
+  boca: { x: 1074, y: 143 },
+  trilhos: { x: 1174, y: 149 },
+  prensas: { x: 1324, y: 149 },
+  veio: { x: 1390, y: 193 },
+  espelhos: { x: 1454, y: 245 },
+  capataz: { x: 1518, y: 241 },
+  encosta: { x: 1590, y: 241 },
+  pinhal: { x: 1702, y: 245 },
+  lago: { x: 1874, y: 246 },
+  cabana: { x: 2024, y: 236 },
+  serra: { x: 2108, y: 168 },
+  clareira: { x: 2168, y: 151 },
 };

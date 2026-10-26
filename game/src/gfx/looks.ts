@@ -30,6 +30,7 @@ const BASE: Look = {
   mist: 0.3,
   mistFront: 0,
   water: 0.5,
+  reflTint: [0.78, 0.9, 1.0],
   wet: 0,
   lift: [0, 0, 0],
   gamma: [1, 1, 1],
@@ -199,8 +200,20 @@ const ROOMS: Partial<Record<RoomId, Partial<Look>>> = {
   // fosso e abismo: a tinta da sombra no ar, roxo e preto, o lugar mais escuro até aqui
   fosso: {
     ambient: [0.36, 0.32, 0.43],
+    reflTint: [1.0, 0.7, 1.1],
     mistColor: [0.42, 0.28, 0.56],
     mist: 0.42,
+    shadowTint: [0.99, 0.96, 1.04],
+    highTint: [1.01, 0.98, 1.03],
+    oil: 0.2,
+  },
+  // a Margem da Tinta: a calha entre o Fosso e o Leito do Abismo; a tinta corrente reflete em roxo
+  margem: {
+    ambient: [0.35, 0.31, 0.43],
+    water: 0.4,
+    reflTint: [1.0, 0.7, 1.1],
+    mistColor: [0.42, 0.28, 0.56],
+    mist: 0.4,
     shadowTint: [0.99, 0.96, 1.04],
     highTint: [1.01, 0.98, 1.03],
     oil: 0.2,
@@ -213,6 +226,7 @@ const ROOMS: Partial<Record<RoomId, Partial<Look>>> = {
   lago: { wet: 0.14 },
   abismo: {
     ambient: [0.34, 0.3, 0.42],
+    reflTint: [1.0, 0.7, 1.1],
     // o lago de tinta reflete
     wet: 0.3,
     mistColor: [0.4, 0.26, 0.54],

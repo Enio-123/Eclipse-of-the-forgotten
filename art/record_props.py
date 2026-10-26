@@ -8,6 +8,8 @@ a balança pública parada torta (o prato de baixo calçado, com o saco do últi
 bancas.
 As Solitárias: o livro das sentenças aberto no cavalete do carcereiro e a laje riscada da última
 cela, com a tigela virada no pé.
+A Margem da Tinta: o caderno do copista encostado no caixote virado da margem e a prancha de assinar
+da sacada, com a ordem em branco presa no clipe.
 
 Cada função devolve (prims, decals, W, H, luzes) em pixels do mundo; as luzes (x, y, cor) ficam em
 relação ao canto da imagem. O jogo põe cada registro pelo meio de baixo, em pé no chão.
@@ -41,6 +43,7 @@ puppet.RAMPS.setdefault('bronze', [0x2e1f10, 0x5a3a18, 0x8a5c26, 0xb98a3e, 0xe4b
 puppet.RAMPS.setdefault('apple', [0x2a0c0c, 0x4e1614, 0x74241c, 0x963c26, 0xb45a36])
 puppet.RAMPS.setdefault('jailstone', [0x15181c, 0x262b31, 0x3c434b, 0x57606a, 0x79838e])
 puppet.RAMPS.setdefault('tin', [0x1b1d20, 0x32363b, 0x4d535a, 0x6e757e, 0x959ca6])
+puppet.RAMPS.setdefault('inkviolet', [0x0d0714, 0x1b0f28, 0x2c1a40, 0x44295e, 0x6b4590])
 puppet.RAMPS.setdefault('rope', [0x33261a, 0x56432c, 0x7c6644, 0xa48e66, 0xc9b78e])
 puppet.SHINY.setdefault('iron', (0.45, 12))
 puppet.SHINY.setdefault('brass', (0.6, 10))
@@ -539,6 +542,131 @@ def solitarias_marks():
     return P, [Decal('slab', tally)], W, H, []
 
 
+
+# ---------------------------------------------------------------- a margem da tinta
+def margem_notebook():
+    """O caderno do copista na margem: o caixote do carrinho virado na pedra, a roda quebrada atrás,
+    e o caderno grande encostado no caixote, aberto, as folhas empenadas de tanta tinta (as contas em
+    três colunas, e o pé da página da direita afogado num borrão). No chão, o frasco tombado e a poça
+    de tinta escorrendo para a calha."""
+    W, H = 34, 28
+    P = []
+    # a roda quebrada do carrinho, atrás do caixote
+    P.append(Ellipse('wheel', 'oldwood', 0.84, (7.6, 17.4), 7.2, 7.2, flat=3))
+    P.append(Ellipse('wheelin', 'oldwood', 0.86, (7.6, 17.4), 4.6, 4.6, flat=3, shade=0.3))
+    for (a, b) in (((7.6, 10.6), (7.6, 24.2)), ((1.4, 15.4), (13.8, 19.4))):
+        P.append(Capsule('spoke', 'oldwood', 0.88, a, b, 0.7, 0.7, shade=0.8))
+    P.append(Ellipse('hub', 'iron', 0.9, (7.6, 17.4), 1.8, 1.8))
+    # o caixote deitado: a tampa de cima e a frente, com as frestas das tábuas
+    P.append(Poly('lid', 'oldwood', 0.98, [(1.8, 14.6), (16.8, 13.2), (18.2, 15.2), (2.6, 16.4)], nf=const((0.0, -0.9, 0.44)), shade=1.12))
+    P.append(Poly('crate', 'oldwood', 1.0, [(2.6, 16.4), (18.2, 15.2), (18.8, 26.6), (3.2, 27.4)], nf=const((0.0, -0.18, 0.98))))
+    for y in (19.4, 22.6):
+        P.append(Capsule('seam', 'oldwood', 1.02, (3.0, y + 0.3), (18.5, y - 0.6), 0.34, 0.34, shade=0.56))
+    P.append(Capsule('band', 'iron', 1.04, (10.4, 15.6), (11.0, 27.0), 0.6, 0.6, shade=0.78))
+    # o caderno encostado no caixote, aberto de frente
+    P.append(Poly('cover', 'leather', 1.1, [(16.8, 8.2), (31.4, 6.6), (32.2, 25.4), (17.6, 26.6)], nf=const((0.08, -0.26, 0.96)), shade=0.7))
+
+    def page_n(x, y):
+        # as folhas empenadas: ondula de cima para baixo
+        w = np.sin((np.asarray(y, np.float32) - 9.0) * 0.5) * 0.16
+        return (w, -0.1 + 0 * w, 0.98 + 0 * w)
+    P.append(Poly('lpage', 'paper', 1.2, [(18.0, 9.4), (24.2, 8.7), (24.6, 24.4), (18.8, 25.2)], nf=page_n))
+    P.append(Poly('rpage', 'paper', 1.2, [(24.6, 8.6), (30.4, 7.9), (30.6, 23.6), (25.0, 24.4)], nf=page_n, shade=0.93))
+    P.append(Capsule('spine', 'leather', 1.22, (24.4, 8.6), (24.8, 25.0), 0.5, 0.5, shade=0.58))
+
+    def accounts(x, y, cur):
+        # três colunas (sentença, frascos, resto) e as linhas de lançamento
+        left = x < 24.5
+        if left:
+            if x < 18.7 or x > 23.9 or y < 10.4 or y > 23.6:
+                return None
+            u = (x - 18.7) / 5.2
+        else:
+            if x < 25.2 or x > 30.2 or y < 9.6 or y > 22.8:
+                return None
+            u = (x - 25.2) / 5.0
+        if abs(u - 0.46) < 0.035 or abs(u - 0.78) < 0.035:
+            return ('paper', 1)
+        if (y - (10.4 if left else 9.6)) % 2.0 > 0.78:
+            return None
+        if u < 0.42 and (x * 1.7) % 1.0 < 0.7:
+            return ('paper', 1)
+        if 0.5 < u < 0.74 and (x * 1.4) % 1.0 < 0.6:
+            return ('paper', 1)
+        if u > 0.82 and (x * 1.2) % 1.0 < 0.74:
+            return ('paper', 1)
+        return None
+    def soaked(x, y, cur):
+        # o pé da página da direita afogado no borrão, e o pingo que caiu na da esquerda
+        for (bx, by, rx, ry, v) in ((27.6, 22.6, 3.0, 2.2, 1), (29.4, 20.2, 1.3, 1.0, 0), (20.8, 16.4, 1.0, 0.8, 0)):
+            if ((x - bx) / rx) ** 2 + ((y - by) / ry) ** 2 < 1.0:
+                return ('inkviolet', v + 2)
+        return None
+    # o frasco tombado e a poça escorrendo
+    P.append(Capsule('flask', 'tin', 1.12, (5.6, 25.4), (10.4, 26.2), 2.0, 1.6))
+    P.append(Capsule('neck', 'tin', 1.14, (10.4, 26.2), (12.6, 26.8), 0.8, 0.7, shade=0.86))
+    P.append(Ellipse('pool', 'inkviolet', 1.3, (16.0, 27.2), 8.4, 1.5, flat=4))
+    P.append(Ellipse('pool', 'inkviolet', 1.3, (25.0, 27.6), 4.6, 1.0, flat=4))
+    return P, [Decal('lpage', accounts), Decal('rpage', accounts), Decal('lpage', soaked), Decal('rpage', soaked)], W, H, []
+
+
+def margem_order():
+    """A prancha de assinar da sacada dos copistas: o atril de ferro com a prancha inclinada, a ordem
+    presa pelo clipe (número, data e pena preenchidos, o campo do crime em branco), os dois selos de
+    cera da Casa e o lugar vazio do terceiro, o tinteiro seco com a pena dentro e o lacre pendurado
+    no canto."""
+    W, H = 30, 36
+    P = []
+    # o pé de ferro: a base, a coluna e a forquilha que segura a prancha
+    P.append(Ellipse('foot', 'iron', 0.9, (15.0, 35.0), 8.2, 1.8, flat=4))
+    P.append(Capsule('column', 'iron', 0.94, (15.0, 34.6), (15.0, 22.0), 1.3, 1.1))
+    for dx in (-1, 1):
+        P.append(Capsule('fork', 'iron', 0.96, (15.0, 23.4), (15.0 + dx * 6.0, 19.6), 0.8, 0.7, shade=0.84))
+    # a prancha inclinada e a régua de baixo
+    P.append(Poly('board', 'oldwood', 1.0, [(3.4, 6.2), (26.6, 4.8), (27.2, 22.0), (4.0, 23.4)], nf=const((0.0, -0.3, 0.95))))
+    P.append(Poly('lip', 'oldwood', 1.06, [(3.8, 21.4), (27.0, 20.0), (27.2, 22.6), (4.0, 24.0)], nf=const((0.0, 0.4, 0.92)), shade=0.72))
+    # a ordem presa na prancha
+    def sheet_n(x, y):
+        w = np.sin((np.asarray(y, np.float32) - 8.0) * 0.42) * 0.1
+        return (w, -0.14 + 0 * w, 0.98 + 0 * w)
+    P.append(Poly('sheet', 'paper', 1.14, [(5.6, 7.8), (24.6, 6.6), (25.0, 20.6), (6.0, 21.8)], nf=sheet_n))
+
+    def order(x, y, cur):
+        if x < 6.4 or x > 24.2:
+            return None
+        # cabeçalho grosso
+        if 8.8 < y < 10.4 and 7.6 < x < 22.6 and int(x * 1.5) % 5 != 4:
+            return ('paper', 0)
+        # três campos preenchidos (número, data, pena) e o do crime em branco
+        for i, yy in enumerate((11.8, 13.4, 15.0, 16.6)):
+            if yy < y < yy + 0.9:
+                if x < 12.0:
+                    return ('paper', 1) if int(x * 2.0 + i) % 5 != 0 else None
+                if i == 3:
+                    return None
+                return ('paper', 1) if int(x * 1.8 + i * 3) % 6 != 0 else None
+        # as duas assinaturas e a terceira linha, vazia
+        if 18.4 < y < 19.4 and (7.0 < x < 11.4 or 12.4 < x < 16.8) and int(x * 2.4 + y * 3) % 4 != 3:
+            return ('paper', 1)
+        if 19.8 < y < 20.2 and 17.8 < x < 23.4:
+            return ('paper', 1)
+        return None
+    # o clipe de ferro que prende a folha
+    P.append(Capsule('clip', 'iron', 1.2, (11.6, 7.0), (18.4, 6.5), 1.2, 1.2))
+    # os dois selos de cera da Casa, e o lugar do terceiro vazio
+    for (sx, sy) in ((8.6, 19.0), (14.0, 18.6)):
+        P.append(Ellipse('seal', 'waxred', 1.22, (sx, sy), 2.3, 2.0, flat=3))
+        P.append(Ellipse('sealin', 'waxred', 1.24, (sx - 0.4, sy - 0.4), 1.1, 0.9, flat=3, shade=1.2))
+    # o tinteiro seco com a pena dentro, na ponta da prancha
+    P.append(Ellipse('inkwell', 'iron', 1.1, (26.6, 25.4), 2.6, 2.1))
+    P.append(Ellipse('inkdry', 'inkviolet', 1.12, (26.6, 24.4), 1.8, 0.8, flat=4))
+    P.append(Capsule('quill', 'paper', 1.26, (26.4, 24.6), (21.6, 11.0), 0.55, 0.22, shade=1.06))
+    # o lacre pendurado no canto da prancha
+    P.append(Capsule('cord', 'rope', 1.08, (26.8, 22.2), (27.6, 28.6), 0.4, 0.4, shade=0.8))
+    P.append(Ellipse('lead', 'brass', 1.1, (27.6, 29.4), 1.5, 1.3))
+    return P, [Decal('sheet', order)], W, H, []
+
+
 PROPS = {
     'deco-record-nichos-0': nichos_tomb,
     'deco-record-nichos-1': nichos_ledger,
@@ -546,6 +674,8 @@ PROPS = {
     'deco-record-mercado-1': mercado_desk,
     'deco-record-solitarias-0': solitarias_book,
     'deco-record-solitarias-1': solitarias_marks,
+    'deco-record-margem-0': margem_notebook,
+    'deco-record-margem-1': margem_order,
     'deco-balanca': mercado_scale,
     'deco-toldo': mercado_awning,
 }

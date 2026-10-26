@@ -15,6 +15,8 @@ export const MEMORIES: Record<string, { title: string; text: string }> = {
   'celas:0': { title: 'O capuz preto', text: 'Eu usava o capuz para não ver os rostos. Um dia vi um rosto mesmo assim, e parei.' },
   'mascara:boss': { title: 'A máscara de ferro', text: 'Ela fechou o ferro no meu rosto e leu a sentença. Não ouvi o crime. Só lembro das minhas mãos: numa versão, limpas. Na outra, não.' },
   'fosso:0': { title: 'Os nomes no bolso', text: 'Me davam o nome de cada condenado num papel. Eu nunca lia. Guardava no bolso, e o bolso foi ficando pesado.' },
+  // A Margem da Tinta (v18): a calha onde ele lavava as mãos
+  'margem:0': { title: 'A tinta nas mãos', text: 'Eu lavava as mãos nesta calha depois de cada cumprimento. Numa versão a tinta saía toda e eu subia limpo. Na outra, a tinta não saiu nunca, e eu assinei a ordem seguinte com a mão manchada.' },
   'abismo:boss': { title: 'O machado', text: 'Ergui o machado sobre alguém ajoelhado no tablado. Numa versão, ele desceu. Na outra, caiu da minha mão, e a praça inteira ficou em silêncio.' },
   'espelhos:boss': { title: 'O reflexo', text: 'No Âmbar polido eu me vi de capuz, com a foice na mão. Atrás de mim, alguém de capa vermelha chamava. Numa versão eu me virei para ver. Na outra, segui em frente.' },
   'capataz:boss': { title: 'A fuga pelo túnel', text: 'Uma moça de capa vermelha correndo pelos túneis, com um caderno apertado no peito. Numa versão eu corria atrás dela com a ordem na mão. Na outra, eu segurava a grade para ela passar.' },
@@ -38,6 +40,7 @@ export const MEMORY_ECHO: Record<string, { kind: EchoKind; mode: WaveMode }> = {
   'celas:0': { kind: 'povo', mode: 'restore' },
   'mascara:boss': { kind: 'carrasco', mode: 'corrupt' },
   'fosso:0': { kind: 'povo', mode: 'restore' },
+  'margem:0': { kind: 'carrasco', mode: 'corrupt' },
   'abismo:boss': { kind: 'carrasco', mode: 'corrupt' },
   'espelhos:boss': { kind: 'carrasco', mode: 'corrupt' },
   'capataz:boss': { kind: 'ela', mode: 'corrupt' },
@@ -115,6 +118,25 @@ export const RECORDS: Record<string, RecordInfo> = {
       'Mais embaixo, fundo na pedra: "enquanto eu contar, eu lembro de quando começou". Depois, um nome que a unha começou e não terminou de riscar, e a mesma mão apagando por cima.',
     ],
     proofs: ['inocentes'],
+  },
+  // A Margem da Tinta (v18): a calha das sentenças, entre o Fosso e o Leito do Abismo
+  'margem:0': {
+    title: 'O caderno do copista',
+    region: 'Fosso dos Esquecidos',
+    lines: [
+      'Um caderno de copista, a capa inchada de tinta. Nas primeiras folhas só contas: quanto de tinta gasta cada sentença, quanto rende um frasco, quantas penas se perdem por mês.',
+      'No fim, com letra apressada: "a Casa manda copiar as sentenças antes do julgamento. Copiei trinta e duas que ainda não aconteceram. Hoje copiei a minha."',
+    ],
+    proofs: ['inocentes', 'vhalor'],
+  },
+  'margem:1': {
+    title: 'A ordem em branco',
+    region: 'Fosso dos Esquecidos',
+    lines: [
+      'Na prancha de assinar ainda tem uma ordem presa: número, data, pena. O campo do crime está vazio, e no pé da folha duas assinaturas da Casa esperam a terceira, a do carrasco.',
+      'O tinteiro secou com a pena dentro. Quem devia assinar não assinou, e ninguém veio cobrar: a folha ficou aqui em cima, e lá embaixo a pena foi cumprida do mesmo jeito.',
+    ],
+    proofs: ['inocentes', 'vhalor'],
   },
   'boca:0': {
     title: 'O livro da entrada',

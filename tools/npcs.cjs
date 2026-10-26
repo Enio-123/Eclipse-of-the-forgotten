@@ -146,8 +146,10 @@ const URL = process.argv[3] || 'http://localhost:8765/index.html';
   const jc = await page.evaluate(() => [...document.querySelectorAll('#screen-journal .j-count')].map((e) => e.textContent));
   check(/1 de 14/.test(jc[0]), `história conta as páginas (${jc[0]})`);
   check(/Conhecidos: 2/.test(jc[1]), `bestiário conta os conhecidos (${jc[1]})`);
-  // as 27 salas com lugar no mapa (a memória do vale não conta), com as seis das Minas
-  check(/Lugares: \d+ de 27/.test(jc[2]), `lugares (${jc[2]})`);
+  // todas as salas com lugar no mapa (a memória do vale não conta): o número vem do próprio mapa,
+  // que cresce a cada região nova
+  const salas = await page.evaluate(() => Object.values(window.__mappos).filter(Boolean).length);
+  check(new RegExp(`Lugares: \\d+ de ${salas}$`).test(jc[2]), `lugares (${jc[2]}, mapa tem ${salas})`);
   await shot('n3-diario');
   await page.click('#screen-journal [data-tab="beasts"]');
   await page.waitForTimeout(250);

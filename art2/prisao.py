@@ -20,7 +20,7 @@ from brush import Layer, hexc, mix, sstep, value_noise
 from terreno import Room, fields, masonry, planks, spikes, downsample, load_maps, S, T
 from cidade import hrand, breakables, chip, shade_masonry, strokes, lights, cornice, moss, cracks, downsample_soft
 
-SEEDS = {'poco': 41, 'solitarias': 42, 'celas': 43, 'correntes': 45, 'guarita': 47, 'fuga': 49, 'arena': 51, 'mascara': 53, 'fosso': 55, 'abismo': 57}
+SEEDS = {'poco': 41, 'solitarias': 42, 'celas': 43, 'correntes': 45, 'guarita': 47, 'fuga': 49, 'arena': 51, 'mascara': 53, 'fosso': 55, 'margem': 56, 'abismo': 57}
 
 PRISON = dict(
     ST_D=hexc(0x050607),
@@ -52,7 +52,7 @@ ABYSS_P = dict(
     SLAB=[hexc(0x302b38), hexc(0x2b2731), hexc(0x352f3d), hexc(0x2d2935), hexc(0x28242f)],
     MOSS=(hexc(0x170c22), hexc(0x2c1544), hexc(0x55307e)),
 )
-PALETTES = {'fosso': ABYSS_P, 'abismo': ABYSS_P}
+PALETTES = {'fosso': ABYSS_P, 'margem': ABYSS_P, 'abismo': ABYSS_P}
 
 
 def streaks(H, W, rng, cell=7, stretch=18):

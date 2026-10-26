@@ -1,6 +1,6 @@
 // Testa o caminho da Parte 2 da Área 2: o buraco ao pé da bigorna na Sala da Máscara leva ao
 // Fosso dos Esquecidos (pintura, fundo de tinta, a trilha do Enio), a volta pelo poço (argola e
-// garras), o fundo do fosso até o Leito do Abismo e a volta do Leito para o fosso.
+// garras), o fundo do fosso até o Leito do Abismo (passando pela Margem da Tinta) e a volta.
 // uso: node fosso.cjs <pasta-saida> [url]
 const { chromium } = require('playwright');
 const OUT = process.argv[2] || '.';
@@ -158,23 +158,40 @@ const URL = process.argv[3] || 'http://localhost:8765/index.html';
     await shot('f02-volta-mascara');
   }
 
-  // ---------- 3. do fundo do fosso ao Leito do Abismo ----------
+  // ---------- 3. do fundo do fosso ao Leito do Abismo, pela Margem da Tinta ----------
   await start('fosso', '1');
   await calm();
   await tp(50, 78, 1);
   await waitGame(0.3);
   await shot('f03-fundo');
   await page.keyboard.down('KeyD');
+  await inRoom('margem').catch(() => {});
+  await page.keyboard.up('KeyD');
+  r = await look();
+  check(r.id === 'margem', `pelo fundo à direita chega à Margem da Tinta (${r.id})`);
+  check(r.music === 'fosso', `a Margem toca a trilha do fosso (${r.music})`);
+  await calm();
+  await tp(99, 33, 1);
+  await waitGame(0.3);
+  await page.keyboard.down('KeyD');
   await inRoom('abismo').catch(() => {});
   await page.keyboard.up('KeyD');
   r = await look();
-  check(r.id === 'abismo', `pelo fundo à direita chega ao Leito do Abismo (${r.id})`);
+  check(r.id === 'abismo', `da Margem à direita chega ao Leito do Abismo (${r.id})`);
   check(r.terrain && r.far && r.mid && r.music === 'fosso', `o Leito tem a pintura e a trilha do fosso (${r.terrain}, ${r.far}, ${r.mid}, ${r.music})`);
   const sleeping = await page.evaluate(() => window.__scene.boss && window.__scene.boss.state);
   check(sleeping === 'sleep', `a poça dorme no meio do Leito (${sleeping})`);
   await waitGame(0.4);
   await shot('f04-leito');
   // e volta para o fosso pela esquerda, antes de acordar a Sombra
+  await page.keyboard.down('KeyA');
+  await inRoom('margem').catch(() => {});
+  await page.keyboard.up('KeyA');
+  r = await look();
+  check(r.id === 'margem', `pela esquerda volta à Margem da Tinta (${r.id})`);
+  await calm();
+  await tp(4, 33, -1);
+  await waitGame(0.3);
   await page.keyboard.down('KeyA');
   await inRoom('fosso').catch(() => {});
   await page.keyboard.up('KeyA');

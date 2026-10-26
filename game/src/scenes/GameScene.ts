@@ -984,7 +984,8 @@ export class GameScene extends Phaser.Scene {
       speedY: { min: -150, max: -50 },
       gravityY: 600,
       scale: { start: 0.8, end: 0.3 },
-      tint: [0xd9f2ff, 0x8ccbef],
+      // água do riacho e do lago; na calha da prisão o que espirra é tinta
+      tint: this.room.theme === 'prison' ? [0xb58cf0, 0x5c3d91, ABYSS.ink] : [0xd9f2ff, 0x8ccbef],
       emitting: false,
     }).setDepth(DEPTH.water + 1);
   }

@@ -5,7 +5,9 @@
 // o édito da Casa Vhalor, a tabela do Dízimo na sala de contar e a parede falsa do cofre.
 // As Solitárias: as passarelas da chaminé, a grade arrombada da cela de baixo, a grade inteira da de
 // cima (que só o Véu atravessa), o livro das sentenças e as marcas da parede.
-// uso: node v18.cjs <pasta-saida> [url]   (ONLY=nichos,mercado,solitarias roda só essas partes)
+// A Margem da Tinta: a tinta que atrasa o passo, os pilares da comporta, a calha funda, as tábuas da
+// sacada dos copistas, as correntes do gancho, os dois registros e o nicho atrás da membrana.
+// uso: node v18.cjs <pasta-saida> [url]   (ONLY=nichos,mercado,solitarias,margem roda só essas partes)
 const { chromium } = require('playwright');
 const OUT = process.argv[2] || '.';
 const URL = process.argv[3] || 'http://localhost:8765/index.html';
@@ -279,6 +281,122 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
     p = await P();
     check(p.ground && p.x < 30.5 && Math.abs(p.bottom - 22) < 0.1, `com o Véu ele atravessa a grade e entra na cela (x ${p.x.toFixed(1)}, pé ${p.bottom.toFixed(2)})`);
     await shot('solitarias-veu');
+  }
+
+  if (part('margem')) {
+    // ---------- A Margem da Tinta (Fosso, entre o Fosso e o Leito do Abismo) ----------
+    const FOSSO = ['gate:catacumbas', 'memory:vale', 'boss:sineiro', 'weapon:badalo', 'boss:arcebispo', 'weapon:incensario', 'relic:hook',
+      'preso:met', 'boss:carcereira', 'weapon:corrente', 'fosso:aberto'];
+    await setProgress(FOSSO, ['wall', 'double', 'hook']);
+    await start('margem', '1');
+    await hookUi();
+    await calm();
+    await setP(8, 33);
+    await waitGame(0.6);
+    await setP(52, 31);
+    await waitGame(0.6);
+    let th = await page.evaluate(() => window.__thoughts);
+    check(th.some((x) => /calha/.test(x)), `na margem ele pensa na tinta que desce (${th[0]})`);
+    check(th.some((x) => /comporta/.test(x)), `no vão, pensa na comporta quebrada (${th[1]})`);
+    // a tinta: molha e atrasa o passo (sem nadar, só mais devagar)
+    const run = async (tx, fr) => {
+      await setP(tx, fr);
+      await waitGame(0.4);
+      const wet = await page.evaluate(() => window.__scene.player.inWater);
+      const x0 = (await P()).x;
+      await page.keyboard.down('KeyD');
+      await waitGame(1);
+      await page.keyboard.up('KeyD');
+      const x1 = (await P()).x;
+      await waitGame(0.2);
+      return { wet, d: x1 - x0 };
+    };
+    const seco = await run(8, 33);
+    const molhado = await run(29, 35);
+    check(!seco.wet && seco.d > 6, `na margem seca ele anda solto (${seco.d.toFixed(1)} tiles)`);
+    check(molhado.wet && molhado.d < seco.d * 0.85, `dentro da tinta ele atrasa (${molhado.d.toFixed(1)} tiles, molhado ${molhado.wet})`);
+    await shot('margem-tinta');
+    // os pilares quebrados da comporta: dá para atravessar por cima
+    for (const [tx, fr, what] of [[48, 32, 'o primeiro pilar'], [54, 29, 'o segundo'], [60, 31, 'o terceiro'], [67, 33, 'o último']]) {
+      await setP(tx + 0.5, fr - 0.4);
+      await waitGame(0.8);
+      const p = await P();
+      check(p.ground && Math.abs(p.bottom - fr) < 0.1, `${what} aguenta (pé ${p.bottom.toFixed(2)})`);
+    }
+    // quem cai na calha funda afunda na tinta, mas sai de lá com o pulo duplo
+    await setP(57, 34);
+    await waitGame(1.6);
+    let p = await P();
+    const fundo = await page.evaluate(() => window.__scene.player.inWater);
+    check(p.ground && Math.abs(p.bottom - 39) < 0.1 && fundo, `quem cai vai ao fundo da calha (pé ${p.bottom.toFixed(2)}, na tinta ${fundo})`);
+    await page.keyboard.down('Space');
+    await page.waitForTimeout(300);
+    await page.keyboard.up('Space');
+    await page.waitForTimeout(40);
+    await page.keyboard.down('Space');
+    await page.waitForTimeout(340);
+    await page.keyboard.up('Space');
+    let alto = 99;
+    for (let i = 0; i < 14; i++) {
+      alto = Math.min(alto, (await P()).bottom);
+      await page.waitForTimeout(60);
+    }
+    check(alto < 33.5, `o pulo duplo tira ele da tinta funda (subiu até ${alto.toFixed(2)})`);
+    // as tábuas que sobem até a sacada dos copistas
+    for (const [tx, fr, what] of [[28, 29, 'a primeira tábua'], [35, 25, 'a segunda'], [38, 21, 'a terceira'], [27, 17, 'a sacada dos copistas']]) {
+      await setP(tx, fr - 0.4);
+      await waitGame(0.8);
+      p = await P();
+      check(p.ground && Math.abs(p.bottom - fr) < 0.1, `${what} aguenta (pé ${p.bottom.toFixed(2)})`);
+    }
+    // as correntes da comporta e a sacada da direita, onde só o gancho chega
+    const rings = await page.evaluate(() => {
+      const s = window.__scene;
+      s.player.teleport(32 * 16 + 8, 17 * 16);
+      s.player.facing = 1;
+      return { n: s.fixtures.rings.length, alvo: !!s.hookTarget(s.player) };
+    });
+    check(rings.n === 4, `as quatro correntes estão penduradas (${rings.n})`);
+    check(rings.alvo, 'da sacada o gancho enxerga a primeira corrente');
+    await setP(78, 14);
+    await waitGame(0.8);
+    p = await P();
+    check(p.ground && Math.abs(p.bottom - 14) < 0.1, `a sacada da direita aguenta (pé ${p.bottom.toFixed(2)})`);
+    // os registros: o caderno na margem e a ordem em branco na sacada
+    let t = await read(0);
+    check(t && t.name === 'O caderno do copista' && /trinta e duas/.test(t.lines.join(' ')) && t.hint && t.tx === 8, `o caderno do copista na margem (${t && t.name}, x ${t && t.tx})`);
+    t = await read(1);
+    check(t && t.name === 'A ordem em branco' && /não assinou/.test(t.lines.join(' ')) && t.tx === 29, `a ordem em branco na sacada (${t && t.name}, x ${t && t.tx})`);
+    // a membrana do nicho: sem o Véu ela barra
+    await setP(80, 14);
+    await waitGame(0.3);
+    await page.keyboard.down('KeyD');
+    await waitGame(1.2);
+    await page.keyboard.up('KeyD');
+    p = await P();
+    check(p.x < 83, `sem o Véu, a membrana barra o nicho (x ${p.x.toFixed(1)})`);
+    await shot('margem-membrana');
+    const frag = await page.evaluate(() => window.__scene.level.spawns.filter((q) => q.kind === 'm').map((q) => (q.x - 8) / 16));
+    check(frag.length === 1 && frag[0] === 86, `o fragmento de memória ficou no nicho (${frag.join()})`);
+    // com o Véu, o dash atravessa a membrana
+    await setProgress(FOSSO, ['wall', 'double', 'hook', 'veil']);
+    await start('margem', '1');
+    await hookUi();
+    await calm();
+    await setP(80, 14);
+    await waitGame(0.3);
+    await page.evaluate(() => { window.__scene.player.facing = 1; });
+    await page.keyboard.down('KeyD');
+    await page.waitForTimeout(60);
+    await page.keyboard.down('KeyF');
+    await page.waitForTimeout(90);
+    await page.keyboard.up('KeyF');
+    await waitGame(0.8);
+    await page.keyboard.up('KeyD');
+    await waitGame(0.5);
+    p = await P();
+    check(p.ground && p.x > 84 && Math.abs(p.bottom - 14) < 0.1, `com o Véu ele atravessa a membrana e entra no nicho (x ${p.x.toFixed(1)}, pé ${p.bottom.toFixed(2)})`);
+    await shot('margem-nicho');
   }
 
   console.log(errs.length ? errs.join('\n') : 'sem erros no console');

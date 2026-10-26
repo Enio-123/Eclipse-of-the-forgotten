@@ -15,7 +15,7 @@ const ROOM_IMAGES = new Set([
   'terrain-escadaria', 'terrain-praca', 'terrain-mercado', 'terrain-rua', 'terrain-telhados', 'terrain-nave', 'terrain-claustro', 'terrain-galeria', 'terrain-altar',
   'terrain-rua-secret', 'terrain-mercado-secret', 'terrain-telhados-secret', 'terrain-nave-secret', 'terrain-claustro-secret', 'terrain-galeria-secret',
   'terrain-poco', 'terrain-solitarias', 'terrain-celas', 'terrain-correntes', 'terrain-guarita', 'terrain-fuga', 'terrain-arena', 'terrain-mascara', 'terrain-celas-secret',
-  'terrain-fosso', 'terrain-abismo',
+  'terrain-fosso', 'terrain-margem', 'terrain-abismo',
   'terrain-boca', 'terrain-trilhos', 'terrain-prensas', 'terrain-veio', 'terrain-espelhos', 'terrain-capataz',
   'terrain-encosta', 'terrain-pinhal', 'terrain-lago', 'terrain-cabana', 'terrain-serra', 'terrain-clareira',
   'pinhos-encosta', 'pinhos-pinhal', 'pinhos-lago', 'pinhos-cabana', 'pinhos-serra', 'pinhos-clareira',

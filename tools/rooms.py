@@ -1083,6 +1083,65 @@ def fosso():
     return g.rows()
 
 
+def margem():
+    """A Margem da Tinta: a calha por onde a prisao escorria a tinta das sentencas, do Fosso ate o
+    Leito do Abismo. Da margem da esquerda a tinta vai ficando funda: um degrau raso de vadear, a
+    calha funda no meio e os pilares quebrados da comporta para passar por cima. No alto, a sacada
+    dos copistas (tabuas pela parede) e as correntes da comporta, por onde o gancho atravessa ate a
+    sacada da direita; atras da membrana, o nicho onde um copista guardou o que nao devia."""
+    W, H = 104, 40
+    g = Grid(W, H, '#')
+    # as duas bocas, na mesma altura das do Fosso e do Leito do Abismo
+    g.fill(0, 28, 2, 32, '.')
+    g.fill(101, 28, 103, 32, '.')
+    # as margens e o vao alto da comporta, no meio
+    g.fill(3, 18, 21, 32, '.')
+    g.fill(22, 5, 82, 32, '.')
+    g.fill(83, 18, 100, 32, '.')
+    # a calha: degrau raso dos dois lados (chao 35) e a calha funda no meio (chao 39)
+    g.fill(28, 33, 43, 34, '~')
+    g.fill(44, 33, 70, 38, '~')
+    g.fill(71, 33, 84, 34, '~')
+    # o fundo da calha desce em rampa, do degrau da esquerda para o fundo
+    g.fill(44, 36, 44, 39, '#')
+    g.fill(45, 37, 45, 39, '#')
+    g.fill(46, 38, 46, 39, '#')
+    # os pilares quebrados da comporta, fincados no fundo da calha
+    for x0, top in ((48, 32), (54, 29), (60, 31), (67, 33)):
+        g.fill(x0, top, x0 + 1, 38, '#')
+    # a sacada dos copistas, presa na parede da esquerda, e as tabuas que sobem ate ela
+    g.fill(22, 17, 32, 18, '#')
+    plank(g, 26, 31, 29)
+    plank(g, 33, 38, 25)
+    plank(g, 35, 40, 21)
+    # a sacada da direita, presa na parede do fundo: so o gancho chega
+    g.fill(72, 14, 82, 15, '#')
+    # o nicho do copista atras da membrana abissal (so o Veu passa)
+    g.fill(84, 10, 88, 13, '.')
+    for y in range(10, 14):
+        g.put(83, y, '&')
+    # as correntes da comporta, penduradas da abobada
+    g.put(40, 13, 'o')
+    g.put(52, 10, 'o')
+    g.put(64, 13, 'o')
+    g.put(74, 10, 'o')
+    g.put(1, 32, '1')
+    g.put(102, 32, '2')
+    g.put(95, 32, 'R')
+    # o caderno do copista na margem e a ordem em branco na sacada
+    g.put(8, 32, 'r')
+    g.put(29, 16, 'r')
+    g.put(24, 16, '$')
+    g.put(87, 13, '$')
+    g.put(86, 13, 'm')
+    g.put(18, 32, 'c')
+    g.put(36, 34, 'c')
+    g.put(90, 32, 'c')
+    g.put(44, 22, 'v')
+    g.put(66, 20, 'v')
+    return g.rows()
+
+
 MINES = False
 
 
@@ -1648,7 +1707,7 @@ if __name__ == '__main__':
                      'capataz': capataz()})
     # v18: as salas novas no meio das regiões
     if '--v18' in sys.argv:
-        maps.update({'nichos': nichos(), 'mercado': mercado(), 'solitarias': solitarias()})
+        maps.update({'nichos': nichos(), 'mercado': mercado(), 'solitarias': solitarias(), 'margem': margem()})
     # a Floresta Nevada (--floresta)
     if '--floresta' in sys.argv:
         pin, stands = pinhal()

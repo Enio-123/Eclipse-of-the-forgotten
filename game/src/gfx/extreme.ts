@@ -100,6 +100,7 @@ uniform vec4 uLights[${MAX_LIGHTS}];
 uniform vec3 uLightCol[${MAX_LIGHTS}];
 uniform float uLightN;
 uniform vec4 uRays[2];
+uniform vec3 uReflTint;
 uniform vec4 uWater[${MAX_WATER}];
 uniform float uWaterK[${MAX_WATER}];
 uniform float uWaterN;
@@ -146,7 +147,7 @@ void main() {
         vec2 rw = vec2(world.x + sin(world.y * 0.9 + uTime * 3.1) * 0.7, 2.0 * w.z - world.y + wave);
         vec2 rs = (rw - uScroll) * uRes;
         vec3 refl = texture2D(uMainSampler, clamp(vec2(rs.x / uResolution.x, 1.0 - rs.y / uResolution.y), 0.002, 0.998)).rgb;
-        col = mix(col, refl * vec3(0.78, 0.9, 1.0), (1.0 - depth) * uWaterK[i]);
+        col = mix(col, refl * uReflTint, (1.0 - depth) * uWaterK[i]);
       }
     }
   }
@@ -315,6 +316,8 @@ export interface Look {
   mistFront: number;
   // reflexo da água e do chão molhado de chuva
   water: number;
+  // a cor do reflexo: fria na água, roxa na tinta do Fosso
+  reflTint: RGB;
   wet: number;
   lift: RGB;
   gamma: RGB;
@@ -443,6 +446,7 @@ export class ExtremePipeline extends Phaser.Renderer.WebGL.Pipelines.PostFXPipel
     this.set3fv('uLightCol', f.lightColors, comp);
     this.set1f('uLightN', f.lightCount, comp);
     this.set4fv('uRays', this.rayUv, comp);
+    this.set3f('uReflTint', L.reflTint[0], L.reflTint[1], L.reflTint[2], comp);
     this.set4fv('uWater', f.water, comp);
     this.set1fv('uWaterK', f.waterK, comp);
     this.set1f('uWaterN', f.waterCount, comp);
