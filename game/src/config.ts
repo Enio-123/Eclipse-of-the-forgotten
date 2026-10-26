@@ -496,6 +496,35 @@ export const OWL = {
   rest: 1.6,
 };
 
+// Truta de Âmbar (Vale das Cachoeiras): nada devagar no poço dela, embaixo d'água. Com o cavaleiro por
+// cima (na beira, numa pedra, num tronco, pulando o poço) ela vai para baixo dele, sobe (bolhas e um
+// círculo na água avisam) e salta de boca aberta; cai de volta na água. Saltou para a terra: se debate
+// até voltar (e apanha mais). Com ele nadando no mesmo poço, ela recua e dá um bote embaixo d'água
+export const TROUT = {
+  bodyW: 12,
+  bodyH: 10,
+  hp: 3,
+  cruise: 36,
+  // quanto abaixo da linha d'água ela nada (px)
+  depth: 18,
+  // até onde ela vê o cavaleiro na horizontal, e a altura mais alta do salto acima da água
+  sight: 170,
+  leapMax: 112,
+  stalk: 120,
+  // o aviso antes do salto (bolhas e o círculo na água)
+  rise: 0.42,
+  gravity: 780,
+  cooldown: 1.6,
+  // o bote embaixo d'água: o recuo antes, a velocidade e quanto dura
+  sightWater: 150,
+  aim: 0.42,
+  dart: 250,
+  dartTime: 0.42,
+  // em terra: o intervalo entre os pulos de volta para a água e quanto aguenta fora dela
+  flop: 0.45,
+  air: 8,
+};
+
 // O Mestre da Caça (Clareira da Caça): o caçador-mor da Casa Vhalor, congelado no fim da trilha.
 // Estocadas longas da lança (alta: agache; baixa: pule), salto com a lança para baixo (saia de baixo)
 // e a trompa que chama dois lobos (uma vez por fase). Na metade, a nevasca: a tela embranquece, ele
@@ -736,6 +765,7 @@ export const LOOT = {
   wisp: { coins: [0, 1], life: 0.25 },
   wolf: { coins: [5, 8], life: 0.75 },
   owl: { coins: [3, 6], life: 0.5 },
+  trout: { coins: [3, 5], life: 0.5 },
   boss: { coins: [40, 40], life: 2 },
   // a sombra devolve as moedas dela direto na bolsa
   echo: { coins: [0, 0], life: 0 },

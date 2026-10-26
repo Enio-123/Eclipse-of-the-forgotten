@@ -27,7 +27,9 @@ const SHEETS = ['knight-scythe', 'knight-sword', 'knight-daggers', 'knight-bow',
   // Floresta Nevada: a matilha, as corujas, o Mestre da Caça e o cavaleiro com a lança dele
   'wolf', 'owl', 'cacador', 'knight-lanca',
   // o Agrimensor, que vende as folhas do mapa
-  'surveyor'];
+  'surveyor',
+  // Vale das Cachoeiras: a Truta de Âmbar
+  'trout'];
 // (o terreno pintado, os pinheiros e os fundos de cada sala vêm quando ela abre: gfx/roomAssets.ts)
 const IMAGES = [
   'title-sky', 'title-land', 'title-rim', 'clouds-far', 'clouds-near',

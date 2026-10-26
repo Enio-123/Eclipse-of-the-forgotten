@@ -623,6 +623,11 @@ export const BESTIARY: { kind: string; name: string; text: string; tip: string }
     tip: 'Quando ela se solta do galho, saia da curva e bata na volta. Se ela bater na pedra, cai tonta.',
   },
   {
+    kind: 'trout', name: 'Truta de Âmbar',
+    text: 'Truta grande dos poços do Vale. O Âmbar que desceu das minas pelo rio cresceu nas escamas dela, e os cristais brilham no escuro da água.',
+    tip: 'Bolhas e um círculo na água: ela vai saltar ali. Saia de cima e bata quando ela cair. Na terra ela se debate e apanha mais.',
+  },
+  {
     kind: 'boss:cacador', name: 'O Mestre da Caça',
     text: 'Caçador-mor da Casa Vhalor. Trazia os fugitivos de volta pela neve e entregava ao carrasco no fim da trilha. Congelou esperando uma presa que passou a serra.',
     tip: 'Agache na estocada alta, pule a baixa e saia de baixo do salto. Na nevasca, olhe a lanterna: ela pisca antes do golpe.',

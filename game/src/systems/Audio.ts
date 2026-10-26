@@ -9,7 +9,8 @@ export type SfxName =
   | 'ash' | 'quake' | 'equip' | 'erase'
   | 'parry' | 'break' | 'glass' | 'page' | 'anvil' | 'smoke' | 'coinrain' | 'door' | 'locked' | 'censer' | 'draw' | 'gate'
   | 'echo' | 'echo-die' | 'veil' | 'veil-form'
-  | 'howl' | 'hoot' | 'horn' | 'gust' | 'flap' | 'crunch' | 'ice-crack' | 'ice-break' | 'freeze' | 'growl' | 'yelp' | 'lantern';
+  | 'howl' | 'hoot' | 'horn' | 'gust' | 'flap' | 'crunch' | 'ice-crack' | 'ice-break' | 'freeze' | 'growl' | 'yelp' | 'lantern'
+  | 'plop' | 'leap' | 'flop';
 export type TrackId = 'title' | 'bridge' | 'crypt' | 'memory' | 'boss' | 'city' | 'nave' | 'boss2' | 'boss3' | 'mine' | 'mirror' | 'boss4' | 'forest' | 'cabin' | 'boss5' | FileTrackId | 'none';
 export type AmbienceId = 'rain' | 'crypt' | 'wind' | 'city' | 'nave' | 'prison' | 'mine' | 'snow' | 'hearth' | 'none';
 // faixas gravadas, em arquivo (as trilhas que o Enio escolheu)
@@ -1463,6 +1464,23 @@ class AudioEngine {
         this.tone(out, t, 0.09, 'triangle', 980 * r, 1650 * r, 0.11);
         this.tone(out, t + 0.08, 0.16, 'triangle', 1500 * r, 640 * r, 0.09);
         this.nz(out, t, 0.12, 'bandpass', 2600 * r, 1500 * r, 0.05, 2);
+        break;
+      case 'plop':
+        // um peixe subindo embaixo da linha d'água: bolhas que estouram, ocas
+        this.tone(out, t, 0.08, 'sine', 380 * r, 880 * r, 0.11);
+        this.tone(out, t + 0.07, 0.07, 'sine', 460 * r, 1020 * r, 0.06);
+        this.nz(out, t, 0.06, 'bandpass', 1500 * r, 900 * r, 0.04, 2);
+        break;
+      case 'leap':
+        // o peixe rompe a água: o estouro, a água que sobe e cai, o rabo batendo
+        this.nz(out, t, 0.3, 'bandpass', 1500 * r, 520 * r, 0.3, 0.9);
+        this.nz(out, t + 0.02, 0.1, 'highpass', 3600 * r, 2400 * r, 0.1, 1);
+        this.tone(out, t, 0.1, 'sine', 280 * r, 120 * r, 0.12);
+        break;
+      case 'flop':
+        // o peixe batendo na terra: um tapa molhado
+        this.nz(out, t, 0.06, 'bandpass', 900 * r, 520 * r, 0.24, 1.4);
+        this.tone(out, t, 0.05, 'sine', 170 * r, 90 * r, 0.12);
         break;
       case 'lantern':
         // a lanterna do caçador balançando na ponta da lança: o rangido da alça e o vidro tocando

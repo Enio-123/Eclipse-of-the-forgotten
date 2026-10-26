@@ -5,7 +5,7 @@
 const { chromium } = require('playwright');
 const OUT = process.argv[2] || '.';
 const URL = process.argv[3] || process.env.GAME && process.env.GAME + '/index.html' || 'http://localhost:8765/index.html';
-// ONLY=links,neve roda só essas partes (neve, links, agrimensor, agua, nado, quedas, rio, alagada, gruta, presente, fotos)
+// ONLY=links,neve roda só essas partes (neve, links, agrimensor, agua, nado, quedas, rio, alagada, gruta, presente, truta, fotos)
 const ONLY = (process.env.ONLY || '').split(',').filter(Boolean);
 const part = (k) => !ONLY.length || ONLY.includes(k);
 (async () => {
@@ -445,6 +445,95 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
     await waitGame(2.0);
     v = await page.evaluate(() => { const V = window.__scene.vale; return { k: V.pres.k, bloom: Math.min(...V.blooms.map((b) => b.gs[0].alpha)) }; });
     check(v.k === 0 && v.bloom > 0.99, `longe do trecho o cinza fecha e a flor volta (cinza ${v.k.toFixed(2)}, flor ${v.bloom.toFixed(2)})`);
+  }
+
+  if (part('truta')) {
+    // ---------- 14. a Truta de Âmbar: nada no poço, salta em quem fica na beira, cai de volta, se debate na
+    // terra até a água; com ele nadando no mesmo poço, o bote embaixo d'água; morta, boia ----------
+    await setProgress(['boss:cacador']);
+    await start('descida', '1');
+    await page.evaluate(() => { const s = window.__scene; for (const e of s.enemies) if (e.kind !== 'trout' && e.vanish) e.vanish(); window.__tr = s.enemies.find((e) => e.kind === 'trout'); s.player.invuln = 99; });
+    const T = () => page.evaluate(() => { const e = window.__tr; const s = window.__scene; return e ? { st: e.state, x: e.zone.x / 16, y: e.zone.y / 16, alive: e.alive, wet: s.level.inWater(e.zone.x, e.zone.y), hp: e.hp, sy: e.sprite.y / 16, a: e.sprite.alpha } : null; });
+    let t = await T();
+    check(t && t.wet && t.st === 'swim', `a truta nada no poço da garganta (${JSON.stringify(t)})`);
+    await waitGame(1.2);
+    t = await T();
+    check(t && t.wet && t.x >= 89 && t.x < 93, `ela fica dentro do poço (x ${t && t.x.toFixed(1)})`);
+    const watch = () => page.evaluate(() => {
+      const s = window.__scene;
+      window.__trLog = { states: [], minY: 99999, hp0: s.player.hp, hurt: false };
+      if (!window.__trHook) {
+        window.__trHook = true;
+        s.events.on('postupdate', () => { const e = window.__tr; const L = window.__trLog; if (!e || !L) return; if (L.states[L.states.length - 1] !== e.state) L.states.push(e.state); L.minY = Math.min(L.minY, e.zone.y); if (s.player.hp < L.hp0) L.hurt = true; });
+      }
+    });
+    // o cavaleiro parado na beira do poço: ela vai para baixo dele, avisa e salta
+    await put(93, 40);
+    await watch();
+    await page.evaluate(() => { window.__scene.player.invuln = 0; });
+    await until(() => window.__trLog.states.includes('leap'), null, 15000).catch(() => null);
+    await waitGame(0.25);
+    await shot('v40-truta-salto');
+    await waitGame(1.4);
+    let lg = await page.evaluate(() => window.__trLog);
+    check(lg.states.includes('stalk') && lg.states.includes('rise'), `ela vai para baixo dele e avisa antes de saltar (${lg.states.join(' > ')})`);
+    check(lg.states.includes('leap'), `ela salta`);
+    check(lg.minY / 16 < 40, `o salto passa da linha d'água até a altura dele (alto ${(lg.minY / 16).toFixed(1)})`);
+    check(lg.hurt, `parado na beira, ele leva a mordida`);
+    await page.evaluate(() => { window.__scene.player.invuln = 99; });
+    await until(() => { const e = window.__tr; return e.state === 'swim' || e.state === 'sink'; }, null, 12000).catch(() => null);
+    t = await T();
+    lg = await page.evaluate(() => window.__trLog);
+    check(t.wet && t.alive, `depois do salto ela volta para a água (${lg.states.join(' > ')})`);
+    // jogada na terra: se debate aos pulos até a água, e apanha mais
+    await page.evaluate(() => { const e = window.__tr; const s = window.__scene; s.player.teleport(112 * 16, 40 * 16); e.body.reset(97 * 16 + 8, 39 * 16); e.vel.set(0, 0); e.go('fall', 'hurt'); });
+    await watch();
+    // o golpe no primeiro instante em que ela se debate (no mesmo quadro)
+    await page.evaluate(() => {
+      const s = window.__scene;
+      window.__flopHit = null;
+      const fn = () => { const e = window.__tr; if (e.state !== 'flop' || window.__flopHit) return; const hp = e.hp; e.hit(80 * 16, 1, 'side'); window.__flopHit = { hp0: hp, hp: e.hp }; s.events.off('postupdate', fn); };
+      s.events.on('postupdate', fn);
+    });
+    await until(() => window.__flopHit, null, 8000).catch(() => null);
+    await waitGame(0.6);
+    await shot('v41-truta-terra');
+    const fh = await page.evaluate(() => window.__flopHit);
+    check(fh && Math.abs(fh.hp0 - fh.hp - 1.5) < 0.01, `na terra o golpe tira mais (${fh && fh.hp0} -> ${fh && fh.hp})`);
+    await until(() => { const e = window.__tr; const s = window.__scene; return e.alive && s.level.inWater(e.zone.x, e.zone.y); }, null, 12000).catch(() => null);
+    t = await T();
+    lg = await page.evaluate(() => window.__trLog);
+    check(t.alive && t.wet, `se debatendo ela volta para o poço (${lg.states.join(' > ')}, x ${t.x.toFixed(1)})`);
+
+    // o bote embaixo d'água: no Rio, nadando com a Concha no poço dela
+    await setProgress(['boss:cacador'], ['wall', 'double', 'hook', 'veil', 'cape', 'swim']);
+    await start('rio', '1');
+    await page.evaluate(() => {
+      const s = window.__scene;
+      for (const e of s.enemies) if (e.kind !== 'trout' && e.vanish) e.vanish();
+      window.__tr = s.enemies.filter((e) => e.kind === 'trout').sort((a, b) => Math.abs(a.zone.x - 84 * 16) - Math.abs(b.zone.x - 84 * 16))[0];
+      for (const e of s.enemies) if (e !== window.__tr && e.vanish) e.vanish();
+      window.__tr.body.reset(80 * 16, 38 * 16);
+      s.player.invuln = 99;
+    });
+    await put(72, 39);
+    await watch();
+    await page.evaluate(() => { window.__scene.player.invuln = 0; });
+    await until(() => window.__trLog.states.includes('dart'), null, 12000).catch(() => null);
+    await waitGame(0.15);
+    await shot('v42-truta-bote');
+    await waitGame(0.6);
+    lg = await page.evaluate(() => window.__trLog);
+    check(lg.states.includes('aim') && lg.states.includes('dart'), `nadando no poço dela, ela recua e dá o bote (${lg.states.join(' > ')})`);
+    check(lg.hurt, `o bote acerta quem nada parado`);
+    // morta, ela boia de barriga para cima até a linha d'água
+    await page.evaluate(() => { const s = window.__scene; s.player.invuln = 99; const e = window.__tr; e.body.reset(76 * 16, 40 * 16); for (let i = 0; i < 3; i++) e.hit(60 * 16, 1, 'side'); });
+    t = await T();
+    check(!t.alive, `três golpes e ela morre`);
+    await waitGame(1.6);
+    t = await T();
+    check(t.sy < 35, `morta, ela boia até a linha d'água (y ${t.sy.toFixed(1)}, linha 34.2)`);
+    await shot('v43-truta-morta');
   }
 
   if (part('fotos')) {
