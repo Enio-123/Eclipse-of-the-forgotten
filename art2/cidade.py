@@ -21,6 +21,7 @@ from PIL import Image
 from scipy import ndimage as ndi
 from scipy.spatial import cKDTree
 from brush import Layer, hexc, mix, sstep, blur, value_noise, paint
+XMODE = '--x' in sys.argv
 from terreno import Room, fields, masonry, planks, spikes, downsample, load_maps, TILE, S, T
 
 SEEDS = {'praca': 21, 'rua': 23, 'telhados': 25, 'claustro': 27, 'nave': 31, 'galeria': 33, 'altar': 35}
@@ -280,7 +281,8 @@ def city(room, extra=None, glass=None):
     street = floor_level(room) * T
     dt = d / T
     k_wall = np.maximum(0.32, 1 - np.maximum(0, dt - 0.6) * 0.3)
-    k_ground = np.maximum(0.06, 1 - np.maximum(0, dt - 0.4) * 0.6)
+    # no EXTREME (--x) o alicerce embaixo da rua continua visível, apagado, em vez do preto chapado
+    k_ground = np.maximum(0.22 if XMODE else 0.06, 1 - np.maximum(0, dt - 0.4) * 0.6)
     below = sstep(street - 0.5 * T, street + 1.5 * T, yy)
     k = mix(k_wall, k_ground, below)
     col = mix(P['ST_D'], col, k[..., None])
@@ -315,7 +317,7 @@ def city(room, extra=None, glass=None):
     mask = M.astype(np.float32)
     L = Layer(W, H)
     L.fill(col, mask)
-    near = (M & (d < 3.2 * T)).astype(np.float32)
+    near = (M & (d < 3.2 * T)).astype(np.float32) if not XMODE else M.astype(np.float32)
     # as pedras da rua e as telhas têm desenho próprio: as pinceladas não passam por cima
     strokes(L, col, near * (1 - (top_cob | top_slate) * 0.95), flow, np.random.default_rng(seed + 2), joint)
     # janelas nas fachadas grossas (a posição sai da sala sem as passagens: igual nas duas pinturas)
@@ -798,7 +800,8 @@ def paint_room(name, out):
 
 
 if __name__ == '__main__':
-    name = sys.argv[1]
-    out = sys.argv[2] if len(sys.argv) > 2 else os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hd')
+    args = [a for a in sys.argv[1:] if not a.startswith('--')]
+    name = args[0]
+    out = args[1] if len(args) > 1 else os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hd_x' if XMODE else 'hd')
     os.makedirs(out, exist_ok=True)
     paint_room(name, out)

@@ -90,6 +90,11 @@ export interface RoomDef {
   trapdoors?: TrapdoorDef[];
   // quanto da pintura a óleo cobre a tela (0 a 1); sem isto vale o do tema
   paint?: number;
+  // lanternas penduradas (tile do gancho de cima): a corrente, o braço de ferro ou a viga vêm do que
+  // estiver perto (Fixtures.hang)
+  lanterns?: [number, number][];
+  // quantos tufos de cogumelos que brilham, no máximo, no pé das paredes e embaixo das lajes
+  fungus?: number;
 }
 
 // salas do prólogo
@@ -544,6 +549,8 @@ const CHAPTER3: Record<'poco' | 'celas' | 'correntes' | 'guarita' | 'fuga' | 'ar
     music: 'fosso',
     ambience: 'prison',
     paint: 0.2,
+    lanterns: [[15, 19], [26, 18], [46, 19], [30, 34], [46, 34], [14, 49], [48, 64], [10, 57], [51, 52], [10, 71]],
+    fungus: 14,
     hints: [],
     thoughts: [
       { x: 40, y: 27, text: 'Máscaras quebradas, aos montes. Jogavam aqui o que sobrava de cada condenado.' },
@@ -564,6 +571,8 @@ const CHAPTER3: Record<'poco' | 'celas' | 'correntes' | 'guarita' | 'fuga' | 'ar
     music: 'fosso',
     ambience: 'prison',
     paint: 0.22,
+    lanterns: [[9, 10], [20, 13], [31, 9], [45, 13], [55, 10], [3, 19], [60, 18]],
+    fungus: 10,
     hints: [],
     thoughts: [{ x: 4, text: 'Um lago de tinta. Alguma coisa embaixo dele respira no meu ritmo.' }],
   },

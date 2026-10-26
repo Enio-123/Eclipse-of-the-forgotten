@@ -49,6 +49,8 @@ const IMAGES = [
   'terrain-poco', 'terrain-celas', 'terrain-correntes', 'terrain-guarita', 'terrain-fuga', 'terrain-arena', 'terrain-mascara', 'terrain-celas-secret',
   // o Fosso e o Leito do Abismo
   'fosso-far', 'fosso-mid', 'terrain-fosso', 'terrain-abismo',
+  // as lanternas dos esquecidos e os cogumelos da tinta (art/abyss_props.py)
+  'deco-soul-lantern', 'deco-fungus-0', 'deco-fungus-1', 'deco-fungus-2',
   // relevo das pinceladas da pintura a óleo do EXTREME (gfx/extreme.ts)
   'paint-strokes',
 ];

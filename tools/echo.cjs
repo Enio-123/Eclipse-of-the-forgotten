@@ -148,7 +148,18 @@ let fails = 0;
   ok(seen.states.includes('wind') && seen.states.includes('strike'), `prepara e avança (${seen.states.join(', ')})`);
   ok(seen.hpMin < 5, `o corte machuca quem fica parado (vida mínima ${seen.hpMin})`);
   // fotos da preparação e do avanço
-  await page.evaluate(() => { const s = window.__scene; s.player.hp = 5; s.player.invuln = 99; s.registry.set('hp', 5); });
+  // o corte empurrou o cavaleiro para longe (a sombra pode ter voltado para casa): perto de novo
+  await page.evaluate(() => {
+    const s = window.__scene;
+    const e = s.echo;
+    s.player.hp = 5;
+    s.player.invuln = 99;
+    s.registry.set('hp', 5);
+    s.player.teleport(e.home.x - 60, e.home.y + 8);
+    s.player.facing = 1;
+    e.go('drift');
+    e.atkCd = 0.2;
+  });
   await page.waitForFunction(() => window.__scene.echo.state === 'wind' && window.__scene.echo.t > 0.3, null, { timeout: 30000, polling: 16 });
   await page.screenshot({ path: `${OUT}/3-preparando.png` });
   await page.waitForFunction(() => window.__scene.echo.state === 'strike' && window.__scene.echo.t > 0.08, null, { timeout: 30000, polling: 16 });

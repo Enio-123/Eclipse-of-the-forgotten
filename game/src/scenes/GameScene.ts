@@ -30,7 +30,7 @@ import { Npcs, type Npc } from '../world/Npcs';
 import type { Breakable } from '../world/secrets';
 import { Loot } from '../world/Loot';
 import { ARENA_WAVES, BELLS, ELO, FORGE, LEVERS, MATERIALS, MEMORIES, MEMORY_ECHO, NUN, OFFERS, PAGES, PRISONER, RELICS, SMITH } from '../world/lore';
-import { TILE_ONEWAY } from '../gfx/textures';
+import { TILE_ONEWAY, smoothGlow } from '../gfx/textures';
 import { ui } from '../ui/ui';
 import { pad } from '../systems/Pad';
 import type { FxScene } from './FxScene';
@@ -350,6 +350,7 @@ export class GameScene extends Phaser.Scene {
       reLight = !!prev;
     }
     const want = f.light || f.fog || f.reflections || f.post;
+    smoothGlow(this, f.light || f.post);
     if (!want) {
       if (this.xp) extremeCamera(cam, false);
       this.xp = null;

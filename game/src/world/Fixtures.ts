@@ -6,6 +6,7 @@ import { overlap } from '../entities/Enemy';
 import { progress } from '../systems/Save';
 import { DEPTH } from './Decor';
 import { hd, hdScale } from '../gfx/flip';
+import { rng } from '../gfx/raster';
 import type { Breakable } from './secrets';
 import { hdKey, type HdPiece } from '../gfx/hdAssets';
 import type { DoorDef, TrapdoorDef } from './rooms';
@@ -146,6 +147,9 @@ export class Fixtures {
   private beams = new Set<string>();
   // brilho das chamas das paredes das portas (tremem um pouco)
   private portalGlows: { g: Phaser.GameObjects.Image; ph: number }[] = [];
+  // lanternas do Fosso e do Abismo (balançam de leve) e o brilho delas e dos cogumelos
+  private lanterns: { img: Phaser.GameObjects.Image; ph: number }[] = [];
+  private lampGlows: { g: Phaser.GameObjects.Image; base: number; ph: number }[] = [];
   // membranas abissais: a pele de tinta escorre devagar e a luz roxa respira atrás
   readonly membranes: { skin: Phaser.GameObjects.TileSprite; glow: Phaser.GameObjects.Image; k: number; x: number; y: number; h: number; ph: number }[] = [];
   keys: Keys | null = null;
@@ -179,6 +183,7 @@ export class Fixtures {
     this.addTrapdoors();
     this.addBars();
     this.addMembranes();
+    this.addLights();
     this.addAlarms();
     // cada coluna de 'Y' é uma grade com a sua chave
     const cols = new Map<number, number[]>();
@@ -807,16 +812,23 @@ export class Fixtures {
   // viga entre as duas paredes; com uma parede perto, um braço de ferro; sem nada, a corrente sobe
   // até sumir no alto da sala
   private anchorRing(x: number, y: number) {
+    this.hang(x, y - 8, 30);
+  }
+
+  // pendura o que tem o gancho em (x, top): corrente até o teto (se ele estiver a até maxChain
+  // tiles), braço de ferro numa parede a até 4 tiles, viga entre as paredes de um poço ou, sem nada
+  // por perto, a corrente subindo até sumir no alto
+  private hang(x: number, top: number, maxChain: number) {
     const s = this.scene;
     const L = s.level;
     const tx = Math.floor(x / TILE);
-    const ty = Math.floor(y / TILE);
-    const top = y - 8;
+    const ty = Math.floor((top + 8) / TILE);
     const chain = (y0: number) => {
       s.add.tileSprite(x, y0, 5, top - y0 + 2, 'deco-chain').setOrigin(0.5, 0).setDepth(DEPTH.prop + 0.25);
     };
+    const ceilAt = (c: number) => c >= 0 && ty - c <= maxChain;
     const ceil = L.ceilingAbove(tx, ty - 1);
-    if (ceil >= 0 && ty - ceil <= 30) {
+    if (ceilAt(ceil)) {
       const y0 = (ceil + 1) * TILE;
       chain(y0);
       s.add.image(x, y0, 'deco-anchor').setOrigin(0.5, 0).setDepth(DEPTH.prop + 0.26);
@@ -828,6 +840,24 @@ export class Fixtures {
     };
     const lw = wallAt(-1);
     const rw = wallAt(1);
+    const wall = lw >= 0 && tx - lw <= 4 ? lw : rw >= 0 && rw - tx <= 4 ? rw : -1;
+    const arm = () => {
+      // braço de ferro saindo da parede, com a mão-francesa embaixo
+      const face = wall < tx ? (wall + 1) * TILE : wall * TILE;
+      const ay = top - 6;
+      const w = Math.abs(x - face) + 3;
+      s.add.tileSprite(Math.min(face, x - 3), ay, w, 4, 'deco-post').setOrigin(0, 0).setDepth(DEPTH.support);
+      s.add.image(face, ay + 3, 'deco-bracket').setOrigin(wall < tx ? 0 : 1, 0).setFlipX(wall > tx).setDepth(DEPTH.support);
+      chain(ay + 3);
+    };
+    // as lanternas preferem o braço da parede a uma corrente comprida demais
+    if (maxChain < 30 && wall >= 0) return arm();
+    if (ceil >= 0 && ty - ceil <= 30) {
+      const y0 = (ceil + 1) * TILE;
+      chain(y0);
+      s.add.image(x, y0, 'deco-anchor').setOrigin(0.5, 0).setDepth(DEPTH.prop + 0.26);
+      return;
+    }
     if (lw >= 0 && rw >= 0) {
       // poço: a viga fica no alto, onde as duas paredes ainda existem
       let yb = ty;
@@ -845,18 +875,66 @@ export class Fixtures {
       chain(by + 5);
       return;
     }
-    const wall = lw >= 0 && tx - lw <= 4 ? lw : rw >= 0 && rw - tx <= 4 ? rw : -1;
-    if (wall >= 0) {
-      // braço de ferro saindo da parede, com a mão-francesa embaixo
-      const face = wall < tx ? (wall + 1) * TILE : wall * TILE;
-      const ay = top - 6;
-      const w = Math.abs(x - face) + 3;
-      s.add.tileSprite(Math.min(face, x - 3), ay, w, 4, 'deco-post').setOrigin(0, 0).setDepth(DEPTH.support);
-      s.add.image(face, ay + 3, 'deco-bracket').setOrigin(wall < tx ? 0 : 1, 0).setFlipX(wall > tx).setDepth(DEPTH.support);
-      chain(ay + 3);
-      return;
-    }
+    if (wall >= 0) return arm();
     chain(-8);
+  }
+
+  // ---------- luzes do Fosso e do Abismo ----------
+  // as lanternas dos esquecidos (penduradas de verdade) e os cogumelos que comem a tinta do Véu,
+  // no pé das paredes e embaixo das lajes; as duas luzes acendem a sala no High e no EXTREME
+  private addLights() {
+    const s = this.scene;
+    const L = s.level;
+    const room = s.room;
+    const lights = (s.cache.json.get('portal-lights') as Record<string, [number, number, number][]> | undefined) ?? {};
+    const glow = (x: number, y: number, tint: number, scale: number, alpha: number, halo: number, haloA: number) => {
+      const add = Phaser.BlendModes.ADD;
+      const g = s.add.image(x, y, 'glow').setScale(scale).setTint(tint).setAlpha(alpha).setBlendMode(add).setDepth(DEPTH.prop + 0.32);
+      const w = s.add.image(x, y, 'glow').setScale(halo).setTint(tint).setAlpha(haloA).setBlendMode(add).setDepth(DEPTH.prop + 0.31);
+      this.lampGlows.push({ g, base: alpha, ph: Math.random() * Math.PI * 2 });
+      this.lampGlows.push({ g: w, base: haloA, ph: Math.random() * Math.PI * 2 });
+    };
+    if (room.lanterns && s.textures.exists('deco-soul-lantern')) {
+      const [[lx, ly, lc]] = lights['deco-soul-lantern'] ?? [[8, 16, 0xcdbcff]];
+      for (const [tx, ty] of room.lanterns) {
+        const x = tx * TILE + 8;
+        const top = ty * TILE;
+        this.hang(x, top, 12);
+        const img = hd(s.add.image(x, top, 'deco-soul-lantern').setOrigin(0.5, 0).setDepth(DEPTH.prop + 0.3));
+        this.lanterns.push({ img, ph: Math.random() * Math.PI * 2 });
+        glow(x - 8 + lx, top + ly, lc, 0.9, 0.62, 4.6, 0.17);
+      }
+    }
+    const n = room.fungus ?? 0;
+    if (n > 0 && s.textures.exists('deco-fungus-0')) {
+      const rand = rng(room.id.length * 4447 + L.w * 31 + L.h);
+      const spots: { x: number; y: number; w: number }[] = [];
+      for (let y = 1; y < L.h; y++) {
+        for (let x = 1; x < L.w - 1; x++) {
+          if (!L.floorCell(x, y) || L.ch(x, y - 1) !== '.') continue;
+          // mais no pé das paredes e embaixo das lajes baixas (onde a tinta escorre e junta)
+          const wall = L.solidCell(x - 1, y - 1) || L.solidCell(x + 1, y - 1) || L.solidCell(x - 2, y - 1) || L.solidCell(x + 2, y - 1);
+          const c = L.ceilingAbove(x, y - 1);
+          const low = c >= 0 && y - c <= 4;
+          spots.push({ x, y, w: wall ? 1 : low ? 0.7 : 0.3 });
+        }
+      }
+      const picked: { x: number; y: number }[] = [];
+      for (const sp of spots.sort(() => rand() - 0.5)) {
+        if (picked.length >= n) break;
+        if (rand() > sp.w) continue;
+        if (picked.some((p) => Math.abs(p.x - sp.x) < 4 && Math.abs(p.y - sp.y) < 3)) continue;
+        picked.push(sp);
+      }
+      for (const p of picked) {
+        const k = `deco-fungus-${Math.floor(rand() * 3)}`;
+        const x = p.x * TILE + 4 + rand() * 8;
+        const y = p.y * TILE + 1;
+        const img = hd(s.add.image(x, y, k).setOrigin(0.5, 1).setFlipX(rand() < 0.5).setDepth(DEPTH.front - 0.1));
+        const [[fx, fy, fc]] = lights[k] ?? [[13, 11, 0x72dcc8]];
+        glow(x - img.displayWidth / 2 + fx, y - img.displayHeight + fy, fc, 0.55, 0.42, 1.9, 0.1);
+      }
+    }
   }
 
   // a argola que o gancho alcança agora acende de leve
@@ -980,6 +1058,9 @@ export class Fixtures {
       if (Math.random() < dt * 1.6) this.scene.echoMotes(m.x + (Math.random() - 0.5) * 10, m.y + Math.random() * m.h, Math.random() < 0.35);
     }
     for (const p of this.portalGlows) p.g.setAlpha(0.5 + Math.sin(time * 0.009 + p.ph) * 0.05 + Math.sin(time * 0.023 + p.ph * 2) * 0.04);
+    // a chama de memória respira devagar (não treme como fogo) e a lanterna mal balança na corrente
+    for (const p of this.lampGlows) p.g.setAlpha(p.base * (0.86 + 0.14 * Math.sin(time * 0.0019 + p.ph)));
+    for (const l of this.lanterns) l.img.setRotation(Math.sin(time * 0.0011 + l.ph) * 0.035);
     for (const r of this.rings) {
       const target = r.lit ? 0.5 + Math.sin(time * 0.008) * 0.12 : 0;
       r.glow.alpha += (target - r.glow.alpha) * Math.min(1, dt * 12);

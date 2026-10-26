@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { VIEW_H, VIEW_W } from '../config';
 import { audio } from '../systems/Audio';
 import { RES, fixedCamera } from '../gfx/view';
+import { gfx } from '../systems/Settings';
 
 type V = Phaser.Math.Vector2;
 const v = (x: number, y: number) => new Phaser.Math.Vector2(x, y);
@@ -102,6 +103,8 @@ export class FxScene extends Phaser.Scene {
   private pieces: Phaser.GameObjects.GameObject[] = [];
   private grain!: Phaser.GameObjects.TileSprite;
   private grainT = 0;
+  private grainA = 0.09;
+  private grainFine = false;
 
   constructor() {
     super('fx');
@@ -116,12 +119,16 @@ export class FxScene extends Phaser.Scene {
     this.cracks = this.add.graphics().setDepth(20);
   }
 
-  // o grão pesa nas cenas escuras; no vale claro ele quase some
+  // o grão pesa nas cenas escuras; no vale claro ele quase some. No EXTREME ele é do tamanho do
+  // pixel da tela e mais leve (a pintura em alta resolução não fica coberta de pontos grossos)
   setGrain(alpha: number) {
-    this.grain?.setAlpha(alpha);
+    this.grainA = alpha;
+    this.grainFine = gfx().hd;
+    this.grain?.setTileScale(this.grainFine ? 1 / RES : 1).setAlpha(this.grainFine ? alpha * 0.55 : alpha);
   }
 
   update(_time: number, delta: number) {
+    if (gfx().hd !== this.grainFine) this.setGrain(this.grainA);
     this.grainT += delta;
     if (this.grainT < 70) return;
     this.grainT = 0;

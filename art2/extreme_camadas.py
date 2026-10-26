@@ -425,8 +425,17 @@ def city(rng):
     while x < W:
         kind = rng.integers(0, 3)
         if kind == 0:
-            # barril
-            m.ellipse(x + 20, HF - 22, 20, 24)
+            # barril de pé: barriga larga, tampa e base mais estreitas, os aros de ferro saltados
+            pts = []
+            for i in range(13):
+                t = i / 12
+                pts.append((x + 20 - (15 + 5 * math.sin(math.pi * t)), HF - 46 * (1 - t)))
+            for i in range(13):
+                t = 1 - i / 12
+                pts.append((x + 20 + (15 + 5 * math.sin(math.pi * t)), HF - 46 * (1 - t)))
+            m.poly(pts)
+            for hy in (HF - 40, HF - 8):
+                m.rect(x + 2, hy - 1.5, x + 38, hy + 1.5)
         elif kind == 1:
             # caixotes
             m.rect(x, HF - 40, x + 50, HF)

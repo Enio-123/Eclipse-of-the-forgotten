@@ -150,7 +150,9 @@ function makeRain(w: number, h: number, n: number, lmin: number, lmax: number, a
 }
 
 // Brilho radial em degraus pontilhados (usado com mistura aditiva)
-function makeGlow(s: number) {
+// smooth: degradê liso (High e EXTREME, onde a luz é de verdade e o pontilhado aumentado vira
+// xadrez); sem ele, os seis degraus pontilhados do visual original
+function makeGlow(s: number, smooth = false) {
   const { canvas, r, commit } = canvasRaster(s, s);
   const c = s / 2;
   for (let y = 0; y < s; y++) {
@@ -158,6 +160,10 @@ function makeGlow(s: number) {
       const d = Math.hypot(x + 0.5 - c, y + 0.5 - c) / c;
       if (d >= 1) continue;
       const v = (1 - d) ** 1.8;
+      if (smooth) {
+        r.set(x, y, 0xffffff, Math.round(255 * v));
+        continue;
+      }
       const steps = 6;
       const lv = v * steps;
       const lo = Math.floor(lv);
@@ -167,6 +173,19 @@ function makeGlow(s: number) {
   }
   commit();
   return canvas;
+}
+
+// troca o desenho do brilho de todas as luzes na hora (a mesma textura, então nada precisa ser refeito)
+let glowSmooth = false;
+export function smoothGlow(scene: Phaser.Scene, on: boolean) {
+  if (on === glowSmooth) return;
+  const t = scene.textures.get('glow') as Phaser.Textures.CanvasTexture;
+  if (!t || !t.context) return;
+  glowSmooth = on;
+  const src = makeGlow(t.width, on);
+  t.context.clearRect(0, 0, t.width, t.height);
+  t.context.drawImage(src, 0, 0);
+  t.refresh();
 }
 
 // Bolo de fumaça (incenso): bolhas que se juntam, claras em cima e escuras embaixo, com a borda

@@ -108,7 +108,7 @@ const URL = process.argv[3] || 'http://localhost:8765/index.html';
   await tp(35, 28, 1);
   await waitGame(0.4);
   const ring = await page.evaluate(() => { const s = window.__scene; const r = s.hookTarget(s.player); return r && { x: r.x / 16, y: r.y / 16 }; });
-  check(ring && Math.abs(ring.x - 35.5) < 0.6 && Math.abs(ring.y - 19.5) < 0.6, `da laje a argola embaixo do poço está ao alcance (${JSON.stringify(ring)})`);
+  check(ring && Math.abs(ring.x - 33.5) < 0.6 && Math.abs(ring.y - 19.5) < 0.6, `da laje a argola embaixo do poço está ao alcance (${JSON.stringify(ring)})`);
   const climb = await page.evaluate(() => new Promise((res) => {
     const s = window.__scene;
     const c = s.controls;

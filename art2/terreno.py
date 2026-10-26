@@ -17,6 +17,9 @@ from scipy import ndimage as ndi
 from brush import Layer, hexc, mix, sstep, blur, value_noise, paint
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+# --x: versão do EXTREME (só a 2x, em hd_x/): o miolo da rocha mostra a pedra talhada, os nichos de
+# enterro e as fileiras de crânios, em vez de sumir no preto; as bordas continuam as mesmas
+XMODE = '--x' in sys.argv
 MAPS = os.path.join(HERE, '..', 'game', 'src', 'world', 'maps.ts')
 TILE, S = 16, 2
 T = TILE * S
@@ -391,9 +394,13 @@ def catacomb(room):
     col *= (1 + (fine - 0.5) * 0.3)[..., None]
     pits = value_noise(H, W, 3, rng, 1) > 0.8
     col *= (1 - 0.3 * pits)[..., None]
-    # o miolo da rocha some no preto (como no Limbo): só as bordas dos túneis aparecem
+    # o miolo da rocha some no preto (como no Limbo): só as bordas dos túneis aparecem. No EXTREME
+    # a pedra talhada continua lá dentro, apagada, com os nichos de enterro (loculi, mais abaixo)
     dt = d / T
-    k = np.maximum(0.06, 1 - np.maximum(0, dt - 0.35) * 0.62)
+    if XMODE:
+        k = np.maximum(0.2 + 0.05 * value_noise(H, W, 220, rng, 2), 1 - np.maximum(0, dt - 0.35) * 0.62)
+    else:
+        k = np.maximum(0.06, 1 - np.maximum(0, dt - 0.35) * 0.62)
     col = mix(ST_D, col, k[..., None])
     # pisos com poeira, tetos no escuro, luz fria dos túneis nas paredes
     col = mix(col, col * 1.35 + DUST * 0.1, (np.exp(-dtop / (5 * S)) * 0.6)[..., None])
@@ -413,7 +420,7 @@ def catacomb(room):
     mask = M.astype(np.float32)
     L = Layer(W, H)
     L.fill(col, mask)
-    near = (M & (d < 3.2 * T)).astype(np.float32)
+    near = (M & (d < 3.2 * T)).astype(np.float32) if not XMODE else M.astype(np.float32)
     flow = (value_noise(H, W, 40, rng, 2) - 0.5) * 0.5
     passes = [
         dict(size=7, spacing=0.9, length=(1.6, 3.4), err=0.0, alpha=0.55, bristle=0.55, dry=0.45, blur=0.12, taper=0.35, ang_jitter=0.14),
@@ -422,6 +429,8 @@ def catacomb(room):
     paint(L, col, near * (1 - joint * 0.9), flow, rng, passes, val_jitter=0.1, jitter=0.012, clip_soft=0, base=0.0)
     glaze = [dict(size=22, spacing=1.1, length=(1.5, 3.0), err=0.0, alpha=0.2, bristle=0.5, dry=0.5, blur=0.6, taper=0.3, ang_jitter=0.3)]
     paint(L, col, near, flow, rng, glaze, val_jitter=0.16, jitter=0.02, clip_soft=0, base=0.0)
+    if XMODE:
+        loculi(room, L, M, d, k)
     moss_tufts(room, L, M, dtop, k, hexc(0x141c16), hexc(0x23301f), hexc(0x46582c))
     planks(room, L, hexc(0x1a110c), hexc(0x3a261a), hexc(0x6a4c33), DUST)
     # pontas mais claras: no fundo escuro do abismo os espinhos precisam aparecer
@@ -470,6 +479,84 @@ def ossuary(room, L, M, d, dleft, dright, dtop, dbot):
             L.dab(sx, sy - r * 0.2, r, mix(BONE_D, BONE, rng.uniform(0.3, 0.8)), 0.9, 0.7)
             L.dab(sx - r * 0.38, sy - r * 0.1, r * 0.3, dark, 0.9, 0.4)
             L.dab(sx + r * 0.38, sy - r * 0.1, r * 0.3, dark, 0.9, 0.4)
+
+
+def loculi(room, L, M, d, k):
+    """EXTREME: nichos de enterro cavados fundo na rocha das catacumbas, em galerias (grupos de
+    fileiras), longe das bordas. Uns abertos (o crânio e os ossos no escuro), uns fechados com uma
+    laje da mesma pedra (a marca do eclipse riscada nela) e uns quebrados. Ficam no tom apagado do
+    miolo: aparecem sem chamar o olho e sem confundir com o caminho."""
+    rng = room.rng
+    H, W = M.shape
+    BONE, BONE_D = hexc(0x5a544a), hexc(0x2a2622)
+    DARK = hexc(0x040406)
+    deep = M & (d > 1.5 * T)
+    clusters = value_noise(H, W, 260, rng, 2)
+    fine = value_noise(H, W, 5, rng, 2)
+    clip = M.astype(np.float32)
+    placed = 0
+    ch = 17 * S
+    gy = ch + 11 * S
+    for y0 in range(int(rng.uniform(0, gy)), H - ch, gy):
+        cw = int(rng.choice([36, 42, 46]) * S)
+        gx = cw + int(rng.uniform(7, 10) * S)
+        for x0 in range(int(rng.uniform(0, gx)), W - cw, gx):
+            x1, y1 = x0 + cw, y0 + ch
+            if not deep[y0:y1, x0:x1].all() or clusters[(y0 + y1) // 2, (x0 + x1) // 2] < 0.47 or rng.random() < 0.18:
+                continue
+            placed += 1
+            yy2, xx2 = np.mgrid[y0:y1, x0:x1].astype(np.float32)
+            cx = (x0 + x1) / 2
+            rx = cw / 2
+            top = np.where(np.abs(xx2 - cx) > rx * 0.8, y0 + (np.abs(xx2 - cx) - rx * 0.8) * 0.7, y0)
+            a = (yy2 >= top).astype(np.float32)
+            P = L.P[y0:y1, x0:x1]
+            stone = P.reshape(-1, 3).mean(0)
+            # a borda de cima do nicho pega um fio de luz, a de baixo afunda (talhado na pedra)
+            lip = ((yy2 - top) < 1.5 * S) * a
+            sill = (yy2 > y1 - 2.2 * S) * a
+            kind = rng.random()
+            if kind < 0.4:
+                # aberto: fundo escuro, mais fundo em cima; o crânio e os ossos longos deitados
+                depth = np.clip((yy2 - y0) / ch, 0, 1)
+                inner = mix(DARK, stone * 0.35, (depth * 0.6)[..., None])
+                P[:] = P * (1 - a[..., None]) + inner * a[..., None]
+                for _ in range(2):
+                    L.stroke(rng.uniform(x0 + 6 * S, x1 - 6 * S), y1 - 2.6 * S, rng.normal(0, 0.06), rng.uniform(12, 20) * S, 1.5 * S,
+                             mix(BONE_D, BONE, rng.uniform(0.2, 0.5)), 0.85, rng, 0.25, 0.15, taper=0.2, clip=clip)
+                bx = rng.uniform(x0 + cw * 0.25, x1 - cw * 0.25)
+                by = y1 - 4.4 * S
+                r = 3.0 * S
+                L.dab(bx, by - r * 0.1, r, mix(BONE_D, BONE, rng.uniform(0.45, 0.75)), 0.92, 0.6)
+                L.dab(bx - r * 0.38, by, r * 0.3, DARK, 0.95, 0.4)
+                L.dab(bx + r * 0.38, by, r * 0.3, DARK, 0.95, 0.4)
+                L.dab(bx, by + r * 0.55, r * 0.45, mix(BONE_D, BONE, 0.3), 0.8, 0.6)
+            else:
+                # laje da mesma pedra, um pouco mais clara, gasta e manchada
+                n = rng.uniform(0.92, 1.12)
+                slab = stone * 1.18 * n * (1 + (fine[y0:y1, x0:x1] - 0.5) * 0.35)[..., None]
+                slab = mix(slab, slab * 1.25, (((yy2 - top) < 2 * S) * 0.6)[..., None])
+                slab = mix(slab, slab * 0.6, (((x1 - xx2) < 2 * S) | (yy2 > y1 - 2 * S)).astype(np.float32)[..., None] * 0.7)
+                if kind < 0.85:
+                    P[:] = P * (1 - a[..., None]) + slab * a[..., None]
+                    # o eclipse riscado: um anel fino e o miolo escuro
+                    er = ch * 0.2
+                    ex, ey = cx + rng.uniform(-cw * 0.18, cw * 0.18), y0 + ch * 0.52
+                    rr = np.hypot(xx2 - ex, yy2 - ey)
+                    P *= (1 - (np.abs(rr - er) < 0.8 * S) * a * 0.45)[..., None]
+                    P *= (1 - (rr < er * 0.55) * a * 0.3)[..., None]
+                    L.stroke(rng.uniform(x0, x1), rng.uniform(y0, y1), rng.uniform(0, math.pi), rng.uniform(8, 18) * S, 0.6 * S, DARK, 0.5, rng,
+                             0.2, 0.2, taper=0.8, clip=clip)
+                else:
+                    # quebrada: um pedaço caiu e mostra o escuro de dentro
+                    cut = (xx2 - x0) / cw + (yy2 - y0) / ch * 0.45 + rng.normal(0, 0.05) > rng.uniform(0.55, 0.85)
+                    hole = a * cut
+                    keep = a * (1 - cut)
+                    P[:] = P * (1 - keep[..., None]) + slab * keep[..., None]
+                    P[:] = P * (1 - hole[..., None] * 0.9) + DARK * (hole * 0.9)[..., None]
+            P[:] = mix(P, P * 1.3, (lip * 0.5)[..., None])
+            P[:] = mix(P, P * 0.55, (sill * 0.5)[..., None])
+    return placed
 
 
 # ======================================================================================
@@ -587,12 +674,19 @@ def downsample(L, M, room):
 
 
 if __name__ == '__main__':
-    name = sys.argv[1]
-    out = sys.argv[2] if len(sys.argv) > 2 else os.path.join(HERE, 'hd')
+    args = [a for a in sys.argv[1:] if not a.startswith('--')]
+    name = args[0]
+    out = args[1] if len(args) > 1 else os.path.join(HERE, 'hd')
     os.makedirs(out, exist_ok=True)
     t0 = time.time()
     room = Room(name, load_maps()[name], seed=SEEDS[name])
     L, M = THEMES[name](room)
+    if XMODE:
+        xo = os.path.join(HERE, 'hd_x')
+        os.makedirs(xo, exist_ok=True)
+        L.image().save(f'{xo}/terreno-{name}-2x.png')
+        print('pronto (EXTREME)', name, round(time.time() - t0, 1), 's')
+        sys.exit(0)
     L.image().save(f'{out}/terreno-{name}-2x.png')
     small = downsample(L, M, room)
     small.save(f'{out}/terreno-{name}.png')
