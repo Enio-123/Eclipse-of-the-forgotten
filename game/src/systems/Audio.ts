@@ -10,7 +10,7 @@ export type SfxName =
   | 'parry' | 'break' | 'glass' | 'page' | 'anvil' | 'smoke' | 'coinrain' | 'door' | 'locked' | 'censer' | 'draw' | 'gate'
   | 'echo' | 'echo-die' | 'veil' | 'veil-form'
   | 'howl' | 'hoot' | 'horn' | 'gust' | 'flap' | 'crunch' | 'ice-crack' | 'ice-break' | 'freeze' | 'growl' | 'yelp' | 'lantern'
-  | 'plop' | 'leap' | 'flop' | 'heron';
+  | 'plop' | 'leap' | 'flop' | 'heron' | 'buzz';
 export type TrackId = 'title' | 'bridge' | 'crypt' | 'memory' | 'boss' | 'city' | 'nave' | 'boss2' | 'boss3' | 'mine' | 'mirror' | 'boss4' | 'forest' | 'cabin' | 'boss5' | FileTrackId | 'none';
 export type AmbienceId = 'rain' | 'crypt' | 'wind' | 'city' | 'nave' | 'prison' | 'mine' | 'snow' | 'hearth' | 'none';
 // faixas gravadas, em arquivo (as trilhas que o Enio escolheu)
@@ -1487,6 +1487,12 @@ class AudioEngine {
         this.tone(out, t, 0.3, 'sawtooth', 236 * r, 148 * r, 0.05);
         this.nz(out, t, 0.28, 'bandpass', 1100 * r, 720 * r, 0.15, 3);
         this.nz(out, t + 0.02, 0.2, 'bandpass', 2300 * r, 1600 * r, 0.06, 4);
+        break;
+      case 'buzz':
+        // os Vaga-lumes do Eclipse: um zumbido grave e escuro que pulsa, como asas pequenas batendo longe
+        this.tone(out, t, 0.7, 'sawtooth', 68 * r, 64 * r, 0.035);
+        this.tone(out, t, 0.7, 'sawtooth', 71 * r, 67 * r, 0.03);
+        for (let k = 0; k < 6; k++) this.nz(out, t + k * 0.1, 0.08, 'bandpass', 420 * r, 360 * r, 0.05, 5);
         break;
       case 'lantern':
         // a lanterna do caçador balançando na ponta da lança: o rangido da alça e o vidro tocando

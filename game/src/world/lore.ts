@@ -633,6 +633,11 @@ export const BESTIARY: { kind: string; name: string; text: string; tip: string }
     tip: 'Quando o pescoço encolhe num Z, o bote vem. Apare o bico na hora e ela fica tonta; errou, o bico fica um instante lá na frente.',
   },
   {
+    kind: 'motes', name: 'Vaga-lumes do Eclipse',
+    text: 'Onde o vale está sendo esquecido, a luz se junta em bolos escuros que comem a cor em volta. Não brilham: apagam.',
+    tip: 'Um golpe espalha o enxame. Não deixe o miolo encostar; no escuro, siga a borda roxa dos pontos.',
+  },
+  {
     kind: 'boss:cacador', name: 'O Mestre da Caça',
     text: 'Caçador-mor da Casa Vhalor. Trazia os fugitivos de volta pela neve e entregava ao carrasco no fim da trilha. Congelou esperando uma presa que passou a serra.',
     tip: 'Agache na estocada alta, pule a baixa e saia de baixo do salto. Na nevasca, olhe a lanterna: ela pisca antes do golpe.',

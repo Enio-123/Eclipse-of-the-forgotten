@@ -546,6 +546,20 @@ export const HERON = {
   range: 260,
 };
 
+// Vaga-lumes do Eclipse (Vale das Cachoeiras): um enxame de pontos escuros de borda roxa, onde a lembrança
+// está sendo esquecida. Não brilham: apagam a luz em volta. Flutuam em volta de onde nasceram; com o
+// cavaleiro perto vão atrás dele, devagar. Encostar machuca; um golpe espalha o enxame
+export const MOTES = {
+  n: 9,
+  sight: 150,
+  speed: 46,
+  drift: 18,
+  // até onde vão atrás dele antes de voltar para casa
+  leash: 320,
+  // o miolo do enxame (o que machuca e o que o golpe precisa pegar), meia largura em px
+  core: 11,
+};
+
 // O Mestre da Caça (Clareira da Caça): o caçador-mor da Casa Vhalor, congelado no fim da trilha.
 // Estocadas longas da lança (alta: agache; baixa: pule), salto com a lança para baixo (saia de baixo)
 // e a trompa que chama dois lobos (uma vez por fase). Na metade, a nevasca: a tela embranquece, ele
@@ -788,6 +802,7 @@ export const LOOT = {
   owl: { coins: [3, 6], life: 0.5 },
   trout: { coins: [3, 5], life: 0.5 },
   heron: { coins: [4, 7], life: 0.5 },
+  motes: { coins: [1, 3], life: 0.25 },
   boss: { coins: [40, 40], life: 2 },
   // a sombra devolve as moedas dela direto na bolsa
   echo: { coins: [0, 0], life: 0 },

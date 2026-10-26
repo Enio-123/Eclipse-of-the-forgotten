@@ -21,6 +21,7 @@ import { Wolf } from '../entities/Wolf';
 import { Owl } from '../entities/Owl';
 import { Trout } from '../entities/Trout';
 import { Heron } from '../entities/Heron';
+import { Motes } from '../entities/Motes';
 import { InkWisp } from '../entities/InkWisp';
 import { ABYSS, Echo } from '../entities/Echo';
 import { overlap, type BossFoe, type Enemy } from '../entities/Enemy';
@@ -309,6 +310,7 @@ const SPAWNERS: Record<string, (s: GameScene, x: number, y: number) => Enemy> = 
   // Vale das Cachoeiras
   ')': (s, x, y) => new Trout(s, x, y),
   '(': (s, x, y) => new Heron(s, x, y),
+  '?': (s, x, y) => new Motes(s, x, y),
   // fiapo de tinta da fragmentação: só o Capataz chama, na segunda fase (nome comprido de propósito,
   // nenhuma letra do mapa cai aqui; o 'k' é das chaves da guarita)
   wisp: (s, x, y) => new InkWisp(s, x, y),

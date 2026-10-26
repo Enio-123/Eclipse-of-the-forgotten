@@ -90,6 +90,9 @@ function blur(a: Float32Array, w: number, h: number, r: number, passes = 2) {
 
 const isGlow = (o: Phaser.GameObjects.GameObject): o is Phaser.GameObjects.Image =>
   o instanceof Phaser.GameObjects.Image && o.texture?.key === 'glow' && o.blendMode === Phaser.BlendModes.ADD && o.scrollFactorX === 1;
+// a sombra dos Vaga-lumes do Eclipse: uma luz ao contrário (apaga a luz em volta)
+const isUmbra = (o: Phaser.GameObjects.GameObject): o is Phaser.GameObjects.Image =>
+  o instanceof Phaser.GameObjects.Image && o.texture?.key === 'umbra' && o.scrollFactorX === 1;
 
 export class RoomLighting {
   readonly feed: ExtremeFeed;
@@ -104,6 +107,7 @@ export class RoomLighting {
   private baked: Baked[] = [];
   private bakedSet = new Set<Phaser.GameObjects.Image>();
   private glows: Phaser.GameObjects.Image[] = [];
+  private umbras: Phaser.GameObjects.Image[] = [];
   private scanT = 0;
   private dirtyT = -1;
   ready = false;
@@ -298,7 +302,9 @@ export class RoomLighting {
   }
 
   private scan() {
-    this.glows = (this.scene.children.list as Phaser.GameObjects.GameObject[]).filter(isGlow);
+    const all = this.scene.children.list as Phaser.GameObjects.GameObject[];
+    this.glows = all.filter(isGlow);
+    this.umbras = all.filter(isUmbra);
   }
 
   // luzes paradas viram mapa de luz (com sombra); o resto fica para cada quadro
@@ -484,6 +490,18 @@ export class RoomLighting {
       const a = look.ambient;
       const dark = 1 - (a[0] * 0.3 + a[1] * 0.59 + a[2] * 0.11);
       if (dark > 0.2) put({ x: player.x, y: player.y - 3, r: 42, i: Math.min(0.48, dark * 0.75), c: [1, 0.97, 0.92] });
+    }
+    // as sombras vivas vêm antes das luzes pequenas: o escuro delas tem que aparecer
+    if (f.light) {
+      let k = 0;
+      for (const img of this.umbras) {
+        if (k >= 3 || n >= MAX_LIGHTS) break;
+        if (!img.active || !img.visible || img.alpha < 0.03) continue;
+        const r = 30 * Math.max(Math.abs(img.scaleX), Math.abs(img.scaleY)) * 1.6;
+        if (img.x + r < v.x || img.x - r > v.right || img.y + r < v.y || img.y - r > v.bottom) continue;
+        put({ x: img.x, y: img.y, r, i: -0.75 * img.alpha, c: [1, 1, 0.78] });
+        k++;
+      }
     }
     for (const s of cand) {
       if (n >= MAX_LIGHTS) break;

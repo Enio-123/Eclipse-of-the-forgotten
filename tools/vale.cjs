@@ -5,7 +5,7 @@
 const { chromium } = require('playwright');
 const OUT = process.argv[2] || '.';
 const URL = process.argv[3] || process.env.GAME && process.env.GAME + '/index.html' || 'http://localhost:8765/index.html';
-// ONLY=links,neve roda só essas partes (neve, links, agrimensor, agua, nado, quedas, rio, alagada, gruta, presente, truta, garca, fotos)
+// ONLY=links,neve roda só essas partes (neve, links, agrimensor, agua, nado, quedas, rio, alagada, gruta, presente, truta, garca, vagalumes, fotos)
 const ONLY = (process.env.ONLY || '').split(',').filter(Boolean);
 const part = (k) => !ONLY.length || ONLY.includes(k);
 (async () => {
@@ -607,6 +607,42 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
     await start('prado', '1');
     const pr2 = await page.evaluate(() => window.__scene.enemies.filter((e) => e.kind === 'heron').map((e) => ({ x: e.pos.x / 16, y: e.pos.y / 16, wet: e.spot.wet })));
     check(pr2.length === 2 && pr2.every((q) => q.wet && Math.abs(q.y - 37) < 0.05), `as duas garças do Prado ficam no raso da beirada (${JSON.stringify(pr2)})`);
+  }
+
+  if (part('vagalumes')) {
+    // ---------- 16. os Vaga-lumes do Eclipse: o enxame flutua em casa, vai atrás dele devagar, machuca no
+    // miolo e um golpe espalha; no EXTREME apaga a luz em volta ----------
+    await setProgress(['boss:cacador']);
+    await start('descida', '1');
+    await page.evaluate(() => { const s = window.__scene; for (const e of s.enemies) if (e.kind !== 'motes' && e.vanish) e.vanish(); window.__mt = s.enemies.filter((e) => e.kind === 'motes'); s.player.invuln = 99; s.player.teleport(10 * 16 + 8, 13 * 16); });
+    const M = () => page.evaluate(() => window.__mt.map((e) => ({ st: e.state, x: e.zone.x / 16, y: e.zone.y / 16, hx: e.home.x / 16, hy: e.home.y / 16, alive: e.alive, n: e.motes.filter((m) => m.img.active && m.img.alpha > 0.1).length })));
+    let m = await M();
+    check(m.length === 2 && m.every((q) => q.alive && q.n === 9), `dois enxames na Descida, nove pontos cada (${m.length})`);
+    await waitGame(1.5);
+    m = await M();
+    check(m.every((q) => q.st === 'drift' && Math.hypot(q.x - q.hx, q.y - q.hy) < 3), `longe dele, flutuam em volta de casa (${m.map((q) => q.st + ' ' + Math.hypot(q.x - q.hx, q.y - q.hy).toFixed(1)).join(', ')})`);
+    // ele chega perto: o enxame vem atrás, devagar
+    // (de pé no pilar da garganta: o enxame do nicho fica a uns 7 tiles)
+    await put(86, 35);
+    await page.evaluate(() => { const p = window.__scene.player; window.__mt.sort((a, b) => Math.hypot(a.zone.x - p.x, a.zone.y - p.y) - Math.hypot(b.zone.x - p.x, b.zone.y - p.y)); });
+    const d0 = await page.evaluate(() => { const e = window.__mt[0]; const p = window.__scene.player; return Math.hypot(p.x - e.zone.x, p.body.center.y - e.zone.y); });
+    await waitGame(1.5);
+    const d1 = await page.evaluate(() => { const e = window.__mt[0]; const p = window.__scene.player; return { d: Math.hypot(p.x - e.zone.x, p.body.center.y - e.zone.y), st: e.state, v: Math.hypot(e.body.velocity.x, e.body.velocity.y) }; });
+    check(d1.st === 'chase' && d1.d < d0 - 30 && d1.v < 60, `com ele perto, o enxame vai atrás devagar (${d0.toFixed(0)} -> ${d1.d.toFixed(0)} px, ${d1.v.toFixed(0)} px/s)`);
+    await shot('v48-vagalumes');
+    const xp = await page.evaluate(() => !!window.__scene.xp);
+    if (xp) {
+      const neg = await page.evaluate(() => { const f = window.__scene.xp.feed; let k = 0; for (let i = 0; i < f.lightCount; i++) if (f.lights[i * 4 + 3] < 0) k++; return k; });
+      check(neg >= 1, `no EXTREME o enxame vira uma luz ao contrário (${neg})`);
+    }
+    await page.evaluate(() => { const s = window.__scene; window.__mtHp = s.player.hp; s.player.invuln = 0; });
+    await until(() => window.__scene.player.hp < window.__mtHp, null, 8000).catch(() => null);
+    const hurt = await page.evaluate(() => window.__scene.player.hp < window.__mtHp);
+    check(hurt, `o miolo do enxame machuca`);
+    await page.evaluate(() => { window.__scene.player.invuln = 99; window.__mt[0].hit(window.__scene.player.x, 1, 'side'); });
+    await waitGame(1.4);
+    m = await M();
+    check(!m[0].alive && m[0].n === 0, `um golpe espalha o enxame e os pontos apagam (${JSON.stringify(m[0])})`);
   }
 
   if (part('fotos')) {
