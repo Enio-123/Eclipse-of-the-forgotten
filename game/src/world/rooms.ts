@@ -4,6 +4,7 @@ import {
   MAP_CORRENTES, MAP_CRIPTA, MAP_ENCOSTA, MAP_ESCADARIA, MAP_ESPELHOS, MAP_FOSSO, MAP_FUGA, MAP_GALERIA, MAP_GUARITA, MAP_LAGO,
   MAP_ALAGADA, MAP_MARGEM, MAP_MASCARA, MAP_MATA, MAP_MEMORIA, MAP_MERCADO, MAP_NAVE, MAP_NICHOS, MAP_PINHAL, MAP_POCO, MAP_PONTE, MAP_PRACA, MAP_PRENSAS, MAP_RUA, MAP_SERRA, MAP_SINOS, MAP_SOLITARIAS,
   MAP_TELHADOS, MAP_TRILHOS, MAP_VEIO,
+  MAP_DESCIDA, MAP_PRADO, MAP_RIACHO, MAP_CACHOEIRAS, MAP_GRUTA, MAP_PRAINHA, MAP_RIO, MAP_CAIS,
 } from './maps';
 import type { AmbienceId, TrackId } from '../systems/Audio';
 import type { Upgrade } from '../systems/Save';
@@ -14,7 +15,8 @@ export type RoomId =
   | 'escadaria' | 'praca' | 'mercado' | 'rua' | 'telhados' | 'nave' | 'claustro' | 'galeria' | 'altar'
   | 'poco' | 'solitarias' | 'celas' | 'correntes' | 'guarita' | 'fuga' | 'arena' | 'mascara' | 'fosso' | 'margem' | 'abismo'
   | 'boca' | 'trilhos' | 'alagada' | 'prensas' | 'veio' | 'espelhos' | 'capataz'
-  | 'encosta' | 'pinhal' | 'lago' | 'mata' | 'cabana' | 'serra' | 'clareira';
+  | 'encosta' | 'pinhal' | 'lago' | 'mata' | 'cabana' | 'serra' | 'clareira'
+  | 'descida' | 'prado' | 'riacho' | 'cachoeiras' | 'gruta' | 'prainha' | 'rio' | 'cais';
 // 'cape': a Capa de Arielle (segurando o pulo no ar, plana; nas correntes de ar, sobe)
 export type Ability = 'dash' | 'wall' | 'double' | 'hook' | 'veil' | 'cape';
 export type Side = 'left' | 'right' | 'up' | 'down';
@@ -1052,8 +1054,13 @@ const CHAPTER5: Record<'encosta' | 'pinhal' | 'lago' | 'mata' | 'cabana' | 'serr
     theme: 'snow',
     title: 'Clareira da Caça',
     subtitle: 'O fim da trilha',
-    exits: [{ side: 'left', to: 'serra', entry: '2', range: [24, 28] }],
+    exits: [
+      { side: 'left', to: 'serra', entry: '2', range: [24, 28] },
+      { side: 'right', to: 'descida', entry: '1', range: [24, 28] },
+    ],
     boss: 'cacador',
+    // a neve que fecha a descida para o Vale desaba quando o Mestre da Caça cai
+    locks: ['boss:cacador'],
     ...SNOW,
     snow: 50,
     music: 'forest',
@@ -1063,7 +1070,169 @@ const CHAPTER5: Record<'encosta' | 'pinhal' | 'lago' | 'mata' | 'cabana' | 'serr
   },
 };
 
-export const ROOMS: Record<RoomId, RoomDef> = { ...PROLOGUE, ...CHAPTER2, ...CHAPTER3, ...CHAPTER4, ...CHAPTER5 };
+const VALE: Pick<RoomDef, 'pit' | 'rain' | 'lightning' | 'petals' | 'motes' | 'drips'> = { pit: false, rain: false, lightning: false, petals: true, motes: false, drips: 0 };
+
+// capítulo 6: o Vale das Cachoeiras, embaixo da Clareira da Caça. O vale da Lembrança do prólogo, agora
+// no presente: o plano de partir, o barqueiro e o cais de onde ele não embarcou (lore/vale.md)
+const CHAPTER6: Record<'descida' | 'prado' | 'riacho' | 'cachoeiras' | 'gruta' | 'prainha' | 'rio' | 'cais', RoomDef> = {
+  descida: {
+    id: 'descida',
+    map: MAP_DESCIDA,
+    theme: 'vale',
+    title: 'A Descida',
+    subtitle: 'Onde a neve vira chuva',
+    exits: [
+      { side: 'left', to: 'clareira', entry: '2', range: [9, 13] },
+      { side: 'right', to: 'prado', entry: '1', range: [35, 39] },
+    ],
+    ...VALE,
+    music: 'memory',
+    ambience: 'wind',
+    hints: [],
+    thoughts: [
+      { x: 4, text: 'A neve acaba nesta pedra. Lá embaixo o mundo é verde, como se o eclipse nunca tivesse passado por aqui.' },
+      { x: 40, y: 19, text: 'A ponte de tábuas cedeu no meio. Lá embaixo a água corre clara, e não tem gelo.' },
+      { x: 96, text: 'As cachoeiras. Eu ouvia esse barulho nos sonhos, antes de saber de onde vinha.' },
+    ],
+  },
+  prado: {
+    id: 'prado',
+    map: MAP_PRADO,
+    theme: 'vale',
+    title: 'O Prado das Pétalas',
+    subtitle: 'Ninguém cobrava nada aqui',
+    exits: [
+      { side: 'left', to: 'descida', entry: '2', range: [31, 35] },
+      { side: 'right', to: 'riacho', entry: '1', range: [31, 35] },
+    ],
+    ...VALE,
+    music: 'memory',
+    ambience: 'wind',
+    hints: [],
+    thoughts: [
+      { x: 6, text: 'Pétalas no vento. Aqui ninguém cobrava nada, nem a lembrança.' },
+      { x: 42, y: 33, text: 'Garças no raso, paradas como estátuas. Até a hora da bicada.' },
+      { x: 86, y: 30, text: 'Do galho mais alto dá para ver o rio inteiro. Alguém já me disse isso, aqui embaixo.' },
+    ],
+  },
+  riacho: {
+    id: 'riacho',
+    map: MAP_RIACHO,
+    theme: 'vale',
+    title: 'O Riacho',
+    subtitle: 'A ponte de madeira',
+    exits: [
+      { side: 'left', to: 'prado', entry: '2', range: [43, 47] },
+      { side: 'right', to: 'prainha', entry: '1', range: [43, 47] },
+      { side: 'right', to: 'cachoeiras', entry: '1', range: [3, 8] },
+    ],
+    ...VALE,
+    music: 'memory',
+    ambience: 'wind',
+    hints: [],
+    thoughts: [
+      { x: 8, text: 'O riacho. A ponte de madeira. Eu já estive aqui, na Lembrança.' },
+      { x: 64, y: 47, text: 'A ponte quebrou no meio. Na Lembrança ela estava inteira.' },
+      { x: 124, text: 'Era aqui que ela acenava. Do mesmo jeito, com a capa vermelha.' },
+    ],
+  },
+  cachoeiras: {
+    id: 'cachoeiras',
+    map: MAP_CACHOEIRAS,
+    theme: 'vale',
+    title: 'As Cachoeiras',
+    subtitle: 'A água que empurra',
+    exits: [
+      { side: 'left', to: 'riacho', entry: '3', range: [97, 101] },
+      { side: 'right', to: 'gruta', entry: '1', range: [4, 8] },
+    ],
+    ...VALE,
+    music: 'memory',
+    ambience: 'rain',
+    hints: [],
+    thoughts: [
+      { x: 6, y: 101, text: 'Cinco quedas d\'água. Por dentro delas não se sobe: a água empurra para baixo.' },
+      { x: 26, y: 19, text: 'Lá em cima, atrás da última queda, uma boca escura na pedra.' },
+    ],
+  },
+  gruta: {
+    id: 'gruta',
+    map: MAP_GRUTA,
+    theme: 'vale',
+    title: 'A Gruta Atrás da Água',
+    subtitle: 'Onde ela guardava o que ia levar',
+    exits: [{ side: 'left', to: 'cachoeiras', entry: '2', range: [10, 14] }],
+    ...VALE,
+    petals: false,
+    drips: 14,
+    music: 'memory',
+    ambience: 'crypt',
+    hints: [],
+    thoughts: [
+      { x: 4, text: 'Atrás da cachoeira, uma gruta seca. A luz entra pela água e dança na pedra.' },
+      { x: 66, y: 19, text: 'Uma caixa de lata embrulhada em pano encerado. Alguém escondeu isto aqui para levar.' },
+    ],
+  },
+  prainha: {
+    id: 'prainha',
+    map: MAP_PRAINHA,
+    theme: 'vale',
+    title: 'A Prainha',
+    subtitle: 'O nome na areia',
+    exits: [
+      { side: 'left', to: 'riacho', entry: '2', range: [26, 30] },
+      { side: 'right', to: 'rio', entry: '1', range: [26, 30] },
+    ],
+    ...VALE,
+    music: 'memory',
+    ambience: 'wind',
+    hints: [],
+    thoughts: [
+      { x: 4, text: 'Areia fina. Uma fogueira apagada, com as pedras ainda em roda.' },
+      { x: 96, y: 33, text: 'O paredão desce até dentro do rio. Do outro lado, só por baixo da água.' },
+      { x: 134, text: 'As primeiras pedras de uma casa. Só a soleira e um canto de parede.' },
+    ],
+  },
+  rio: {
+    id: 'rio',
+    map: MAP_RIO,
+    theme: 'vale',
+    title: 'O Rio',
+    subtitle: 'A correnteza',
+    exits: [
+      { side: 'left', to: 'prainha', entry: '2', range: [26, 30] },
+      { side: 'right', to: 'cais', entry: '1', range: [26, 30] },
+    ],
+    ...VALE,
+    music: 'memory',
+    ambience: 'wind',
+    hints: [],
+    thoughts: [
+      { x: 6, text: 'O rio inteiro desce para fora do reino. Era por aqui que eles fugiam.' },
+      { x: 66, y: 22, text: 'Um pilar de pedra escura no meio do vale, com bronze nas juntas. Isto é da Casa.' },
+    ],
+  },
+  cais: {
+    id: 'cais',
+    map: MAP_CAIS,
+    theme: 'vale',
+    title: 'O Cais da Lua',
+    subtitle: 'O barco que não partiu',
+    exits: [{ side: 'left', to: 'rio', entry: '2', range: [26, 30] }],
+    ...VALE,
+    music: 'memory',
+    ambience: 'wind',
+    // o portão do aqueduto, lá em cima da escada: as Torres Rúnicas ainda não existem
+    locks: ['torres'],
+    hints: [],
+    thoughts: [
+      { x: 4, text: 'Um cais de madeira. Um barco rodando devagar no meio do lago, sem ninguém remando.' },
+      { x: 90, y: 27, text: 'A escada sobe junto do aqueduto. O portão lá em cima está fechado.' },
+    ],
+  },
+};
+
+export const ROOMS: Record<RoomId, RoomDef> = { ...PROLOGUE, ...CHAPTER2, ...CHAPTER3, ...CHAPTER4, ...CHAPTER5, ...CHAPTER6 };
 
 // Onde cada sala fica no mapa (em tiles). A memória do vale não aparece no mapa.
 export const MAP_POS: Partial<Record<RoomId, { x: number; y: number }>> = {
@@ -1106,4 +1275,12 @@ export const MAP_POS: Partial<Record<RoomId, { x: number; y: number }>> = {
   cabana: { x: 2260, y: 236 },
   serra: { x: 2344, y: 168 },
   clareira: { x: 2404, y: 151 },
+  descida: { x: 2480, y: 166 },
+  prado: { x: 2592, y: 170 },
+  riacho: { x: 2768, y: 158 },
+  cachoeiras: { x: 2924, y: 65 },
+  gruta: { x: 2980, y: 59 },
+  prainha: { x: 2924, y: 175 },
+  rio: { x: 3064, y: 175 },
+  cais: { x: 3264, y: 175 },
 };

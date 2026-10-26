@@ -133,7 +133,7 @@ export class Life {
     if (has(theme, ['catacomb', 'prison', 'nave', 'mine'])) this.makeWebs();
     const L = level;
     this.floors = L.spans((x, y) => L.floorCell(x, y)).filter((s) => s.x1 - s.x0 >= 5).map((s) => ({ x0: s.x0 * TILE, x1: (s.x1 + 1) * TILE, y: s.y * TILE }));
-    if (life >= 2 && has(theme, ['city', 'memory'])) this.spawnFlies();
+    if (life >= 2 && has(theme, ['city', 'memory', 'vale'])) this.spawnFlies();
   }
 
   // ---------- mariposas em volta das chamas ----------
@@ -185,12 +185,13 @@ export class Life {
   // ---------- bichos ----------
   private spawnFlies() {
     const v = this.scene.cameras.main.worldView;
-    const n = this.level.theme === 'memory' ? 7 : 9;
+    const n = this.level.theme === 'memory' || this.level.theme === 'vale' ? 7 : 9;
     for (let i = 0; i < n; i++) this.addFly(v.x + Math.random() * v.width, v.y + 40 + Math.random() * (v.height - 80));
   }
 
   private addFly(x: number, y: number) {
-    const memory = this.level.theme === 'memory';
+    // de dia, borboletas (no vale da memória e no Vale das Cachoeiras); de noite, vaga-lumes
+    const memory = this.level.theme === 'memory' || this.level.theme === 'vale';
     if (memory) {
       const img = this.scene.add.image(x, y, 'life-bfly-0').setDepth(DEPTH.front + 0.4).setTint([0xffffff, 0xffd6e8, 0xfff0a0, 0xd6c4ff][Math.floor(Math.random() * 4)]);
       this.critters.push({ img, kind: 'butterfly', x, y, vx: 0, vy: 0, t: Math.random() * 10, life: 1e9, frame: 0, base: y });
@@ -290,7 +291,7 @@ export class Life {
         this.nextBat = 14 + Math.random() * 16;
         this.spawnBat();
       }
-      if (has(theme, ['bridge', 'city', 'memory']) && (this.nextBird -= dt) <= 0) {
+      if (has(theme, ['bridge', 'city', 'memory', 'vale']) && (this.nextBird -= dt) <= 0) {
         this.nextBird = 16 + Math.random() * 18;
         this.spawnBirds();
       }

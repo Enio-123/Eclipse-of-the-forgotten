@@ -3,7 +3,7 @@ import { TILE } from '../config';
 import { SOLID_VARIANTS, TILE_ONEWAY, TILE_SOLID, TILE_SPIKE } from '../gfx/textures';
 import { findBreakables, type Breakable } from './secrets';
 
-export type Theme = 'bridge' | 'catacomb' | 'memory' | 'city' | 'nave' | 'prison' | 'mine' | 'snow';
+export type Theme = 'bridge' | 'catacomb' | 'memory' | 'city' | 'nave' | 'prison' | 'mine' | 'snow' | 'vale';
 
 // o que conta como rocha no grid: pedra, ferro liso (na neve, parede de gelo) e o chão de gelo do lago
 const ROCK = '#+_';
@@ -37,7 +37,8 @@ export const isGround = (i: number) => i >= TILE_SOLID || i === TILE_ONEWAY;
 // '=' alçapão, ':' grade de cela e '!' grade do alarme (aberta até cair); '&' membrana abissal (como a
 // grade de cela, só o Véu Abissal atravessa); nas Minas, '@' bloco de Âmbar (só a Picareta quebra);
 // na Floresta Nevada, '_' gelo (chão que escorrega) e ';' gelo fino (racha e quebra; o Forest cuida);
-// letras e números são objetos
+// letras e números são objetos (um objeto no meio da água, como a truta no espelho do riacho ou o baú
+// no fundo do poço, fica dentro d'água: a célula dele vira água também)
 export class Level {
   readonly map: Phaser.Tilemaps.Tilemap;
   readonly layer: Phaser.Tilemaps.TilemapLayer;
@@ -103,6 +104,7 @@ export class Level {
     const solid = (x: number, y: number) => x < 0 || y < 0 || x >= w || y >= h || rock(grid[y][x]);
 
     const data: number[][] = [];
+    const wet: [number, number][] = [];
     for (let y = 0; y < h; y++) {
       const row: number[] = [];
       for (let x = 0; x < w; x++) {
@@ -143,14 +145,19 @@ export class Level {
         else if (c === '^') row.push(TILE_SPIKE);
         else {
           row.push(-1);
-          if (c !== '.' && c !== '~') this.spawns.push({ kind: c, x: x * TILE + TILE / 2, y: (y + 1) * TILE, tx: x, ty: y });
+          if (c !== '.' && c !== '~') {
+            this.spawns.push({ kind: c, x: x * TILE + TILE / 2, y: (y + 1) * TILE, tx: x, ty: y });
+            if ((grid[y][x - 1] === '~' && grid[y][x + 1] === '~') || grid[y - 1]?.[x] === '~') wet.push([x, y]);
+          }
         }
       }
       data.push(row);
     }
+    for (const [x, y] of wet) grid[y] = grid[y].slice(0, x) + '~' + grid[y].slice(x + 1);
 
     this.map = scene.make.tilemap({ data, tileWidth: TILE, tileHeight: TILE });
-    const key = scene.textures.exists(`tiles-${theme}`) ? `tiles-${theme}` : 'tiles-catacomb';
+    // o Vale usa os tiles de grama do vale da memória (é o mesmo lugar) até ter a pintura dele
+    const key = scene.textures.exists(`tiles-${theme}`) ? `tiles-${theme}` : theme === 'vale' ? 'tiles-memory' : 'tiles-catacomb';
     const tiles = this.map.addTilesetImage(key, key, TILE, TILE, 0, 0)!;
     this.layer = this.map.createLayer(0, tiles, 0, 0)!;
     this.widthPx = w * TILE;
@@ -165,7 +172,7 @@ export class Level {
 
     // escurece o interior da rocha conforme a distância da superfície
     const depth = this.depthField();
-    const floor = theme === 'memory' ? 0.5 : 0.38;
+    const floor = theme === 'memory' || theme === 'vale' ? 0.5 : 0.38;
     this.layer.forEachTile((t) => {
       if (!isSolid(t.index)) return;
       const d = depth[t.y][t.x];

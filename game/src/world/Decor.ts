@@ -63,6 +63,8 @@ const LIQUIDS: Partial<Record<string, { deep: [number, number, number]; step: [n
   prison: { deep: [22, 11, 34], step: [1, 1, 2], dark: 0x2a1248, light: 0x381c5c, line: [0xb58cf0, 0x7b55b4], glint: 0xd8b7ff },
   // a água que tomou as minas, esverdeada do Âmbar dissolvido
   mine: { deep: [9, 24, 25], step: [1, 2, 2], dark: 0x0d2a2c, light: 0x14403c, line: [0x8fd8c8, 0x47897e], glint: 0xd9f6ea },
+  // a água morna do Vale: verde-azulada e funda, com o sol do eclipse em pontos dourados na superfície
+  vale: { deep: [20, 62, 70], step: [1, 2, 2], dark: 0x1f5f63, light: 0x2c7a74, line: [0xd2f4e4, 0x7cc7b4], glint: 0xffe9b0 },
 };
 
 // Trechos do tabuleiro da ponte que recebem balaustrada (em tiles)
@@ -90,7 +92,7 @@ export class Decor {
       this.rails();
       this.makePuddles();
     }
-    if (level.theme === 'memory') {
+    if (level.theme === 'memory' || level.theme === 'vale') {
       this.flowers();
       this.waterBodies();
     } else if (level.theme !== 'snow') this.waterBodies();
@@ -100,8 +102,9 @@ export class Decor {
   // ---------- suportes: nenhuma plataforma flutua solta ----------
   private supports() {
     const L = this.level;
-    // na neve, o galho que sai de um pinheiro (T, ou s, o seco) já está preso no tronco
-    const trunks = L.theme === 'snow' ? L.spawns.filter((sp) => sp.kind === 'T' || sp.kind === 's') : [];
+    // na neve, o galho que sai de um pinheiro (T, ou s, o seco) já está preso no tronco; no Vale, o da
+    // árvore de flor (T)
+    const trunks = L.theme === 'snow' || L.theme === 'vale' ? L.spawns.filter((sp) => sp.kind === 'T' || sp.kind === 's') : [];
     for (const r of L.spans((x, y) => L.ch(x, y) === '-')) {
       if (trunks.some((t) => t.tx >= r.x0 - 1 && t.tx <= r.x1 + 1 && t.ty > r.y)) continue;
       const yTop = r.y * TILE;
@@ -164,7 +167,7 @@ export class Decor {
   // ---------- musgo pendurado nos tetos ----------
   private moss() {
     const L = this.level;
-    const p = { bridge: 0.4, catacomb: 0.55, memory: 0, city: 0.3, nave: 0.22, prison: 0.3, mine: 0.08, snow: 0 }[L.theme];
+    const p = { bridge: 0.4, catacomb: 0.55, memory: 0, city: 0.3, nave: 0.22, prison: 0.3, mine: 0.08, snow: 0, vale: 0.3 }[L.theme];
     for (let y = 0; y < L.h; y++) {
       for (let x = 0; x < L.w; x++) {
         if (!L.ceilingCell(x, y)) continue;
@@ -188,9 +191,10 @@ export class Decor {
   // ---------- tufos de mato e flores no chão ----------
   private tufts() {
     const L = this.level;
-    const own = `deco-tufts-${L.theme}`;
+    // o Vale usa o capim do vale da memória (é o mesmo lugar)
+    const own = `deco-tufts-${L.theme === 'vale' ? 'memory' : L.theme}`;
     const key = this.scene.textures.exists(own) ? own : 'deco-tufts-catacomb';
-    const p = { bridge: 0.3, catacomb: 0.45, memory: 0.8, city: 0.28, nave: 0.1, prison: 0.14, mine: 0, snow: 0 }[L.theme];
+    const p = { bridge: 0.3, catacomb: 0.45, memory: 0.8, city: 0.28, nave: 0.1, prison: 0.14, mine: 0, snow: 0, vale: 0.7 }[L.theme];
     for (let y = 1; y < L.h; y++) {
       for (let x = 0; x < L.w; x++) {
         if (!L.floorCell(x, y) || this.rand() > p) continue;
@@ -346,7 +350,8 @@ export class Decor {
           break;
         }
         case 'T':
-          if (this.level.theme === 'snow') break;
+          // na neve e no Vale a árvore tem os galhos do mapa: quem desenha é a pintura da sala
+          if (this.level.theme === 'snow' || this.level.theme === 'vale') break;
           s.add.image(p.x, p.y + 2, 'deco-tree-big').setOrigin(0.5, 1).setDepth(DEPTH.prop);
           break;
         case 't':

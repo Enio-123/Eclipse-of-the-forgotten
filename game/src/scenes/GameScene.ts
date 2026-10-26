@@ -35,6 +35,7 @@ import { Backdrop } from '../world/Backdrop';
 import { Weather } from '../world/Weather';
 import { MAP_POS, ROOMS, type Ability, type BossId, type Exit, type RoomDef, type RoomId, type Side } from '../world/rooms';
 import { Forest } from '../world/Forest';
+import { Vale } from '../world/Vale';
 import { Records } from '../world/Records';
 import { CapeFx } from '../gfx/cape';
 import { Props, type MemoryOrb, type Relic, type Shrine } from '../world/Props';
@@ -289,7 +290,7 @@ export interface Rose {
 }
 
 // pintura a óleo de cada tema quando a sala não diz (depois do Arcebispo ela vai crescendo)
-const PAINT: Partial<Record<Theme, number>> = { prison: 0.15, snow: 0.12 };
+const PAINT: Partial<Record<Theme, number>> = { prison: 0.15, snow: 0.12, vale: 0.16 };
 
 // quem nasce de cada letra do mapa
 const SPAWNERS: Record<string, (s: GameScene, x: number, y: number) => Enemy> = {
@@ -323,6 +324,7 @@ export class GameScene extends Phaser.Scene {
   mine: Mine | null = null;
   // a Floresta Nevada: neve, vento, correntes de ar, gelo, gelo fino, pegadas e registros
   forest: Forest | null = null;
+  vale: Vale | null = null;
   // os registros das salas fora das Minas e da Floresta
   records!: Records;
   // a Capa de Arielle no pescoço dele (depois que ele pega)
@@ -606,6 +608,7 @@ export class GameScene extends Phaser.Scene {
     this.npcs = new Npcs(this);
     this.mine = room.theme === 'mine' ? new Mine(this) : null;
     this.forest = room.theme === 'snow' ? new Forest(this) : null;
+    this.vale = room.theme === 'vale' ? new Vale(this) : null;
     this.records = new Records(this);
     this.finds = new Finds(this);
     // começou de uma vela (jogo novo, continuar ou depois de morrer): a Flor prensada volta a valer
@@ -693,8 +696,9 @@ export class GameScene extends Phaser.Scene {
     const so = screenOrigin(this.cameras.main);
     if (room.theme !== 'memory') {
       // a vinheta do tema, mais fechada nas salas que são um lugar fechado dentro da área
-      const DARK_ROOM: Partial<Record<RoomId, number>> = { mata: 0.82 };
-      const dark = DARK_ROOM[room.id] ?? { bridge: 0.5, catacomb: 0.9, city: 0.55, nave: 0.8, prison: 0.85, mine: 0.85, snow: 0.45 }[room.theme];
+      // (a gruta atrás da cachoeira: só a luz que atravessa a água entra)
+      const DARK_ROOM: Partial<Record<RoomId, number>> = { mata: 0.82, gruta: 0.86 };
+      const dark = DARK_ROOM[room.id] ?? { bridge: 0.5, catacomb: 0.9, city: 0.55, nave: 0.8, prison: 0.85, mine: 0.85, snow: 0.45, vale: 0.32 }[room.theme];
       this.add.image(so.x, so.y, 'vignette').setOrigin(0).setScrollFactor(0).setDepth(29).setAlpha(dark);
     }
     if (room.theme === 'bridge') {
@@ -707,9 +711,9 @@ export class GameScene extends Phaser.Scene {
     cam.startFollow(this.player.zone, true, 0.11, 0.13);
     this.lookX = this.player.facing * 36;
     this.camY = room.theme === 'memory' ? 72 : 26;
-    document.body.classList.toggle('bright', room.theme === 'memory');
+    document.body.classList.toggle('bright', room.theme === 'memory' || (room.theme === 'vale' && room.id !== 'gruta'));
     // nos fundos lisos da Cidade-Catedral o grão é mais leve (o traço não some no ruído)
-    this.fx.setGrain({ bridge: 0.09, catacomb: 0.09, memory: 0.035, city: 0.07, nave: 0.07, prison: 0.08, mine: 0.08, snow: 0.05 }[room.theme]);
+    this.fx.setGrain({ bridge: 0.09, catacomb: 0.09, memory: 0.035, city: 0.07, nave: 0.07, prison: 0.08, mine: 0.08, snow: 0.05, vale: 0.04 }[room.theme]);
     cam.setFollowOffset(-this.lookX, this.camY);
     this.look = lookFor(room.theme, room.id, room.paint ?? PAINT[room.theme]);
     this.xp = null;
@@ -733,9 +737,9 @@ export class GameScene extends Phaser.Scene {
 
     audio.music(room.music);
     audio.ambience(room.ambience);
-    audio.stepKind = room.theme === 'bridge' ? 'wet' : room.theme === 'memory' ? 'grass' : room.theme === 'snow' ? 'snow' : 'stone';
-    // a nave ecoa mais que tudo; a cidade aberta quase nada (a neve abafa)
-    audio.space = { bridge: 0.12, catacomb: 0.45, memory: 0.12, city: 0.16, nave: 0.62, prison: 0.5, mine: 0.55, snow: 0.1 }[room.theme];
+    audio.stepKind = room.theme === 'bridge' ? 'wet' : room.theme === 'memory' || (room.theme === 'vale' && room.id !== 'gruta') ? 'grass' : room.theme === 'snow' ? 'snow' : 'stone';
+    // a nave ecoa mais que tudo; a cidade aberta quase nada (a neve abafa); a gruta atrás da água ecoa
+    audio.space = room.id === 'gruta' ? 0.5 : { bridge: 0.12, catacomb: 0.45, memory: 0.12, city: 0.16, nave: 0.62, prison: 0.5, mine: 0.55, snow: 0.1, vale: 0.14 }[room.theme];
 
     // o ponto de retorno é a última vela acesa (no começo, a ponte); da memória volta-se para a vela do espelho
     if (data.from === 'new') progress.checkpoint(room.id, data.entry, settings.data.weapon);
@@ -854,6 +858,11 @@ export class GameScene extends Phaser.Scene {
     return (x: number) => col.get(Math.floor(x / TILE)) ?? null;
   }
 
+  // sala de dia claro (o vale da memória e o Vale das Cachoeiras, menos a gruta): poeira e rastros claros
+  private bright() {
+    return this.room.theme === 'memory' || (this.room.theme === 'vale' && this.room.id !== 'gruta');
+  }
+
   private makeParticles() {
     this.dust = this.add.particles(0, 0, 'px', {
       lifespan: { min: 250, max: 500 },
@@ -862,7 +871,7 @@ export class GameScene extends Phaser.Scene {
       gravityY: -20,
       scale: { start: 1, end: 0 },
       alpha: { start: 0.55, end: 0 },
-      tint: this.room.theme === 'memory' ? 0xb7c98f : this.room.theme === 'snow' ? 0xe8eff9 : 0x7a819a,
+      tint: this.bright() ? 0xb7c98f : this.room.theme === 'snow' ? 0xe8eff9 : 0x7a819a,
       emitting: false,
     }).setDepth(9);
     this.sparks = this.add.particles(0, 0, 'px', {
@@ -879,7 +888,7 @@ export class GameScene extends Phaser.Scene {
       gravityY: 60,
       scale: { start: 1.3, end: 0.2 },
       alpha: { start: 0.85, end: 0 },
-      tint: this.room.theme === 'memory' ? [0xffffff, 0xf2e8d0] : [0xd8d2c6, 0x8a8478, 0x2b2730],
+      tint: this.bright() ? [0xffffff, 0xf2e8d0] : [0xd8d2c6, 0x8a8478, 0x2b2730],
       emitting: false,
     }).setDepth(9);
     this.clangs = this.add.particles(0, 0, 'px', {
@@ -947,7 +956,7 @@ export class GameScene extends Phaser.Scene {
       gravityY: -40,
       scale: { start: 1.7, end: 0 },
       alpha: { start: 0.7, end: 0 },
-      tint: this.room.theme === 'memory' ? [0xffffff, 0xf2ecdf] : [0xc8d4f0, 0x8a9cc8, 0x4a5678],
+      tint: this.bright() ? [0xffffff, 0xf2ecdf] : [0xc8d4f0, 0x8a9cc8, 0x4a5678],
       emitting: false,
     }).setDepth(DEPTH.slash);
     // incenso: fumaça cinza que sobe devagar e se espalha
@@ -969,7 +978,7 @@ export class GameScene extends Phaser.Scene {
       gravityY: -8,
       scale: { start: 1.3, end: 0 },
       alpha: { start: 0.9, end: 0 },
-      tint: this.room.theme === 'memory' ? [0xffffff, 0xe8e0cc] : [0xa49e94, 0x77726c, 0x4a474c, 0xd9c7a2],
+      tint: this.bright() ? [0xffffff, 0xe8e0cc] : [0xa49e94, 0x77726c, 0x4a474c, 0xd9c7a2],
       emitting: false,
     }).setDepth(DEPTH.enemy + 1);
     // a sombra pinga gotas escuras e solta luzes lilás que sobem
@@ -1054,6 +1063,7 @@ export class GameScene extends Phaser.Scene {
     // o vagonete anda antes do cavaleiro (ele vai sentado no assento já no lugar novo)
     this.mine?.update(time, dt, this.stopT > 0);
     this.forest?.update(dt);
+    this.vale?.update(dt);
     p.update(dt, this.controls);
     this.cape?.update(dt, this.forest?.wind.x ?? 0);
     this.magic?.update(dt, this.controls);
@@ -3655,7 +3665,7 @@ export class GameScene extends Phaser.Scene {
       .setScale(src.scaleX, src.scaleY)
       .setFlipX(src.flipX)
       .setDepth(9)
-      .setTintFill(this.room.theme === 'memory' ? 0xffffff : 0x7d8fb8)
+      .setTintFill(this.bright() ? 0xffffff : 0x7d8fb8)
       .setAlpha(0.45);
     this.tweens.add({ targets: g, alpha: 0, duration: 180, onComplete: () => g.destroy() });
   }

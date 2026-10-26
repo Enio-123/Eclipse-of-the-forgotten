@@ -1773,19 +1773,25 @@ def serra():
     return g.rows()
 
 
-def clareira():
+def clareira(vale=False):
     """Clareira da Caça: o fim da trilha, onde o Mestre da Caça entregava os fugitivos ao carrasco. Um
     vale fechado por paredões; entra-se por uma passagem estreita, e a paliçada de estacas desce atrás
     dele. Dois pinheiros grandes dos lados, com um galho cada. A passagem do outro lado desce para o
-    vale (a neve fechou, até o Vale das Cachoeiras existir)."""
+    Vale das Cachoeiras: a neve fecha a boca dela (coluna 'Y', trancada por 'boss:cacador') e desaba
+    quando o Mestre da Caça cai."""
     W, H = 76, 34
     g = Grid(W, H, '.')
     ground(g, 0, 75, 29)
     # os paredões e a passagem de entrada (linha 24 a 28)
     g.fill(0, 0, 6, 23, '#')
-    g.fill(70, 0, 75, 28, '#')
+    # sem o Vale (--vale), a neve ainda fecha tudo
+    g.fill(70, 0, 75, 23 if vale else 28, '#')
     for y in range(24, 29):
         g.put(6, y, '|')
+        if vale:
+            g.put(71, y, 'Y')
+    if vale:
+        g.put(74, 28, '2')
     pine(g, 16, 29, [(1, 7, 22)])
     pine(g, 59, 29, [(-1, 7, 22)])
     pine(g, 10, 29)
@@ -1795,6 +1801,291 @@ def clareira():
     g.put(1, 28, '1')
     g.put(44, 28, 'X')
     return g.rows()
+
+
+# ======================================================================================
+# Vale das Cachoeiras (capítulo 6)
+# ~ água morna (não machuca; onde é funda, sem a Concha ele afunda e o fôlego acaba)
+# T árvore de flor rosa (os galhos '-' saem sempre do tronco, como na floresta: check_forest confere)
+# t arbusto florido  ( garça cinzenta (no raso)  ) truta de âmbar (no espelho d'água onde salta)
+# ? vaga-lumes do eclipse  [ tronco boiando  < a Concha do Rio (relíquia: nada)
+# As quedas d'água, a correnteza e as manchas do presente ficam no RoomDef (falls, currents, present).
+# ======================================================================================
+def descida():
+    """A Descida: a passagem da clareira sai no alto da encosta do vale, ainda com neve. A trilha desce
+    em terraços: a ponte de corda quebrada no meio sobre a garganta (quem cai vai para o poço lá
+    embaixo), o córrego que corre pelo terraço de baixo e despenca da beirada numa cachoeira, o nicho
+    atrás da água com o baú (entra-se de lado, com o dash, pela pedra grande do poço), e embaixo o
+    acampamento dos viajantes (descanso) e a saída para o prado. O poço da garganta e o da cachoeira
+    se ligam por um túnel alagado, que só se atravessa nadando."""
+    W, H = 112, 48
+    g = Grid(W, H, '.')
+    # o paredão da passagem da clareira (a boca vai da linha 9 à 13)
+    g.fill(0, 0, 9, 8, '#')
+    for x0, x1, top in ((0, 21, 14), (22, 29, 17), (30, 36, 20), (53, 64, 20), (65, 72, 24), (73, 80, 28), (93, 111, 40)):
+        ground(g, x0, x1, top)
+    # a garganta, com o poço no fundo
+    ground(g, 37, 52, 44)
+    g.fill(37, 40, 52, 43, '~')
+    # a ponte de corda, quebrada no meio: as cordas saem dos postes das duas beiradas
+    plank(g, 37, 42, 20)
+    plank(g, 47, 52, 20)
+    # o túnel alagado, por baixo dos terraços, da garganta até o poço da cachoeira
+    g.fill(53, 39, 80, 43, '.')
+    g.fill(53, 41, 80, 43, '~')
+    # o poço da cachoeira e a pedra grande no meio dele
+    ground(g, 81, 92, 44)
+    g.fill(81, 41, 92, 43, '~')
+    ground(g, 85, 88, 35)
+    # o córrego no terraço de baixo (a cachoeira cai da beirada dele, nas colunas 81 e 82)
+    g.fill(74, 27, 80, 27, '~')
+    # o nicho atrás da água, cavado na beirada do terraço
+    g.fill(76, 31, 80, 34, '.')
+    g.put(1, 13, '1')
+    g.put(110, 39, '2')
+    g.put(100, 39, 'R')
+    g.put(77, 34, '$')
+    g.put(73, 27, '(')
+    g.put(90, 41, ')')
+    g.put(60, 39, '?')
+    g.put(79, 32, '?')
+    for (x, top) in ((5, 14), (26, 17), (58, 20), (68, 24), (104, 40)):
+        g.put(x, top - 1, 't')
+    return g.rows(), {(37, 42, 20), (47, 52, 20)}
+
+
+def prado():
+    """O Prado das Pétalas: o campo aberto no fundo do vale, com árvores de flor rosa. Os galhos baixos
+    seguram o peso dele; a árvore velha do meio sobe de galho em galho até o baú lá em cima. Dois
+    lagos: o raso das garças e o fundo, com um baú afundado (só nadando). No meio do campo, o primeiro
+    trecho onde a lembrança falha e o presente aparece cinza."""
+    W, H = 176, 42
+    g = Grid(W, H, '.')
+    for x0, x1, top in ((0, 22, 36), (23, 40, 34), (57, 80, 34), (81, 96, 31), (97, 112, 34), (129, 152, 34), (153, 175, 36)):
+        ground(g, x0, x1, top)
+    # a pedra grande do fim do campo, um arco com uma loca embaixo
+    g.fill(156, 30, 166, 35, '#')
+    g.fill(158, 32, 164, 35, '.')
+    # o lago raso das garças
+    ground(g, 41, 56, 38)
+    g.fill(41, 35, 56, 37, '~')
+    # o lago fundo
+    ground(g, 113, 128, 40)
+    g.fill(113, 35, 128, 39, '~')
+    pine(g, 30, 34, [(1, 6, 27)])
+    pine(g, 66, 34, [(-1, 6, 27), (1, 6, 22)])
+    pine(g, 88, 31, [(-1, 7, 25), (1, 7, 20), (-1, 6, 15), (1, 5, 10)])
+    pine(g, 104, 34, [(1, 6, 28)])
+    pine(g, 140, 34, [(-1, 6, 27), (1, 6, 22)])
+    for (x, top) in ((12, 36), (74, 34), (134, 34), (160, 36), (168, 36)):
+        g.put(x, top - 1, 't')
+    g.put(1, 35, '1')
+    g.put(174, 35, '2')
+    g.put(91, 9, '$')
+    g.put(120, 39, '$')
+    g.put(45, 37, '(')
+    g.put(52, 37, '(')
+    g.put(117, 35, ')')
+    g.put(100, 24, '?')
+    g.put(161, 34, '?')
+    return g.rows()
+
+
+def riacho():
+    """O Riacho: o lugar da Lembrança do prólogo. O riacho corta o campo, com a ponte de madeira
+    quebrada no meio (quem cai afunda no poço). As trutas saltam por baixo da ponte. Perto da árvore
+    grande, o lugar exato onde ela acenava. À direita, o paredão das cachoeiras: embaixo, o arco por onde
+    a trilha segue para a prainha; lá no alto, a boca da gruta que leva às cachoeiras. Sobe-se pela
+    árvore grande e pelas saliências do paredão (o paredão é alto: a boca fica acima da copa)."""
+    W, H = 156, 58
+    g = Grid(W, H, '.')
+    for x0, x1, top in ((0, 25, 48), (26, 45, 46), (46, 57, 48), (78, 95, 48), (96, 112, 46), (113, 135, 48)):
+        ground(g, x0, x1, top)
+    # o outeiro de pedra
+    g.fill(100, 43, 108, 45, '#')
+    # o riacho e a ponte quebrada no meio
+    ground(g, 58, 77, 54)
+    g.fill(58, 49, 77, 53, '~')
+    plank(g, 58, 62, 48)
+    plank(g, 73, 77, 48)
+    # o paredão das cachoeiras: o arco embaixo (para a prainha) e a boca lá em cima (para as cachoeiras)
+    g.fill(136, 0, 155, H - 1, '#')
+    g.fill(136, 43, 155, 47, '.')
+    g.fill(136, 3, 155, 8, '.')
+    # as saliências do paredão, presas na pedra (a de cima mais curta: sobe-se pela beirada da de baixo)
+    g.fill(129, 22, 135, 23, '#')
+    g.fill(132, 15, 135, 16, '#')
+    # a árvore grande de flor, com os galhos em escada até a primeira saliência
+    pine(g, 118, 48, [(-1, 6, 42), (1, 6, 37), (-1, 5, 32), (1, 6, 27)])
+    for (x, top) in ((12, 48), (30, 46), (99, 46), (110, 46), (88, 48)):
+        g.put(x, top - 1, 't')
+    g.put(1, 47, '1')
+    g.put(154, 47, '2')
+    g.put(154, 8, '3')
+    g.put(150, 8, '$')
+    g.put(65, 49, ')')
+    g.put(71, 49, ')')
+    g.put(146, 6, '?')
+    return g.rows(), {(58, 62, 48), (73, 77, 48)}
+
+
+def cachoeiras():
+    """As Cachoeiras: a cabeceira do vale, onde o rio de cima despenca em duas quedas grandes até o
+    poço lá embaixo, com uma torre de pedra entre elas. Sobe-se pelas saliências das paredes e da torre;
+    as quedas empurram para baixo e só se atravessam de lado, com o dash. Lá em cima, uma terceira
+    queda, menor, cobre a boca da gruta. A memória fica no alto da torre."""
+    W, H = 56, 110
+    g = Grid(W, H, '#')
+    g.fill(4, 0, 51, 105, '.')
+    # a passagem da entrada, a margem (esquerda, embaixo) e o poço
+    g.fill(0, 97, 3, 101, '.')
+    ground(g, 4, 9, 102)
+    g.fill(10, 102, 51, 105, '~')
+    # a parede da direita, embaixo, é pedra molhada: as garras escorregam
+    g.fill(52, 30, 53, 105, '+')
+    # a torre de pedra entre as quedas
+    g.fill(24, 20, 28, 105, '#')
+    # saliências da parede da esquerda (coluna 4 a 13)
+    for (x0, x1, y) in ((4, 9, 95), (4, 10, 84), (4, 9, 73), (4, 11, 62), (4, 9, 51)):
+        g.fill(x0, y, x1, y + 1, '#')
+    # saliências dos dois lados da torre
+    for (x0, x1, y) in ((19, 23, 56), (29, 34, 45), (19, 23, 34), (29, 35, 27)):
+        g.fill(x0, y, x1, y + 1, '#')
+    # saliências da parede da direita (coluna 41 a 51) e a laje de cima, da boca da gruta
+    for (x0, x1, y) in ((45, 51, 92), (44, 51, 80), (46, 51, 68), (43, 51, 21)):
+        g.fill(x0, y, x1, y + 1, '#')
+    g.fill(44, 9, 51, 10, '#')
+    g.fill(52, 4, 55, 8, '.')
+    g.put(1, 101, '1')
+    g.put(54, 8, '2')
+    g.put(26, 19, 'm')
+    g.put(48, 79, '$')
+    g.put(32, 102, ')')
+    g.put(40, 30, '?')
+    return g.rows()
+
+
+def gruta():
+    """A Gruta Atrás da Água: a boca fica atrás da queda pequena do alto das cachoeiras. Um corredor
+    escuro desce até a câmara, onde a luz só entra em reflexos pela água. Na laje do fundo, o que ela
+    juntou para levar: a bolsa, a lista e a Concha do Rio. No meio, o poço; no fundo dele, uma passagem
+    alagada leva a uma câmara escondida (só nadando)."""
+    W, H = 96, 40
+    g = Grid(W, H, '#')
+    # o corredor da entrada
+    g.fill(0, 10, 22, 14, '.')
+    # a câmara
+    g.fill(21, 6, 82, 24, '.')
+    ground(g, 21, 40, 22, 30)
+    ground(g, 61, 82, 20, 30)
+    # o poço (fundo) e a passagem alagada para a câmara escondida
+    g.fill(41, 22, 60, 33, '~')
+    g.fill(61, 31, 66, 33, '~')
+    g.fill(67, 28, 80, 32, '.')
+    g.fill(67, 33, 80, 33, '#')
+    g.put(1, 14, '1')
+    g.put(74, 19, '<')
+    g.put(68, 19, 'r')
+    g.put(76, 32, '$')
+    g.put(33, 14, '?')
+    g.put(54, 12, '?')
+    return g.rows()
+
+
+def prainha():
+    """A Prainha: a margem de areia onde o rio que desce das cachoeiras se alarga. A fogueira dos
+    viajantes (descanso), o nome na areia, a cabana do barqueiro. Do outro lado, um paredão: o rio passa
+    por baixo dele, por uma passagem funda que só se atravessa nadando, e sai na enseada da casa que os
+    dois começaram (as primeiras pedras e a planta). Dali a trilha segue rio abaixo."""
+    W, H = 140, 46
+    g = Grid(W, H, '.')
+    for x0, x1, top in ((0, 56, 31), (57, 62, 32), (63, 66, 33)):
+        ground(g, x0, x1, top)
+    # o rio, fundo
+    ground(g, 67, 139, 44)
+    g.fill(67, 33, 131, 43, '~')
+    # o paredão, com a passagem alagada por baixo; as faces são de pedra molhada (as garras escorregam)
+    g.fill(100, 0, 125, 37, '#')
+    g.fill(100, 0, 101, 37, '+')
+    g.fill(124, 0, 125, 37, '+')
+    # a enseada da casa: o poço por onde se sobe do fundo e a margem
+    g.fill(126, 0, 131, 32, '.')
+    ground(g, 132, 139, 31)
+    g.put(1, 30, '1')
+    g.put(138, 30, '2')
+    g.put(20, 30, 'R')
+    g.put(45, 30, 'm')
+    g.put(132, 30, 'r')
+    g.put(80, 33, ')')
+    g.put(94, 33, ')')
+    for (x, top) in ((8, 31), (52, 31)):
+        g.put(x, top - 1, 't')
+    pine(g, 30, 31, [(1, 6, 25)])
+    return g.rows()
+
+
+def rio():
+    """O Rio: a correnteza leva os troncos rio abaixo, e eles servem de chão (afundam um pouco com o
+    peso). Ilhas de areia no meio, trutas, garças. O aqueduto da Casa atravessa o rio no alto, em dois
+    pilares: sobe-se pelo pilar com as garras e anda-se por cima da calha. A ordem do aqueduto está
+    pregada no pilar da esquerda. No fim, a margem com a lanterna do cais (descanso)."""
+    W, H = 200, 46
+    g = Grid(W, H, '.')
+    ground(g, 0, 12, 31)
+    ground(g, 188, 199, 31)
+    ground(g, 13, 187, 44)
+    g.fill(13, 34, 187, 43, '~')
+    # as ilhas de areia
+    for (x0, x1, top) in ((40, 52, 33), (92, 104, 32), (140, 150, 33)):
+        g.fill(x0, top, x1, 43, '#')
+    # o aqueduto: dois pilares, cada um com um arco no pé por onde o rio passa, e a calha por cima
+    g.fill(70, 8, 73, 43, '#')
+    g.fill(120, 8, 123, 43, '#')
+    g.fill(70, 25, 73, 33, '.')
+    g.fill(120, 25, 123, 33, '.')
+    g.fill(70, 34, 73, 43, '~')
+    g.fill(120, 34, 123, 43, '~')
+    g.fill(70, 6, 123, 7, '#')
+    g.put(1, 30, '1')
+    g.put(198, 30, '2')
+    g.put(194, 30, 'R')
+    g.put(69, 21, 'r')
+    for x in (20, 60, 110, 160):
+        g.put(x, 34, '[')
+    g.put(30, 34, ')')
+    g.put(84, 34, ')')
+    g.put(165, 34, ')')
+    g.put(98, 31, '(')
+    g.put(96, 18, '?')
+    g.put(100, 5, '$')
+    return g.rows()
+
+
+def cais():
+    """O Cais da Lua: o lago embaixo da cachoeira grande, onde o barqueiro esperava os passageiros. O
+    cais de madeira entra no lago pela direita; troncos boiam no meio. Arena do Barqueiro. Depois da
+    luta, a escada do aqueduto sobe para as Torres Rúnicas (fechada até a área existir)."""
+    W, H = 100, 50
+    g = Grid(W, H, '.')
+    ground(g, 0, 10, 31)
+    ground(g, 81, 99, 31)
+    ground(g, 11, 80, 46)
+    g.fill(11, 33, 80, 45, '~')
+    # o cais, em postes
+    plank(g, 60, 80, 31)
+    # a escada do aqueduto: três degraus de pedra até o patamar, e lá em cima o portão das Torres
+    # Rúnicas, fechado até a área existir (coluna 'Y' na x 97, trancada por 'torres')
+    g.fill(86, 28, 99, 30, '#')
+    g.fill(89, 25, 99, 27, '#')
+    g.fill(92, 22, 99, 24, '#')
+    g.fill(92, 0, 99, 16, '#')
+    for y in range(17, 22):
+        g.put(97, y, 'Y')
+    g.put(1, 30, '1')
+    g.put(40, 32, 'X')
+    for x in (26, 40, 52):
+        g.put(x, 33, '[')
+    return g.rows(), {(60, 80, 31)}
 
 
 if __name__ == '__main__':
@@ -1816,7 +2107,7 @@ if __name__ == '__main__':
     # a Floresta Nevada (--floresta)
     if '--floresta' in sys.argv:
         pin, stands = pinhal()
-        forest = {'encosta': encosta(), 'pinhal': pin, 'lago': lago(), 'cabana': cabana(), 'serra': serra(), 'clareira': clareira()}
+        forest = {'encosta': encosta(), 'pinhal': pin, 'lago': lago(), 'cabana': cabana(), 'serra': serra(), 'clareira': clareira('--vale' in sys.argv)}
         # v18: A Mata Fechada, entre o lago e a cabana
         if '--v18' in sys.argv:
             mat, mstands = mata()
@@ -1828,6 +2119,16 @@ if __name__ == '__main__':
         for k, rows in forest.items():
             check_forest(k, rows, stands if k == 'pinhal' else (mstands if k == 'mata' else ()))
         maps.update(forest)
+    # o Vale das Cachoeiras (--vale)
+    if '--vale' in sys.argv:
+        built = {'descida': descida(), 'prado': prado(), 'riacho': riacho(), 'cachoeiras': cachoeiras(), 'gruta': gruta(),
+                 'prainha': prainha(), 'rio': rio(), 'cais': cais()}
+        vale = {}
+        for k, r in built.items():
+            rows, vstands = r if isinstance(r, tuple) else (r, ())
+            check_forest(k, rows, vstands)
+            vale[k] = rows
+        maps.update(vale)
     lines = ['// Gerado por ferramentas/rooms.py: não edite à mão', '']
     for k, rows in maps.items():
         lines.append(f'export const MAP_{k.upper()} = [')

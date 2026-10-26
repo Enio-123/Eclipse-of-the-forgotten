@@ -30,6 +30,8 @@ export interface LockGate {
   col: number;
   sprite: Phaser.GameObjects.Image;
   open: boolean;
+  // na neve a boca fechada é um monte de neve (cobre a passagem inteira) que desaba, em vez de subir
+  snow?: boolean;
 }
 
 export interface Wall {
@@ -200,9 +202,18 @@ export class Fixtures {
       const ys = cols.get(x)!;
       const top = Math.min(...ys);
       const h = (Math.max(...ys) - top + 1) * TILE;
-      const sprite = s.add.image(x * TILE, top * TILE, 'deco-portcullis').setOrigin(0).setDepth(DEPTH.tiles - 0.5);
-      sprite.setDisplaySize(TILE, h);
-      const g: LockGate = { x: x * TILE, y: top * TILE, h, key: room.locks?.[k] ?? 'never', col: x, sprite, open: false };
+      const snow = L.theme === 'snow';
+      let sprite: Phaser.GameObjects.Image;
+      if (snow) {
+        // o monte de neve tapa a boca inteira, da coluna até a borda da sala
+        const x0 = Math.max(0, x - 1);
+        const w = (L.w - x0) * TILE;
+        sprite = s.add.image(x0 * TILE, (top + ys.length) * TILE, this.snowPlug(w, h + TILE * 2)).setOrigin(0, 1).setDepth(DEPTH.tiles + 0.5);
+      } else {
+        sprite = s.add.image(x * TILE, top * TILE, 'deco-portcullis').setOrigin(0).setDepth(DEPTH.tiles - 0.5);
+        sprite.setDisplaySize(TILE, h);
+      }
+      const g: LockGate = { x: x * TILE, y: top * TILE, h, key: room.locks?.[k] ?? 'never', col: x, sprite, open: false, snow };
       this.locks.push(g);
       if (progress.seen.has(g.key)) this.openLock(g, false);
     });
@@ -261,11 +272,64 @@ export class Fixtures {
     }
   }
 
+  // o monte de neve que fecha uma passagem: neve socada, mais azul embaixo, com pedras e galhos presos
+  private snowPlug(w: number, h: number) {
+    const key = `snow-plug-${w}x${h}`;
+    return this.ensure(key, w, h, (g) => {
+      const r = rng(w * 31 + h);
+      // o contorno do monte: alto encostado na pedra (à direita) e caindo para a boca
+      const top = (x: number) => h * (0.08 + 0.3 * Math.pow(1 - x / w, 1.6)) + Math.sin(x * 0.21) * 2.5 + Math.sin(x * 0.07 + 1.3) * 3;
+      for (let x = 0; x < w; x++) {
+        const t = Math.max(0, Math.floor(top(x)));
+        for (let y = t; y < h; y++) {
+          const d = (y - t) / Math.max(1, h - t);
+          const c = Phaser.Display.Color.GetColor(236 - d * 70, 242 - d * 56, 250 - d * 30);
+          g.fillStyle(c, 1).fillRect(x, y, 1, 1);
+        }
+        // a crista iluminada
+        g.fillStyle(0xffffff, 1).fillRect(x, t, 1, 2);
+      }
+      // camadas de vento e sombra azul
+      for (let k = 0; k < 7; k++) {
+        const y = h * (0.35 + r() * 0.55);
+        g.fillStyle(0x9fb7d6, 0.35).fillRect(r() * w * 0.4, y, w * (0.3 + r() * 0.5), 1);
+      }
+      // pedras e galhos presos na neve
+      for (let k = 0; k < 6; k++) {
+        const px = r() * w;
+        const py = top(px) + 8 + r() * (h * 0.6);
+        g.fillStyle(0x4b5466, 1).fillEllipse(px, py, 5 + r() * 6, 3 + r() * 4);
+        g.fillStyle(0xdfe8f5, 1).fillEllipse(px, py - 2, 5, 1.5);
+      }
+      for (let k = 0; k < 3; k++) {
+        const px = r() * w;
+        const py = top(px) + 6 + r() * 20;
+        g.lineStyle(2, 0x3a2e26, 1).lineBetween(px, py, px + 10 + r() * 10, py - 4 + r() * 8);
+      }
+    });
+  }
+
   // ---------- grades com chave ----------
   openLock(g: LockGate, animate: boolean, done?: () => void) {
     if (g.open) return;
     g.open = true;
     const s = this.scene;
+    if (g.snow) {
+      // a neve desaba: afunda, se desfaz em pó e libera a boca
+      s.level.setLock(g.col, true);
+      if (!animate) {
+        g.sprite.setVisible(false);
+        done?.();
+        return;
+      }
+      s.sfx('quake', 0.8);
+      s.sfx('crunch', 1, 0.7);
+      s.cameras.main.shake(700, 0.006);
+      const b = g.sprite.getBounds();
+      for (let k = 0; k < 6; k++) s.time.delayedCall(k * 110, () => s.dustBurst(b.x + Math.random() * b.width, b.y + b.height * (0.2 + Math.random() * 0.6), 10));
+      s.tweens.add({ targets: g.sprite, y: g.sprite.y + g.h * 0.8, scaleY: 0.25, alpha: 0, duration: 1300, ease: 'Quad.easeIn', onComplete: () => { g.sprite.setVisible(false); done?.(); } });
+      return;
+    }
     const y = g.y - g.h + 6;
     if (!animate) {
       g.sprite.y = y;

@@ -16,6 +16,8 @@ export const HD_LAYERS: Record<string, string[]> = {
   bridge: ['bridge-sky', 'bridge-far', 'bridge-far-rim', 'clouds-far', 'clouds-near', 'bridge-mid', 'bridge-mid-rim', 'bridge-fg'],
   catacomb: ['cat-far', 'cat-mid'],
   memory: ['mem-sky', 'mem-far', 'mem-mid'],
+  // o Vale usa o fundo do vale da memória (é o mesmo lugar) até ter a pintura dele
+  vale: ['mem-sky', 'mem-far', 'mem-mid'],
 };
 
 // as imagens de fundo que a sala usa (vêm quando ela abre: gfx/roomAssets.ts); as nuvens ficam sempre,
@@ -70,7 +72,7 @@ export class Backdrop {
     else if (theme === 'mine') this.mine();
     else if (theme === 'snow') this.snow();
     else this.memory();
-    this.bg = { bridge: 0x161a2b, catacomb: 0x07080d, city: 0x0b1020, nave: 0x07080d, memory: 0x5c9a3e, prison: 0x08070b, mine: 0x0a0807, snow: 0x9fb3c8 }[theme];
+    this.bg = { bridge: 0x161a2b, catacomb: 0x07080d, city: 0x0b1020, nave: 0x07080d, memory: 0x5c9a3e, prison: 0x08070b, mine: 0x0a0807, snow: 0x9fb3c8, vale: 0x6fa58a }[theme];
   }
 
   private img(key: string, depth: number) {

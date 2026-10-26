@@ -189,6 +189,28 @@ const THEMES: Record<Theme, Partial<Look>> = {
     sat: 0.98,
     oil: 0.18,
   },
+  // Vale das Cachoeiras: a primeira área clara de verdade. Sol baixo e dourado do eclipse atravessando
+  // a névoa das quedas, água que reflete o céu, sombras puxando para o verde; a pintura mais grossa
+  vale: {
+    sky: [0.06, 0.06, 0.05],
+    knight: 0.06,
+    ao: 0.22,
+    lightGain: 0.9,
+    bounce: 0.26,
+    relief: 0.26,
+    bloomThreshold: 0.74,
+    bloom: 0.5,
+    rays: 0.7,
+    mistColor: [0.93, 0.96, 0.95],
+    mist: 0.44,
+    mistFront: 0.1,
+    water: 0.6,
+    reflTint: [0.86, 1.0, 0.96],
+    shadowTint: [0.97, 1.01, 1.0],
+    highTint: [1.04, 1.01, 0.95],
+    sat: 1.06,
+    oil: 0.24,
+  },
 };
 
 // salas com luz própria
@@ -226,6 +248,25 @@ const ROOMS: Partial<Record<RoomId, Partial<Look>>> = {
   serra: { ambient: [0.5, 0.53, 0.6], sky: [0.5, 0.54, 0.58], skyDepth: 40, knight: 0.4, knightR: 112, lightGain: 1.5, reach: 1.2, mist: 0.36, shadowTint: [0.95, 0.99, 1.08] },
   // o lago congelado reflete
   lago: { wet: 0.14 },
+  // a gruta atrás da água: escura, fria, e a luz do dia entra esverdeada através da cachoeira
+  gruta: {
+    ambient: [0.4, 0.46, 0.46],
+    sky: [0.3, 0.38, 0.36],
+    knight: 0.38,
+    knightR: 116,
+    ao: 0.46,
+    lightGain: 1.5,
+    reach: 1.2,
+    rays: 0.8,
+    mistColor: [0.62, 0.78, 0.74],
+    mist: 0.34,
+    water: 0.55,
+    reflTint: [0.8, 1.0, 0.95],
+    shadowTint: [0.95, 1.02, 1.04],
+    oil: 0.22,
+  },
+  // as cachoeiras: a névoa das quedas fica no ar o tempo todo
+  cachoeiras: { mist: 0.56, mistFront: 0.16, wet: 0.18 },
   // a Mata Fechada: a copa tapa o dia, então o chão fica no escuro e a luz entra em fachos duros pelos
   // buracos da copa; dentro da cova e do cercado é mais escuro ainda
   mata: {

@@ -3,7 +3,7 @@ import type { RoomId } from './rooms';
 // As regiões de Vespera, como o Agrimensor vende os mapas: cada uma é uma folha. Sem a folha, a região
 // não aparece no mapa (nem a sala onde o cavaleiro está). Com ela, as salas aparecem a lápis e o que ele
 // já pisou fica passado a tinta.
-export type RegionId = 'vespera' | 'cidade' | 'prisao' | 'fosso' | 'minas' | 'floresta';
+export type RegionId = 'vespera' | 'cidade' | 'prisao' | 'fosso' | 'minas' | 'floresta' | 'vale';
 
 export interface RegionDef {
   id: RegionId;
@@ -43,6 +43,10 @@ export const REGIONS: RegionDef[] = [
   {
     id: 'floresta', name: 'Floresta Nevada', rooms: ['encosta', 'pinhal', 'lago', 'mata', 'cabana', 'serra', 'clareira'], wash: '#7aa0ad', price: 40, surveyor: { room: 'encosta', x: 14, y: 29 },
     blurb: 'A encosta, o pinhal, o lago e a cabana. Na mata fechada a copa tapa o dia; os troncos ficam.',
+  },
+  {
+    id: 'vale', name: 'Vale das Cachoeiras', rooms: ['descida', 'prado', 'riacho', 'cachoeiras', 'gruta', 'prainha', 'rio', 'cais'], wash: '#7fb07a', price: 45, surveyor: { room: 'descida', x: 16, y: 13 },
+    blurb: 'Do pé da serra até o lago da lua. A água muda de lugar, então as margens eu deixei a lápis.',
   },
 ];
 

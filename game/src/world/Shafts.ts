@@ -30,6 +30,8 @@ const STYLES: Partial<Record<Theme | 'abyss', Style>> = {
   // fosso e abismo: a pouca luz que desce do poço já chega roxa, quase reta
   abyss: { colors: [0x9c7ed8, 0xb59de6], alpha: 0.09, every: 260, angle: 0.06, width: [16, 30], pool: 0.18, dust: 0xc8b0f0 },
   memory: { colors: [0xfff0c4, 0xffe4a8], alpha: 0.11, every: 260, angle: 0.42, width: [60, 110], pool: 0, dust: 0xfff6d8 },
+  // o Vale: o sol do eclipse, baixo e dourado, atravessando a névoa das quedas
+  vale: { colors: [0xffefc0, 0xfff6dc, 0xe6ffd8], alpha: 0.12, every: 280, angle: 0.4, width: [50, 104], pool: 0.12, dust: 0xfff6d8 },
 };
 
 const KEY = 'x-shaft';
