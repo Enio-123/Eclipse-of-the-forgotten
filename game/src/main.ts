@@ -11,6 +11,7 @@ import { FxScene } from './scenes/FxScene';
 import { ui } from './ui/ui';
 import { pad } from './systems/Pad';
 import { settings } from './systems/Settings';
+import { applyFpsLimit } from './systems/Graphics';
 import './systems/Audio';
 
 pad.vibration = settings.data.vibration;
@@ -34,6 +35,7 @@ const game = new Phaser.Game({
 });
 
 ui.init(game);
+applyFpsLimit(game.loop as unknown as Parameters<typeof applyFpsLimit>[0], settings.data.fps);
 // resolução automática: desce um nível se o jogo ficar lento (só conta com o cavaleiro andando)
 watchSpeed(game, () => {
   const g = game.scene.getScene('game') as GameScene | null;

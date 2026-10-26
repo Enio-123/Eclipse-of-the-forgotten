@@ -9,6 +9,25 @@ interface Strand {
   img: Phaser.GameObjects.Image;
   phase: number;
   amp: number;
+  // mola de quando o cavaleiro esbarra (ângulo e velocidade)
+  a: number;
+  va: number;
+}
+
+// tufo de mato no chão (balança com o vento e abre quando o cavaleiro passa)
+interface Tuft {
+  img: Phaser.GameObjects.Image;
+  phase: number;
+  a: number;
+  va: number;
+}
+
+// quem empurra o mato e o musgo: o corpo do cavaleiro
+export interface Pusher {
+  x: number;
+  top: number;
+  bottom: number;
+  vx: number;
 }
 
 interface Flicker {
@@ -44,6 +63,7 @@ const BRIDGE_DECK_ROW = 22;
 // tufos de mato, balaustrada, poças, postes, estátuas, velas, árvores e o espelho.
 export class Decor {
   readonly strands: Strand[] = [];
+  readonly grass: Tuft[] = [];
   readonly flickers: Flicker[] = [];
   readonly puddles: Point[] = [];
   readonly water: { sprite: Phaser.GameObjects.TileSprite; x0: number; x1: number; y: number }[] = [];
@@ -146,7 +166,7 @@ export class Decor {
             .setDepth(DEPTH.front);
           // em túneis baixos o musgo fica curto para não encostar na cabeça
           if (space < 4) img.setCrop(0, 0, 4, Math.max(6, space * TILE - 26));
-          this.strands.push({ img, phase: this.rand() * Math.PI * 2, amp: 0.6 + this.rand() * 1.1 });
+          this.strands.push({ img, phase: this.rand() * Math.PI * 2, amp: 0.6 + this.rand() * 1.1, a: 0, va: 0 });
         }
       }
     }
@@ -161,11 +181,12 @@ export class Decor {
     for (let y = 1; y < L.h; y++) {
       for (let x = 0; x < L.w; x++) {
         if (!L.floorCell(x, y) || this.rand() > p) continue;
-        this.scene.add
+        const img = this.scene.add
           .image(x * TILE + 2 + this.rand() * 12, y * TILE + 1, key, Math.floor(this.rand() * 6))
           .setOrigin(0.5, 1)
           .setFlipX(this.rand() < 0.5)
           .setDepth(DEPTH.front);
+        this.grass.push({ img, phase: this.rand() * Math.PI * 2, a: 0, va: 0 });
       }
     }
   }
@@ -293,12 +314,34 @@ export class Decor {
     this.flickers.push({ img: wide, base: 0.16, phase: this.rand() * 10, speed: 0.007 + this.rand() * 0.004 });
   }
 
-  update(time: number, dt: number) {
+  // push: o cavaleiro (High e EXTREME), para o mato abrir e o musgo balançar quando ele passa
+  update(time: number, dt: number, push: Pusher | null = null) {
     const v = this.scene.cameras.main.worldView;
+    const k = Math.min(dt, 0.05);
     for (const s of this.strands) {
       const im = s.img;
       if (im.x < v.x - 16 || im.x > v.right + 16 || im.y > v.bottom + 8 || im.y < v.y - 40) continue;
-      im.rotation = Math.sin(time * 0.0011 + s.phase) * 0.06 * s.amp;
+      if (push) {
+        // o musgo pendurado empurrado pela cabeça ou pelo corpo, e volta como mola
+        const len = im.displayHeight;
+        const dx = im.x - push.x;
+        if (Math.abs(dx) < 9 && push.top < im.y + len && push.bottom > im.y + 4) s.va += Math.sign(push.vx || dx) * Math.min(1, Math.abs(push.vx) / 120) * 9 * k;
+        s.va += (-s.a * 40 - s.va * 4) * k;
+        s.a += s.va * k * 6;
+      }
+      im.rotation = Math.sin(time * 0.0011 + s.phase) * 0.06 * s.amp + s.a;
+    }
+    if (push) {
+      for (const t of this.grass) {
+        const im = t.img;
+        if (im.x < v.x - 12 || im.x > v.right + 12 || im.y < v.y - 8 || im.y > v.bottom + 12) continue;
+        // o mato deita para longe dos pés do cavaleiro e volta devagar
+        const dx = im.x - push.x;
+        const target = Math.abs(dx) < 11 && Math.abs(push.bottom - im.y) < 8 ? Math.sign(dx || push.vx) * (1 - Math.abs(dx) / 11) * 0.9 : 0;
+        t.va += ((target - t.a) * 70 - t.va * 9) * k;
+        t.a += t.va * k;
+        im.rotation = Math.sin(time * 0.0016 + t.phase + im.x * 0.04) * 0.07 + t.a;
+      }
     }
     for (const f of this.flickers) {
       const a = Math.sin(time * f.speed + f.phase) * 0.6 + Math.sin(time * f.speed * 2.9 + f.phase * 1.7) * 0.4;

@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { setHdManifest } from '../gfx/hdAssets';
 import { buildTextures, coinIconUrl } from '../gfx/textures';
 import { buildVeilTextures } from '../gfx/veil';
 import { ui } from '../ui/ui';
@@ -40,12 +41,16 @@ const IMAGES = [
   'deco-shrine', 'deco-pedestal', 'deco-portcullis', 'relic-wall', 'relic-double', 'memory', 'bell-drop', 'item-badalo',
   'item-incensario', 'arcebispo-censer', 'deco-rose', 'deco-rose-broken',
   'deco-door', 'deco-bell', 'deco-cache', 'deco-cache-open', 'deco-page', 'deco-gallows', 'deco-fountain', 'deco-altar',
+  // as paredes em volta das portas e a porta da máscara (art/portals.py)
+  'deco-portal-cathedral', 'deco-portal-nave', 'deco-portal-prison', 'deco-door-mask',
   // Prisão Subterrânea
   'deco-lever-base', 'deco-lever-handle', 'deco-trapdoor', 'deco-cellbars', 'deco-ring', 'item-keys', 'deco-anvil', 'cage',
   'relic-hook', 'item-corrente', 'item-elo', 'prison-far', 'prison-mid',
   'terrain-poco', 'terrain-celas', 'terrain-correntes', 'terrain-guarita', 'terrain-fuga', 'terrain-arena', 'terrain-mascara', 'terrain-celas-secret',
   // o Fosso e o Leito do Abismo
   'fosso-far', 'fosso-mid', 'terrain-fosso', 'terrain-abismo',
+  // relevo das pinceladas da pintura a óleo do EXTREME (gfx/extreme.ts)
+  'paint-strokes',
 ];
 // tiras de quadros pequenos: [largura, altura] de cada quadro
 const STRIPS: Record<string, [number, number]> = {
@@ -72,6 +77,9 @@ export class BootScene extends Phaser.Scene {
       });
     }
     this.load.json('hd', 'assets/hd.json');
+    this.load.json('portal-lights', 'assets/portal-lights.json');
+    // lista da pintura em 2x do EXTREME (as imagens só baixam quando a sala abre)
+    this.load.json('hd-manifest', 'assets/hd/manifest.json');
     this.load.json('slashes', 'assets/slashes.json');
     this.load.once('filecomplete-json-slashes', (_k: string, _t: string, meta: Record<string, SlashMeta>) => {
       for (const [key, m] of Object.entries(meta)) this.load.spritesheet(key, `assets/${key}.png`, { frameWidth: m.w, frameHeight: m.h });
@@ -106,6 +114,9 @@ export class BootScene extends Phaser.Scene {
       this.textures.get(key).setFilter(Phaser.Textures.FilterMode.LINEAR);
       this.registry.set(`${key}-scale`, 1 / s);
     }
+    setHdManifest(this.cache.json.get('hd-manifest'));
+    // o relevo da tinta é lido entre os texels (repete sozinho: a imagem tem lado potência de 2)
+    if (this.textures.exists('paint-strokes')) this.textures.get('paint-strokes').setFilter(Phaser.Textures.FilterMode.LINEAR);
     const slashes = this.cache.json.get('slashes') as Record<string, SlashMeta>;
     for (const [key, m] of Object.entries(slashes)) {
       this.anims.create({ key, frames: this.anims.generateFrameNumbers(key, { start: 0, end: m.frames - 1 }), frameRate: m.fps, repeat: 0 });

@@ -17,7 +17,7 @@ import { SmokeField } from '../entities/Smoke';
 import { Arrow } from '../entities/Arrow';
 import { Controls } from '../systems/Controls';
 import { audio, type SfxName, type TrackId } from '../systems/Audio';
-import { settings } from '../systems/Settings';
+import { gfx, settings } from '../systems/Settings';
 import { MAX_LEVEL, progress, type Upgrade } from '../systems/Save';
 import { Level, isGround, isSolid } from '../world/Level';
 import { Decor, DEPTH } from '../world/Decor';
@@ -29,13 +29,24 @@ import { Fixtures, type Door, type Ring } from '../world/Fixtures';
 import { Npcs, type Npc } from '../world/Npcs';
 import type { Breakable } from '../world/secrets';
 import { Loot } from '../world/Loot';
-import { ARENA_WAVES, BELLS, ELO, FORGE, LEVERS, MATERIALS, MEMORIES, NUN, OFFERS, PAGES, PRISONER, RELICS, SMITH } from '../world/lore';
+import { ARENA_WAVES, BELLS, ELO, FORGE, LEVERS, MATERIALS, MEMORIES, MEMORY_ECHO, NUN, OFFERS, PAGES, PRISONER, RELICS, SMITH } from '../world/lore';
 import { TILE_ONEWAY } from '../gfx/textures';
 import { ui } from '../ui/ui';
 import { pad } from '../systems/Pad';
 import type { FxScene } from './FxScene';
 import { face, hd } from '../gfx/flip';
 import { RES, screenOrigin } from '../gfx/view';
+import { extremeCamera, type ExtremePipeline, type Look } from '../gfx/extreme';
+import { RoomLighting, type TerrainPiece } from '../gfx/lighting';
+import { lookFor } from '../gfx/looks';
+import { ensure, hdKey, hdTerrain, prefetch, release, roomFiles } from '../gfx/hdAssets';
+import { HD_LAYERS } from '../world/Backdrop';
+import { Life } from '../world/Life';
+import { Mist } from '../world/Mist';
+import { Shafts } from '../world/Shafts';
+import { MemoryWave } from '../gfx/memoryWave';
+import type { GfxFlags } from '../systems/Graphics';
+import type { Theme } from '../world/Level';
 
 export type Arrival = 'new' | 'continue' | 'door' | 'mirror' | 'memory' | 'death';
 
@@ -193,6 +204,9 @@ export interface Rose {
   glow: Phaser.GameObjects.Image;
 }
 
+// pintura a óleo de cada tema quando a sala não diz (depois do Arcebispo ela vai crescendo)
+const PAINT: Partial<Record<Theme, number>> = { prison: 0.15 };
+
 // quem nasce de cada letra do mapa
 const SPAWNERS: Record<string, (s: GameScene, x: number, y: number) => Enemy> = {
   c: (s, x, y) => new Crawler(s, x, y),
@@ -224,6 +238,20 @@ export class GameScene extends Phaser.Scene {
   private censerClouds!: SmokeField;
   private backdrop!: Backdrop;
   private weather!: Weather;
+  // High e EXTREME: o filtro da câmera e a luz da sala (null no Performance ou fora do WebGL)
+  xp: ExtremePipeline | null = null;
+  lighting: RoomLighting | null = null;
+  look!: Look;
+  private gfxOn: GfxFlags | null = null;
+  // terreno pintado normal e os pedaços em 2x do EXTREME por cima dele
+  private terrainImg: Phaser.GameObjects.Image | null = null;
+  private hdImgs: Phaser.GameObjects.Image[] = [];
+  private hdGen = 0;
+  // bichos, teias e brasas do High e do EXTREME
+  private life: Life | null = null;
+  private mist: Mist | null = null;
+  private shafts: Shafts | null = null;
+  private memWave: MemoryWave | null = null;
   private figure: Phaser.GameObjects.Sprite | null = null;
   private figureState: 'idle' | 'turned' | 'done' = 'idle';
   private hitstopT = 0;
@@ -289,6 +317,95 @@ export class GameScene extends Phaser.Scene {
     return this.scene.get('fx') as FxScene;
   }
 
+  // muda a força da pintura agora (fotos de teste)
+  setPaint(strength: number) {
+    if (this.look) this.look.oil = strength;
+  }
+
+  // pedaços do terreno pintado da sala (a luz lê onde é rocha)
+  terrainPieces(): TerrainPiece[] {
+    const key = `terrain-${this.room.id}`;
+    return this.textures.exists(key) ? [{ key, x: 0, y: 0, w: this.level.widthPx, h: this.level.heightPx }] : [];
+  }
+
+  // liga, desliga ou ajusta o filtro e a luz conforme os ajustes de imagem (vale na hora)
+  applyGraphics() {
+    const f = { ...gfx() };
+    const prev = this.gfxOn;
+    this.gfxOn = f;
+    const cam = this.cameras.main;
+    if (!prev || prev.life !== f.life || prev.particles !== f.particles) {
+      this.life?.destroy();
+      this.life = new Life(this, this.level, f.life, f.particles);
+    }
+    if (!prev || prev.fog !== f.fog) {
+      this.mist?.destroy();
+      this.mist = f.fog ? new Mist(this, this.look.mistColor, this.look.mist, this.look.mistFront) : null;
+    }
+    let reLight = false;
+    if (!prev || prev.hd !== f.hd || prev.particles !== f.particles) {
+      this.shafts?.destroy();
+      this.shafts = f.hd ? new Shafts(this, this.level, this.room.id, f.particles) : null;
+      // as poças de luz dos fachos entram no mapa de luz
+      reLight = !!prev;
+    }
+    const want = f.light || f.fog || f.reflections || f.post;
+    if (!want) {
+      if (this.xp) extremeCamera(cam, false);
+      this.xp = null;
+      this.lighting = null;
+      return;
+    }
+    if (!this.xp) this.xp = extremeCamera(cam, true);
+    // sem WebGL não há filtro: fica o visual original
+    if (!this.xp) {
+      this.lighting = null;
+      return;
+    }
+    if (!this.lighting) this.lighting = new RoomLighting(this, this.level, this.look, f, () => this.terrainPieces());
+    else if (prev) this.lighting.setFlags(f);
+    if (reLight) this.lighting.ready = false;
+    this.xp.feed = this.lighting.feed;
+  }
+
+  // EXTREME: troca o terreno, os fundos e os véus das paredes falsas pela pintura em 2x quando ela
+  // chega (até lá fica a normal); as salas vizinhas já começam a baixar
+  private hdRoom() {
+    const gen = ++this.hdGen;
+    if (!gfx().hd) {
+      this.hdOff();
+      return;
+    }
+    const room = this.room;
+    const files = roomFiles(room.id, this.backdrop.hdKeys());
+    const near = new Set([...room.exits.map((e) => e.to), ...(room.doors ?? []).map((d) => d.to)]);
+    void ensure(this.game, files).then((ok) => {
+      if (gen !== this.hdGen || !this.sys.isActive() || this.room !== room) return;
+      this.hdOn(ok);
+      release(this.game, files);
+      for (const id of near) prefetch(roomFiles(id, HD_LAYERS[ROOMS[id].theme] ?? []));
+    });
+  }
+
+  private hdOn(ok: Set<string>) {
+    const t = hdTerrain(this.room.id);
+    if (t && this.terrainImg && !this.hdImgs.length && t.pieces.every((p) => ok.has(p.file))) {
+      for (const p of t.pieces) this.hdImgs.push(this.add.image(p.x, p.y, hdKey(p.file)).setOrigin(0).setScale(1 / t.scale).setDepth(DEPTH.tiles));
+      this.terrainImg.setVisible(false);
+    }
+    this.backdrop.useHd(true);
+    const sec = hdTerrain(`${this.room.id}-secret`);
+    if (sec && sec.pieces.every((p) => ok.has(p.file))) this.fixtures.useHdVeils(sec.pieces, sec.scale);
+  }
+
+  private hdOff() {
+    for (const i of this.hdImgs) i.destroy();
+    this.hdImgs = [];
+    this.terrainImg?.setVisible(true);
+    this.backdrop?.useHd(false);
+    this.fixtures?.useHdVeils(null, 1);
+  }
+
   create(data: GameInit) {
     this.enemies = [];
     this.arrows = [];
@@ -323,8 +440,10 @@ export class GameScene extends Phaser.Scene {
     this.level.layer.setDepth(DEPTH.tiles);
     // terreno pintado da sala: os tiles continuam só para a física
     const terrain = `terrain-${room.id}`;
+    this.terrainImg = null;
+    this.hdImgs = [];
     if (this.textures.exists(terrain)) {
-      this.add.image(0, 0, terrain).setOrigin(0).setDepth(DEPTH.tiles);
+      this.terrainImg = this.add.image(0, 0, terrain).setOrigin(0).setDepth(DEPTH.tiles);
       this.level.layer.setVisible(false);
     }
     this.backdrop = new Backdrop(this, this.level, room.id);
@@ -348,9 +467,9 @@ export class GameScene extends Phaser.Scene {
     // chegou por trás de uma parede ainda de pé (só acontece fora do caminho normal): ela já caiu
     const hidden = this.fixtures.veiled(spawn.tx, spawn.ty);
     if (hidden) this.fixtures.breakWall(hidden, false);
-    // uma arma de chefe só vale se já foi ganha neste progresso
+    // uma arma de chefe só vale se já foi ganha neste progresso; de começo, só a escolhida
     if (!progress.hasWeapon(settings.data.weapon)) {
-      settings.data.weapon = 'scythe';
+      settings.data.weapon = progress.starter ?? 'scythe';
       settings.save();
     }
     this.player = new Player(this, spawn.x, spawn.y, settings.data.weapon);
@@ -428,6 +547,23 @@ export class GameScene extends Phaser.Scene {
     // nos fundos lisos da Cidade-Catedral o grão é mais leve (o traço não some no ruído)
     this.fx.setGrain({ bridge: 0.09, catacomb: 0.09, memory: 0.035, city: 0.07, nave: 0.07, prison: 0.08 }[room.theme]);
     cam.setFollowOffset(-this.lookX, this.camY);
+    this.look = lookFor(room.theme, room.id, room.paint ?? PAINT[room.theme]);
+    this.xp = null;
+    this.lighting = null;
+    this.life = null;
+    this.mist = null;
+    this.shafts = null;
+    this.memWave = new MemoryWave(this, this.level);
+    this.gfxOn = null;
+    this.applyGraphics();
+    this.hdRoom();
+    const offGfx = settings.onChange(() => {
+      const f = gfx();
+      if (this.gfxOn && Object.keys(f).every((k) => f[k as keyof GfxFlags] === this.gfxOn![k as keyof GfxFlags])) return;
+      const hdChanged = !this.gfxOn || this.gfxOn.hd !== f.hd;
+      this.applyGraphics();
+      if (hdChanged) this.hdRoom();
+    });
 
     if (!this.scene.isActive('hud')) this.scene.launch('hud');
 
@@ -455,6 +591,7 @@ export class GameScene extends Phaser.Scene {
     const pauseBtn = document.getElementById('pause-btn');
     if (pauseBtn) pauseBtn.onclick = () => this.openPause();
     this.events.once('shutdown', () => {
+      offGfx();
       ui.hint(null);
       ui.bossBar(null);
       ui.onStackChange = null;
@@ -719,7 +856,14 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     this.backdrop.update(time);
-    this.decor.update(time, dt);
+    const pl = this.player;
+    const reacts = (this.gfxOn?.life ?? 0) > 0 && !!pl;
+    this.decor.update(time, dt, reacts ? { x: pl.x, top: pl.body.top, bottom: pl.body.bottom, vx: pl.body.velocity.x } : null);
+    this.life?.update(dt, pl);
+    this.mist?.update(time, this.level.heightPx);
+    this.shafts?.update(time);
+    this.memWave?.update(dt, this.xp?.feed ?? null);
+    if (pl) this.backdrop.fgFade((pl.body.bottom - this.cameras.main.worldView.y) / VIEW_H > 0.74, dt);
     this.weather.update(dt);
     const fogFront = this.children.getByName('fog-front') as Phaser.GameObjects.TileSprite | null;
     if (fogFront) fogFront.tilePositionX = this.cameras.main.scrollX * 1.3 + time * 0.01;
@@ -763,6 +907,7 @@ export class GameScene extends Phaser.Scene {
     this.story();
     this.exits();
     this.follow(dt);
+    this.lighting?.update(this.cameras.main, { x: p.x, y: p.body.center.y }, dt);
     if (this.room.rain && this.level.ceilingAbove(Math.floor(p.x / TILE), Math.floor(p.body.top / TILE)) < 0) {
       this.weather.splashOn(p.x, p.body.top - 6, dt);
     }
@@ -1330,7 +1475,8 @@ export class GameScene extends Phaser.Scene {
       (e) =>
         (e.side === 'right' && b.center.x > W + 2 && inRows(e)) ||
         (e.side === 'left' && b.center.x < -2 && inRows(e)) ||
-        (e.side === 'up' && b.center.y < -2 && inRange(e)) ||
+        // por cima basta a cabeça passar da borda (subindo pelo gancho ou pela parede)
+        (e.side === 'up' && b.top < -6 && inRange(e)) ||
         (e.side === 'down' && b.center.y > H + 2 && inRange(e)),
     );
     if (ex) this.goTo(ex);
@@ -1361,6 +1507,8 @@ export class GameScene extends Phaser.Scene {
       const dy = r.y - cy;
       const d = Math.hypot(dx, dy);
       if (d > PLAYER.hookRange || d < 14 || !this.clearLine(cx, cy, r.x, r.y)) continue;
+      // a argola de onde ele acabou de sair não conta: o gancho segue para a próxima
+      if (p.lastRingT > 0 && p.lastRing && Math.abs(p.lastRing.x - r.x) < 1 && Math.abs(p.lastRing.y - r.y) < 1) continue;
       const behind = Math.sign(dx) === -p.facing && Math.abs(dx) > 24;
       const sc = d * (behind ? 1.8 : 1) + (dy > 0 ? 50 : 0);
       if (sc < score) {
@@ -1874,6 +2022,7 @@ export class GameScene extends Phaser.Scene {
     const first = !sh.lit;
     this.props.light(sh, true);
     this.sfx('rest');
+    this.memWave?.start(sh.x, sh.y - 12, 'restore', { power: 0.5, radius: 240, hold: 1.0 });
     progress.seen.add(this.props.restKey(sh.i));
     // o caminho já vencido vira cinza (grava junto com o ponto de retorno)
     const cleared = this.clearPassed();
@@ -1927,6 +2076,12 @@ export class GameScene extends Phaser.Scene {
     this.gold.explode(16, m.x, m.y);
     this.sfx('chime');
     this.applyProgress();
+    // a sala lembra junto: a onda passa pelo cenário e quem estava na lembrança aparece em luz
+    const echo = MEMORY_ECHO[m.id];
+    if (echo && this.memWave) {
+      this.memWave.start(m.x, m.y, echo.mode);
+      this.memWave.echoes(m.x, m.y, echo.kind, echo.mode, this.player.sprite);
+    }
     if (info) ui.banner(info.title, info.text, 4600);
     if (CHAPTERS[m.id]) this.chapterEnd(m.id);
   }
@@ -2102,6 +2257,9 @@ export class GameScene extends Phaser.Scene {
     const x = b.zone.x;
     const f = b.facing;
     const bottom = b.body.bottom;
+    // a sala sente a queda: a cor de antes volta por um instante (a tinta da Sombra se espalha roxa)
+    const cy = b.body.center.y;
+    this.time.delayedCall(700, () => this.memWave?.start(x, cy, b instanceof Sombra ? 'corrupt' : 'restore', { radius: 760, hold: 2.6 }));
     if (info.relic && b instanceof Sombra) this.time.delayedCall(2400, () => this.absorbShadow(b, info.relic!, () => this.bossAfter(id, x, f, bottom, 5600)));
     else this.time.delayedCall(2600, () => this.bossAfter(id, x, f, bottom));
     // e a arma dele cai do outro lado (o incensário sai do chão onde rolou)
@@ -2523,8 +2681,16 @@ export class GameScene extends Phaser.Scene {
         ui.weapons({
           current: settings.data.weapon,
           has: (w) => progress.hasWeapon(w),
+          // as de começo que ficaram para trás não aparecem; as de chefe aparecem trancadas
+          show: (w) => !!WEAPONS[w].boss || progress.hasWeapon(w),
+          title: 'Trocar arma',
+          // save de antes da regra, com uma arma de chefe na mão: a primeira arma de começo usada fica
+          sub: progress.starter
+            ? 'A sua arma do começo e as que os chefes deixaram.'
+            : 'Escolha a sua arma do começo: ela fica com você até o fim e as outras três não voltam.',
           confirmLabel: 'Usar esta arma',
           onConfirm: (w) => {
+            if (!WEAPONS[w].boss) progress.setStarter(w);
             settings.data.weapon = w;
             settings.save();
             this.player.setWeapon(w);

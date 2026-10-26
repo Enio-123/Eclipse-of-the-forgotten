@@ -1,5 +1,6 @@
 import type { Upgrade } from '../systems/Save';
 import type { Ability } from './rooms';
+import type { EchoKind, WaveMode } from '../gfx/memoryWave';
 
 // Memórias espalhadas pelo mapa. O id é sala:ordem no mapa ("boss" é a do Sineiro).
 export const MEMORIES: Record<string, { title: string; text: string }> = {
@@ -17,6 +18,22 @@ export const MEMORIES: Record<string, { title: string; text: string }> = {
   'abismo:boss': { title: 'O machado', text: 'Ergui o machado sobre alguém ajoelhado no tablado. Numa versão, ele desceu. Na outra, caiu da minha mão, e a praça inteira ficou em silêncio.' },
 };
 export const MEMORY_TOTAL = Object.keys(MEMORIES).length;
+
+// O eco de cada memória (High e EXTREME): quem aparece em luz no chão e se a lembrança volta inteira
+// (dourada) ou com duas versões (roxa, corrompida). Ver lore/continuidade.md.
+export const MEMORY_ECHO: Record<string, { kind: EchoKind; mode: WaveMode }> = {
+  'ponte:0': { kind: 'ela', mode: 'restore' },
+  'catacumbas:0': { kind: 'povo', mode: 'restore' },
+  'sinos:0': { kind: 'povo', mode: 'restore' },
+  'sinos:1': { kind: 'ela', mode: 'restore' },
+  'cripta:boss': { kind: 'ela', mode: 'restore' },
+  'nave:0': { kind: 'ela', mode: 'restore' },
+  'altar:boss': { kind: 'ela', mode: 'corrupt' },
+  'celas:0': { kind: 'povo', mode: 'restore' },
+  'mascara:boss': { kind: 'carrasco', mode: 'corrupt' },
+  'fosso:0': { kind: 'povo', mode: 'restore' },
+  'abismo:boss': { kind: 'carrasco', mode: 'corrupt' },
+};
 
 // Páginas do diário da irmã Luzia (sala:ordem no mapa). Ela é cega: a letra é torta.
 export const PAGES: Record<string, { title: string; text: string }> = {

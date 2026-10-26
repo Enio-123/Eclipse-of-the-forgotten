@@ -1,0 +1,579 @@
+{
+ "terrain": {
+  "abismo": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-abismo-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 560.0,
+     "h": 512.0
+    },
+    {
+     "file": "t-abismo-1.webp",
+     "x": 560.0,
+     "y": 0.0,
+     "w": 560.0,
+     "h": 512.0
+    }
+   ]
+  },
+  "altar": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-altar-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 960.0,
+     "h": 512.0
+    }
+   ]
+  },
+  "arena": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-arena-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 960.0,
+     "h": 416.0
+    }
+   ]
+  },
+  "catacumbas": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-catacumbas-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 880.0,
+     "h": 768.0
+    },
+    {
+     "file": "t-catacumbas-1.webp",
+     "x": 880.0,
+     "y": 0.0,
+     "w": 880.0,
+     "h": 768.0
+    }
+   ]
+  },
+  "celas": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-celas-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 800.0,
+     "h": 704.0
+    },
+    {
+     "file": "t-celas-1.webp",
+     "x": 800.0,
+     "y": 0.0,
+     "w": 800.0,
+     "h": 704.0
+    },
+    {
+     "file": "t-celas-2.webp",
+     "x": 1600.0,
+     "y": 0.0,
+     "w": 800.0,
+     "h": 704.0
+    }
+   ]
+  },
+  "celas-secret": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-celas-secret-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 800.0,
+     "h": 704.0
+    }
+   ]
+  },
+  "claustro": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-claustro-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 720.0,
+     "h": 640.0
+    },
+    {
+     "file": "t-claustro-1.webp",
+     "x": 720.0,
+     "y": 0.0,
+     "w": 720.0,
+     "h": 640.0
+    }
+   ]
+  },
+  "claustro-secret": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-claustro-secret-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 720.0,
+     "h": 640.0
+    }
+   ]
+  },
+  "correntes": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-correntes-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 960.0,
+     "h": 704.0
+    }
+   ]
+  },
+  "cripta": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-cripta-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 768.0,
+     "h": 384.0
+    }
+   ]
+  },
+  "escadaria": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-escadaria-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 576.0,
+     "h": 592.0
+    }
+   ]
+  },
+  "fosso": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-fosso-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 896.0,
+     "h": 672.0
+    },
+    {
+     "file": "t-fosso-1.webp",
+     "x": 0.0,
+     "y": 672.0,
+     "w": 896.0,
+     "h": 672.0
+    }
+   ]
+  },
+  "fuga": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-fuga-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 960.0,
+     "h": 416.0
+    },
+    {
+     "file": "t-fuga-1.webp",
+     "x": 960.0,
+     "y": 0.0,
+     "w": 960.0,
+     "h": 416.0
+    },
+    {
+     "file": "t-fuga-2.webp",
+     "x": 1920.0,
+     "y": 0.0,
+     "w": 960.0,
+     "h": 416.0
+    }
+   ]
+  },
+  "galeria": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-galeria-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 960.0,
+     "h": 480.0
+    },
+    {
+     "file": "t-galeria-1.webp",
+     "x": 960.0,
+     "y": 0.0,
+     "w": 960.0,
+     "h": 480.0
+    }
+   ]
+  },
+  "galeria-secret": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-galeria-secret-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 960.0,
+     "h": 480.0
+    },
+    {
+     "file": "t-galeria-secret-1.webp",
+     "x": 960.0,
+     "y": 0.0,
+     "w": 960.0,
+     "h": 480.0
+    }
+   ]
+  },
+  "guarita": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-guarita-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 960.0,
+     "h": 704.0
+    }
+   ]
+  },
+  "mascara": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-mascara-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 560.0,
+     "h": 512.0
+    },
+    {
+     "file": "t-mascara-1.webp",
+     "x": 560.0,
+     "y": 0.0,
+     "w": 560.0,
+     "h": 512.0
+    }
+   ]
+  },
+  "memoria": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-memoria-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 752.0,
+     "h": 480.0
+    },
+    {
+     "file": "t-memoria-1.webp",
+     "x": 752.0,
+     "y": 0.0,
+     "w": 752.0,
+     "h": 480.0
+    },
+    {
+     "file": "t-memoria-2.webp",
+     "x": 1504.0,
+     "y": 0.0,
+     "w": 736.0,
+     "h": 480.0
+    }
+   ]
+  },
+  "nave": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-nave-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 960.0,
+     "h": 640.0
+    },
+    {
+     "file": "t-nave-1.webp",
+     "x": 960.0,
+     "y": 0.0,
+     "w": 960.0,
+     "h": 640.0
+    }
+   ]
+  },
+  "nave-secret": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-nave-secret-0.webp",
+     "x": 960.0,
+     "y": 0.0,
+     "w": 960.0,
+     "h": 640.0
+    }
+   ]
+  },
+  "poco": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-poco-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 960.0,
+     "h": 704.0
+    }
+   ]
+  },
+  "ponte": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-ponte-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 960.0,
+     "h": 544.0
+    },
+    {
+     "file": "t-ponte-1.webp",
+     "x": 960.0,
+     "y": 0.0,
+     "w": 960.0,
+     "h": 544.0
+    },
+    {
+     "file": "t-ponte-2.webp",
+     "x": 1920.0,
+     "y": 0.0,
+     "w": 960.0,
+     "h": 544.0
+    }
+   ]
+  },
+  "praca": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-praca-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 960.0,
+     "h": 544.0
+    },
+    {
+     "file": "t-praca-1.webp",
+     "x": 960.0,
+     "y": 0.0,
+     "w": 960.0,
+     "h": 544.0
+    }
+   ]
+  },
+  "rua": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-rua-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 800.0,
+     "h": 640.0
+    },
+    {
+     "file": "t-rua-1.webp",
+     "x": 800.0,
+     "y": 0.0,
+     "w": 800.0,
+     "h": 640.0
+    },
+    {
+     "file": "t-rua-2.webp",
+     "x": 1600.0,
+     "y": 0.0,
+     "w": 800.0,
+     "h": 640.0
+    }
+   ]
+  },
+  "rua-secret": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-rua-secret-0.webp",
+     "x": 1600.0,
+     "y": 0.0,
+     "w": 800.0,
+     "h": 640.0
+    }
+   ]
+  },
+  "sinos": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-sinos-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 768.0,
+     "h": 960.0
+    },
+    {
+     "file": "t-sinos-1.webp",
+     "x": 768.0,
+     "y": 0.0,
+     "w": 768.0,
+     "h": 960.0
+    }
+   ]
+  },
+  "telhados": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-telhados-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 800.0,
+     "h": 640.0
+    },
+    {
+     "file": "t-telhados-1.webp",
+     "x": 800.0,
+     "y": 0.0,
+     "w": 800.0,
+     "h": 640.0
+    },
+    {
+     "file": "t-telhados-2.webp",
+     "x": 1600.0,
+     "y": 0.0,
+     "w": 800.0,
+     "h": 640.0
+    }
+   ]
+  },
+  "telhados-secret": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-telhados-secret-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 800.0,
+     "h": 640.0
+    },
+    {
+     "file": "t-telhados-secret-1.webp",
+     "x": 800.0,
+     "y": 0.0,
+     "w": 800.0,
+     "h": 640.0
+    }
+   ]
+  }
+ },
+ "backdrop": {
+  "bridge-sky": {
+   "file": "b-bridge-sky.webp",
+   "scale": 2.0
+  },
+  "bridge-far": {
+   "file": "b-bridge-far.webp",
+   "scale": 2.0
+  },
+  "bridge-far-rim": {
+   "file": "b-bridge-far-rim.webp",
+   "scale": 2.0
+  },
+  "bridge-mid": {
+   "file": "b-bridge-mid.webp",
+   "scale": 2.0
+  },
+  "bridge-mid-rim": {
+   "file": "b-bridge-mid-rim.webp",
+   "scale": 2.0
+  },
+  "bridge-fg": {
+   "file": "b-bridge-fg.webp",
+   "scale": 2.0
+  },
+  "clouds-far": {
+   "file": "b-clouds-far.webp",
+   "scale": 2.0
+  },
+  "clouds-near": {
+   "file": "b-clouds-near.webp",
+   "scale": 2.0
+  },
+  "cat-far": {
+   "file": "b-cat-far.webp",
+   "scale": 2.0
+  },
+  "cat-mid": {
+   "file": "b-cat-mid.webp",
+   "scale": 2.0
+  },
+  "mem-sky": {
+   "file": "b-mem-sky.webp",
+   "scale": 2.0
+  },
+  "mem-far": {
+   "file": "b-mem-far.webp",
+   "scale": 2.0
+  },
+  "mem-mid": {
+   "file": "b-mem-mid.webp",
+   "scale": 2.0
+  },
+  "xfg-catacomb": {
+   "file": "b-xfg-catacomb.webp",
+   "scale": 2
+  },
+  "xfg-prison": {
+   "file": "b-xfg-prison.webp",
+   "scale": 2
+  },
+  "xfg-nave": {
+   "file": "b-xfg-nave.webp",
+   "scale": 2
+  },
+  "xfg-city": {
+   "file": "b-xfg-city.webp",
+   "scale": 2
+  },
+  "xfg-memory": {
+   "file": "b-xfg-memory.webp",
+   "scale": 2
+  },
+  "xfg-abyss": {
+   "file": "b-xfg-abyss.webp",
+   "scale": 2
+  }
+ }
+}

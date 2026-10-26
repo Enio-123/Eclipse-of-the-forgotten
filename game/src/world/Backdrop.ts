@@ -3,6 +3,7 @@ import { VIEW_H, VIEW_W } from '../config';
 import type { Level } from './Level';
 import { screenOrigin } from '../gfx/view';
 import { hd, hdScale } from '../gfx/flip';
+import { hdBackdrop, hdKey } from '../gfx/hdAssets';
 
 type Layer = Phaser.GameObjects.Image | Phaser.GameObjects.TileSprite;
 
@@ -10,18 +11,32 @@ type Layer = Phaser.GameObjects.Image | Phaser.GameObjects.TileSprite;
 export const BG = { sky: -20, bolt: -19, cloudsFar: -18, far: -17, cloudsNear: -16.5, mid: -16, fog: -15, beams: -14 } as const;
 // silhuetas pretas na frente de tudo (menos névoa, vinheta e interface)
 export const FG_DEPTH = 21;
+// camadas de cada tema que têm pintura em 2x à parte (as outras já são em 2x no jogo)
+export const HD_LAYERS: Record<string, string[]> = {
+  bridge: ['bridge-sky', 'bridge-far', 'bridge-far-rim', 'clouds-far', 'clouds-near', 'bridge-mid', 'bridge-mid-rim', 'bridge-fg'],
+  catacomb: ['cat-far', 'cat-mid'],
+  memory: ['mem-sky', 'mem-far', 'mem-mid'],
+};
 
 // Camadas de fundo com parallax para cada tema. As camadas "rim" acendem nos relâmpagos.
 export class Backdrop {
   readonly rims: Layer[] = [];
   readonly bg: number;
   private layers: { o: Layer; update: (sx: number, sy: number, t: number) => void }[] = [];
+  // camadas pintadas e a imagem de cada uma (o EXTREME troca pela pintura em 2x)
+  private parts: { o: Layer; key: string }[] = [];
+  // EXTREME: primeiro plano fora de foco nas bordas da tela (só existe em 2x)
+  private fgKey: string | null;
+  private fg: Phaser.GameObjects.TileSprite | null = null;
+  private fgA = 0.92;
   // canto da tela na câmera com zoom: as camadas presas à tela começam aqui
   private so: { x: number; y: number };
 
   constructor(private scene: Phaser.Scene, private level: Level, private room = '') {
     this.so = screenOrigin(scene.cameras.main);
     const theme = level.theme;
+    const abyss = room === 'fosso' || room === 'abismo';
+    this.fgKey = abyss ? 'xfg-abyss' : theme === 'bridge' ? null : `xfg-${theme}`;
     if (theme === 'bridge') this.bridge();
     else if (theme === 'catacomb') this.catacomb();
     else if (theme === 'city') this.city();
@@ -32,11 +47,63 @@ export class Backdrop {
   }
 
   private img(key: string, depth: number) {
-    return this.scene.add.image(this.so.x, this.so.y, key).setOrigin(0).setScrollFactor(0).setDepth(depth);
+    const o = this.scene.add.image(this.so.x, this.so.y, key).setOrigin(0).setScrollFactor(0).setDepth(depth);
+    this.parts.push({ o, key });
+    return o;
   }
 
   private tile(key: string, depth: number, h = VIEW_H, y = 0) {
-    return this.scene.add.tileSprite(this.so.x, this.so.y + y, VIEW_W, h, key).setOrigin(0).setScrollFactor(0).setDepth(depth);
+    const o = this.scene.add.tileSprite(this.so.x, this.so.y + y, VIEW_W, h, key).setOrigin(0).setScrollFactor(0).setDepth(depth);
+    this.parts.push({ o, key });
+    return o;
+  }
+
+  // rolagem de uma camada que repete, em pixels do mundo (a pintura em 2x anda o dobro na imagem)
+  private tx(t: Phaser.GameObjects.TileSprite, v: number) {
+    t.tilePositionX = v / t.tileScaleX;
+  }
+
+  // imagens das camadas que têm pintura em 2x
+  hdKeys() {
+    const keys = this.parts.map((p) => p.key).filter((k) => hdBackdrop(k));
+    if (this.fgKey && hdBackdrop(this.fgKey)) keys.push(this.fgKey);
+    return [...new Set(keys)];
+  }
+
+  // o primeiro plano some quase todo quando o cavaleiro desce para o pé da tela (não esconde o chão)
+  fgFade(low: boolean, dt: number) {
+    if (!this.fg) return;
+    const target = low ? 0.25 : 0.92;
+    this.fgA += (target - this.fgA) * Math.min(1, dt * 5);
+    this.fg.setAlpha(this.fgA);
+  }
+
+  // troca para a pintura em 2x as camadas que já chegaram (ou volta para a normal)
+  useHd(on: boolean) {
+    const fb = this.fgKey ? hdBackdrop(this.fgKey) : null;
+    if (on && fb && !this.fg && this.scene.textures.exists(hdKey(fb.file))) {
+      const fg = this.scene.add.tileSprite(this.so.x, this.so.y, VIEW_W, VIEW_H, hdKey(fb.file)).setOrigin(0).setScrollFactor(0).setDepth(FG_DEPTH - 0.2);
+      fg.setTileScale(1 / fb.scale, 1 / fb.scale).setAlpha(this.fgA);
+      this.fg = fg;
+      this.layers.push({ o: fg, update: (sx) => this.tx(fg, sx * 1.25) });
+    } else if (!on && this.fg) {
+      const fg = this.fg;
+      this.layers = this.layers.filter((l) => l.o !== fg);
+      fg.destroy();
+      this.fg = null;
+    }
+    for (const p of this.parts) {
+      const b = hdBackdrop(p.key);
+      if (!b) continue;
+      const key = on && this.scene.textures.exists(hdKey(b.file)) ? hdKey(b.file) : p.key;
+      if (p.o.texture.key === key) continue;
+      const k = key === p.key ? 1 : 1 / b.scale;
+      if (p.o instanceof Phaser.GameObjects.TileSprite) {
+        const x = p.o.tilePositionX * p.o.tileScaleX;
+        p.o.setTexture(key).setTileScale(k, k);
+        p.o.tilePositionX = x / k;
+      } else p.o.setTexture(key).setScale(k);
+    }
   }
 
   // camada no traço liso que repete: a imagem tem mais pixels que o mundo (hd.json), então o
@@ -72,8 +139,8 @@ export class Backdrop {
     const fg = this.tile('bridge-fg', FG_DEPTH, 420);
     this.rims.push(farRim, midRim);
     this.layers.push(
-      { o: cf, update: (sx, _sy, t) => void ((cf as Phaser.GameObjects.TileSprite).tilePositionX = sx * 0.04 + t * 0.003) },
-      { o: cn, update: (sx, _sy, t) => void ((cn as Phaser.GameObjects.TileSprite).tilePositionX = sx * 0.08 + t * 0.006) },
+      { o: cf, update: (sx, _sy, t) => this.tx(cf, sx * 0.04 + t * 0.003) },
+      { o: cn, update: (sx, _sy, t) => this.tx(cn, sx * 0.08 + t * 0.006) },
       {
         o: far,
         update: (sx, sy) => {
@@ -88,14 +155,15 @@ export class Backdrop {
       {
         o: mid,
         update: (sx, sy) => {
-          mid.tilePositionX = midRim.tilePositionX = sx * 0.3;
+          this.tx(mid, sx * 0.3);
+          this.tx(midRim, sx * 0.3);
           mid.y = midRim.y = this.so.y + Math.round(-30 - (sy - baseY) * 0.22);
         },
       },
       {
         o: fog,
         update: (sx, sy, t) => {
-          fog.tilePositionX = sx * 0.5 + t * 0.008;
+          this.tx(fog, sx * 0.5 + t * 0.008);
           fog.y = this.so.y + Math.round(236 - (sy - baseY) * 0.4);
         },
       },
@@ -103,7 +171,7 @@ export class Backdrop {
         // silhuetas da frente passam mais rápido que o cenário
         o: fg,
         update: (sx, sy) => {
-          fg.tilePositionX = sx * 1.3;
+          this.tx(fg, sx * 1.3);
           fg.y = this.so.y + Math.round(-30 - (sy - baseY) * 0.4);
         },
       },
@@ -114,8 +182,8 @@ export class Backdrop {
     const far = this.tile('cat-far', BG.far);
     const mid = this.tile('cat-mid', BG.mid);
     this.layers.push(
-      { o: far, update: (sx) => void (far.tilePositionX = sx * 0.15) },
-      { o: mid, update: (sx) => void (mid.tilePositionX = sx * 0.4) },
+      { o: far, update: (sx) => this.tx(far, sx * 0.15) },
+      { o: mid, update: (sx) => this.tx(mid, sx * 0.4) },
     );
     // fachos de luz que descem das frestas do teto
     const add = Phaser.BlendModes.ADD;
@@ -265,14 +333,14 @@ export class Backdrop {
       {
         o: far,
         update: (sx, sy) => {
-          far.tilePositionX = sx * 0.1;
+          this.tx(far, sx * 0.1);
           far.y = this.so.y + Math.round(-26 - (sy - baseY) * 0.05);
         },
       },
       {
         o: mid,
         update: (sx, sy) => {
-          mid.tilePositionX = sx * 0.3;
+          this.tx(mid, sx * 0.3);
           mid.y = this.so.y + Math.round(-42 - (sy - baseY) * 0.15);
         },
       },

@@ -9,6 +9,7 @@ import { BESTIARY, FORGE, MATERIALS, MEMORIES, MEMORY_TOTAL, OFFERS, PAGES, PAGE
 import { MAP_POS, ROOMS, type Ability, type RoomId } from '../world/rooms';
 import { drawMarker, renderMap, type MapHere } from './mapview';
 import { RES, applyRes, resFor } from '../gfx/view';
+import { FORCED_PRESET, PRESETS, PRESET_LABEL, applyFpsLimit, presetOf, type FpsLimit, type GfxFlags, type Level3, type Preset } from '../systems/Graphics';
 
 type ScreenId = 'loading' | 'intro' | 'menu' | 'erase' | 'weapons' | 'settings' | 'pause' | 'end' | 'map' | 'shop' | 'inventory' | 'talk' | 'forge' | 'journal';
 
@@ -361,13 +362,26 @@ class UI {
 
   // ---------- escolha da arma ----------
   // has: quais armas já dá para usar (as de chefe aparecem trancadas até vencer o chefe)
-  weapons(o: { current: WeaponId; has: (w: WeaponId) => boolean; confirmLabel: string; onConfirm: (w: WeaponId) => void; onBack: () => void }) {
+  // show: quais aparecem (as de começo que ficaram para trás não aparecem); sub: a frase de cima
+  weapons(o: {
+    current: WeaponId;
+    has: (w: WeaponId) => boolean;
+    show?: (w: WeaponId) => boolean;
+    title?: string;
+    sub: string;
+    confirmLabel: string;
+    onConfirm: (w: WeaponId) => void;
+    onBack: () => void;
+  }) {
     const s = $('#screen-weapons');
     const cards = $('.cards', s);
     cards.innerHTML = '';
-    let sel: WeaponId = o.has(o.current) ? o.current : 'scythe';
+    $('h2', s).textContent = o.title ?? 'Escolha a sua arma';
+    $('.sub', s).textContent = o.sub;
+    const list = WEAPON_ORDER.filter((w) => !o.show || o.show(w));
+    let sel: WeaponId = o.has(o.current) && list.includes(o.current) ? o.current : (list.find((w) => o.has(w)) ?? 'scythe');
     const items: { id: WeaponId; card: HTMLButtonElement; sprite: HTMLElement; cel: HTMLElement; meta: SheetMeta; t0: number }[] = [];
-    for (const id of WEAPON_ORDER) {
+    for (const id of list) {
       const W = WEAPONS[id];
       const locked = !o.has(id);
       const card = el('button', locked ? 'card locked' : 'card') as HTMLButtonElement;
@@ -493,6 +507,7 @@ class UI {
       };
     });
     this.renderQuality();
+    this.bindGraphics(s);
     const vib = $<HTMLInputElement>('input[data-opt="vibration"]', s);
     vib.checked = settings.data.vibration;
     vib.onchange = () => {
@@ -504,6 +519,53 @@ class UI {
     this.renderBinds();
     this.renderPad();
     this.push('settings', () => this.pop());
+  }
+
+  // predefinição gráfica e cada ajuste à parte (valem na hora, na sala atual)
+  private bindGraphics(s: HTMLElement) {
+    const radios = [...s.querySelectorAll<HTMLInputElement>('input[name="gfx"]')];
+    const boxes = [...s.querySelectorAll<HTMLInputElement>('input[data-gfx]')];
+    const picks = [...s.querySelectorAll<HTMLSelectElement>('select[data-gfx]')];
+    const fps = $<HTMLSelectElement>('select[data-opt="fps"]', s);
+    const render = () => {
+      const f = settings.data.gfx;
+      const p = presetOf(f);
+      radios.forEach((r) => (r.checked = r.value === p));
+      boxes.forEach((b) => (b.checked = !!f[b.dataset.gfx as keyof GfxFlags]));
+      picks.forEach((sel) => (sel.value = String(f[sel.dataset.gfx as keyof GfxFlags])));
+      fps.value = String(settings.data.fps);
+      const forced = FORCED_PRESET ? ` O endereço fixou ${PRESET_LABEL[FORCED_PRESET]} nesta sessão.` : '';
+      // sem WebGL o Phaser desenha no Canvas: luz, sombra, névoa, reflexo e brilho não existem lá
+      const canvasOnly = this.game?.renderer.type === 1 /* Phaser.CANVAS */ ? ' Este navegador está sem WebGL: aqui só o visual do Performance funciona.' : '';
+      $('#screen-settings .gfx-note').textContent = (p ? `Em uso: ${PRESET_LABEL[p]}.` : 'Em uso: ajustes personalizados.') + forced + canvasOnly;
+    };
+    radios.forEach((r) => {
+      r.onchange = () => {
+        settings.data.gfx = { ...PRESETS[r.value as Preset] };
+        settings.save();
+        render();
+      };
+    });
+    boxes.forEach((b) => {
+      b.onchange = () => {
+        settings.data.gfx = { ...settings.data.gfx, [b.dataset.gfx as keyof GfxFlags]: b.checked };
+        settings.save();
+        render();
+      };
+    });
+    picks.forEach((sel) => {
+      sel.onchange = () => {
+        settings.data.gfx = { ...settings.data.gfx, [sel.dataset.gfx as keyof GfxFlags]: Number(sel.value) as Level3 };
+        settings.save();
+        render();
+      };
+    });
+    fps.onchange = () => {
+      settings.data.fps = Number(fps.value) as FpsLimit;
+      settings.save();
+      if (this.game) applyFpsLimit(this.game.loop as unknown as Parameters<typeof applyFpsLimit>[0], settings.data.fps);
+    };
+    render();
   }
 
   // resolução em uso agora (a automática pode ter baixado sozinha)
@@ -773,6 +835,8 @@ class UI {
     for (const id of WEAPON_IDS) {
       const W = WEAPONS[id];
       const has = progress.hasWeapon(id);
+      // as armas de começo que ele não escolheu ficaram para trás: nem aparecem
+      if (!has && !W.boss) continue;
       const li = el('li', has ? '' : 'unknown');
       const b = W.boss;
       if (has) li.append(el('b', '', W.name), el('span', 'how', id === settings.data.weapon ? 'em uso' : 'liberada'));

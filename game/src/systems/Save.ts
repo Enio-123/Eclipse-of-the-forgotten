@@ -1,4 +1,7 @@
 import { PLAYER, WEAPONS, WEAPON_IDS, type WeaponId } from '../config';
+
+// as quatro armas de começo (as outras vêm dos chefes)
+export const STARTERS: WeaponId[] = WEAPON_IDS.filter((w) => !WEAPONS[w].boss);
 import type { Ability, RoomId } from '../world/rooms';
 import { OFFERS, SLOTS } from '../world/lore';
 
@@ -7,6 +10,9 @@ export interface SaveData {
   room: RoomId;
   entry: string;
   weapon: WeaponId;
+  // a arma escolhida no começo: vale para o jogo inteiro, as outras três não voltam
+  // (null num save de antes dessa regra que estava com uma arma de chefe: escolhe uma vez)
+  starter: WeaponId | null;
   kintsugi: number;
   prologueDone: boolean;
   seen: string[];
@@ -61,6 +67,12 @@ const echoOf = (v: unknown): Echo | null => {
   return { room: e.room as RoomId, x: e.x!, y: e.y!, coins: Math.floor(e.coins!) };
 };
 
+// arma do começo: a gravada; num save antigo, a que ele estava usando (se não for de chefe)
+const starterOf = (d: Partial<SaveData>): WeaponId | null => {
+  if (STARTERS.includes(d.starter as WeaponId)) return d.starter as WeaponId;
+  return STARTERS.includes(d.weapon as WeaponId) ? (d.weapon as WeaponId) : null;
+};
+
 const KEY = 'eclipse-progresso-v1';
 const ROOM_IDS: RoomId[] = [
   'ponte', 'catacumbas', 'memoria', 'sinos', 'cripta',
@@ -79,6 +91,7 @@ export function loadSave(): SaveData | null {
       room: d.room as RoomId,
       entry: d.entry,
       weapon: WEAPON_IDS.includes(d.weapon as WeaponId) ? (d.weapon as WeaponId) : 'scythe',
+      starter: starterOf(d),
       kintsugi: typeof d.kintsugi === 'number' ? Math.max(0, Math.min(3, Math.floor(d.kintsugi))) : 0,
       prologueDone: !!d.prologueDone,
       seen: strs(d.seen),
@@ -122,6 +135,7 @@ export const progress = {
   room: 'ponte' as RoomId,
   entry: 'P',
   weapon: 'scythe' as WeaponId,
+  starter: null as WeaponId | null,
   abilities: new Set<Ability>(),
   // memórias guardadas e as que foram trocadas com o Cobrador (essas viram "esquecidas")
   memories: new Set<string>(),
@@ -144,6 +158,7 @@ export const progress = {
     this.seen = new Set();
     this.room = 'ponte';
     this.entry = 'P';
+    this.starter = null;
     this.abilities = new Set();
     this.memories = new Set();
     this.traded = new Set();
@@ -165,6 +180,7 @@ export const progress = {
     this.room = d.room;
     this.entry = d.entry;
     this.weapon = d.weapon;
+    this.starter = d.starter;
     this.abilities = new Set(d.abilities);
     this.memories = new Set(d.memories);
     this.traded = new Set(d.traded);
@@ -231,9 +247,18 @@ export const progress = {
     return 'on';
   },
 
-  // ---------- armas de chefe ----------
+  // ---------- armas ----------
+  // de chefe: depois da vitória; de começo: só a escolhida (sem escolha gravada, qualquer uma)
   hasWeapon(id: WeaponId) {
-    return !WEAPONS[id].boss || this.seen.has(`weapon:${id}`);
+    if (WEAPONS[id].boss) return this.seen.has(`weapon:${id}`);
+    return !this.starter || id === this.starter;
+  },
+
+  // escolhe a arma do começo de vez (jogo novo, ou a primeira troca num save antigo)
+  setStarter(id: WeaponId) {
+    if (WEAPONS[id].boss || this.starter) return;
+    this.starter = id;
+    this.save();
   },
 
   // memórias que ainda dá para trocar
@@ -254,7 +279,7 @@ export const progress = {
     const visited: Record<string, number[]> = {};
     for (const [k, v] of this.visited) visited[k] = [...v];
     writeSave({
-      room: this.room, entry: this.entry, weapon: this.weapon, kintsugi: this.kintsugi, prologueDone: this.prologueDone,
+      room: this.room, entry: this.entry, weapon: this.weapon, starter: this.starter, kintsugi: this.kintsugi, prologueDone: this.prologueDone,
       seen: [...this.seen], abilities: [...this.abilities], memories: [...this.memories], traded: [...this.traded],
       upgrades: [...this.upgrades], visited, coins: this.coins, equipped: [...this.equipped],
       kills: Object.fromEntries(this.kills), levels: Object.fromEntries(this.levels), echo: this.echo,

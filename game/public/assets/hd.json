@@ -34,5 +34,9 @@
  "prison-far": 2,
  "prison-mid": 2,
  "fosso-far": 2,
- "fosso-mid": 2
+ "fosso-mid": 2,
+ "deco-portal-cathedral": 2,
+ "deco-portal-nave": 2,
+ "deco-portal-prison": 2,
+ "deco-door-mask": 2
 }

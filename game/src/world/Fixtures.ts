@@ -7,6 +7,7 @@ import { progress } from '../systems/Save';
 import { DEPTH } from './Decor';
 import { hd, hdScale } from '../gfx/flip';
 import type { Breakable } from './secrets';
+import { hdKey, type HdPiece } from '../gfx/hdAssets';
 import type { DoorDef, TrapdoorDef } from './rooms';
 
 // o véu fica acima de tudo do cenário e dos inimigos, abaixo do cavaleiro
@@ -34,7 +35,9 @@ export interface Wall {
   b: Breakable;
   hp: number;
   rect: Phaser.Geom.Rectangle;
-  veil: Phaser.GameObjects.Image | Phaser.GameObjects.Graphics;
+  veil: Phaser.GameObjects.Image | Phaser.GameObjects.Graphics | Phaser.GameObjects.Container;
+  // trecho do mundo que a pintura do véu cobre
+  area: { x: number; y: number; w: number; h: number };
   baseX: number;
   shakeT: number;
 }
@@ -139,6 +142,10 @@ export class Fixtures {
   readonly trapdoors: Trapdoor[] = [];
   readonly alarms: AlarmGate[] = [];
   readonly rings: Ring[] = [];
+  // vigas dos poços já desenhadas (várias argolas podem pendurar da mesma)
+  private beams = new Set<string>();
+  // brilho das chamas das paredes das portas (tremem um pouco)
+  private portalGlows: { g: Phaser.GameObjects.Image; ph: number }[] = [];
   // membranas abissais: a pele de tinta escorre devagar e a luz roxa respira atrás
   readonly membranes: { skin: Phaser.GameObjects.TileSprite; glow: Phaser.GameObjects.Image; k: number; x: number; y: number; h: number; ph: number }[] = [];
   keys: Keys | null = null;
@@ -206,13 +213,39 @@ export class Fixtures {
 
   // ---------- portas ----------
   private addDoor(i: number, x: number, y: number, def: DoorDef) {
-    const key = this.ensure('deco-door', 32, 56, (g) => {
-      g.fillStyle(0x1a1410).fillRect(0, 8, 32, 48).fillEllipse(16, 10, 32, 20);
-      g.fillStyle(0x3a2a1c).fillRect(3, 10, 26, 46).fillEllipse(16, 12, 26, 16);
-      g.fillStyle(0x6b6f7c).fillRect(3, 24, 26, 2).fillRect(3, 42, 26, 2).fillRect(22, 32, 3, 3);
-    });
-    const sprite = hd(this.scene.add.image(x, y, key).setOrigin(0.5, 1).setDepth(DEPTH.prop));
+    const s = this.scene;
+    const room = s.room.id;
+    // a porta da máscara (entre a Fuga e a Sala da Máscara) é de ferro, com o rosto em relevo
+    const mask = (room === 'fuga' && def.to === 'mascara') || (room === 'mascara' && def.to === 'fuga');
+    const key = mask && s.textures.exists('deco-door-mask')
+      ? 'deco-door-mask'
+      : this.ensure('deco-door', 32, 56, (g) => {
+          g.fillStyle(0x1a1410).fillRect(0, 8, 32, 48).fillEllipse(16, 10, 32, 20);
+          g.fillStyle(0x3a2a1c).fillRect(3, 10, 26, 46).fillEllipse(16, 12, 26, 16);
+          g.fillStyle(0x6b6f7c).fillRect(3, 24, 26, 2).fillRect(3, 42, 26, 2).fillRect(22, 32, 3, 3);
+        });
+    this.addPortal(x, y);
+    const sprite = hd(s.add.image(x, y, key).setOrigin(0.5, 1).setDepth(DEPTH.prop));
     this.doors.push({ i, x, y, def, sprite });
+  }
+
+  // a parede onde a porta está: o pórtico da catedral na praça, a parede de capela dentro da
+  // catedral e o paredão de pedra na prisão. Fica atrás do terreno (a rocha da sala corta as bordas)
+  // e as chamas dela (lanterna, velas, tocha) acendem de verdade
+  private addPortal(x: number, y: number) {
+    const s = this.scene;
+    const theme = s.level.theme;
+    const key = theme === 'city' && s.room.id === 'praca' ? 'deco-portal-cathedral'
+      : theme === 'city' || theme === 'nave' ? 'deco-portal-nave'
+      : theme === 'prison' ? 'deco-portal-prison'
+      : null;
+    if (!key || !s.textures.exists(key)) return;
+    hd(s.add.image(x, y, key).setOrigin(0.5, 1).setDepth(DEPTH.prop - 0.5));
+    const lights = (s.cache.json.get('portal-lights') as Record<string, [number, number, number][]> | undefined)?.[key] ?? [];
+    for (const [dx, dy, color] of lights) {
+      const g = s.add.image(x + dx, y + dy, 'glow').setScale(0.9).setTint(color).setAlpha(0.55).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.prop - 0.4);
+      this.portalGlows.push({ g, ph: Math.random() * Math.PI * 2 });
+    }
   }
 
   // ---------- grades com chave ----------
@@ -274,7 +307,39 @@ export class Fixtures {
       Math.min(...cx) * TILE, Math.min(...cy) * TILE,
       (Math.max(...cx) - Math.min(...cx) + 1) * TILE, (Math.max(...cy) - Math.min(...cy) + 1) * TILE,
     );
-    this.walls.push({ b, hp: b.ch === 'V' ? 2 : 3, rect, veil, baseX: veil.x, shakeT: 0 });
+    this.walls.push({ b, hp: b.ch === 'V' ? 2 : 3, rect, veil, area: { x, y, w, h }, baseX: veil.x, shakeT: 0 });
+  }
+
+  // EXTREME: a pintura do véu em 2x (pieces = pedaços da camada secreta da sala; null volta para a normal)
+  useHdVeils(pieces: HdPiece[] | null, scale: number) {
+    const s = this.scene;
+    const key = `terrain-${s.room.id}-secret`;
+    for (const w of this.walls) {
+      const old = w.veil;
+      if (old instanceof Phaser.GameObjects.Graphics) continue;
+      const isHd = old instanceof Phaser.GameObjects.Container;
+      if (!!pieces === isHd) continue;
+      let veil: Wall['veil'];
+      const a = w.area;
+      if (pieces) {
+        const c = s.add.container(0, 0).setDepth(VEIL_DEPTH);
+        for (const p of pieces) {
+          const x0 = Math.max(a.x, p.x);
+          const y0 = Math.max(a.y, p.y);
+          const x1 = Math.min(a.x + a.w, p.x + p.w);
+          const y1 = Math.min(a.y + a.h, p.y + p.h);
+          if (x1 <= x0 || y1 <= y0) continue;
+          const img = s.add.image(p.x, p.y, hdKey(p.file)).setOrigin(0).setScale(1 / scale);
+          img.setCrop((x0 - p.x) * scale, (y0 - p.y) * scale, (x1 - x0) * scale, (y1 - y0) * scale);
+          c.add(img);
+        }
+        veil = c;
+      } else veil = s.add.image(0, 0, key).setOrigin(0).setCrop(a.x, a.y, a.w, a.h).setDepth(VEIL_DEPTH);
+      veil.setAlpha(old.alpha);
+      old.destroy();
+      w.veil = veil;
+      w.baseX = 0;
+    }
   }
 
   // a célula (em tiles) está escondida atrás de uma parede ainda de pé?
@@ -302,6 +367,7 @@ export class Fixtures {
     if (i < 0) return;
     this.walls.splice(i, 1);
     s.level.breakOpen(w.b);
+    s.lighting?.refreshMask();
     progress.seen.add(w.b.id);
     if (!loud) {
       w.veil.destroy();
@@ -734,6 +800,63 @@ export class Fixtures {
     const glow = s.add.image(x, y, 'glow').setScale(1.2).setTint(0xbcd4ff).setAlpha(0).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.front);
     const sprite = hd(s.add.image(x, y, key).setDepth(DEPTH.prop + 0.3));
     this.rings.push({ x, y, sprite, glow, lit: 0 });
+    this.anchorRing(x, y);
+  }
+
+  // a argola fica presa em alguma coisa: corrente até o teto; num poço sem teto, corrente até uma
+  // viga entre as duas paredes; com uma parede perto, um braço de ferro; sem nada, a corrente sobe
+  // até sumir no alto da sala
+  private anchorRing(x: number, y: number) {
+    const s = this.scene;
+    const L = s.level;
+    const tx = Math.floor(x / TILE);
+    const ty = Math.floor(y / TILE);
+    const top = y - 8;
+    const chain = (y0: number) => {
+      s.add.tileSprite(x, y0, 5, top - y0 + 2, 'deco-chain').setOrigin(0.5, 0).setDepth(DEPTH.prop + 0.25);
+    };
+    const ceil = L.ceilingAbove(tx, ty - 1);
+    if (ceil >= 0 && ty - ceil <= 30) {
+      const y0 = (ceil + 1) * TILE;
+      chain(y0);
+      s.add.image(x, y0, 'deco-anchor').setOrigin(0.5, 0).setDepth(DEPTH.prop + 0.26);
+      return;
+    }
+    const wallAt = (dir: number) => {
+      for (let d = 1; d <= 6; d++) if (L.solidCell(tx + dir * d, ty)) return tx + dir * d;
+      return -1;
+    };
+    const lw = wallAt(-1);
+    const rw = wallAt(1);
+    if (lw >= 0 && rw >= 0) {
+      // poço: a viga fica no alto, onde as duas paredes ainda existem
+      let yb = ty;
+      while (yb - 1 >= 0 && L.solidCell(lw, yb - 1) && L.solidCell(rw, yb - 1)) yb--;
+      const by = (Math.min(yb + 1, ty - 2)) * TILE + 2;
+      const key = `${lw}:${rw}:${by}`;
+      if (!this.beams.has(key)) {
+        this.beams.add(key);
+        const x0 = (lw + 1) * TILE;
+        const x1 = rw * TILE;
+        s.add.tileSprite(x0, by, x1 - x0, 6, 'deco-post').setOrigin(0, 0).setDepth(DEPTH.support);
+        s.add.image(x0, by + 4, 'deco-bracket').setOrigin(0, 0).setDepth(DEPTH.support);
+        s.add.image(x1, by + 4, 'deco-bracket').setOrigin(1, 0).setFlipX(true).setDepth(DEPTH.support);
+      }
+      chain(by + 5);
+      return;
+    }
+    const wall = lw >= 0 && tx - lw <= 4 ? lw : rw >= 0 && rw - tx <= 4 ? rw : -1;
+    if (wall >= 0) {
+      // braço de ferro saindo da parede, com a mão-francesa embaixo
+      const face = wall < tx ? (wall + 1) * TILE : wall * TILE;
+      const ay = top - 6;
+      const w = Math.abs(x - face) + 3;
+      s.add.tileSprite(Math.min(face, x - 3), ay, w, 4, 'deco-post').setOrigin(0, 0).setDepth(DEPTH.support);
+      s.add.image(face, ay + 3, 'deco-bracket').setOrigin(wall < tx ? 0 : 1, 0).setFlipX(wall > tx).setDepth(DEPTH.support);
+      chain(ay + 3);
+      return;
+    }
+    chain(-8);
   }
 
   // a argola que o gancho alcança agora acende de leve
@@ -856,6 +979,7 @@ export class Fixtures {
       m.glow.setAlpha(0.18 + 0.07 * Math.sin(time * 0.0021 + m.ph));
       if (Math.random() < dt * 1.6) this.scene.echoMotes(m.x + (Math.random() - 0.5) * 10, m.y + Math.random() * m.h, Math.random() < 0.35);
     }
+    for (const p of this.portalGlows) p.g.setAlpha(0.5 + Math.sin(time * 0.009 + p.ph) * 0.05 + Math.sin(time * 0.023 + p.ph * 2) * 0.04);
     for (const r of this.rings) {
       const target = r.lit ? 0.5 + Math.sin(time * 0.008) * 0.12 : 0;
       r.glow.alpha += (target - r.glow.alpha) * Math.min(1, dt * 12);

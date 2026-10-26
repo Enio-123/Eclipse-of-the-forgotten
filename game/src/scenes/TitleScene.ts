@@ -70,8 +70,8 @@ export class TitleScene extends Phaser.Scene {
       onContinue: () => {
         if (!save || this.leaving) return;
         progress.restore(save);
-        // uma arma de chefe só vale se a vitória está no save
-        settings.data.weapon = progress.hasWeapon(save.weapon) ? save.weapon : 'scythe';
+        // uma arma de chefe só vale se a vitória está no save; de começo, só a escolhida
+        settings.data.weapon = progress.hasWeapon(save.weapon) ? save.weapon : (progress.starter ?? 'scythe');
         settings.save();
         this.go({ room: save.room, entry: save.entry, from: 'continue' });
       },
@@ -98,6 +98,7 @@ export class TitleScene extends Phaser.Scene {
     ui.weapons({
       current: settings.data.weapon,
       has: (w) => !WEAPONS[w].boss,
+      sub: 'A foice é a arma do carrasco. As outras são estilos diferentes de lutar. A escolhida vai com você até o fim: as outras três não voltam.',
       confirmLabel: 'Começar',
       onConfirm: (w) => {
         if (this.leaving) return;
@@ -105,6 +106,8 @@ export class TitleScene extends Phaser.Scene {
         settings.data.weapon = w;
         settings.save();
         progress.reset();
+        // a escolha vale para o jogo inteiro (entra no primeiro save)
+        progress.starter = w;
         ui.closeAll();
         const cam = this.cameras.main;
         cam.fadeOut(900, 0, 0, 0);

@@ -88,6 +88,8 @@ export interface RoomDef {
   npcs?: string[][];
   boss?: BossId;
   trapdoors?: TrapdoorDef[];
+  // quanto da pintura a óleo cobre a tela (0 a 1); sem isto vale o do tema
+  paint?: number;
 }
 
 // salas do prólogo
@@ -541,6 +543,7 @@ const CHAPTER3: Record<'poco' | 'celas' | 'correntes' | 'guarita' | 'fuga' | 'ar
     drips: 34,
     music: 'fosso',
     ambience: 'prison',
+    paint: 0.2,
     hints: [],
     thoughts: [
       { x: 40, y: 27, text: 'Máscaras quebradas, aos montes. Jogavam aqui o que sobrava de cada condenado.' },
@@ -560,6 +563,7 @@ const CHAPTER3: Record<'poco' | 'celas' | 'correntes' | 'guarita' | 'fuga' | 'ar
     drips: 12,
     music: 'fosso',
     ambience: 'prison',
+    paint: 0.22,
     hints: [],
     thoughts: [{ x: 4, text: 'Um lago de tinta. Alguma coisa embaixo dele respira no meu ritmo.' }],
   },

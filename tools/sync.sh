@@ -10,4 +10,5 @@ cp $SP/art/*.py $DST/arte/gerador/
 cp $SP/art2/*.py $DST/arte/pintura/
 cp $SP/tools/*.cjs $SP/tools/*.py $SP/tools/*.sh $DST/ferramentas/ 2>/dev/null
 cp $SP/LEIAME.md $DST/LEIAME.md
+mkdir -p $DST/lore && cp $SP/lore/*.md $DST/lore/
 echo sincronizado

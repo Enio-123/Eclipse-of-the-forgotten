@@ -83,7 +83,7 @@
     <section id="screen-weapons" class="screen">
       <div class="panel wide">
         <h2>Escolha a sua arma</h2>
-        <p class="sub">A foice é a arma do carrasco. As outras são estilos diferentes de lutar. Dá para trocar depois no menu de pausa.</p>
+        <p class="sub">A foice é a arma do carrasco. As outras são estilos diferentes de lutar. A escolhida vai com você até o fim: as outras três não voltam.</p>
         <div class="cards" role="radiogroup" aria-label="Armas"></div>
         <div class="row">
           <button data-cmd="back" class="ghost">Voltar</button>
@@ -131,6 +131,24 @@
             <label><input type="radio" name="quality" value="low" /> <span>Leve<small>Menos pixels na tela: para celular mais fraco ou computador sem placa de vídeo</small></span></label>
           </fieldset>
           <p class="note quality-note"></p>
+          <fieldset class="scheme three gfx-presets">
+            <legend>Gráficos</legend>
+            <label><input type="radio" name="gfx" value="performance" /> <span>Performance<small>O visual original, leve: sem luz dinâmica nem efeitos, para aparelho fraco</small></span></label>
+            <label><input type="radio" name="gfx" value="high" /> <span>High<small>O visual original com luz, névoa, brilho, reflexos e vida no cenário</small></span></label>
+            <label><input type="radio" name="gfx" value="extreme" /> <span>EXTREME GRAPHICS<small>O cenário reconstruído: alta resolução, sombras suaves, fachos de luz, profundidade e tudo se mexendo</small></span></label>
+          </fieldset>
+          <div class="gfx-flags">
+            <label class="check"><input type="checkbox" data-gfx="hd" /> <span>Cenário em alta resolução</span></label>
+            <label class="check"><input type="checkbox" data-gfx="light" /> <span>Luz dinâmica</span></label>
+            <label class="check"><input type="checkbox" data-gfx="shadows" /> <span>Sombras suaves</span></label>
+            <label class="check"><input type="checkbox" data-gfx="fog" /> <span>Névoa</span></label>
+            <label class="check"><input type="checkbox" data-gfx="reflections" /> <span>Reflexos</span></label>
+            <label class="check"><input type="checkbox" data-gfx="post" /> <span>Brilho, fachos de luz e pintura</span></label>
+            <label class="pick">Partículas <select data-gfx="particles"><option value="0">Poucas</option><option value="1">Médias</option><option value="2">Muitas</option></select></label>
+            <label class="pick">Vida no cenário <select data-gfx="life"><option value="0">Pouca</option><option value="1">Média</option><option value="2">Completa</option></select></label>
+            <label class="pick">Limite de quadros <select data-opt="fps"><option value="0">Acompanha a tela</option><option value="60">60 por segundo</option><option value="30">30 por segundo</option></select></label>
+          </div>
+          <p class="note gfx-note"></p>
         </div>
         <div class="row">
           <button data-cmd="back" class="primary">Voltar</button>

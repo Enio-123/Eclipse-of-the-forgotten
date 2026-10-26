@@ -116,6 +116,10 @@ export class Player {
   private airJumps = 0;
   private wallDustT = 0;
   private hookCd = 0;
+  private hookBuffer = 0;
+  // a argola onde ele acabou de chegar (a mira pula ela por um instante)
+  lastRing: { x: number; y: number } | null = null;
+  lastRingT = 0;
   private chain: Phaser.GameObjects.Graphics;
   // golpe da corrente: ela estica até a ponta do golpe e volta (no lugar do arco de corte)
   private lashG: Phaser.GameObjects.Graphics;
@@ -217,6 +221,7 @@ export class Player {
     this.invuln -= dt;
     this.dropT -= dt;
     this.hookCd -= dt;
+    this.lastRingT -= dt;
     if (onGround) {
       this.coyote = C.coyote;
       this.airDash = true;
@@ -370,7 +375,14 @@ export class Player {
       this.atkBuffer = 0;
       this.startAttack(input, onGround);
     }
-    if (input.pressed.hook && this.canHook && this.hookCd <= 0 && !this.hook && !this.crouched) this.throwHook();
+    // o gancho apertado logo depois de soltar uma argola (recarga ou corrente ainda voltando) fica
+    // guardado um instante: dá para ir de argola em argola sem errar o tempo
+    if (input.pressed.hook) this.hookBuffer = 0.18;
+    else this.hookBuffer -= dt;
+    if (this.hookBuffer > 0 && this.canHook && this.hookCd <= 0 && (!this.hook || this.hook.phase === 'back') && !this.crouched) {
+      this.hookBuffer = 0;
+      this.throwHook();
+    }
   }
 
   // ---------- Gancho de Corrente ----------
@@ -491,6 +503,10 @@ export class Player {
     b.setAllowGravity(true);
     b.velocity.x = ux * C.hookPull * 0.62;
     b.velocity.y = arrived && uy < 0.2 ? -C.hookPop : uy * C.hookPull * 0.4;
+    if (h?.ring) {
+      this.lastRing = { x: h.tx, y: h.ty };
+      this.lastRingT = 0.7;
+    }
     this.airDash = true;
     this.airJumps = this.canDouble ? 1 : 0;
     this.hookCd = C.hookCd * 0.6;

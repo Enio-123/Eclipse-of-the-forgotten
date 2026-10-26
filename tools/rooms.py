@@ -887,7 +887,11 @@ def fosso():
     g.put(35, 2, '1')
     g.put(54, 77, '2')
     g.put(46, 77, 'R')
-    g.put(35, 19, 'o')
+    # três argolas para sair por cima: uma presa no teto da câmara, ao lado da boca do poço, e duas
+    # penduradas da viga lá no alto do poço (o gancho vai de uma para a outra até a Sala da Máscara)
+    g.put(33, 19, 'o')
+    g.put(37, 10, 'o')
+    g.put(34, 2, 'o')
     g.put(4, 42, '$')
     g.put(6, 40, 'm')
     g.put(40, 27, 'c')
@@ -896,6 +900,9 @@ def fosso():
     g.put(22, 24, 'v')
     g.put(46, 50, 'v')
     return g.rows()
+
+
+MINES = False
 
 
 def abismo():
@@ -911,23 +918,238 @@ def abismo():
     plank(g, 15, 21, 21)
     plank(g, 42, 48, 21)
     plank(g, 27, 36, 15)
-    # o nicho atrás da membrana
-    g.fill(63, 24, 67, 27, '.')
+    # o nicho atrás da membrana: o túnel dos mineiros, que leva à Boca da Mina (capítulo 4); sem
+    # as Minas no jogo ainda, o túnel acaba na rocha
+    g.fill(63, 24, 69 if MINES else 67, 27, '.')
     for y in range(24, 28):
         g.put(62, y, '&')
-    g.put(66, 27, '$')
+    g.put(65, 27, '$')
     g.put(1, 27, '1')
     g.put(44, 27, 'X')
+    if MINES:
+        g.put(68, 27, '2')
+    return g.rows()
+
+
+# ======================================================================================
+# Minas Abandonadas (capítulo 4). Atrás da membrana do Leito do Abismo. Onde a Casa Vhalor tirava
+# o Âmbar Mnêmico. Caracteres novos:
+# x cristal de âmbar aceso (enfeite e luz)  u mineiro esquecido  z morcego de âmbar
+# r registro (documento da lore)  j vagonete  h prensa grande  @ bloco de âmbar (só a Picareta quebra)
+# y moldura de madeira dos túneis (escora)
+# ======================================================================================
+def boca():
+    """Boca da Mina: o túnel baixo que vem do abismo sobe para a caverna da entrada. A vela fica
+    logo no começo. Os trilhos seguem para a Galeria dos Trilhos, à direita; o poço do elevador (a
+    gaiola caiu faz tempo) desce para o Veio de Âmbar e é por ele que se volta, de parede em parede."""
+    W, H = 100, 36
+    g = Grid(W, H, '#')
+    g.fill(0, 23, 33, 29, '.')
+    g.fill(30, 7, 96, 29, '.')
+    g.fill(97, 22, 99, 29, '.')
+    # rocha do meio, tábua para subir e a prateleira alta do cofre
+    g.fill(46, 19, 56, 20, '#')
+    plank(g, 38, 43, 24)
+    plank(g, 59, 64, 15)
+    # o poço do elevador
+    g.fill(72, 30, 77, 35, '.')
+    # pontas de pedra no teto
+    for x in range(34, 96, 6):
+        g.fill(x, 7, x, 8 + (x % 3), '#')
+    r = 29
+    g.put(2, r, '1')
+    g.put(98, r, '2')
+    g.put(80, r, '3')
+    g.put(8, r, 'R')
+    g.put(61, 14, '$')
+    g.put(51, 18, 'r')
+    g.put(50, r, 'u')
+    g.put(88, r, 'u')
+    g.put(62, 11, 'z')
+    for x in (18, 36, 66, 92):
+        g.put(x, r, 'y')
+    for (x, y) in ((31, 22), (45, 18), (57, 21), (70, 9), (95, 12)):
+        g.put(x, y, 'x')
+    return g.rows()
+
+
+def trilhos():
+    """Galeria dos Trilhos: um túnel comprido com trilhos e três falhas fundas com espinhos. O
+    vagonete espera no começo; com um golpe ele anda e pula as falhas pelas rampas, e o teto
+    desaba atrás dele. A pé também se passa (pulo duplo e dash), mais devagar. Vigas baixas: no
+    vagonete, agachado."""
+    W, H = 150, 30
+    g = Grid(W, H, '#')
+    g.fill(0, 8, W - 1, 23, '.')
+    # as falhas, com espinhos no fundo
+    for (x0, x1) in ((38, 47), (76, 86), (112, 121)):
+        g.fill(x0, 24, x1, 28, '.')
+        for x in range(x0, x1 + 1):
+            g.put(x, 28, '^')
+    # vigas baixas (sobra pouco espaço em cima do vagonete)
+    for x in (60, 98, 132):
+        g.fill(x, 8, x + 1, 20, '#')
+    # pontas no teto e trechos mais baixos
+    g.fill(0, 8, 30, 13, '#')
+    g.fill(138, 8, W - 1, 13, '#')
+    r = 23
+    g.put(2, r, '1')
+    g.put(147, r, '2')
+    g.put(8, r, 'j')
+    g.put(26, r, 'u')
+    g.put(70, r, 'u')
+    g.put(104, r, 'u')
+    g.put(90, 15, 'z')
+    for x in (20, 54, 92, 128):
+        g.put(x, r, 'y')
+    for (x, y) in ((34, 14), (68, 9), (108, 10), (126, 15)):
+        g.put(x, y, 'x')
+    return g.rows()
+
+
+def prensas():
+    """Casa das Prensas: o salão onde a Casa Vhalor espremia a memória das pessoas direto no
+    Âmbar. Entra-se pelo alto, à esquerda, vindo dos trilhos. Três prensas enormes no chão; a ordem
+    da Casa pregada na parede (registro). Um buraco no chão, à direita, desce para o Veio de Âmbar."""
+    W, H = 90, 44
+    g = Grid(W, H, '#')
+    g.fill(0, 16, 26, 23, '.')
+    g.fill(10, 6, 85, 39, '.')
+    g.fill(10, 24, 26, 26, '#')
+    # plataformas entre as prensas
+    plank(g, 30, 35, 33)
+    plank(g, 44, 50, 28)
+    plank(g, 58, 63, 33)
+    g.fill(70, 29, 85, 30, '#')
+    # buraco para o veio
+    g.fill(74, 40, 79, 43, '.')
+    r = 39
+    g.put(2, 23, '1')
+    g.put(82, r, '2')
+    g.put(12, 23, 'R')
+    g.put(38, r, 'h')
+    g.put(54, r, 'h')
+    g.put(68, r, 'h')
+    g.put(47, 27, 'r')
+    g.put(80, 28, '$')
+    g.put(30, r, 'u')
+    g.put(62, r, 'u')
+    g.put(50, 14, 'z')
+    for (x, y) in ((22, 30), (42, 10), (66, 12), (84, 22)):
+        g.put(x, y, 'x')
+    return g.rows()
+
+
+def veio():
+    """Veio de Âmbar: o poço fundo onde o Âmbar nasce na pedra. Dois buracos no teto: o do
+    elevador (Boca da Mina) à esquerda e o das prensas à direita. Desce-se em zigue-zague entre
+    cristais acesos; no meio, à esquerda, o alojamento dos mineiros (vela, o mineiro que ficou e o
+    livro do Capataz). No fundo, à direita, a Câmara de Âmbar. Para subir: paredes, argolas e o
+    pulo duplo."""
+    W, H = 64, 84
+    g = Grid(W, H, '#')
+    g.fill(8, 0, 13, 9, '.')
+    g.fill(46, 0, 51, 9, '.')
+    g.fill(6, 10, 58, 77, '.')
+    # degraus e prateleiras
+    g.fill(6, 18, 22, 19, '#')
+    g.fill(40, 18, 58, 19, '#')
+    plank(g, 26, 34, 24)
+    g.fill(30, 30, 46, 31, '#')
+    plank(g, 14, 20, 36)
+    # o alojamento, cavado na parede da esquerda
+    g.fill(0, 40, 5, 47, '.')
+    g.fill(6, 48, 24, 49, '#')
+    plank(g, 32, 38, 54)
+    g.fill(42, 60, 58, 61, '#')
+    plank(g, 24, 30, 66)
+    plank(g, 12, 18, 71)
+    # saída para a Câmara de Âmbar, no fundo à direita
+    g.fill(59, 72, 63, 77, '.')
+    g.put(10, 1, '1')
+    g.put(48, 1, '2')
+    g.put(62, 77, '3')
+    g.put(2, 47, 'R')
+    g.put(9, 47, 'E')
+    g.put(4, 47, 'r')
+    g.put(52, 59, 'r')
+    g.put(33, 29, '$')
+    g.put(20, 77, 'u')
+    g.put(48, 77, 'u')
+    g.put(36, 47, 'u')
+    g.put(30, 14, 'z')
+    g.put(44, 40, 'z')
+    g.put(24, 62, 'z')
+    for (x, y) in ((28, 22), (36, 30), (20, 43), (55, 45), (40, 57), (10, 66), (36, 74)):
+        g.put(x, y, 'o' if (x, y) in ((28, 22), (20, 43), (40, 57)) else 'x')
+    for (x, y) in ((7, 14), (57, 12), (58, 34), (7, 56), (58, 66), (30, 76)):
+        g.put(x, y, 'x')
+    return g.rows()
+
+
+def espelhos():
+    """Câmara de Âmbar: paredes de âmbar polido que devolvem a imagem de quem passa. O Reflexo
+    espera no meio; a grade fecha atrás do cavaleiro. Duas tábuas no alto."""
+    W, H = 64, 30
+    g = Grid(W, H, '#')
+    g.fill(2, 4, 61, 25, '.')
+    g.fill(0, 20, 1, 25, '.')
+    g.fill(62, 20, 63, 25, '.')
+    for y in range(20, 26):
+        g.put(6, y, '|')
+        g.put(57, y, '|')
+    plank(g, 16, 22, 19)
+    plank(g, 41, 47, 19)
+    plank(g, 28, 35, 13)
+    r = 25
+    g.put(1, r, '1')
+    g.put(62, r, '2')
+    g.put(32, r, 'X')
+    for (x, y) in ((3, 8), (60, 8), (20, 6), (43, 6), (32, 4)):
+        g.put(x, y, 'x')
+    return g.rows()
+
+
+def capataz():
+    """Galeria do Capataz: o fim da mina, onde o Capataz tocava as prensas. Ele espera junto da
+    última prensa; a grade fecha atrás do cavaleiro. Tábuas dos dois lados, cristais no teto. Na
+    parede da direita, um bloco de âmbar tapa o túnel que segue (só a Picareta abre)."""
+    W, H = 72, 34
+    g = Grid(W, H, '#')
+    g.fill(2, 4, 63, 29, '.')
+    g.fill(0, 24, 1, 29, '.')
+    for y in range(24, 30):
+        g.put(7, y, '|')
+    plank(g, 15, 21, 23)
+    plank(g, 44, 50, 23)
+    plank(g, 28, 37, 17)
+    # o túnel tapado pelo âmbar
+    g.fill(64, 24, 71, 29, '.')
+    for y in range(24, 30):
+        g.put(64, y, '@')
+        g.put(65, y, '@')
+    r = 29
+    g.put(1, r, '1')
+    g.put(46, r, 'X')
+    g.put(56, r, 'h')
+    g.put(70, r, '2')
+    for (x, y) in ((10, 6), (24, 5), (40, 5), (58, 7), (33, 4)):
+        g.put(x, y, 'x')
     return g.rows()
 
 
 if __name__ == '__main__':
     out = sys.argv[1]
+    # as Minas entram no mapa quando a área estiver no jogo (--minas)
+    MINES = '--minas' in sys.argv
     maps = {'ponte': ponte(), 'catacumbas': catacumbas(), 'memoria': memoria(), 'sinos': sinos(), 'cripta': cripta(),
             'escadaria': escadaria(), 'praca': praca(), 'rua': rua(), 'telhados': telhados(), 'nave': nave(),
             'claustro': claustro(), 'galeria': galeria(), 'altar': altar(),
             'poco': poco(), 'celas': celas(), 'correntes': correntes(), 'guarita': guarita(), 'fuga': fuga(),
             'arena': arena(), 'mascara': mascara(), 'fosso': fosso(), 'abismo': abismo()}
+    if MINES:
+        maps.update({'boca': boca(), 'trilhos': trilhos(), 'prensas': prensas(), 'veio': veio(), 'espelhos': espelhos(),
+                     'capataz': capataz()})
     lines = ['// Gerado por ferramentas/rooms.py: não edite à mão', '']
     for k, rows in maps.items():
         lines.append(f'export const MAP_{k.upper()} = [')

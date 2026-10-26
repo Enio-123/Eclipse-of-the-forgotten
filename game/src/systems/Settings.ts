@@ -1,5 +1,6 @@
 import { WEAPON_IDS, type WeaponId } from '../config';
 import { RESERVED } from './Pad';
+import { FORCED_PRESET, FPS_LIMITS, PRESETS, cleanFlags, defaultPreset, type FpsLimit, type GfxFlags } from './Graphics';
 
 export type Action = 'left' | 'right' | 'up' | 'down' | 'jump' | 'attack' | 'dash' | 'crouch' | 'hook';
 export const ACTIONS: Action[] = ['left', 'right', 'up', 'down', 'jump', 'attack', 'dash', 'crouch', 'hook'];
@@ -57,12 +58,18 @@ export interface SettingsData {
   sfx: number;
   weapon: WeaponId;
   quality: Quality;
+  // ajustes gráficos (a predefinição é a que bate com eles) e o limite de quadros
+  gfx: GfxFlags;
+  fps: FpsLimit;
 }
 
 const KEY = 'eclipse-ajustes-v1';
 
 function defaults(): SettingsData {
-  return { scheme: 'keyboard', binds: structuredClone(DEFAULT_BINDS), pad: structuredClone(DEFAULT_PAD), vibration: true, volume: 0.8, music: 0.6, sfx: 0.8, weapon: 'scythe', quality: 'auto' };
+  return {
+    scheme: 'keyboard', binds: structuredClone(DEFAULT_BINDS), pad: structuredClone(DEFAULT_PAD), vibration: true, volume: 0.8, music: 0.6, sfx: 0.8,
+    weapon: 'scythe', quality: 'auto', gfx: { ...PRESETS[defaultPreset()] }, fps: 0,
+  };
 }
 
 const clamp01 = (v: unknown, d: number) => (typeof v === 'number' && isFinite(v) ? Math.max(0, Math.min(1, v)) : d);
@@ -93,6 +100,8 @@ function load(): SettingsData {
       sfx: clamp01(parsed.sfx, d.sfx),
       weapon: WEAPON_IDS.includes(parsed.weapon as WeaponId) ? (parsed.weapon as WeaponId) : d.weapon,
       quality: QUALITIES.includes(parsed.quality as Quality) ? (parsed.quality as Quality) : d.quality,
+      gfx: parsed.gfx ? cleanFlags(parsed.gfx, d.gfx) : d.gfx,
+      fps: FPS_LIMITS.includes(parsed.fps as FpsLimit) ? (parsed.fps as FpsLimit) : 0,
     };
   } catch {
     return d;
@@ -184,4 +193,9 @@ export function codeName(code: string) {
   if (code.startsWith('Digit')) return code.slice(5);
   if (code.startsWith('Numpad')) return 'Num ' + code.slice(6);
   return code;
+}
+
+// ajustes gráficos em uso (o endereço pode fixar uma predefinição para os testes)
+export function gfx(): GfxFlags {
+  return FORCED_PRESET ? PRESETS[FORCED_PRESET] : settings.data.gfx;
 }
