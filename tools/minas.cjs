@@ -534,32 +534,37 @@ let r;
   await shot('c10-fragmenta');
   const low = await page.evaluate(() => window.__scene.player.gravMul);
   check(Math.abs(low - 0.6) < 0.01, `a lembrança racha e a gravidade fica leve (${low})`);
-  await waitGame(0.6);
-  const wisps = await page.evaluate(() => window.__scene.enemies.filter((e) => e.kind === 'wisp' && e.alive).length);
-  check(wisps >= 2, `sobem fiapos de tinta das rachaduras (${wisps})`);
-  await waitGame(0.5);
-  await shot('c11-fiapos');
-  const pop = await page.evaluate(() => { const w = window.__scene.enemies.find((e) => e.kind === 'wisp' && e.alive); return w ? [w.hit(0, 1, 'side'), w.alive] : null; });
-  check(pop && pop[0] === 'hit' && pop[1] === false, `um golpe desfaz o fiapo (${JSON.stringify(pop)})`);
-  // pulo mais alto na gravidade leve
+  // pulo mais alto na gravidade leve (logo depois da rachadura, dentro dos 7 s)
   const jumpH = async () => {
     await setP(24, 30, { inv: 99 });
     await waitGame(0.3);
     await page.evaluate(() => { const s = window.__scene; window.__minY = s.player.body.bottom; const fn = () => { window.__minY = Math.min(window.__minY, s.player.body.bottom); }; s.events.on('postupdate', fn); window.__unj = () => s.events.off('postupdate', fn); });
-    const g0 = await page.evaluate(() => { const s = window.__scene; return { mul: s.player.gravMul, low: s.boss.lowT, st: s.boss.state, clock: s.clock, ground: s.player.onGround, frozen: s.player.frozen }; });
     await hold('Space', 900);
     await waitGame(1.2);
-    const g1 = await page.evaluate(() => { const s = window.__scene; return { mul: s.player.gravMul, low: s.boss.lowT, clock: s.clock }; });
-    console.log('  pulo: ' + JSON.stringify(g0) + ' -> ' + JSON.stringify(g1));
     return page.evaluate(() => { window.__unj(); return 30 * 16 - window.__minY; });
   };
-  const hLow = await jumpH();
-  await idle().catch(() => {});
   await hush(56);
+  const hLow = await jumpH();
+  const wisps = await page.evaluate(() => window.__scene.enemies.filter((e) => e.kind === 'wisp' && e.alive).length);
+  check(wisps >= 2, `sobem fiapos de tinta das rachaduras (${wisps})`);
+  await shot('c11-fiapos');
+  const pop = await page.evaluate(() => { const w = window.__scene.enemies.find((e) => e.kind === 'wisp' && e.alive); return w ? [w.hit(0, 1, 'side'), w.alive] : null; });
+  check(pop && pop[0] === 'hit' && pop[1] === false, `um golpe desfaz o fiapo (${JSON.stringify(pop)})`);
+  // a rachadura fecha: gravidade normal, e depois de um tempo ela racha de novo
   await page.evaluate(() => { const b = window.__scene.boss; b.lowT = 0.01; });
   await waitGame(0.2);
+  const shut = await page.evaluate(() => ({ mul: window.__scene.player.gravMul, cd: window.__scene.boss.fragCd }));
+  check(shut.mul === 1 && shut.cd > 8, `a rachadura fecha e a gravidade volta, por um tempo (${JSON.stringify(shut)})`);
   const hNorm = await jumpH();
   check(hLow > hNorm * 1.25, `com a gravidade leve o pulo vai mais alto (${hLow.toFixed(0)} x ${hNorm.toFixed(0)} px)`);
+  await page.evaluate(() => { window.__scene.boss.fragCd = 0.05; });
+  await waitGame(0.3);
+  const again = await page.evaluate(() => ({ mul: window.__scene.player.gravMul, low: window.__scene.boss.lowT }));
+  check(again.mul === 0.6 && again.low > 6, `e a lembrança racha outra vez (${JSON.stringify(again)})`);
+  await waitGame(0.6);
+  const cap = await page.evaluate(() => window.__scene.enemies.filter((e) => e.kind === 'wisp' && e.alive).length);
+  check(cap <= 3, `nunca mais de três fiapos ao mesmo tempo (${cap})`);
+  await idle().catch(() => {});
   // na segunda fase a pancada também abre cristais para trás e vêm cinco lascas
   await hush(40);
   await setP(52, 30, { inv: 99 });

@@ -2,8 +2,8 @@ import { WEAPON_IDS, type WeaponId } from '../config';
 import { RESERVED } from './Pad';
 import { FORCED_PRESET, FPS_LIMITS, PRESETS, cleanFlags, defaultPreset, type FpsLimit, type GfxFlags } from './Graphics';
 
-export type Action = 'left' | 'right' | 'up' | 'down' | 'jump' | 'attack' | 'dash' | 'crouch' | 'hook';
-export const ACTIONS: Action[] = ['left', 'right', 'up', 'down', 'jump', 'attack', 'dash', 'crouch', 'hook'];
+export type Action = 'left' | 'right' | 'up' | 'down' | 'jump' | 'attack' | 'dash' | 'crouch' | 'hook' | 'memory';
+export const ACTIONS: Action[] = ['left', 'right', 'up', 'down', 'jump', 'attack', 'dash', 'crouch', 'hook', 'memory'];
 export type Scheme = 'keyboard' | 'click';
 // resolução da tela: automática (nítida, e mais leve sozinha se o jogo ficar lento), nítida ou leve
 export type Quality = 'auto' | 'high' | 'low';
@@ -19,6 +19,7 @@ export const ACTION_LABEL: Record<Action, string> = {
   dash: 'Dash',
   crouch: 'Agachar',
   hook: 'Gancho de corrente',
+  memory: 'Poder de memória',
 };
 
 export const DEFAULT_BINDS: Record<Action, string[]> = {
@@ -31,6 +32,7 @@ export const DEFAULT_BINDS: Record<Action, string[]> = {
   dash: ['KeyF', 'ShiftLeft'],
   crouch: ['ControlLeft', 'KeyC'],
   hook: ['KeyE', 'KeyL'],
+  memory: ['KeyQ', 'KeyR'],
 };
 
 // botões do controle (posição no mapeamento padrão: 0 = botão de baixo, 7 = gatilho direito...)
@@ -44,9 +46,10 @@ export const DEFAULT_PAD: Record<Action, number[]> = {
   dash: [7, 1],
   crouch: [6, 4],
   hook: [3, 5],
+  memory: [11],
 };
 // ações que aparecem na troca de botões do controle (andar fica no analógico e no direcional)
-export const PAD_ACTIONS: Action[] = ['jump', 'attack', 'dash', 'crouch', 'hook'];
+export const PAD_ACTIONS: Action[] = ['jump', 'attack', 'dash', 'crouch', 'hook', 'memory'];
 
 export interface SettingsData {
   scheme: Scheme;
@@ -89,6 +92,11 @@ function load(): SettingsData {
     for (const a of ACTIONS) {
       const b = parsed.pad?.[a];
       if (Array.isArray(b) && b.every((i) => Number.isInteger(i) && i >= 0 && i < 32 && !RESERVED.has(i))) padBinds[a] = b.slice(0, 2);
+    }
+    // ação nova num ajuste antigo: as teclas padrão dela que outra ação já usa ficam de fora
+    for (const a of ACTIONS) {
+      if (!parsed.binds?.[a]) binds[a] = binds[a].filter((c) => !ACTIONS.some((o) => o !== a && binds[o].includes(c)));
+      if (!parsed.pad?.[a]) padBinds[a] = padBinds[a].filter((i) => !ACTIONS.some((o) => o !== a && padBinds[o].includes(i)));
     }
     return {
       scheme: parsed.scheme === 'click' ? 'click' : 'keyboard',

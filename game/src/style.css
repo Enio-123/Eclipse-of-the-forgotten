@@ -62,6 +62,9 @@ body.menu-open #banner, body.menu-open #thought, body.menu-open #hint, body.menu
 /* o gancho só aparece depois de achar a relíquia */
 #buttons [data-action="hook"] { right: 120px; bottom: 82px; width: 54px; height: 54px; display: none; }
 body.has-hook #buttons [data-action="hook"] { display: flex; }
+/* o poder de memória aparece depois da primeira lembrança das Minas */
+#buttons [data-action="memory"] { right: 166px; bottom: 12px; width: 50px; height: 50px; display: none; }
+body.has-memory #buttons [data-action="memory"] { display: flex; }
 #pause-btn {
   width: 46px; height: 46px; top: calc(12px + env(safe-area-inset-top, 0px)); right: calc(14px + env(safe-area-inset-right, 0px));
 }

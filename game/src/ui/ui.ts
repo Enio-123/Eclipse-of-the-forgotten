@@ -43,7 +43,7 @@ const WEAPON_ORDER: WeaponId[] = ['scythe', 'sword', 'daggers', 'bow', 'badalo',
 const TAGS: Partial<Record<WeaponId, string>> = { scythe: 'Arma do carrasco · recomendada' };
 const TOUCH_LABEL: Record<Action, string> = {
   left: 'Analógico', right: 'Analógico', up: 'Analógico para cima', down: 'Analógico para baixo',
-  jump: 'Pular', attack: 'Atacar', dash: 'Dash', crouch: 'Analógico para baixo', hook: 'Gancho',
+  jump: 'Pular', attack: 'Atacar', dash: 'Dash', crouch: 'Analógico para baixo', hook: 'Gancho', memory: 'Memória',
 };
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector(sel) as T;

@@ -37,6 +37,9 @@ interface Spike {
 interface Shard {
   x: number;
   y: number;
+  // onde estava no quadro anterior (o golpe é conferido no caminho todo, não só no ponto)
+  px: number;
+  py: number;
   vx: number;
   vy: number;
   img: Phaser.GameObjects.Image;
@@ -93,6 +96,8 @@ export class Capataz implements BossFoe {
   private pressQueue = 0;
   private wispT = 0;
   private lowT = 0;
+  // quanto falta para a lembrança rachar de novo (só na segunda fase, entre uma rachadura e outra)
+  private fragCd = 0;
   private readonly floorY: number;
   private readonly x0: number;
   private readonly x1: number;
@@ -481,7 +486,7 @@ export class Capataz implements BossFoe {
       const vy = (ty - from.y - 0.5 * g * T * T) / T;
       const img = s.add.image(from.x, from.y, this.shardTexture()).setDepth(DEPTH.enemy + 0.5);
       const glow = s.add.image(from.x, from.y, 'glow').setTint(0xffa63c).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.enemy + 0.45).setScale(0.45).setAlpha(0.55);
-      this.shards.push({ x: from.x, y: from.y, vx, vy, img, glow, back: false, dead: false });
+      this.shards.push({ x: from.x, y: from.y, px: from.x, py: from.y, vx, vy, img, glow, back: false, dead: false });
     }
     s.sfx('glass', 0.7, 1.2);
     s.mine?.amberBurst(from.x, from.y, 6);
@@ -489,6 +494,18 @@ export class Capataz implements BossFoe {
 
   private shardRect(q: Shard) {
     return new Phaser.Geom.Rectangle(q.x - 5, q.y - 4, 10, 8);
+  }
+
+  // a lasca anda até 25 px por quadro num aparelho lento: confere o trecho entre o quadro anterior e este
+  private shardSweep(pr: Phaser.Geom.Rectangle, q: Shard) {
+    const n = Math.max(1, Math.ceil(Math.hypot(q.x - q.px, q.y - q.py) / 5));
+    for (let i = 1; i <= n; i++) {
+      const k = i / n;
+      const x = q.px + (q.x - q.px) * k;
+      const y = q.py + (q.y - q.py) * k;
+      if (pr.x < x + 5 && pr.right > x - 5 && pr.y < y + 4 && pr.bottom > y - 4) return true;
+    }
+    return false;
   }
 
   private updateShards(dt: number) {
@@ -507,9 +524,16 @@ export class Capataz implements BossFoe {
           this.takeHit(4, true);
           continue;
         }
-      } else q.vy += 900 * dt;
+      }
+      q.px = q.x;
+      q.py = q.y;
       q.x += q.vx * dt;
-      q.y += q.vy * dt;
+      // o arco certo em qualquer taxa de quadros (a lasca cai onde mirou mesmo num aparelho lento)
+      if (q.back) q.y += q.vy * dt;
+      else {
+        q.y += q.vy * dt + 450 * dt * dt;
+        q.vy += 900 * dt;
+      }
       q.img.setPosition(q.x, q.y).setRotation(Math.atan2(q.vy, q.vx));
       q.glow.setPosition(q.x, q.y);
       if (!q.back && (q.y >= this.floorY - 2 || isSolid(s.level.tileAt(q.x, q.y)))) this.shatter(q);
@@ -604,14 +628,15 @@ export class Capataz implements BossFoe {
   }
 
   // ---------- segunda fase: a fragmentação ----------
-  private fragment() {
+  private fragment(again = false) {
     const s = this.scene;
-    s.sfx('veil', 1, 0.7);
-    s.sfx('glass', 1, 0.5);
-    s.cameras.main.shake(900, 0.008);
-    s.cameras.main.flash(220, 190, 120, 255);
+    s.sfx('veil', again ? 0.7 : 1, 0.7);
+    s.sfx('glass', again ? 0.7 : 1, 0.5);
+    s.cameras.main.shake(again ? 500 : 900, again ? 0.005 : 0.008);
+    if (!again) s.cameras.main.flash(220, 190, 120, 255);
     s.fragmentWave(this.zone.x, this.body.center.y);
     this.lowT = C.lowGravT;
+    this.fragCd = 0;
     s.player.gravMul = C.lowGrav;
     this.wispT = 0.4;
     this.drawCrack();
@@ -652,14 +677,21 @@ export class Capataz implements BossFoe {
       if (this.lowT <= 0 || this.state === 'dead') {
         this.lowT = 0;
         p.gravMul = 1;
+        // a rachadura fecha, mas não fica fechada: na segunda fase ela abre de novo de tempos em tempos
+        if (this.state !== 'dead') this.fragCd = C.fragEvery;
       } else if (Math.random() < dt * 10) this.scene.echoMotes(p.x + (Math.random() - 0.5) * 300, this.floorY - Math.random() * 10, false);
+    }
+    if (this.fragCd > 0 && this.state !== 'dead') {
+      this.fragCd -= dt;
+      if (this.fragCd <= 0) this.fragment(true);
     }
     if (this.wispT > 0 && this.state !== 'dead') {
       this.wispT -= dt;
       if (this.wispT <= 0) {
-        // três fiapos de tinta sobem das rachaduras, longe do cavaleiro
+        // até três fiapos de tinta sobem das rachaduras, longe do cavaleiro (os que ainda flutuam contam)
         const p = this.scene.player;
-        const spots = [this.x0 + 60, (this.x0 + this.x1) / 2, this.x1 - 60].filter((x) => Math.abs(x - p.x) > 90);
+        const left = 3 - this.scene.enemies.filter((e) => e.kind === 'wisp' && e.alive).length;
+        const spots = [this.x0 + 60, (this.x0 + this.x1) / 2, this.x1 - 60].filter((x) => Math.abs(x - p.x) > 90).slice(0, Math.max(0, left));
         for (const x of spots) this.scene.summon('k', x, this.floorY - 30);
       }
     }
@@ -673,7 +705,7 @@ export class Capataz implements BossFoe {
       return true;
     };
     for (const k of this.spikes) if (k.img && k.h > 8 && overlap(pr, this.spikeRect(k))) return from(k.x - this.facing * 10);
-    for (const q of this.shards) if (!q.back && overlap(pr, this.shardRect(q))) return from(q.x - Math.sign(q.vx) * 10);
+    for (const q of this.shards) if (!q.back && this.shardSweep(pr, q)) return from(q.x - Math.sign(q.vx) * 10);
     for (const r of this.rocks) if (r.falling && !r.done && overlap(pr, this.rockRect(r))) return from(r.x);
     if (!this.present) return false;
     if (sliding || this.state === 'stagger' || this.state === 'stun') return false;
@@ -758,6 +790,7 @@ export class Capataz implements BossFoe {
     this.body.enable = false;
     this.clearHazards();
     this.lowT = 0;
+    this.fragCd = 0;
     s.player.gravMul = 1;
     s.time.delayedCall(80, () => this.sprite.clearTint());
     this.anim = 'death';

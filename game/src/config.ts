@@ -345,9 +345,11 @@ export const CAPATAZ = {
   pressDown: 0.7,
   pressCd: 7,
   stagger: 1.6,
-  // fragmentação da segunda fase: gravidade do cavaleiro (multiplicador) e por quanto tempo
+  // fragmentação da segunda fase: gravidade do cavaleiro (multiplicador), por quanto tempo, e quanto
+  // tempo a rachadura fica fechada antes de abrir de novo
   lowGrav: 0.6,
   lowGravT: 7,
+  fragEvery: 9,
 };
 
 // Corvo do Dízimo: paira, avisa com o olho aceso e mergulha em linha reta
@@ -424,6 +426,32 @@ export const ECHO = {
   knock: 170,
   // longe demais de onde ficou: volta para lá e espera
   leash: 320,
+};
+
+// Poderes de memória (das Minas em diante): a barra de Âmbar enche acertando inimigos, em três gomos.
+// Lembrança para o resto do mundo por um instante, Eco deixa uma cópia de tinta repetindo os golpes
+// e Remendo fecha uma ferida com o ouro da máscara. Um de cada vez, escolhido no inventário.
+export type PowerId = 'lembranca' | 'eco' | 'remendo';
+export const POWER_IDS: PowerId[] = ['lembranca', 'eco', 'remendo'];
+export const POWERS: Record<PowerId, { name: string; text: string; cost: number; how: string }> = {
+  lembranca: { name: 'Lembrança', text: 'O mundo para por um instante. Só o cavaleiro anda.', cost: 2, how: 'Vem com o primeiro Âmbar das Minas.' },
+  eco: { name: 'Eco', text: 'Uma cópia de tinta anda logo atrás e repete cada golpe.', cost: 1, how: 'Ainda não lembrou. Alguém na Câmara de Âmbar repete tudo.' },
+  remendo: { name: 'Remendo', text: 'O ouro da máscara fecha uma ferida: volta um fragmento de vida.', cost: 3, how: 'Ainda não lembrou. Quem ficou na mina sabe remendar.' },
+};
+export const AMBER_BAR = {
+  max: 3,
+  // quanto cada coisa enche (em gomos)
+  hit: 0.2,
+  kill: 0.3,
+  wisp: 0.5,
+  // Lembrança: quanto tempo o resto do mundo fica parado
+  stopTime: 2.2,
+  // Eco: quanto tempo a cópia fica, o atraso dela e quanto do golpe dele o dela tira
+  echoTime: 6,
+  echoDelay: 0.2,
+  echoDmg: 0.6,
+  // Remendo: o cavaleiro para um instante enquanto o ouro fecha a ferida
+  mendTime: 0.6,
 };
 
 // Aparar: golpear no fim da preparação ou no golpe do inimigo rebate o ataque e deixa ele tonto.

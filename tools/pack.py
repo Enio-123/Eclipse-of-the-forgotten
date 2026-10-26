@@ -7,7 +7,8 @@ uso: python3 tools/pack.py            monta e lista só o que mudou
      python3 tools/pack.py --mark     depois de publicar: guarda os sha do que está em artifact/"""
 import hashlib, json, os, shutil, subprocess, sys
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-dist = os.path.join(HERE, 'game', 'dist')
+# DIST=regdist publica a versão que passou na regressão (game/dist pode já ter mudado)
+dist = os.environ.get('DIST') or os.path.join(HERE, 'game', 'dist')
 art = os.path.join(HERE, 'artifact')
 PUB = os.path.join(HERE, 'tools', 'published.json')
 LIMIT = 254  # 255 menos a página
