@@ -629,6 +629,56 @@
      "h": 736.0
     }
    ]
+  },
+  "mercado": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-mercado-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 896.0,
+     "h": 544.0
+    },
+    {
+     "file": "t-mercado-1.webp",
+     "x": 896.0,
+     "y": 0.0,
+     "w": 896.0,
+     "h": 544.0
+    }
+   ]
+  },
+  "mercado-secret": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-mercado-secret-0.webp",
+     "x": 896.0,
+     "y": 0.0,
+     "w": 896.0,
+     "h": 544.0
+    }
+   ]
+  },
+  "solitarias": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-solitarias-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 768.0,
+     "h": 704.0
+    },
+    {
+     "file": "t-solitarias-1.webp",
+     "x": 768.0,
+     "y": 0.0,
+     "w": 768.0,
+     "h": 704.0
+    }
+   ]
   }
  },
  "backdrop": {

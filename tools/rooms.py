@@ -1,6 +1,6 @@
 """Monta os mapas ASCII das salas do prólogo e gera src/world/maps.ts.
 
-'#' pedra  '-' plataforma atravessável  '^' espinhos
+'#' pedra  '-' plataforma atravessável  '"' plataforma que o próprio cenário desenha  '^' espinhos
 P início (acordar)  1-9 entradas  c penitente  g guarda de escudo  v corvo (paira nessa célula)
 L poste aceso  l poste apagado  S estátua  G cadafalso  D portão  C velas  M espelho
 T árvore grande  t árvore pequena  F figura de capa vermelha  ~ água
@@ -461,6 +461,68 @@ def rua():
     return g.rows()
 
 
+def mercado():
+    """Mercado do Dízimo (v18, entre a praça e a rua): a rua do mercado onde se pagava o Dízimo.
+    Bancas de pedra com toldo, a balança pública parada torta (o prato de baixo ainda com o saco do
+    último Dízimo, o de cima alto) e, no fim, a Casa de Contagem: o pórtico por onde a rua continua,
+    a torre que encosta na Rua dos Penitentes e a sala de contar no primeiro andar, que se alcança
+    pelo prato alto da balança e pela sacada. Atrás da mesa de contar, uma parede falsa guarda o
+    cofre. Mesma altura da praça (chão na linha 29), que a nave fica logo em cima."""
+    W, H = 112, 34
+    g = Grid(W, H)
+    g.fill(0, 29, W - 1, H - 1, '#')
+    # o arco da praça (a passagem fica só na altura do chão)
+    g.fill(0, 0, 1, 24, '#')
+    # bancas: balcão de pedra de dois de altura e o toldo por cima ('"' é piso de cenário: quem
+    # desenha é o toldo, sem tábua nem poste)
+    for (x0, x1) in ((10, 15), (26, 31), (42, 47)):
+        g.fill(x0, 27, x1, 28, '#')
+        for x in range(x0 - 1, x1 + 2):
+            g.put(x, 23, '"')
+    # sacadas das casas do fundo (o arqueiro fica na do meio)
+    for (x0, x1, y) in ((19, 24, 17), (34, 39, 15), (51, 56, 18)):
+        for x in range(x0, x1 + 1):
+            g.put(x, y, '-')
+    # a balança pública: os dois pratos (o de baixo com o saco, o de cima vazio)
+    for x in range(63, 68):
+        g.put(x, 25, '"')
+    for x in range(72, 77):
+        g.put(x, 20, '"')
+    # a Casa de Contagem: o salão (telhado na linha 4) e a torre que sobe até o alto, encostada na rua
+    g.fill(84, 4, 99, 24, '#')
+    g.fill(100, 0, W - 1, 24, '#')
+    # o pórtico embaixo: a rua passa por dentro do prédio
+    g.fill(84, 25, W - 1, 28, '.')
+    # a sala de contar no primeiro andar, a porta da sacada e a sacada
+    g.fill(88, 10, 104, 17, '.')
+    g.fill(84, 14, 87, 17, '.')
+    for x in range(79, 84):
+        g.put(x, 18, '-')
+    # o cofre atrás da parede falsa
+    g.fill(105, 14, 105, 17, '%')
+    g.fill(106, 14, 109, 17, '.')
+    r = 28
+    g.put(2, r, '1')
+    g.put(W - 3, r, '2')
+    # o édito pregado no poste, logo depois do arco
+    g.put(6, r, 'r')
+    for x in (20, 37, 56, 80):
+        g.put(x, r, 'L')
+    g.put(22, r, 'i')
+    g.put(52, r, 'i')
+    g.put(36, 14, 'a')
+    g.put(59, r, 'E')
+    g.put(96, r, 'g')
+    g.put(28, 5, 'v')
+    g.put(66, 7, 'v')
+    # a mesa de contar com a tabela do Dízimo, as velas e o cofre
+    g.put(96, 17, 'r')
+    for x in (90, 101):
+        g.put(x, 17, 'C')
+    g.put(108, 17, '$')
+    return g.rows()
+
+
 def telhados():
     """Telhados: de casa em casa até a parede da catedral. A torre do sino (o primeiro da
     freira) só se sobe pulando de parede; o vitral rachado no fim é a entrada da nave."""
@@ -696,6 +758,57 @@ def poco():
     g.put(36, 40, 'c')
     g.put(11, 19, 'C')
     g.put(44, 15, 'C')
+    return g.rows()
+
+
+def solitarias():
+    """As Solitárias (v18, entre o poço e as celas): o corredor de castigo e a chaminé das celas de
+    silêncio. No começo do corredor fica a mesa do carcereiro, com o livro das sentenças. No meio, a
+    chaminé sobe emparedada pelas três solitárias, uma em cada altura, até a claraboia gradeada que
+    dá na praça; as passarelas de ferro levam de uma grade à outra. A de baixo está arrombada; as
+    outras duas têm a grade inteira, e a do alto, onde o último preso riscou a parede, só se abre
+    para quem atravessa o Véu."""
+    W, H = 96, 44
+    g = Grid(W, H, '#')
+    # o corredor: a boca do poço tem quatro linhas (37-40), a das celas tem oito (33-40)
+    g.fill(0, 36, W - 1, 40, '.')
+    g.put(0, 36, '#')
+    g.fill(86, 33, W - 1, 40, '.')
+    # a chaminé das solitárias e a claraboia lá em cima (a grade deixa passar a luz, não o corpo)
+    g.fill(32, 10, 41, 35, '.')
+    g.fill(34, 5, 39, 9, '.')
+    for x in range(34, 40):
+        g.put(x, 4, ':')
+    # passarelas de ferro, cada uma na altura do chão de uma solitária
+    plank(g, 32, 37, 34)
+    plank(g, 36, 41, 28)
+    plank(g, 32, 37, 22)
+    plank(g, 34, 39, 16)
+    # a solitária de baixo: a grade foi arrancada do batente para baixo, dá para entrar andando
+    g.fill(25, 30, 30, 33, '.')
+    g.put(31, 30, ':')
+    g.fill(31, 31, 31, 33, '.')
+    # a do meio, do outro lado da chaminé, com a grade inteira
+    g.fill(43, 24, 48, 27, '.')
+    g.fill(42, 24, 42, 27, ':')
+    # a do alto: a cela do último preso
+    g.fill(25, 18, 30, 21, '.')
+    g.fill(31, 18, 31, 21, ':')
+    r = 40
+    g.put(2, r, '1')
+    g.put(93, r, '2')
+    # a mesa do carcereiro, logo na entrada, com o livro das sentenças
+    g.put(10, r, 'r')
+    for x in (6, 52, 80):
+        g.put(x, r, 'C')
+    g.put(20, r, 'W')
+    g.put(64, r, 'W')
+    g.put(44, r, 'c')
+    # o que ficou nas celas: a página na arrombada, as moedas na do meio, o registro na de cima
+    g.put(27, 33, 'p')
+    g.put(46, 27, '$')
+    g.put(27, 21, 'r')
+    g.put(29, 21, '$')
     return g.rows()
 
 
@@ -1535,7 +1648,7 @@ if __name__ == '__main__':
                      'capataz': capataz()})
     # v18: as salas novas no meio das regiões
     if '--v18' in sys.argv:
-        maps.update({'nichos': nichos()})
+        maps.update({'nichos': nichos(), 'mercado': mercado(), 'solitarias': solitarias()})
     # a Floresta Nevada (--floresta)
     if '--floresta' in sys.argv:
         pin, stands = pinhal()

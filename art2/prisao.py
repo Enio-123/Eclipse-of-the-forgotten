@@ -20,7 +20,7 @@ from brush import Layer, hexc, mix, sstep, value_noise
 from terreno import Room, fields, masonry, planks, spikes, downsample, load_maps, S, T
 from cidade import hrand, breakables, chip, shade_masonry, strokes, lights, cornice, moss, cracks, downsample_soft
 
-SEEDS = {'poco': 41, 'celas': 43, 'correntes': 45, 'guarita': 47, 'fuga': 49, 'arena': 51, 'mascara': 53, 'fosso': 55, 'abismo': 57}
+SEEDS = {'poco': 41, 'solitarias': 42, 'celas': 43, 'correntes': 45, 'guarita': 47, 'fuga': 49, 'arena': 51, 'mascara': 53, 'fosso': 55, 'abismo': 57}
 
 PRISON = dict(
     ST_D=hexc(0x050607),

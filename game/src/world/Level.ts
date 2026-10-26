@@ -137,7 +137,9 @@ export class Level {
           row.push(BLOCK);
           this.thin.push({ x, y });
         } else if (c === '%' || c === 'V' || c === '@') row.push(BLOCK);
-        else if (c === '-') row.push(TILE_ONEWAY);
+        // '"' é plataforma de cenário: pisa igual à prancha, mas quem desenha é o próprio objeto
+        // (o prato da balança, o toldo da banca), sem tábuas nem postes de apoio
+        else if (c === '-' || c === '"') row.push(TILE_ONEWAY);
         else if (c === '^') row.push(TILE_SPIKE);
         else {
           row.push(-1);
@@ -229,7 +231,7 @@ export class Level {
   // célula vazia de verdade (sem chão, plataforma ou espinho)
   openCell(x: number, y: number) {
     const c = this.ch(x, y);
-    return !rock(c) && c !== '-' && c !== '^' && c !== ';';
+    return !rock(c) && c !== '-' && c !== '"' && c !== '^' && c !== ';';
   }
 
   // põe ou tira um bloco liso (alçapões e grades do alarme)

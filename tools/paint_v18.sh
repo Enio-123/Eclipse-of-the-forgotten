@@ -4,6 +4,8 @@
 cd "$(dirname "$0")/../art2"
 ROOM=$1; PAINTER=$2; THEME=$3; HD=${4:-hd}
 nice -n 15 python3 $PAINTER $ROOM $HD || exit 1
-if [ "$PAINTER" = terreno.py ]; then nice -n 15 python3 terreno.py $ROOM --x || exit 1; fi
-python3 finaliza.py $THEME $HD --keep=terreno-$ROOM || exit 1
+case $PAINTER in terreno.py|cidade.py) nice -n 15 python3 $PAINTER $ROOM --x || exit 1 ;; esac
+KEEP=terreno-$ROOM
+[ -f $HD/terreno-$ROOM-secret.png ] && KEEP=$KEEP,terreno-$ROOM-secret
+python3 finaliza.py $THEME $HD --keep=$KEEP || exit 1
 cd .. && python3 tools/hdpack.py $ROOM

@@ -52,10 +52,11 @@ THEMES = {
         layers={
             'terreno-praca': 'exact', 'terreno-rua': 'exact', 'terreno-telhados': 'exact', 'terreno-claustro': 'exact',
             'terreno-rua-secret': 'veil', 'terreno-telhados-secret': 'veil', 'terreno-claustro-secret': 'veil',
+            'terreno-mercado': 'exact', 'terreno-mercado-secret': 'veil',
         },
         rename={n: n.replace('terreno', 'terrain') for n in [
             'terreno-praca', 'terreno-rua', 'terreno-telhados', 'terreno-claustro', 'terreno-rua-secret', 'terreno-telhados-secret',
-            'terreno-claustro-secret']},
+            'terreno-claustro-secret', 'terreno-mercado', 'terreno-mercado-secret']},
         accents=GOLD + WIN + [hexc(0xc8652a), hexc(0xffe4a8), hexc(0xc3cee0), hexc(0x8a9ac0), hexc(0x06070c)],
         colors=96,
     ),
@@ -73,11 +74,11 @@ THEMES = {
     # Prisão Subterrânea: só o terreno sai em pixel (os fundos e os objetos são no traço liso)
     'prison': dict(
         layers={
-            'terreno-poco': 'exact', 'terreno-celas': 'exact', 'terreno-correntes': 'exact', 'terreno-guarita': 'exact',
+            'terreno-poco': 'exact', 'terreno-solitarias': 'exact', 'terreno-celas': 'exact', 'terreno-correntes': 'exact', 'terreno-guarita': 'exact',
             'terreno-fuga': 'exact', 'terreno-arena': 'exact', 'terreno-mascara': 'exact', 'terreno-celas-secret': 'veil',
         },
         rename={n: n.replace('terreno', 'terrain') for n in [
-            'terreno-poco', 'terreno-celas', 'terreno-correntes', 'terreno-guarita', 'terreno-fuga', 'terreno-arena', 'terreno-mascara',
+            'terreno-poco', 'terreno-solitarias', 'terreno-celas', 'terreno-correntes', 'terreno-guarita', 'terreno-fuga', 'terreno-arena', 'terreno-mascara',
             'terreno-celas-secret']},
         accents=[hexc(0xff9a44), hexc(0xffd890), hexc(0xff7a2a), hexc(0x9aa6ba), hexc(0xb4c4c8), hexc(0x5e3522), hexc(0x3a5234),
                  hexc(0x050607)],

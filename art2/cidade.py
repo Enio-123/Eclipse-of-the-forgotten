@@ -24,10 +24,13 @@ from brush import Layer, hexc, mix, sstep, blur, value_noise, paint
 XMODE = '--x' in sys.argv
 from terreno import Room, fields, masonry, planks, spikes, downsample, load_maps, TILE, S, T
 
-SEEDS = {'praca': 21, 'rua': 23, 'telhados': 25, 'claustro': 27, 'nave': 31, 'galeria': 33, 'altar': 35}
-THEME = {'praca': 'city', 'rua': 'city', 'telhados': 'city', 'claustro': 'city', 'nave': 'nave', 'galeria': 'nave', 'altar': 'nave'}
+SEEDS = {'praca': 21, 'mercado': 29, 'rua': 23, 'telhados': 25, 'claustro': 27, 'nave': 31, 'galeria': 33, 'altar': 35}
+THEME = {'praca': 'city', 'mercado': 'city', 'rua': 'city', 'telhados': 'city', 'claustro': 'city', 'nave': 'nave', 'galeria': 'nave', 'altar': 'nave'}
+# salas dentro de um prédio, abertas no mapa: a parede do fundo é pintada atrás delas, senão o céu
+# aparece dentro da sala (x0, y0, x1, y1 em tiles)
+INTERIOR = {'mercado': [(88, 10, 104, 17), (106, 14, 109, 17)]}
 # o que cobre o chão mais baixo de cada sala (os outros topos viram cornija, ou telhado nos telhados)
-FLOOR = {'praca': 'cobble', 'rua': 'cobble', 'telhados': 'slate', 'claustro': 'garden', 'nave': 'marble', 'galeria': 'marble', 'altar': 'marble'}
+FLOOR = {'praca': 'cobble', 'mercado': 'cobble', 'rua': 'cobble', 'telhados': 'slate', 'claustro': 'garden', 'nave': 'marble', 'galeria': 'marble', 'altar': 'marble'}
 
 
 def hrand(*k):
@@ -236,6 +239,35 @@ CITY = dict(
 )
 
 
+def interior_wall(room, L, col, M, flow, joint, seed, P):
+    """Parede do fundo das salas que ficam dentro de um prédio, como a sala de contar do mercado e o
+    cofre atrás dela: a mesma pedra da fachada, mais escura e mais quente, com os cantos no escuro,
+    a luz das velas subindo do chão e uma viga no alto. Sem ela o céu aparece dentro da sala."""
+    rects = INTERIOR.get(room.name, [])
+    if not rects:
+        return
+    yy, xx = room.yy, room.xx
+    for i, (x0, y0, x1, y1) in enumerate(rects):
+        X0, X1, Y0, Y1 = x0 * T, (x1 + 1) * T, y0 * T, (y1 + 1) * T
+        m = (xx >= X0) & (xx < X1) & (yy >= Y0) & (yy < Y1) & ~M
+        if not m.any():
+            continue
+        # distância até cada borda do vão, em tiles
+        dl, dr = (xx - X0) / T, (X1 - 1 - xx) / T
+        dt_, db = (yy - Y0) / T, (Y1 - 1 - yy) / T
+        # guarda bastante da pedra da fachada: é ela que dá as fiadas e as juntas da parede do fundo
+        base = mix(mix(P['ST_D'], col, 0.66), P['WARM'], 0.07)
+        edge = np.clip(np.minimum(np.minimum(dl, dr) / 2.4, np.minimum(dt_, db) / 1.5), 0, 1)
+        c = base * (0.56 + 0.44 * edge)[..., None]
+        # as velas no chão da sala lambem a parede de baixo para cima
+        c = mix(c, P['WARM'] * 0.75, (np.exp(-db / 2.6) * 0.3)[..., None])
+        # viga de madeira escura encostada no teto
+        beam = sstep(0.9, 0.2, dt_)
+        c = mix(c, hexc(0x241a12), (beam * 0.85)[..., None])
+        L.fill(np.clip(c, 0, 1), m.astype(np.float32))
+        strokes(L, np.clip(c, 0, 1), m.astype(np.float32) * 0.8, flow, np.random.default_rng(seed + 90 + i), joint * 0)
+
+
 def city(room, extra=None, glass=None):
     """Pedra de calcário da cidade: fachadas com janelas acesas, paralelepípedos molhados no chão
     da rua, telhas de ardósia nos telhados, cornijas e o jardim do claustro."""
@@ -317,6 +349,8 @@ def city(room, extra=None, glass=None):
     mask = M.astype(np.float32)
     L = Layer(W, H)
     L.fill(col, mask)
+    # as salas que ficam dentro de um prédio ganham a parede do fundo antes das pinceladas
+    interior_wall(room, L, col, M, flow, joint, seed, P)
     near = (M & (d < 3.2 * T)).astype(np.float32) if not XMODE else M.astype(np.float32)
     # as pedras da rua e as telhas têm desenho próprio: as pinceladas não passam por cima
     strokes(L, col, near * (1 - (top_cob | top_slate) * 0.95), flow, np.random.default_rng(seed + 2), joint)

@@ -25,11 +25,11 @@ export const REGIONS: RegionDef[] = [
     blurb: 'Da ponte do castelo até a cripta do sino, com a galeria dos nichos no meio. Os ossos não mudam de lugar, então essa é a mais fiel.',
   },
   {
-    id: 'cidade', name: 'Cidade-Catedral', rooms: ['escadaria', 'praca', 'rua', 'telhados', 'nave', 'claustro', 'galeria', 'altar'], wash: '#c49a5c', price: 20, surveyor: { room: 'escadaria', x: 7, y: 35 },
+    id: 'cidade', name: 'Cidade-Catedral', rooms: ['escadaria', 'praca', 'mercado', 'rua', 'telhados', 'nave', 'claustro', 'galeria', 'altar'], wash: '#c49a5c', price: 20, surveyor: { room: 'escadaria', x: 7, y: 35 },
     blurb: 'A praça, a rua, os telhados e a catedral inteira, até o altar. Desenhei de cima, do campanário.',
   },
   {
-    id: 'prisao', name: 'Prisão Subterrânea', rooms: ['poco', 'celas', 'correntes', 'guarita', 'fuga', 'arena', 'mascara'], wash: '#a55f4c', price: 30, surveyor: { room: 'poco', x: 50, y: 15 },
+    id: 'prisao', name: 'Prisão Subterrânea', rooms: ['poco', 'solitarias', 'celas', 'correntes', 'guarita', 'fuga', 'arena', 'mascara'], wash: '#a55f4c', price: 30, surveyor: { room: 'poco', x: 50, y: 15 },
     blurb: 'Celas, correntes e a guarita. Contei os passos dos carcereiros para medir os corredores.',
   },
   {

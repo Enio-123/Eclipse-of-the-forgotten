@@ -79,6 +79,43 @@ export const RECORDS: Record<string, RecordInfo> = {
     ],
     proofs: ['inocentes', 'vhalor'],
   },
+  // Mercado do Dízimo (v18): a propaganda da Casa e a conta do que a cidade pagava
+  'mercado:0': {
+    title: 'O édito da Casa Vhalor',
+    region: 'Cidade-Catedral',
+    lines: [
+      'POR ORDEM DA CASA VHALOR, GUARDIÃ DE VESPERA: a dor não é herança. Quem entrega ao Dízimo a lembrança que pesa dorme em paz. A catedral pesa, conta e guarda. Ninguém perde o que entrega: ganha descanso.',
+      'Embaixo, riscado a carvão, numa letra torta: "Descanso de quê? Não lembro mais do que eu estava cansado."',
+    ],
+    proofs: ['vhalor'],
+  },
+  'mercado:1': {
+    title: 'A tabela do Dízimo',
+    region: 'Cidade-Catedral',
+    lines: [
+      'Afixada por ordem da Casa: um ano de infância paga a lenha do inverno. Um rosto querido paga o perdão de uma dívida. Um nome inteiro dispensa a família do Dízimo por três colheitas.',
+      'Na margem, a letra apertada do contador: "A Casa mandou parar de anotar de quem é cada lembrança. Só o peso. Disseram que nome atrapalha a conta. A balança do mercado não desce mais: calçaram o prato."',
+    ],
+    proofs: ['vhalor'],
+  },
+  'solitarias:0': {
+    title: 'O livro das sentenças',
+    region: 'Prisão Subterrânea',
+    lines: [
+      'Aberto na mesa do carcereiro, a pena ainda atravessada na página. Cada linha é um número, uma data e uma pena: trinta dias de silêncio, noventa dias de silêncio, silêncio até a Casa mandar buscar.',
+      'Na coluna do crime, a mesma letra repetida em quase todas as linhas: "lembrou em voz alta". Embaixo do último número, sem data de saída, alguém escreveu com outra tinta: "este não devia nada. Entrou no lugar do irmão."',
+    ],
+    proofs: ['inocentes', 'vhalor'],
+  },
+  'solitarias:1': {
+    title: 'As marcas da parede',
+    region: 'Prisão Subterrânea',
+    lines: [
+      'Riscos de unha na pedra, de quatro em quatro, contando os dias. Passam de trezentos e param no meio de um grupo, como se a mão tivesse largado ali.',
+      'Mais embaixo, fundo na pedra: "enquanto eu contar, eu lembro de quando começou". Depois, um nome que a unha começou e não terminou de riscar, e a mesma mão apagando por cima.',
+    ],
+    proofs: ['inocentes'],
+  },
   'boca:0': {
     title: 'O livro da entrada',
     region: 'Minas Abandonadas',

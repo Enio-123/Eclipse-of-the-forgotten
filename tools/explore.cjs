@@ -10,7 +10,7 @@ const URL = process.argv[2] || 'http://localhost:8765/index.html';
 const OUT = process.argv[3] || '.';
 const JOBS = (process.argv.slice(4).length ? process.argv.slice(4) : [
   'ponte:P:exit-right', 'ponte:2:any', 'catacumbas:1:mirror', 'catacumbas:2:exit-left', 'memoria:1:figure',
-  'nichos:1:exit-right', 'nichos:2:exit-left',
+  'nichos:1:exit-right', 'nichos:2:exit-left', 'mercado:1:exit-right', 'mercado:2:exit-left', 'mercado:1:r1',
 ]).map((j) => { const [room, entry, goal] = j.split(':'); return { room, entry, goal }; });
 
 // cada macro: teclas com quadro inicial e final (60 quadros = 1 s)
@@ -28,8 +28,13 @@ for (const [d, n] of [[L, 'esq'], [R, 'dir']]) {
   macros.push({ name: `dash-${n}`, keys: [[d, 0, 14], [F, 1, 3]] });
   macros.push({ name: `agachado-${n}`, keys: [[CR, 0, 50], [d, 2, 50]] });
   macros.push({ name: `deslizar-${n}`, keys: [[CR, 0, 60], [d, 2, 60], [F, 4, 6]] });
+  // pulo duplo e pulo na parede (só valem com a habilidade; sem ela o segundo toque não faz nada)
+  macros.push({ name: `pulo-duplo-${n}`, keys: [[J, 0, 22], [d, 0, 90], [J, 30, 52]] });
+  macros.push({ name: `pulo-duplo-tarde-${n}`, keys: [[J, 0, 22], [d, 0, 90], [J, 46, 68]] });
+  macros.push({ name: `pulo-parede-${n}`, keys: [[d, 0, 90], [J, 0, 22], [J, 34, 56]] });
 }
 macros.push({ name: 'pulo-reto', keys: [[J, 0, 40]] });
+macros.push({ name: 'pulo-duplo-reto', keys: [[J, 0, 22], [J, 30, 52]] });
 macros.push({ name: 'descer', keys: [[DN, 0, 10], [J, 2, 4]] });
 
 (async () => {
@@ -84,6 +89,8 @@ macros.push({ name: 'descer', keys: [[DN, 0, 10], [J, 2, 4]] });
       const exits = s.room.exits.map((e) => e.side);
       const fig = s.figure;
       const mirror = s.decor.mirror;
+      // os registros da sala (objetivo r0, r1...: chegar em pé na frente do registro n)
+      const recs = lv.spawns.filter((q) => q.kind === 'r').sort((a, b) => a.x - b.x);  // a mesma ordem do Records.ts
       const reset = (x, feet, crouched) => {
         releaseAll();
         step();
@@ -116,6 +123,7 @@ macros.push({ name: 'descer', keys: [[DN, 0, 10], [J, 2, 4]] });
           if (exits.includes('left') && b.center.x < -2) { goals.add('exit-left'); break; }
           if (fig && Math.abs(fig.x - p.x) < 46) goals.add('figure');
           if (mirror && Math.abs(p.x - mirror.x) < 30 && Math.abs(b.bottom - mirror.y) < 10 && b.blocked.down) goals.add('mirror');
+          recs.forEach((r, i) => { if (b.blocked.down && Math.abs(p.x - r.x) < 20 && Math.abs(b.bottom - r.y) < 6) goals.add('r' + i); });
           if (!b.blocked.down || Math.abs(b.bottom - startFeet) > 0.5) left = true;
           const lastKey = Math.max(...m.keys.map((k) => k[2]));
           if (f > lastKey && b.blocked.down && Math.abs(b.velocity.x) < 2 && Math.abs(b.velocity.y) < 2) { if (++still >= 3) break; } else still = 0;

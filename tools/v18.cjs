@@ -1,8 +1,11 @@
 // Testa as salas novas da v18 (as áreas mais longas): em cada uma, os registros que se leem com
 // {up}, o que a sala tem de próprio e os pensamentos. Galeria dos Nichos: a lápide raspada e o livro do
 // coveiro, a laje de lápides que cede debaixo do cavaleiro (só depois da memória do vale) e o pensamento
-// da entrada.
-// uso: node v18.cjs <pasta-saida> [url]   (ONLY=nichos roda só essa parte)
+// da entrada. Mercado do Dízimo: a balança e os toldos, os pratos e os toldos que seguram o cavaleiro,
+// o édito da Casa Vhalor, a tabela do Dízimo na sala de contar e a parede falsa do cofre.
+// As Solitárias: as passarelas da chaminé, a grade arrombada da cela de baixo, a grade inteira da de
+// cima (que só o Véu atravessa), o livro das sentenças e as marcas da parede.
+// uso: node v18.cjs <pasta-saida> [url]   (ONLY=nichos,mercado,solitarias roda só essas partes)
 const { chromium } = require('playwright');
 const OUT = process.argv[2] || '.';
 const URL = process.argv[3] || 'http://localhost:8765/index.html';
@@ -96,9 +99,11 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
   const top = () => page.evaluate(() => { const s = document.querySelector('.screen.show'); return s ? s.id.replace('screen-', '') : null; });
   // fica na frente do registro (spawn 'r' número n da sala), aperta para cima e fecha a conversa
   const read = async (n) => {
-    const at = await page.evaluate((n) => { const r = window.__scene.level.spawns.filter((q) => q.kind === 'r')[n]; return r && { tx: (r.x - 8) / 16, fr: r.y / 16 }; }, n);
+    const at = await page.evaluate((n) => { const r = window.__scene.level.spawns.filter((q) => q.kind === 'r').sort((a, b) => a.x - b.x)[n]; return r && { tx: (r.x - 8) / 16, fr: r.y / 16 }; }, n);
     if (!at) return null;
     await setP(at.tx, at.fr);
+    // a câmera vai atrás do cavaleiro aos poucos: num salto desses a foto sairia na sala errada
+    await page.evaluate(() => { const s = window.__scene; s.cameras.main.centerOn(s.player.x, s.player.body.center.y); });
     await waitGame(0.3);
     const hint = await page.evaluate(() => { const s = window.__scene; const h = s.records && s.records.nearby(s.player); return h && h.hint; });
     await page.evaluate(() => { window.__talks = []; });
@@ -115,7 +120,7 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
       await page.waitForTimeout(140);
     }
     await page.waitForTimeout(300);
-    return t && { ...t, hint };
+    return t && { ...t, hint, tx: at.tx };
   };
 
   if (part('nichos')) {
@@ -162,6 +167,118 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
     await start('nichos', '1');
     const gone = await page.evaluate(() => { const L = window.__scene.level; let n = 0; for (let x = 40; x <= 45; x++) if (L.solidCell(x, 31)) n++; return n; });
     check(gone === 0, `voltando, a laje continua aberta (${gone} pedras no lugar)`);
+  }
+
+  if (part('mercado')) {
+    // ---------- Mercado do Dízimo (Cidade, entre a praça e a rua) ----------
+    await setProgress(['gate:catacumbas', 'memory:vale', 'boss:sineiro', 'weapon:badalo']);
+    await start('mercado', '1');
+    await hookUi();
+    await calm();
+    await setP(5, 29);
+    await waitGame(0.6);
+    await setP(64, 29);
+    await waitGame(0.6);
+    let th = await page.evaluate(() => window.__thoughts);
+    check(th.some((x) => /Só a balança/.test(x)), `na entrada ele vê o mercado vazio (${th[0]})`);
+    check(th.some((x) => /último Dízimo/.test(x)), `embaixo da balança, o saco que ninguém buscou (${th[1]})`);
+    // a balança e os toldos estão na sala
+    const decos = await page.evaluate(() => window.__scene.children.list.filter((o) => o.texture && ['deco-balanca', 'deco-toldo'].includes(o.texture.key)).map((o) => o.texture.key));
+    check(decos.filter((k) => k === 'deco-balanca').length === 1 && decos.filter((k) => k === 'deco-toldo').length === 3, `a balança e os três toldos (${decos.join(' ')})`);
+    // os pratos e os toldos seguram o cavaleiro
+    for (const [tx, fr, what] of [[65, 25, 'o prato de baixo'], [74, 20, 'o prato de cima'], [12, 23, 'o toldo da primeira banca'], [81, 18, 'a sacada da Casa de Contagem']]) {
+      await setP(tx, fr - 0.3);
+      await waitGame(0.8);
+      const p = await P();
+      check(p.ground && Math.abs(p.bottom - fr) < 0.1, `${what} aguenta (pé ${p.bottom.toFixed(2)})`);
+    }
+    // os registros
+    let t = await read(0);
+    check(t && t.name === 'O édito da Casa Vhalor' && /CASA VHALOR/.test(t.lines.join(' ')) && t.hint && t.tx === 6, `o édito no poste da rua (${t && t.name}, x ${t && t.tx})`);
+    t = await read(1);
+    check(t && t.name === 'A tabela do Dízimo' && /calçaram o prato/.test(t.lines.join(' ')) && t.tx === 96, `a tabela na mesa de contar (${t && t.name}, x ${t && t.tx})`);
+    await waitGame(0.3);
+    th = await page.evaluate(() => window.__thoughts);
+    check(th.some((x) => /colunas retas/.test(x)), `na sala de contar, ele pensa nas contas (${th[th.length - 1]})`);
+    // a parede falsa atrás da mesa e o cofre
+    await setP(103, 18);
+    await page.evaluate(() => { window.__scene.player.facing = 1; });
+    for (let i = 0; i < 8 && (await page.evaluate(() => window.__scene.fixtures.walls.length)) > 0; i++) {
+      await page.keyboard.down('KeyJ');
+      await page.waitForTimeout(110);
+      await page.keyboard.up('KeyJ');
+      await waitGame(0.45);
+    }
+    const walls = await page.evaluate(() => window.__scene.fixtures.walls.length);
+    check(walls === 0, `a parede falsa atrás da mesa cai (${walls} de pé)`);
+    await shot('mercado-cofre');
+  }
+
+  if (part('solitarias')) {
+    // ---------- As Solitárias (Prisão, entre o poço e as celas) ----------
+    const PRISAO = ['gate:catacumbas', 'memory:vale', 'boss:sineiro', 'weapon:badalo', 'boss:arcebispo', 'weapon:incensario', 'relic:hook'];
+    await setProgress(PRISAO);
+    await start('solitarias', '1');
+    await hookUi();
+    await calm();
+    await setP(6, 40);
+    await waitGame(0.6);
+    await setP(36, 38);
+    await waitGame(0.6);
+    let th = await page.evaluate(() => window.__thoughts);
+    check(th.some((x) => /virava número/.test(x)), `na entrada ele pensa em quem perdia o nome (${th[0]})`);
+    check(th.some((x) => /chaminé sobe/.test(x)), `embaixo da chaminé, pensa na cidade em cima (${th[1]})`);
+    // as passarelas de ferro da chaminé, uma na altura do chão de cada solitária
+    for (const [tx, fr, what] of [[34, 34, 'a passarela da cela de baixo'], [39, 28, 'a da cela do meio'], [34, 22, 'a da cela de cima'], [36, 16, 'a da claraboia']]) {
+      await setP(tx, fr - 0.3);
+      await waitGame(0.8);
+      const p = await P();
+      check(p.ground && Math.abs(p.bottom - fr) < 0.1, `${what} aguenta (pé ${p.bottom.toFixed(2)})`);
+    }
+    // a solitária de baixo está arrombada: entra andando, e a página do diário está lá dentro
+    await setP(34, 34);
+    await waitGame(0.3);
+    await page.keyboard.down('KeyA');
+    await waitGame(1.2);
+    await page.keyboard.up('KeyA');
+    await waitGame(0.3);
+    let p = await P();
+    check(p.ground && p.x < 30 && Math.abs(p.bottom - 34) < 0.1, `a grade arrombada deixa entrar na cela de baixo (x ${p.x.toFixed(1)}, pé ${p.bottom.toFixed(2)})`);
+    const page1 = await page.evaluate(() => window.__scene.level.spawns.some((q) => q.kind === 'p'));
+    check(page1, 'a página do diário ficou na cela arrombada');
+    // a grade inteira da cela de cima barra quem não tem o Véu
+    await setP(34, 22);
+    await waitGame(0.3);
+    await page.keyboard.down('KeyA');
+    await waitGame(1.2);
+    await page.keyboard.up('KeyA');
+    p = await P();
+    check(p.x > 31.5, `sem o Véu, a grade da cela de cima barra (x ${p.x.toFixed(1)})`);
+    await shot('solitarias-grade');
+    // os registros: o livro das sentenças na entrada e as marcas na cela de cima
+    let t = await read(0);
+    check(t && t.name === 'O livro das sentenças' && /no lugar do irmão/.test(t.lines.join(' ')) && t.hint && t.tx === 10, `o livro das sentenças na mesa (${t && t.name}, x ${t && t.tx})`);
+    t = await read(1);
+    check(t && t.name === 'As marcas da parede' && /trezentos/.test(t.lines.join(' ')) && t.tx === 27, `as marcas da cela de cima (${t && t.name}, x ${t && t.tx})`);
+    // com o Véu, o dash atravessa a grade
+    await setProgress(PRISAO, ['wall', 'double', 'hook', 'veil']);
+    await start('solitarias', '1');
+    await hookUi();
+    await calm();
+    await setP(34, 22);
+    await waitGame(0.3);
+    await page.evaluate(() => { window.__scene.player.facing = -1; });
+    await page.keyboard.down('KeyA');
+    await page.waitForTimeout(60);
+    await page.keyboard.down('KeyF');
+    await page.waitForTimeout(90);
+    await page.keyboard.up('KeyF');
+    await waitGame(0.8);
+    await page.keyboard.up('KeyA');
+    await waitGame(0.5);
+    p = await P();
+    check(p.ground && p.x < 30.5 && Math.abs(p.bottom - 22) < 0.1, `com o Véu ele atravessa a grade e entra na cela (x ${p.x.toFixed(1)}, pé ${p.bottom.toFixed(2)})`);
+    await shot('solitarias-veu');
   }
 
   console.log(errs.length ? errs.join('\n') : 'sem erros no console');

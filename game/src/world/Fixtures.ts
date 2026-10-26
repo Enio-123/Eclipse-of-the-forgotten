@@ -183,6 +183,11 @@ export class Fixtures {
       else if (sp.kind === 'o') this.addRing(sp.x, sp.y - TILE / 2);
       else if (sp.kind === 'k' && !progress.seen.has('item:chaves')) this.addKeys(sp.x, sp.y);
     }
+    // objetos soltos da sala (a balança do mercado, os toldos): assentam na linha do chão dada
+    for (const d of room.decos ?? []) {
+      if (!s.textures.exists(d.key)) continue;
+      hd(s.add.image(d.x * TILE, d.y * TILE, d.key).setOrigin(0.5, 1).setFlipX(!!d.flip).setDepth(d.back ? DEPTH.rail : DEPTH.prop));
+    }
     this.addTrapdoors();
     this.addBars();
     this.addMembranes();

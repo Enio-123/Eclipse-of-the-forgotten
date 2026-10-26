@@ -2,7 +2,7 @@ import type { Theme } from './Level';
 import {
   MAP_ABISMO, MAP_ALTAR, MAP_ARENA, MAP_BOCA, MAP_CABANA, MAP_CAPATAZ, MAP_CATACUMBAS, MAP_CELAS, MAP_CLAREIRA, MAP_CLAUSTRO,
   MAP_CORRENTES, MAP_CRIPTA, MAP_ENCOSTA, MAP_ESCADARIA, MAP_ESPELHOS, MAP_FOSSO, MAP_FUGA, MAP_GALERIA, MAP_GUARITA, MAP_LAGO,
-  MAP_MASCARA, MAP_MEMORIA, MAP_NAVE, MAP_NICHOS, MAP_PINHAL, MAP_POCO, MAP_PONTE, MAP_PRACA, MAP_PRENSAS, MAP_RUA, MAP_SERRA, MAP_SINOS,
+  MAP_MASCARA, MAP_MEMORIA, MAP_MERCADO, MAP_NAVE, MAP_NICHOS, MAP_PINHAL, MAP_POCO, MAP_PONTE, MAP_PRACA, MAP_PRENSAS, MAP_RUA, MAP_SERRA, MAP_SINOS, MAP_SOLITARIAS,
   MAP_TELHADOS, MAP_TRILHOS, MAP_VEIO,
 } from './maps';
 import type { AmbienceId, TrackId } from '../systems/Audio';
@@ -11,8 +11,8 @@ import type { FindId } from './Finds';
 
 export type RoomId =
   | 'ponte' | 'catacumbas' | 'nichos' | 'memoria' | 'sinos' | 'cripta'
-  | 'escadaria' | 'praca' | 'rua' | 'telhados' | 'nave' | 'claustro' | 'galeria' | 'altar'
-  | 'poco' | 'celas' | 'correntes' | 'guarita' | 'fuga' | 'arena' | 'mascara' | 'fosso' | 'abismo'
+  | 'escadaria' | 'praca' | 'mercado' | 'rua' | 'telhados' | 'nave' | 'claustro' | 'galeria' | 'altar'
+  | 'poco' | 'solitarias' | 'celas' | 'correntes' | 'guarita' | 'fuga' | 'arena' | 'mascara' | 'fosso' | 'abismo'
   | 'boca' | 'trilhos' | 'prensas' | 'veio' | 'espelhos' | 'capataz'
   | 'encosta' | 'pinhal' | 'lago' | 'cabana' | 'serra' | 'clareira';
 // 'cape': a Capa de Arielle (segurando o pulo no ar, plana; nas correntes de ar, sobe)
@@ -125,6 +125,9 @@ export interface RoomDef {
   trail?: [number, number, number?][];
   // fitas vermelhas amarradas nos troncos (tile do nó)
   ribbons?: [number, number][];
+  // objetos de cenário soltos, sem física (a balança do mercado, os toldos das bancas): a imagem, o x
+  // do meio e a linha do chão em que ela assenta (em tiles); back: atrás das plataformas
+  decos?: { key: string; x: number; y: number; back?: boolean; flip?: boolean }[];
 }
 
 export interface GustDef {
@@ -301,7 +304,7 @@ const PROLOGUE: Record<'ponte' | 'catacumbas' | 'nichos' | 'sinos' | 'cripta' | 
 // ---------- capítulo 2: a Cidade-Catedral ----------
 const CITY: Pick<RoomDef, 'pit' | 'rain' | 'lightning' | 'petals' | 'motes'> = { pit: false, rain: false, lightning: false, petals: false, motes: true };
 
-const CHAPTER2: Record<'escadaria' | 'praca' | 'rua' | 'telhados' | 'nave' | 'claustro' | 'galeria' | 'altar', RoomDef> = {
+const CHAPTER2: Record<'escadaria' | 'praca' | 'mercado' | 'rua' | 'telhados' | 'nave' | 'claustro' | 'galeria' | 'altar', RoomDef> = {
   escadaria: {
     id: 'escadaria',
     map: MAP_ESCADARIA,
@@ -332,7 +335,7 @@ const CHAPTER2: Record<'escadaria' | 'praca' | 'rua' | 'telhados' | 'nave' | 'cl
     subtitle: 'Cidade-Catedral de Vespera',
     exits: [
       { side: 'left', to: 'escadaria', entry: '2', range: [25, 28] },
-      { side: 'right', to: 'rua', entry: '1', range: [25, 28] },
+      { side: 'right', to: 'mercado', entry: '1', range: [25, 28] },
       { side: 'down', to: 'poco', entry: '1', range: [54, 58] },
     ],
     doors: [{ to: 'nave', entry: 'O1', key: 'short:catedral', locked: 'Trancada por dentro. A catedral não abre para quem bate.' }],
@@ -351,13 +354,39 @@ const CHAPTER2: Record<'escadaria' | 'praca' | 'rua' | 'telhados' | 'nave' | 'cl
       { x: 56, text: 'Velas acesas no cadafalso. Alguém ainda cuida dele.' },
     ],
   },
+  // v18: entre a praça e a rua
+  mercado: {
+    id: 'mercado',
+    map: MAP_MERCADO,
+    theme: 'city',
+    title: 'Mercado do Dízimo',
+    subtitle: 'Onde a lembrança tinha peso',
+    exits: [{ side: 'left', to: 'praca', entry: '2', range: [25, 28] }, { side: 'right', to: 'rua', entry: '1', range: [25, 28] }],
+    npcs: [['Pesaram a minha lembrança do mar. Deu pouco.', 'Tive que pôr a do meu irmão também. Qual irmão? É o que eu fico tentando lembrar.', 'A balança nunca errou. Era o que diziam. Ninguém lembrava de outra.']],
+    ...CITY,
+    drips: 0,
+    music: 'city',
+    ambience: 'city',
+    hints: [],
+    thoughts: [
+      { x: 5, text: 'Um mercado sem ninguém vendendo. Só a balança continua trabalhando.' },
+      { x: 64, y: 28, text: 'O prato de baixo ainda tem o saco do último Dízimo. Ninguém veio buscar o que pagou.' },
+      { x: 95, y: 17, text: 'Aqui se contava o que a cidade esquecia. Em colunas retas, sem um borrão.' },
+    ],
+    decos: [
+      { key: 'deco-balanca', x: 70, y: 29, back: true },
+      { key: 'deco-toldo', x: 13, y: 27 },
+      { key: 'deco-toldo', x: 29, y: 27, flip: true },
+      { key: 'deco-toldo', x: 45, y: 27 },
+    ],
+  },
   rua: {
     id: 'rua',
     map: MAP_RUA,
     theme: 'city',
     title: 'Rua dos Penitentes',
     subtitle: 'Onde o dízimo se paga de joelhos',
-    exits: [{ side: 'left', to: 'praca', entry: '2', range: [31, 34] }, { side: 'up', to: 'telhados', entry: '1', range: [121, 149] }],
+    exits: [{ side: 'left', to: 'mercado', entry: '2', range: [31, 34] }, { side: 'up', to: 'telhados', entry: '1', range: [121, 149] }],
     npcs: [['Não pise nos incensários. A fumaça faz esquecer o caminho de casa.', 'Os arqueiros das sacadas atiram em quem anda de cabeça erguida.']],
     ...CITY,
     drips: 0,
@@ -464,7 +493,7 @@ const CHAPTER2: Record<'escadaria' | 'praca' | 'rua' | 'telhados' | 'nave' | 'cl
 // ---------- capítulo 3: a Prisão Subterrânea ----------
 const PRISON: Pick<RoomDef, 'pit' | 'rain' | 'lightning' | 'petals' | 'motes'> = { pit: false, rain: false, lightning: false, petals: false, motes: true };
 
-const CHAPTER3: Record<'poco' | 'celas' | 'correntes' | 'guarita' | 'fuga' | 'arena' | 'mascara' | 'fosso' | 'abismo', RoomDef> = {
+const CHAPTER3: Record<'poco' | 'solitarias' | 'celas' | 'correntes' | 'guarita' | 'fuga' | 'arena' | 'mascara' | 'fosso' | 'abismo', RoomDef> = {
   poco: {
     id: 'poco',
     map: MAP_POCO,
@@ -474,7 +503,7 @@ const CHAPTER3: Record<'poco' | 'celas' | 'correntes' | 'guarita' | 'fuga' | 'ar
     exits: [
       { side: 'up', to: 'praca', entry: '3', range: [54, 58] },
       { side: 'left', to: 'escadaria', entry: '3', range: [17, 19] },
-      { side: 'right', to: 'celas', entry: '1', range: [37, 40] },
+      { side: 'right', to: 'solitarias', entry: '1', range: [37, 40] },
     ],
     locks: ['lever:poco:0'],
     ...PRISON,
@@ -488,6 +517,29 @@ const CHAPTER3: Record<'poco' | 'celas' | 'correntes' | 'guarita' | 'fuga' | 'ar
       { x: 30, y: 40, text: 'Ossos com algemas. Ninguém veio buscar.' },
     ],
   },
+  solitarias: {
+    id: 'solitarias',
+    map: MAP_SOLITARIAS,
+    theme: 'prison',
+    title: 'As Solitárias',
+    subtitle: 'Onde o silêncio era a pena',
+    exits: [
+      { side: 'left', to: 'poco', entry: '3', range: [37, 40] },
+      { side: 'right', to: 'celas', entry: '1', range: [33, 40] },
+    ],
+    ...PRISON,
+    drips: 18,
+    music: 'prison',
+    ambience: 'prison',
+    hints: [],
+    thoughts: [
+      { x: 6, text: 'As solitárias. Quem vinha para cá perdia o nome na lista e virava número.' },
+      { x: 36, y: 38, text: 'A chaminé sobe até a praça. Lá em cima a cidade andava por cima deles, sem ouvir nada.' },
+      { x: 34, y: 33, text: 'Esta grade foi arrombada por fora. Alguém entrou. Ninguém saiu com pressa.' },
+      { x: 34, y: 21, text: 'A última solitária ainda está fechada. Dá para ver as marcas na parede daqui.' },
+      { x: 88, text: 'Daqui em diante, as celas. Lá as portas ainda têm fechadura.' },
+    ],
+  },
   celas: {
     id: 'celas',
     map: MAP_CELAS,
@@ -495,7 +547,7 @@ const CHAPTER3: Record<'poco' | 'celas' | 'correntes' | 'guarita' | 'fuga' | 'ar
     title: 'Corredor das Celas',
     subtitle: 'Onde se espera a sentença',
     exits: [
-      { side: 'left', to: 'poco', entry: '3', range: [33, 40] },
+      { side: 'left', to: 'solitarias', entry: '2', range: [33, 40] },
       { side: 'right', to: 'correntes', entry: '1', range: [33, 40] },
       { side: 'down', to: 'fuga', entry: '2', range: [93, 97] },
     ],
@@ -945,31 +997,33 @@ export const MAP_POS: Partial<Record<RoomId, { x: number; y: number }>> = {
   cripta: { x: 514, y: -7 },
   escadaria: { x: 562, y: -23 },
   praca: { x: 598, y: -41 },
-  rua: { x: 718, y: -47 },
-  telhados: { x: 718, y: -87 },
-  nave: { x: 598, y: -81 },
-  claustro: { x: 508, y: -81 },
-  galeria: { x: 598, y: -115 },
-  altar: { x: 718, y: -117 },
+  mercado: { x: 718, y: -41 },
+  rua: { x: 830, y: -47 },
+  telhados: { x: 830, y: -87 },
+  nave: { x: 710, y: -81 },
+  claustro: { x: 620, y: -81 },
+  galeria: { x: 710, y: -115 },
+  altar: { x: 830, y: -117 },
   poco: { x: 598, y: -7 },
-  celas: { x: 658, y: -7 },
-  correntes: { x: 808, y: -7 },
-  guarita: { x: 868, y: -7 },
-  fuga: { x: 748, y: 37 },
-  arena: { x: 598, y: 37 },
-  mascara: { x: 728, y: 63 },
-  fosso: { x: 748, y: 95 },
-  abismo: { x: 804, y: 145 },
-  boca: { x: 874, y: 143 },
-  trilhos: { x: 974, y: 149 },
-  prensas: { x: 1124, y: 149 },
-  veio: { x: 1190, y: 193 },
-  espelhos: { x: 1254, y: 245 },
-  capataz: { x: 1318, y: 241 },
-  encosta: { x: 1390, y: 241 },
-  pinhal: { x: 1502, y: 245 },
-  lago: { x: 1674, y: 246 },
-  cabana: { x: 1824, y: 236 },
-  serra: { x: 1908, y: 168 },
-  clareira: { x: 1968, y: 151 },
+  solitarias: { x: 658, y: -7 },
+  celas: { x: 754, y: -7 },
+  correntes: { x: 904, y: -7 },
+  guarita: { x: 964, y: -7 },
+  fuga: { x: 844, y: 37 },
+  arena: { x: 694, y: 37 },
+  mascara: { x: 824, y: 63 },
+  fosso: { x: 844, y: 95 },
+  abismo: { x: 900, y: 145 },
+  boca: { x: 970, y: 143 },
+  trilhos: { x: 1070, y: 149 },
+  prensas: { x: 1220, y: 149 },
+  veio: { x: 1286, y: 193 },
+  espelhos: { x: 1350, y: 245 },
+  capataz: { x: 1414, y: 241 },
+  encosta: { x: 1486, y: 241 },
+  pinhal: { x: 1598, y: 245 },
+  lago: { x: 1770, y: 246 },
+  cabana: { x: 1920, y: 236 },
+  serra: { x: 2004, y: 168 },
+  clareira: { x: 2064, y: 151 },
 };

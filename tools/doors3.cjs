@@ -1,5 +1,6 @@
-// Portas da rodada 3 andando de verdade: catacumbas -> Galeria dos Nichos -> Galeria dos Sinos -> Cripta
-// e de volta pelo mesmo caminho.
+// Portas das salas novas andando de verdade: catacumbas -> Galeria dos Nichos -> Galeria dos Sinos ->
+// Cripta e de volta pelo mesmo caminho; praça -> Mercado do Dízimo -> rua e de volta; poço -> As
+// Solitárias -> celas e de volta.
 // uso: node doors3.cjs
 const { chromium } = require('playwright');
 (async () => {
@@ -75,6 +76,35 @@ const { chromium } = require('playwright');
   r = await walk('KeyA', 'catacumbas');
   w = await where();
   ok(r && w.ground, `Galeria dos Nichos -> catacumbas (${w.room} x ${w.x} pé ${w.feet})`);
+  // as outras salas novas: o cavaleiro entra pela beirada da passagem e anda para o lado
+  const edge = (to) => page.evaluate((to) => {
+    const s = window.__scene;
+    const e = s.room.exits.find((x) => x.to === to);
+    const row = e.range ? e.range[1] + 1 : null;
+    const x = e.side === 'right' ? (s.level.w - 3) * 16 : 3 * 16;
+    s.player.teleport(x, row * 16);
+    s.player.invuln = 99;
+    return { side: e.side, row };
+  }, to);
+  const hop = async (from, entry, to, label) => {
+    await start(from, entry, ['wall', 'double'], seen);
+    await inRoom(from);
+    await page.waitForTimeout(700);
+    await clear();
+    const e = await edge(to);
+    await page.waitForTimeout(300);
+    const r = await walk(e.side === 'right' ? 'KeyD' : 'KeyA', to);
+    const w = await where();
+    ok(r && w.ground, `${label} (${w.room} x ${w.x} pé ${w.feet})`);
+  };
+  await hop('praca', '1', 'mercado', 'praça -> Mercado do Dízimo');
+  await hop('mercado', '1', 'rua', 'Mercado do Dízimo -> rua dos Penitentes');
+  await hop('rua', '1', 'mercado', 'rua dos Penitentes -> Mercado do Dízimo');
+  await hop('mercado', '2', 'praca', 'Mercado do Dízimo -> praça');
+  await hop('poco', '1', 'solitarias', 'poço -> As Solitárias');
+  await hop('solitarias', '1', 'celas', 'As Solitárias -> celas');
+  await hop('celas', '1', 'solitarias', 'celas -> As Solitárias');
+  await hop('solitarias', '2', 'poco', 'As Solitárias -> poço');
   console.log(errs.join('\n') || 'sem erros');
   await browser.close();
 })();

@@ -240,7 +240,7 @@ function paintRoom(id: RoomId, region: RegionDef): RoomArt {
       if (!seen.at(x, y)) continue;
       const c = g.ch(x, y);
       const p = at(x, y);
-      if (c === '-') {
+      if (c === '-' || c === '"') {
         ctx.fillStyle = 'rgba(240, 228, 200, 0.75)';
         ctx.fillRect(p.x, p.y, B, 1.2);
       } else if (c === '^') {
