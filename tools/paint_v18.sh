@@ -1,0 +1,9 @@
+#!/bin/sh
+# v18: pinta o terreno de uma sala nova (versão pixel e a do EXTREME), passa pela paleta do tema
+# sem mexer nas salas já aprovadas e empacota a 2x do EXTREME; uso: sh tools/paint_v18.sh <sala> <pintor> <tema> [pasta]
+cd "$(dirname "$0")/../art2"
+ROOM=$1; PAINTER=$2; THEME=$3; HD=${4:-hd}
+nice -n 15 python3 $PAINTER $ROOM $HD || exit 1
+if [ "$PAINTER" = terreno.py ]; then nice -n 15 python3 terreno.py $ROOM --x || exit 1; fi
+python3 finaliza.py $THEME $HD --keep=terreno-$ROOM || exit 1
+cd .. && python3 tools/hdpack.py $ROOM

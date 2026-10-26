@@ -60,6 +60,25 @@ export interface RecordInfo {
   named?: { title?: string; lines: string[] };
 }
 export const RECORDS: Record<string, RecordInfo> = {
+  // Galeria dos Nichos (v18): os nomes raspados das catacumbas
+  'nichos:0': {
+    title: 'As lápides raspadas',
+    region: 'Catacumbas de Vespera',
+    lines: [
+      'Cada nicho tinha uma lápide com o nome de quem dorme ali. Todas foram raspadas com o mesmo cinzel, no mesmo sentido, como se fosse trabalho de um dia só.',
+      'Nesta o cinzel escorregou no fim. Sobrou a data: o mês do Dízimo grande, no ano antes do eclipse.',
+    ],
+    proofs: ['inocentes'],
+  },
+  'nichos:1': {
+    title: 'O livro do coveiro',
+    region: 'Catacumbas de Vespera',
+    lines: [
+      'Enterrados por ordem da catedral, sem nome, a pedido da Casa Vhalor: duzentos e doze. Ninguém veio reclamar. Ninguém lembrava deles para vir.',
+      'Hoje desceram mais três, do cadafalso da praça. O carrasco carregou os corpos ele mesmo, um de cada vez, e ficou parado na frente dos nichos. Não pediu que eu raspasse os nomes. Raspei porque mandaram.',
+    ],
+    proofs: ['inocentes', 'vhalor'],
+  },
   'boca:0': {
     title: 'O livro da entrada',
     region: 'Minas Abandonadas',

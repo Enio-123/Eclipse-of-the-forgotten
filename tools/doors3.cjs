@@ -1,4 +1,5 @@
-// Portas da rodada 3 andando de verdade: catacumbas -> Galeria dos Sinos -> Cripta e de volta.
+// Portas da rodada 3 andando de verdade: catacumbas -> Galeria dos Nichos -> Galeria dos Sinos -> Cripta
+// e de volta pelo mesmo caminho.
 // uso: node doors3.cjs
 const { chromium } = require('playwright');
 (async () => {
@@ -6,7 +7,7 @@ const { chromium } = require('playwright');
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   const errs = [];
   page.on('pageerror', (e) => errs.push('ERR ' + e.message));
-  await page.goto('http://localhost:8765/index.html');
+  await page.goto(process.env.GAME ? process.env.GAME + '/index.html' : 'http://localhost:8765/index.html');
   await page.waitForSelector('#screen-menu.show', { timeout: 20000 });
   const ok = (c, msg) => console.log((c ? 'ok   ' : 'FALHA ') + msg);
   const start = (room, entry, abilities, seen) => page.evaluate(([room, entry, abilities, seen]) => {
@@ -30,17 +31,27 @@ const { chromium } = require('playwright');
     return r;
   };
   const where = () => page.evaluate(() => { const s = window.__scene; const p = s.player; return { room: s.room.id, x: +(p.x / 16).toFixed(1), feet: +(p.body.bottom / 16).toFixed(1), ground: p.onGround }; });
-  const seen = ['memory:vale', 'gate:catacumbas', 'banner:sinos', 'banner:cripta', 'banner:catacumbas'];
-  // catacumbas -> sinos pela grade aberta (saída da direita)
+  const seen = ['memory:vale', 'gate:catacumbas', 'banner:nichos', 'banner:sinos', 'banner:cripta', 'banner:catacumbas'];
+  const clear = () => page.evaluate(() => { const s = window.__scene; for (const e of s.enemies) { e.alive = false; e.body.enable = false; e.sprite.setVisible(false); } s.player.invuln = 99; });
+  const to = (entry, dx = 0) => page.evaluate(([entry, dx]) => { const s = window.__scene; const d = s.level.spawn(entry); s.player.teleport(d.x + dx, d.y); s.player.invuln = 99; }, [entry, dx]);
+  // catacumbas -> Galeria dos Nichos pela grade aberta (saída da direita)
   await start('catacumbas', '2', ['wall', 'double'], seen);
   await inRoom('catacumbas');
   await page.waitForTimeout(800);
-  await page.evaluate(() => { const s = window.__scene; for (const e of s.enemies) { e.alive = false; e.body.enable = false; e.sprite.setVisible(false); } s.player.teleport(104 * 16, 44 * 16); s.player.invuln = 99; });
-  let r = await walk('KeyD', 'sinos');
+  await clear();
+  await page.evaluate(() => window.__scene.player.teleport(104 * 16, 44 * 16));
+  let r = await walk('KeyD', 'nichos');
   let w = await where();
-  ok(r && w.ground, `catacumbas -> Galeria dos Sinos (${w.room} x ${w.x} pé ${w.feet})`);
+  ok(r && w.ground && w.x < 6, `catacumbas -> Galeria dos Nichos (${w.room} x ${w.x} pé ${w.feet})`);
+  // nichos -> sinos pelo corredor do fundo
+  await clear();
+  await to('2', -40);
+  await page.waitForTimeout(400);
+  r = await walk('KeyD', 'sinos');
+  w = await where();
+  ok(r && w.ground, `Galeria dos Nichos -> Galeria dos Sinos (${w.room} x ${w.x} pé ${w.feet})`);
   // sinos (laje de cima) -> cripta
-  await page.evaluate(() => { const s = window.__scene; const d = s.level.spawn('2'); s.player.teleport(d.x, d.y); s.player.invuln = 99; });
+  await to('2');
   await page.waitForTimeout(400);
   r = await walk('KeyD', 'cripta');
   w = await where();
@@ -50,12 +61,20 @@ const { chromium } = require('playwright');
   r = await walk('KeyA', 'sinos');
   w = await where();
   ok(r && w.ground && w.feet <= 9.05 && w.x > 87, `Cripta -> Galeria dos Sinos, em pé na laje (${w.room} x ${w.x} pé ${w.feet})`);
-  // sinos -> catacumbas pela esquerda, lá embaixo
-  await page.evaluate(() => { const s = window.__scene; for (const e of s.enemies) { e.alive = false; e.body.enable = false; e.sprite.setVisible(false); } const d = s.level.spawn('1'); s.player.teleport(d.x, d.y); s.player.invuln = 99; });
+  // sinos -> nichos pela esquerda, lá embaixo: chega no corredor do fundo
+  await clear();
+  await to('1');
+  await page.waitForTimeout(400);
+  r = await walk('KeyA', 'nichos');
+  w = await where();
+  ok(r && w.ground && w.x > 120 && Math.abs(w.feet - 37) < 0.1, `Galeria dos Sinos -> Galeria dos Nichos (${w.room} x ${w.x} pé ${w.feet})`);
+  // nichos -> catacumbas pela esquerda, na galeria de cima
+  await clear();
+  await to('1', 16);
   await page.waitForTimeout(400);
   r = await walk('KeyA', 'catacumbas');
   w = await where();
-  ok(r && w.ground, `Galeria dos Sinos -> catacumbas (${w.room} x ${w.x} pé ${w.feet})`);
+  ok(r && w.ground, `Galeria dos Nichos -> catacumbas (${w.room} x ${w.x} pé ${w.feet})`);
   console.log(errs.join('\n') || 'sem erros');
   await browser.close();
 })();

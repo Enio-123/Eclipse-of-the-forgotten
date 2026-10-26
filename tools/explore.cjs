@@ -10,6 +10,7 @@ const URL = process.argv[2] || 'http://localhost:8765/index.html';
 const OUT = process.argv[3] || '.';
 const JOBS = (process.argv.slice(4).length ? process.argv.slice(4) : [
   'ponte:P:exit-right', 'ponte:2:any', 'catacumbas:1:mirror', 'catacumbas:2:exit-left', 'memoria:1:figure',
+  'nichos:1:exit-right', 'nichos:2:exit-left',
 ]).map((j) => { const [room, entry, goal] = j.split(':'); return { room, entry, goal }; });
 
 // cada macro: teclas com quadro inicial e final (60 quadros = 1 s)

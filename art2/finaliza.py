@@ -39,11 +39,11 @@ THEMES = {
     'catacomb': dict(
         layers={
             'cat-far': 'opaque', 'cat-mid': 'soft', 'terreno-catacumbas': 'exact', 'terreno-sinos': 'exact', 'terreno-cripta': 'exact',
-            'terreno-escadaria': 'exact',
+            'terreno-escadaria': 'exact', 'terreno-nichos': 'exact',
             **{f'decos/{n}': 'soft1x' for n in ['deco-candles', 'deco-tufts-catacomb', 'deco-shrine', 'deco-pedestal', 'deco-portcullis']},
         },
         rename={'terreno-catacumbas': 'terrain-catacumbas', 'terreno-sinos': 'terrain-sinos', 'terreno-cripta': 'terrain-cripta',
-                'terreno-escadaria': 'terrain-escadaria'},
+                'terreno-escadaria': 'terrain-escadaria', 'terreno-nichos': 'terrain-nichos'},
         accents=[hexc(0xffa64e), hexc(0xffd08a), hexc(0x040509), hexc(0x6e665a)],
         colors=80,
     ),

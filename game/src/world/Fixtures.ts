@@ -600,7 +600,7 @@ export class Fixtures {
       const y = g.y * TILE;
       const def = s.room.trapdoors?.[i] ?? null;
       if (def?.look === 'stone') {
-        const t: Trapdoor = { i, x0: g.x0, x1: g.x1, y: g.y, def, open: false, leaves: this.stoneSlab(g, i), giveT: 0, stone: true };
+        const t: Trapdoor = { i, x0: g.x0, x1: g.x1, y: g.y, def, open: false, leaves: this.stoneSlab(g, i, def.depth), giveT: 0, stone: true };
         this.trapdoors.push(t);
         if (progress.seen.has(def.key)) this.openTrapdoor(t, false);
         return;
@@ -613,13 +613,14 @@ export class Fixtures {
     });
   }
 
-  // A laje que cede: copia um trecho do chão pintado ali do lado (do tampo até o fundo da sala) e
-  // cobre o buraco com ele, em pedaços de um tile, com uma rachadura fina por cima
-  private stoneSlab(g: { x0: number; x1: number; y: number }, i: number) {
+  // A laje que cede: copia um trecho do chão pintado ali do lado (do tampo até o fundo da sala, ou só
+  // depth linhas quando embaixo dela é oco) e cobre o buraco com ele, em pedaços de um tile, com uma
+  // rachadura fina por cima
+  private stoneSlab(g: { x0: number; x1: number; y: number }, i: number, depth?: number) {
     const s = this.scene;
     const L = s.level;
     const cols = g.x1 - g.x0 + 1;
-    const rows = L.h - g.y;
+    const rows = Math.min(depth ?? L.h - g.y, L.h - g.y);
     const key = `slab-${s.room.id}-${i}`;
     const terrain = `terrain-${s.room.id}`;
     if (!s.textures.exists(key)) {

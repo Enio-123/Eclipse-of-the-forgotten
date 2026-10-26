@@ -2,7 +2,7 @@ import type { Theme } from './Level';
 import {
   MAP_ABISMO, MAP_ALTAR, MAP_ARENA, MAP_BOCA, MAP_CABANA, MAP_CAPATAZ, MAP_CATACUMBAS, MAP_CELAS, MAP_CLAREIRA, MAP_CLAUSTRO,
   MAP_CORRENTES, MAP_CRIPTA, MAP_ENCOSTA, MAP_ESCADARIA, MAP_ESPELHOS, MAP_FOSSO, MAP_FUGA, MAP_GALERIA, MAP_GUARITA, MAP_LAGO,
-  MAP_MASCARA, MAP_MEMORIA, MAP_NAVE, MAP_PINHAL, MAP_POCO, MAP_PONTE, MAP_PRACA, MAP_PRENSAS, MAP_RUA, MAP_SERRA, MAP_SINOS,
+  MAP_MASCARA, MAP_MEMORIA, MAP_NAVE, MAP_NICHOS, MAP_PINHAL, MAP_POCO, MAP_PONTE, MAP_PRACA, MAP_PRENSAS, MAP_RUA, MAP_SERRA, MAP_SINOS,
   MAP_TELHADOS, MAP_TRILHOS, MAP_VEIO,
 } from './maps';
 import type { AmbienceId, TrackId } from '../systems/Audio';
@@ -10,7 +10,7 @@ import type { Upgrade } from '../systems/Save';
 import type { FindId } from './Finds';
 
 export type RoomId =
-  | 'ponte' | 'catacumbas' | 'memoria' | 'sinos' | 'cripta'
+  | 'ponte' | 'catacumbas' | 'nichos' | 'memoria' | 'sinos' | 'cripta'
   | 'escadaria' | 'praca' | 'rua' | 'telhados' | 'nave' | 'claustro' | 'galeria' | 'altar'
   | 'poco' | 'celas' | 'correntes' | 'guarita' | 'fuga' | 'arena' | 'mascara' | 'fosso' | 'abismo'
   | 'boca' | 'trilhos' | 'prensas' | 'veio' | 'espelhos' | 'capataz'
@@ -49,6 +49,8 @@ export interface TrapdoorDef {
   thought?: string;
   // 'stone': não é tampa de madeira, é a laje do chão que racha e despenca
   look?: 'stone';
+  // quantas linhas de pedra a laje leva quando despenca (sem isto, até o fundo da sala)
+  depth?: number;
 }
 
 // Dica de controle mostrada quando o cavaleiro passa por um trecho (em tiles)
@@ -145,7 +147,7 @@ export interface DraftDef {
 }
 
 // salas do prólogo
-const PROLOGUE: Record<'ponte' | 'catacumbas' | 'sinos' | 'cripta' | 'memoria', RoomDef> = {
+const PROLOGUE: Record<'ponte' | 'catacumbas' | 'nichos' | 'sinos' | 'cripta' | 'memoria', RoomDef> = {
   ponte: {
     id: 'ponte',
     map: MAP_PONTE,
@@ -182,7 +184,7 @@ const PROLOGUE: Record<'ponte' | 'catacumbas' | 'sinos' | 'cripta' | 'memoria', 
     theme: 'catacomb',
     title: 'Catacumbas de Vespera',
     subtitle: 'Onde dormem os que esqueceram',
-    exits: [{ side: 'left', to: 'ponte', entry: '2' }, { side: 'right', to: 'sinos', entry: '1' }],
+    exits: [{ side: 'left', to: 'ponte', entry: '2' }, { side: 'right', to: 'nichos', entry: '1' }],
     pit: false,
     rain: false,
     lightning: false,
@@ -202,13 +204,37 @@ const PROLOGUE: Record<'ponte' | 'catacumbas' | 'sinos' | 'cripta' | 'memoria', 
       { x: 92, text: 'Há alguém do outro lado do espelho.' },
     ],
   },
+  // v18: entre as catacumbas e os sinos
+  nichos: {
+    id: 'nichos',
+    map: MAP_NICHOS,
+    theme: 'catacomb',
+    title: 'Galeria dos Nichos',
+    subtitle: 'Os nomes raspados',
+    exits: [{ side: 'left', to: 'catacumbas', entry: '3', range: [24, 30] }, { side: 'right', to: 'sinos', entry: '1', range: [32, 36] }],
+    trapdoors: [{ key: 'trap:nichos', auto: 'memory:vale', look: 'stone', depth: 1, thought: 'O chão de lápides cedeu. Aqui embaixo, ossos sem nome.' }],
+    pit: false,
+    rain: false,
+    lightning: false,
+    drips: 24,
+    petals: false,
+    motes: true,
+    music: 'crypt',
+    ambience: 'crypt',
+    hints: [],
+    thoughts: [
+      { x: 5, text: 'Cada nicho tinha um nome. Alguém passou o cinzel em todos.' },
+      { x: 70, y: 36, text: 'As colunas também são de nichos. Empilharam os que não cabiam.' },
+      { x: 101, y: 36, text: 'O coveiro morava com eles. Alguém precisava lembrar onde cada um estava.' },
+    ],
+  },
   sinos: {
     id: 'sinos',
     map: MAP_SINOS,
     theme: 'catacomb',
     title: 'Galeria dos Sinos',
     subtitle: 'Onde se toca pela última memória',
-    exits: [{ side: 'left', to: 'catacumbas', entry: '3' }, { side: 'right', to: 'cripta', entry: '1' }],
+    exits: [{ side: 'left', to: 'nichos', entry: '2' }, { side: 'right', to: 'cripta', entry: '1' }],
     pit: false,
     rain: false,
     lightning: false,
@@ -914,35 +940,36 @@ export const ROOMS: Record<RoomId, RoomDef> = { ...PROLOGUE, ...CHAPTER2, ...CHA
 export const MAP_POS: Partial<Record<RoomId, { x: number; y: number }>> = {
   ponte: { x: 0, y: 0 },
   catacumbas: { x: 180, y: 12 },
-  sinos: { x: 290, y: -2 },
-  cripta: { x: 386, y: -9 },
-  escadaria: { x: 434, y: -25 },
-  praca: { x: 470, y: -43 },
-  rua: { x: 590, y: -49 },
-  telhados: { x: 590, y: -89 },
-  nave: { x: 470, y: -83 },
-  claustro: { x: 380, y: -83 },
-  galeria: { x: 470, y: -117 },
-  altar: { x: 590, y: -119 },
-  poco: { x: 470, y: -9 },
-  celas: { x: 530, y: -9 },
-  correntes: { x: 680, y: -9 },
-  guarita: { x: 740, y: -9 },
-  fuga: { x: 620, y: 35 },
-  arena: { x: 470, y: 35 },
-  mascara: { x: 600, y: 61 },
-  fosso: { x: 620, y: 93 },
-  abismo: { x: 676, y: 143 },
-  boca: { x: 746, y: 141 },
-  trilhos: { x: 846, y: 147 },
-  prensas: { x: 996, y: 147 },
-  veio: { x: 1062, y: 191 },
-  espelhos: { x: 1126, y: 243 },
-  capataz: { x: 1190, y: 239 },
-  encosta: { x: 1262, y: 239 },
-  pinhal: { x: 1374, y: 243 },
-  lago: { x: 1546, y: 244 },
-  cabana: { x: 1696, y: 234 },
-  serra: { x: 1780, y: 166 },
-  clareira: { x: 1840, y: 149 },
+  nichos: { x: 290, y: 25 },
+  sinos: { x: 418, y: 4 },
+  cripta: { x: 514, y: -7 },
+  escadaria: { x: 562, y: -23 },
+  praca: { x: 598, y: -41 },
+  rua: { x: 718, y: -47 },
+  telhados: { x: 718, y: -87 },
+  nave: { x: 598, y: -81 },
+  claustro: { x: 508, y: -81 },
+  galeria: { x: 598, y: -115 },
+  altar: { x: 718, y: -117 },
+  poco: { x: 598, y: -7 },
+  celas: { x: 658, y: -7 },
+  correntes: { x: 808, y: -7 },
+  guarita: { x: 868, y: -7 },
+  fuga: { x: 748, y: 37 },
+  arena: { x: 598, y: 37 },
+  mascara: { x: 728, y: 63 },
+  fosso: { x: 748, y: 95 },
+  abismo: { x: 804, y: 145 },
+  boca: { x: 874, y: 143 },
+  trilhos: { x: 974, y: 149 },
+  prensas: { x: 1124, y: 149 },
+  veio: { x: 1190, y: 193 },
+  espelhos: { x: 1254, y: 245 },
+  capataz: { x: 1318, y: 241 },
+  encosta: { x: 1390, y: 241 },
+  pinhal: { x: 1502, y: 245 },
+  lago: { x: 1674, y: 246 },
+  cabana: { x: 1824, y: 236 },
+  serra: { x: 1908, y: 168 },
+  clareira: { x: 1968, y: 151 },
 };

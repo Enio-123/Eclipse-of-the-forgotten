@@ -35,6 +35,7 @@ import { Backdrop } from '../world/Backdrop';
 import { Weather } from '../world/Weather';
 import { MAP_POS, ROOMS, type Ability, type BossId, type Exit, type RoomDef, type RoomId, type Side } from '../world/rooms';
 import { Forest } from '../world/Forest';
+import { Records } from '../world/Records';
 import { CapeFx } from '../gfx/cape';
 import { Props, type MemoryOrb, type Relic, type Shrine } from '../world/Props';
 import { Fixtures, type Door, type Ring } from '../world/Fixtures';
@@ -322,6 +323,8 @@ export class GameScene extends Phaser.Scene {
   mine: Mine | null = null;
   // a Floresta Nevada: neve, vento, correntes de ar, gelo, gelo fino, pegadas e registros
   forest: Forest | null = null;
+  // os registros das salas fora das Minas e da Floresta
+  records!: Records;
   // a Capa de Arielle no pescoço dele (depois que ele pega)
   private cape: CapeFx | null = null;
   // a nevasca do Mestre da Caça (0 limpo, 1 tudo branco): a neve engrossa e só a lanterna e os olhos
@@ -590,6 +593,7 @@ export class GameScene extends Phaser.Scene {
     this.npcs = new Npcs(this);
     this.mine = room.theme === 'mine' ? new Mine(this) : null;
     this.forest = room.theme === 'snow' ? new Forest(this) : null;
+    this.records = new Records(this);
     this.finds = new Finds(this);
     // começou de uma vela (jogo novo, continuar ou depois de morrer): a Flor prensada volta a valer
     if (data.from === 'new' || data.from === 'continue' || data.from === 'death') progress.seen.delete('flower:spent');
@@ -1972,7 +1976,7 @@ export class GameScene extends Phaser.Scene {
     if (!hint && !this.cinematic && !this.transitioning && !p.dead) {
       this.props.touch(p);
       this.fixtures.touch(p);
-      const near = this.mine?.nearby(p) ?? this.forest?.nearby(p) ?? this.props.nearby(p) ?? this.fixtures.nearby(p) ?? this.npcs.nearby(p);
+      const near = this.mine?.nearby(p) ?? this.forest?.nearby(p) ?? this.records.nearby(p) ?? this.props.nearby(p) ?? this.fixtures.nearby(p) ?? this.npcs.nearby(p);
       if (near) {
         hint = near.hint;
         if (this.controls.pressed.up) {
@@ -2508,7 +2512,8 @@ export class GameScene extends Phaser.Scene {
     ui.thought(text, 4200);
   }
 
-  // os registros das Minas: o livro em cima do caixote (fica guardado no Diário, aba Registros)
+  // os registros (o livro em cima do caixote nas Minas, os bilhetes da Floresta, as lápides e os
+  // livros das outras salas): ficam guardados no Diário, aba Registros
   readRecord(id: string) {
     if (!RECORDS[id]) return;
     const r = recordInfo(id, progress.knowsHerName);

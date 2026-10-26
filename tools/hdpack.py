@@ -13,7 +13,7 @@ from PIL import Image
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ART = os.path.join(HERE, 'art2')
 OUT = os.path.join(HERE, 'game', 'public', 'assets', 'hd')
-SRC_DIRS = [os.path.join(ART, d) for d in ('hd_x', 'hd', 'hd_prisao', 'hd_fosso', 'hd_minas', 'hd_extreme')]
+SRC_DIRS = [os.path.join(ART, d) for d in ('hd_x', 'hd', 'hd_prisao', 'hd_fosso', 'hd_minas', 'hd_extreme', 'hd_floresta')]
 MAX = 2048
 Q = 88
 
@@ -76,7 +76,7 @@ def main():
     for f in os.listdir(OUT):
         if f.startswith('t-') and f.endswith('.webp'):
             room = f[2:f.rindex('-')]
-            if not only or room.replace('-secret', '') in only:
+            if not only or room.replace('-secret', '').replace('-pinhos', '') in only:
                 os.remove(os.path.join(OUT, f))
     for room in rooms:
         if only and room.replace('-secret', '') not in only:
@@ -95,6 +95,14 @@ def main():
         man['terrain'][room] = {'scale': scale, 'pieces': pieces}
         total += size
         print(f'{room:18s} {len(pieces)} pedaços {size // 1024} KB')
+        # a camada dos pinheiros da floresta, na frente do fundo e atrás de tudo que tem física
+        src = find(f'pinhos-{room}-2x.png')
+        if src:
+            im = Image.open(src).convert('RGBA')
+            pieces, size = chunks(im, f't-{room}-pinhos', scale)
+            man['terrain'][f'{room}-pinhos'] = {'scale': scale, 'pieces': pieces}
+            total += size
+            print(f'{room + "-pinhos":18s} {len(pieces)} pedaços {size // 1024} KB')
     if not only:
         for key in BACKDROPS:
             src = find(f'{key}.png')

@@ -21,8 +21,8 @@ export interface RegionDef {
 
 export const REGIONS: RegionDef[] = [
   {
-    id: 'vespera', name: 'Catacumbas de Vespera', rooms: ['ponte', 'catacumbas', 'sinos', 'cripta'], wash: '#7f93ab', price: 8, surveyor: { room: 'catacumbas', x: 87, y: 43 },
-    blurb: 'Da ponte do castelo até a cripta do sino. Os ossos não mudam de lugar, então essa é a mais fiel.',
+    id: 'vespera', name: 'Catacumbas de Vespera', rooms: ['ponte', 'catacumbas', 'nichos', 'sinos', 'cripta'], wash: '#7f93ab', price: 8, surveyor: { room: 'catacumbas', x: 87, y: 43 },
+    blurb: 'Da ponte do castelo até a cripta do sino, com a galeria dos nichos no meio. Os ossos não mudam de lugar, então essa é a mais fiel.',
   },
   {
     id: 'cidade', name: 'Cidade-Catedral', rooms: ['escadaria', 'praca', 'rua', 'telhados', 'nave', 'claustro', 'galeria', 'altar'], wash: '#c49a5c', price: 20, surveyor: { room: 'escadaria', x: 7, y: 35 },

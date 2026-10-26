@@ -505,7 +505,7 @@ const URL = process.argv[3] || 'http://localhost:8765/index.html';
   await page.waitForSelector('#screen-inventory.show', { timeout: 10000 });
   const inv = await page.evaluate(() => ({ head: document.querySelector('.inv-weapons-head').textContent, items: [...document.querySelectorAll('.inv-weapons li')].map((l) => l.textContent.trim()) }));
   console.log('inventário:', inv.head, '/', inv.items.join(' | '));
-  check(/Cajado e Energia/.test(inv.head) && /Cajado da Dobra.*em uso/.test(inv.items[0]) && inv.items.some((t) => /Energia do Sineiro/.test(t)) && inv.items.filter((t) => /Energia trancada/.test(t)).length === 3, 'o inventário mostra o cajado e a Energia de cada chefe');
+  check(/Cajado e Energia/.test(inv.head) && /Cajado da Dobra.*em uso/.test(inv.items[0]) && inv.items.some((t) => /Energia do Sineiro/.test(t)) && inv.items.filter((t) => /Energia trancada/.test(t)).length === 4, 'o inventário mostra o cajado e a Energia de cada chefe');
   await page.screenshot({ path: `${OUT}/inventario.png` });
   await page.evaluate(() => { window.__ui.closeAll(); window.__scene.scene.resume?.(); });
   await page.evaluate(() => {

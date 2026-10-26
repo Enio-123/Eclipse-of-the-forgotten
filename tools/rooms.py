@@ -255,6 +255,68 @@ def sinos():
     return g.rows()
 
 
+def nichos():
+    """Galeria dos Nichos (v18, entre as catacumbas e os sinos): a galeria de cima, com as paredes
+    cheias de nichos de enterro e o chão de lápides, que cede no meio e derruba o cavaleiro no ossuário
+    de baixo; a beirada do fim da galeria desce para o salão alto (o poço das colunas de nichos sobre as
+    estacas, com os ressaltos que sobem até um baú escondido), a casa do coveiro e o corredor que leva à
+    Galeria dos Sinos. Tudo se passa com o pulo comum (as garras e o pulo duplo só vêm nos sinos)."""
+    W, H = 128, 46
+    g = Grid(W, H, '#')
+    # a galeria de cima (chão na linha 31), com duas abóbadas
+    g.fill(0, 24, 55, 30, '.')
+    g.fill(13, 20, 23, 23, '.')
+    g.fill(33, 19, 43, 23, '.')
+    # o ossuário embaixo da galeria: a laje de lápides (x 40 a 45) cede quando ele pisa
+    g.fill(30, 32, 55, 36, '.')
+    for x in range(40, 46):
+        g.put(x, 31, '=')
+    # a beirada: o fim da galeria cai seis linhas até o chão de baixo; o bloco de pedra é o degrau da volta
+    g.fill(56, 24, 66, 36, '.')
+    g.fill(58, 34, 60, 36, '#')
+    # o salão alto das colunas: o poço de estacas no meio
+    g.fill(67, 10, 97, 36, '.')
+    g.fill(68, 37, 96, 43, '.')
+    for x in range(68, 97):
+        g.put(x, 44, '^')
+    # colunas de nichos saindo do fundo do poço (o topo é o degrau do pulo; quatro de largura e quatro de
+    # vão, dá para acertar com o pulo comum)
+    for x0 in (71, 78, 85, 92):
+        g.fill(x0, 36, x0 + 3, 43, '#')
+    # tábuas presas na parede da direita, alternando os lados, até o nicho escondido do baú, cavado na
+    # parede acima da casa do coveiro (o último salto é de lado, da tábua de cima até a boca do nicho)
+    for (x0, x1, y) in ((92, 96, 32), (86, 90, 28), (92, 96, 24), (86, 90, 20)):
+        for x in range(x0, x1 + 1):
+            g.put(x, y, '-')
+    g.fill(97, 16, 102, 19, '.')
+    # a casa do coveiro e o corredor da saída (chão na linha 37)
+    g.fill(98, 28, 112, 36, '.')
+    g.fill(113, 32, 127, 36, '.')
+    # gente e objetos
+    g.put(2, 30, '1')
+    g.put(125, 36, '2')
+    for x in (6, 27, 50):
+        g.put(x, 30, 'C')
+    g.put(18, 30, 'c')
+    g.put(36, 30, 'c')
+    g.put(38, 22, 'v')
+    # as lápides raspadas, embaixo da abóbada da esquerda
+    g.put(20, 30, 'r')
+    g.put(48, 36, 'c')
+    g.put(63, 36, 'C')
+    g.put(77, 28, 'v')
+    g.put(89, 23, 'v')
+    g.put(101, 19, '$')
+    g.put(98, 19, 'C')
+    # a casa do coveiro: o livro dele na estante, velas
+    for x in (100, 110):
+        g.put(x, 36, 'C')
+    g.put(105, 36, 'r')
+    g.put(108, 36, 'c')
+    g.put(119, 36, 'g')
+    return g.rows()
+
+
 def cripta():
     """Cripta do Sineiro: arena plana, grade que fecha atrás do cavaleiro e o chefe."""
     W, H = 48, 24
@@ -1471,6 +1533,9 @@ if __name__ == '__main__':
     if MINES:
         maps.update({'boca': boca(), 'trilhos': trilhos(), 'prensas': prensas(), 'veio': veio(), 'espelhos': espelhos(),
                      'capataz': capataz()})
+    # v18: as salas novas no meio das regiões
+    if '--v18' in sys.argv:
+        maps.update({'nichos': nichos()})
     # a Floresta Nevada (--floresta)
     if '--floresta' in sys.argv:
         pin, stands = pinhal()

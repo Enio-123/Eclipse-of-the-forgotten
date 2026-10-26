@@ -652,10 +652,11 @@ def grass_blades(room, L, M, dtop, GD, GM, GL, GS):
                  0.2, 0.1, taper=0.9, clip=clip)
 
 
-THEMES = {'ponte': bridge, 'catacumbas': catacomb, 'memoria': memory, 'sinos': catacomb, 'cripta': catacomb, 'escadaria': catacomb}
+THEMES = {'ponte': bridge, 'catacumbas': catacomb, 'memoria': memory, 'sinos': catacomb, 'cripta': catacomb, 'escadaria': catacomb,
+          'nichos': catacomb}
 
 
-SEEDS = {'ponte': 5, 'catacumbas': 7, 'memoria': 9, 'sinos': 11, 'cripta': 13, 'escadaria': 15}
+SEEDS = {'ponte': 5, 'catacumbas': 7, 'memoria': 9, 'sinos': 11, 'cripta': 13, 'escadaria': 15, 'nichos': 17}
 
 
 def downsample(L, M, room):

@@ -11,7 +11,7 @@ import { dropSheet, loadSheet, setupSheet, sheetMeta } from './sheets';
 
 // as imagens que existem (as salas sem parede falsa ou sem pinheiros não têm o arquivo)
 const ROOM_IMAGES = new Set([
-  'terrain-ponte', 'terrain-catacumbas', 'terrain-memoria', 'terrain-sinos', 'terrain-cripta',
+  'terrain-ponte', 'terrain-catacumbas', 'terrain-nichos', 'terrain-memoria', 'terrain-sinos', 'terrain-cripta',
   'terrain-escadaria', 'terrain-praca', 'terrain-rua', 'terrain-telhados', 'terrain-nave', 'terrain-claustro', 'terrain-galeria', 'terrain-altar',
   'terrain-rua-secret', 'terrain-telhados-secret', 'terrain-nave-secret', 'terrain-claustro-secret', 'terrain-galeria-secret',
   'terrain-poco', 'terrain-celas', 'terrain-correntes', 'terrain-guarita', 'terrain-fuga', 'terrain-arena', 'terrain-mascara', 'terrain-celas-secret',
