@@ -38,10 +38,10 @@ export function hdBackdrop(key: string) {
   return manifest?.backdrop[key] ?? null;
 }
 
-// arquivos de uma sala (terreno, parede falsa e os fundos que ela usa)
+// arquivos de uma sala (terreno, parede falsa, pinheiros da floresta e os fundos que ela usa)
 export function roomFiles(room: string, backdrops: string[]) {
   const files: string[] = [];
-  for (const id of [room, `${room}-secret`]) for (const p of hdTerrain(id)?.pieces ?? []) files.push(p.file);
+  for (const id of [room, `${room}-secret`, `${room}-pinhos`]) for (const p of hdTerrain(id)?.pieces ?? []) files.push(p.file);
   for (const k of backdrops) {
     const b = hdBackdrop(k);
     if (b) files.push(b.file);

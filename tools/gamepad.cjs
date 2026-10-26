@@ -95,8 +95,13 @@ const check = (name, ok, extra = '') => {
   await page.waitForSelector('#screen-weapons.show', { timeout: 3000 });
   check('botão de baixo na carta escolhida confirma o caminho', true);
   await tap(15);
-  const w = await page.evaluate(() => document.querySelector('.card[aria-checked="true"]')?.dataset.w);
-  check('direcional troca a arma', w === 'sword', w);
+  const w = await page.evaluate(() => {
+    const s = document.querySelector('#screen-weapons');
+    const on = s && s.querySelector('[role="radio"][aria-checked="true"]');
+    const f = document.activeElement;
+    return { on: on && on.dataset.w, foco: f && f.dataset ? f.dataset.w : null, n: s ? s.querySelectorAll('[role="radio"]').length : -1 };
+  });
+  check('direcional troca a arma', w.on === 'sword' && w.foco === 'sword', JSON.stringify(w));
   await tap(14);
   const trail = [];
   for (let k = 0; k < 12 && (await focused()) !== 'Começar'; k++) { trail.push((await focused()).slice(0, 14)); await tap(13); }

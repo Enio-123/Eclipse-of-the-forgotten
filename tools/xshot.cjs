@@ -60,7 +60,7 @@ const STEP = Number(process.env.XSHOT_STEP || 0);
       });
       console.log(preset, room, info);
       await page.evaluate(() => { window.__scene.sys.pause(); });
-      await page.screenshot({ path: `${OUT}/${room}${dx ? '_' + dx : ''}-${preset}.png` });
+      await page.screenshot({ path: `${OUT}/${room}${dx ? '_' + dx : ''}-${preset}.png`, timeout: 180000 });
       await page.evaluate(() => { window.__scene.sys.resume(); });
     }
     console.log(preset, errs.slice(0, 10).join('\n') || 'sem erros');
