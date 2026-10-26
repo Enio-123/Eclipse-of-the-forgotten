@@ -611,91 +611,259 @@
     }
    ]
   },
-  "nichos": {
+  "cabana": {
    "scale": 2.0,
    "pieces": [
     {
-     "file": "t-nichos-0.webp",
+     "file": "t-cabana-0.webp",
      "x": 0.0,
      "y": 0.0,
-     "w": 1024.0,
-     "h": 736.0
-    },
-    {
-     "file": "t-nichos-1.webp",
-     "x": 1024.0,
-     "y": 0.0,
-     "w": 1024.0,
-     "h": 736.0
-    }
-   ]
-  },
-  "mercado": {
-   "scale": 2.0,
-   "pieces": [
-    {
-     "file": "t-mercado-0.webp",
-     "x": 0.0,
-     "y": 0.0,
-     "w": 896.0,
+     "w": 672.0,
      "h": 544.0
     },
     {
-     "file": "t-mercado-1.webp",
-     "x": 896.0,
+     "file": "t-cabana-1.webp",
+     "x": 672.0,
      "y": 0.0,
-     "w": 896.0,
+     "w": 672.0,
      "h": 544.0
     }
    ]
   },
-  "mercado-secret": {
+  "cabana-pinhos": {
    "scale": 2.0,
    "pieces": [
     {
-     "file": "t-mercado-secret-0.webp",
-     "x": 896.0,
-     "y": 0.0,
-     "w": 896.0,
-     "h": 544.0
-    }
-   ]
-  },
-  "solitarias": {
-   "scale": 2.0,
-   "pieces": [
-    {
-     "file": "t-solitarias-0.webp",
+     "file": "t-cabana-pinhos-0.webp",
      "x": 0.0,
      "y": 0.0,
-     "w": 768.0,
+     "w": 672.0,
+     "h": 544.0
+    },
+    {
+     "file": "t-cabana-pinhos-1.webp",
+     "x": 672.0,
+     "y": 0.0,
+     "w": 672.0,
+     "h": 544.0
+    }
+   ]
+  },
+  "clareira": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-clareira-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 608.0,
+     "h": 544.0
+    },
+    {
+     "file": "t-clareira-1.webp",
+     "x": 608.0,
+     "y": 0.0,
+     "w": 608.0,
+     "h": 544.0
+    }
+   ]
+  },
+  "clareira-pinhos": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-clareira-pinhos-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 608.0,
+     "h": 544.0
+    },
+    {
+     "file": "t-clareira-pinhos-1.webp",
+     "x": 608.0,
+     "y": 0.0,
+     "w": 608.0,
+     "h": 544.0
+    }
+   ]
+  },
+  "encosta": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-encosta-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 896.0,
      "h": 704.0
     },
     {
-     "file": "t-solitarias-1.webp",
-     "x": 768.0,
+     "file": "t-encosta-1.webp",
+     "x": 896.0,
      "y": 0.0,
-     "w": 768.0,
+     "w": 896.0,
      "h": 704.0
     }
    ]
   },
-  "margem": {
+  "encosta-pinhos": {
    "scale": 2.0,
    "pieces": [
     {
-     "file": "t-margem-0.webp",
+     "file": "t-encosta-pinhos-0.webp",
      "x": 0.0,
      "y": 0.0,
-     "w": 832.0,
+     "w": 896.0,
+     "h": 704.0
+    },
+    {
+     "file": "t-encosta-pinhos-1.webp",
+     "x": 896.0,
+     "y": 0.0,
+     "w": 896.0,
+     "h": 704.0
+    }
+   ]
+  },
+  "lago": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-lago-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 800.0,
+     "h": 672.0
+    },
+    {
+     "file": "t-lago-1.webp",
+     "x": 800.0,
+     "y": 0.0,
+     "w": 800.0,
+     "h": 672.0
+    },
+    {
+     "file": "t-lago-2.webp",
+     "x": 1600.0,
+     "y": 0.0,
+     "w": 800.0,
+     "h": 672.0
+    }
+   ]
+  },
+  "lago-pinhos": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-lago-pinhos-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 800.0,
+     "h": 672.0
+    },
+    {
+     "file": "t-lago-pinhos-1.webp",
+     "x": 800.0,
+     "y": 0.0,
+     "w": 800.0,
+     "h": 672.0
+    },
+    {
+     "file": "t-lago-pinhos-2.webp",
+     "x": 1600.0,
+     "y": 0.0,
+     "w": 800.0,
+     "h": 672.0
+    }
+   ]
+  },
+  "pinhal": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-pinhal-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 928.0,
      "h": 640.0
     },
     {
-     "file": "t-margem-1.webp",
-     "x": 832.0,
+     "file": "t-pinhal-1.webp",
+     "x": 928.0,
      "y": 0.0,
-     "w": 832.0,
+     "w": 928.0,
      "h": 640.0
+    },
+    {
+     "file": "t-pinhal-2.webp",
+     "x": 1856.0,
+     "y": 0.0,
+     "w": 896.0,
+     "h": 640.0
+    }
+   ]
+  },
+  "pinhal-pinhos": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-pinhal-pinhos-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 928.0,
+     "h": 640.0
+    },
+    {
+     "file": "t-pinhal-pinhos-1.webp",
+     "x": 928.0,
+     "y": 0.0,
+     "w": 928.0,
+     "h": 640.0
+    },
+    {
+     "file": "t-pinhal-pinhos-2.webp",
+     "x": 1856.0,
+     "y": 0.0,
+     "w": 896.0,
+     "h": 640.0
+    }
+   ]
+  },
+  "serra": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-serra-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 960.0,
+     "h": 800.0
+    },
+    {
+     "file": "t-serra-1.webp",
+     "x": 0.0,
+     "y": 800.0,
+     "w": 960.0,
+     "h": 800.0
+    }
+   ]
+  },
+  "serra-pinhos": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-serra-pinhos-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 960.0,
+     "h": 800.0
+    },
+    {
+     "file": "t-serra-pinhos-1.webp",
+     "x": 0.0,
+     "y": 800.0,
+     "w": 960.0,
+     "h": 800.0
     }
    ]
   },
@@ -715,6 +883,25 @@
      "y": 0.0,
      "w": 896.0,
      "h": 544.0
+    }
+   ]
+  },
+  "margem": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-margem-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 832.0,
+     "h": 640.0
+    },
+    {
+     "file": "t-margem-1.webp",
+     "x": 832.0,
+     "y": 0.0,
+     "w": 832.0,
+     "h": 640.0
     }
    ]
   },
@@ -753,6 +940,75 @@
      "y": 0.0,
      "w": 992.0,
      "h": 640.0
+    }
+   ]
+  },
+  "mercado": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-mercado-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 896.0,
+     "h": 544.0
+    },
+    {
+     "file": "t-mercado-1.webp",
+     "x": 896.0,
+     "y": 0.0,
+     "w": 896.0,
+     "h": 544.0
+    }
+   ]
+  },
+  "mercado-secret": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-mercado-secret-0.webp",
+     "x": 896.0,
+     "y": 0.0,
+     "w": 896.0,
+     "h": 544.0
+    }
+   ]
+  },
+  "nichos": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-nichos-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 1024.0,
+     "h": 736.0
+    },
+    {
+     "file": "t-nichos-1.webp",
+     "x": 1024.0,
+     "y": 0.0,
+     "w": 1024.0,
+     "h": 736.0
+    }
+   ]
+  },
+  "solitarias": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-solitarias-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 768.0,
+     "h": 704.0
+    },
+    {
+     "file": "t-solitarias-1.webp",
+     "x": 768.0,
+     "y": 0.0,
+     "w": 768.0,
+     "h": 704.0
     }
    ]
   }

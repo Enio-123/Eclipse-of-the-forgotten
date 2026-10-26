@@ -352,6 +352,9 @@ export class GameScene extends Phaser.Scene {
   // terreno pintado normal e os pedaços em 2x do EXTREME por cima dele
   private terrainImg: Phaser.GameObjects.Image | null = null;
   private hdImgs: Phaser.GameObjects.Image[] = [];
+  // a camada dos pinheiros da floresta (e a pintura dela em 2x no EXTREME)
+  private pinesImg: Phaser.GameObjects.Image | null = null;
+  private hdPines: Phaser.GameObjects.Image[] = [];
   private hdGen = 0;
   // bichos, teias e brasas do High e do EXTREME
   private life: Life | null = null;
@@ -515,6 +518,11 @@ export class GameScene extends Phaser.Scene {
       for (const p of t.pieces) this.hdImgs.push(this.add.image(p.x, p.y, hdKey(p.file)).setOrigin(0).setScale(1 / t.scale).setDepth(DEPTH.tiles));
       this.terrainImg.setVisible(false);
     }
+    const pn = hdTerrain(`${this.room.id}-pinhos`);
+    if (pn && this.pinesImg && !this.hdPines.length && pn.pieces.every((p) => ok.has(p.file))) {
+      for (const p of pn.pieces) this.hdPines.push(this.add.image(p.x, p.y, hdKey(p.file)).setOrigin(0).setScale(1 / pn.scale).setDepth(this.pinesImg.depth));
+      this.pinesImg.setVisible(false);
+    }
     this.backdrop.useHd(true);
     const sec = hdTerrain(`${this.room.id}-secret`);
     if (sec && sec.pieces.every((p) => ok.has(p.file))) this.fixtures.useHdVeils(sec.pieces, sec.scale);
@@ -524,6 +532,9 @@ export class GameScene extends Phaser.Scene {
     for (const i of this.hdImgs) i.destroy();
     this.hdImgs = [];
     this.terrainImg?.setVisible(true);
+    for (const i of this.hdPines) i.destroy();
+    this.hdPines = [];
+    this.pinesImg?.setVisible(true);
     this.backdrop?.useHd(false);
     this.fixtures?.useHdVeils(null, 1);
   }
@@ -578,12 +589,14 @@ export class GameScene extends Phaser.Scene {
     const terrain = `terrain-${room.id}`;
     this.terrainImg = null;
     this.hdImgs = [];
+    this.pinesImg = null;
+    this.hdPines = [];
     if (this.textures.exists(terrain)) {
       this.terrainImg = this.add.image(0, 0, terrain).setOrigin(0).setDepth(DEPTH.tiles);
       this.level.layer.setVisible(false);
     }
     // a floresta: os pinheiros, a espera de caça e a cabana por dentro, numa camada atrás de tudo que tem física
-    if (this.textures.exists(`pinhos-${room.id}`)) this.add.image(0, 0, `pinhos-${room.id}`).setOrigin(0).setDepth(DEPTH.prop - 0.5);
+    if (this.textures.exists(`pinhos-${room.id}`)) this.pinesImg = this.add.image(0, 0, `pinhos-${room.id}`).setOrigin(0).setDepth(DEPTH.prop - 0.5);
     this.backdrop = new Backdrop(this, this.level, room.id);
     this.decor = new Decor(this, this.level, room);
     // na volta da memória o ouro novo só aparece depois do efeito (e a grade abre na frente do jogador)

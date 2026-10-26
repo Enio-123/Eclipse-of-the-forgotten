@@ -557,14 +557,16 @@ export class Cacador implements BossFoe {
     return overlap(pr, this.rect);
   }
 
-  // aparar: a lança no fim da preparação da estocada, ou a investida que sai da neve, pela frente
+  // aparar: a lança no fim da preparação da estocada ou enquanto ela sai, e a investida que sai da
+  // neve, sempre pela frente
   parry(box: Phaser.Geom.Rectangle, fromX: number) {
     if (!this.alive || !this.present) return false;
     const late = this.state === 'thrustwind' && this.t > C.thrustWind * this.speedMul - PARRY.early;
+    const coming = this.state === 'thrust' && this.t < C.thrustActive * 0.5;
     const rushing = this.state === 'rush';
-    if (!late && !rushing) return false;
+    if (!late && !coming && !rushing) return false;
     if ((Math.sign(fromX - this.zone.x) || this.facing) !== this.facing) return false;
-    if (!overlap(box, this.rect) && !(rushing && overlap(box, this.thrustBox()))) return false;
+    if (!overlap(box, this.rect) && !((rushing || coming) && overlap(box, this.thrustBox()))) return false;
     this.go('stagger', 'stagger');
     this.body.velocity.x = -this.facing * (rushing ? 160 : 70);
     // aparado no meio da neve, ele aparece inteiro
