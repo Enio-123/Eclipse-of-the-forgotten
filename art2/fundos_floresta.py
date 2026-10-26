@@ -6,6 +6,9 @@
                        com neve nos andares de galhos e a base sumindo na névoa
   snow-mid    640x360  os pinheiros grandes mais perto (repete na horizontal): escuros, com a neve
                        pesada em cima de cada andar e os troncos aparecendo entre os galhos de baixo
+  mata-far    640x360  a Mata Fechada ao fundo (repete na horizontal): o pinhal junto demais, sem
+                       montanha atrás
+  mata-mid    640x360  os pinheiros grandes da Mata, quase pretos, com a copa fechando por cima
   serra-far   512x512  a parede do outro lado da fenda (repete nas duas direções): granito em
                        camadas tortas, neve nas saliências e cascatas congeladas
   serra-mid   512x512  mais perto: dois contrafortes de pedra com pingentes de gelo, neve nas
@@ -444,6 +447,40 @@ def snow_mid(rng):
                        ground=None)
 
 
+def mata_far(rng):
+    """A Mata Fechada, camada do fundo: o pinhal tão junto que não sobra montanha nenhuma atrás, só
+    tronco em cima de tronco sumindo no escuro."""
+    W, H, P = 1280, 720, 180
+    trees = []
+    x = rng.uniform(0, 20)
+    while x < W:
+        d = rng.uniform(0, 1)
+        h = rng.uniform(300, 520) * (1 - 0.2 * d)
+        trees.append((x, H * 0.95 + rng.uniform(-10, 12), h, h * rng.uniform(0.34, 0.46), rng.uniform(16, 22), d))
+        x += rng.uniform(19, 44)
+    ground = H * 0.94 + periodic1d(W, 180, rng) * 16
+    # quase sem contraste: aqui dentro a mata é uma massa escura, e quem faz a luz são as frestas
+    far_cols = (hexc(0x1b232c), hexc(0x212a35), hexc(0x28333f), hexc(0x303d4a))
+    return forest_band(rng, W, H, P, trees, far_cols, (hexc(0x44525f), hexc(0x3a4654), hexc(0x303c48)), H * 0.3, H * 1.05,
+                       hexc(0x1d2733), 1.1, 7, ground=ground, ground_c=(hexc(0x303c49), hexc(0x1d2733)))
+
+
+def mata_mid(rng):
+    """A Mata Fechada, camada de perto: os pinheiros grandes, quase pretos, tão juntos que a copa
+    fecha por cima; só sobram frestas de dia claro entre eles."""
+    W, H, P = 1280, 720, 300
+    trees = []
+    x = rng.uniform(20, 70)
+    while x < W - 10:
+        d = rng.uniform(0, 0.5)
+        h = rng.uniform(760, 1120)
+        trees.append((x, H + 60, h, h * rng.uniform(0.40, 0.52), rng.uniform(34, 46), d))
+        x += rng.uniform(132, 224)
+    mid_cols = (hexc(0x05080b), hexc(0x090e13), hexc(0x0e151c), hexc(0x141d26))
+    return forest_band(rng, W, H, P, trees, mid_cols, (hexc(0x29343f), hexc(0x212b35), hexc(0x1a222b)), H * 0.8, H * 1.3,
+                       hexc(0x0d131a), 1.8, 22, ground=None)
+
+
 # ======================================================================================
 class WrapMask(Mask):
     """Máscara que emenda nas quatro bordas: cada forma é desenhada nos nove lugares."""
@@ -705,7 +742,7 @@ def export(names):
     json.dump(hd, open(hdj, 'w'), indent=1)
 
 
-LAYERS = ['snow-sky', 'snow-far', 'snow-mid', 'serra-far', 'serra-mid']
+LAYERS = ['snow-sky', 'snow-far', 'snow-mid', 'mata-far', 'mata-mid', 'serra-far', 'serra-mid']
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
@@ -718,6 +755,10 @@ if __name__ == '__main__':
         save(snow_far(np.random.default_rng(172)), 'snow-far')
     if want('snow-mid'):
         save(snow_mid(np.random.default_rng(173)), 'snow-mid')
+    if want('mata-far'):
+        save(mata_far(np.random.default_rng(176)), 'mata-far')
+    if want('mata-mid'):
+        save(mata_mid(np.random.default_rng(177)), 'mata-mid')
     if want('serra-far'):
         save(serra_far(np.random.default_rng(174)), 'serra-far')
     if want('serra-mid'):

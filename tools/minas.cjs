@@ -159,8 +159,11 @@ let r;
   const left = (row) => `(() => { const s = window.__scene; const p = s.player; p.teleport(-6, ${row} * 16); p.body.setVelocity(-200, 0); })()`;
   await cross('boca', '1', right(30), 'trilhos', 'boca pela direita');
   await cross('trilhos', '1', left(24), 'boca', 'trilhos pela esquerda');
-  await cross('trilhos', '1', right(24), 'prensas', 'trilhos pela direita');
-  await cross('prensas', '1', left(24), 'trilhos', 'prensas pela esquerda');
+  // a Galeria Alagada (v18) entrou entre os trilhos e as prensas
+  await cross('trilhos', '1', right(24), 'alagada', 'trilhos pela direita');
+  await cross('alagada', '1', right(24), 'prensas', 'alagada pela direita');
+  await cross('prensas', '1', left(24), 'alagada', 'prensas pela esquerda');
+  await cross('alagada', '2', left(24), 'trilhos', 'alagada pela esquerda');
   const fall = await cross('prensas', '2', '(() => { const p = window.__scene.player; p.teleport(76 * 16 + 8, 41 * 16); p.body.setVelocity(0, 200); })()', 'veio', 'o buraco das prensas');
   check(fall.x > 8 && fall.x < 14, `cai no poço do Veio (x ${fall.x.toFixed(1)})`);
   await waitGame(1.5);

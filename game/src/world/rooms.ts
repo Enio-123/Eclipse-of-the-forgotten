@@ -2,7 +2,7 @@ import type { Theme } from './Level';
 import {
   MAP_ABISMO, MAP_ALTAR, MAP_ARENA, MAP_BOCA, MAP_CABANA, MAP_CAPATAZ, MAP_CATACUMBAS, MAP_CELAS, MAP_CLAREIRA, MAP_CLAUSTRO,
   MAP_CORRENTES, MAP_CRIPTA, MAP_ENCOSTA, MAP_ESCADARIA, MAP_ESPELHOS, MAP_FOSSO, MAP_FUGA, MAP_GALERIA, MAP_GUARITA, MAP_LAGO,
-  MAP_MARGEM, MAP_MASCARA, MAP_MEMORIA, MAP_MERCADO, MAP_NAVE, MAP_NICHOS, MAP_PINHAL, MAP_POCO, MAP_PONTE, MAP_PRACA, MAP_PRENSAS, MAP_RUA, MAP_SERRA, MAP_SINOS, MAP_SOLITARIAS,
+  MAP_ALAGADA, MAP_MARGEM, MAP_MASCARA, MAP_MATA, MAP_MEMORIA, MAP_MERCADO, MAP_NAVE, MAP_NICHOS, MAP_PINHAL, MAP_POCO, MAP_PONTE, MAP_PRACA, MAP_PRENSAS, MAP_RUA, MAP_SERRA, MAP_SINOS, MAP_SOLITARIAS,
   MAP_TELHADOS, MAP_TRILHOS, MAP_VEIO,
 } from './maps';
 import type { AmbienceId, TrackId } from '../systems/Audio';
@@ -13,8 +13,8 @@ export type RoomId =
   | 'ponte' | 'catacumbas' | 'nichos' | 'memoria' | 'sinos' | 'cripta'
   | 'escadaria' | 'praca' | 'mercado' | 'rua' | 'telhados' | 'nave' | 'claustro' | 'galeria' | 'altar'
   | 'poco' | 'solitarias' | 'celas' | 'correntes' | 'guarita' | 'fuga' | 'arena' | 'mascara' | 'fosso' | 'margem' | 'abismo'
-  | 'boca' | 'trilhos' | 'prensas' | 'veio' | 'espelhos' | 'capataz'
-  | 'encosta' | 'pinhal' | 'lago' | 'cabana' | 'serra' | 'clareira';
+  | 'boca' | 'trilhos' | 'alagada' | 'prensas' | 'veio' | 'espelhos' | 'capataz'
+  | 'encosta' | 'pinhal' | 'lago' | 'mata' | 'cabana' | 'serra' | 'clareira';
 // 'cape': a Capa de Arielle (segurando o pulo no ar, plana; nas correntes de ar, sobe)
 export type Ability = 'dash' | 'wall' | 'double' | 'hook' | 'veil' | 'cape';
 export type Side = 'left' | 'right' | 'up' | 'down';
@@ -737,7 +737,7 @@ const MINE: Pick<RoomDef, 'pit' | 'rain' | 'lightning' | 'petals' | 'motes'> = {
 
 // capítulo 4: as Minas Abandonadas, atrás da membrana do Leito do Abismo. Onde a Casa Vhalor tirava o
 // Âmbar Mnêmico (lore/continuidade.md, seção 8)
-const CHAPTER4: Record<'boca' | 'trilhos' | 'prensas' | 'veio' | 'espelhos' | 'capataz', RoomDef> = {
+const CHAPTER4: Record<'boca' | 'trilhos' | 'alagada' | 'prensas' | 'veio' | 'espelhos' | 'capataz', RoomDef> = {
   boca: {
     id: 'boca',
     map: MAP_BOCA,
@@ -769,7 +769,7 @@ const CHAPTER4: Record<'boca' | 'trilhos' | 'prensas' | 'veio' | 'espelhos' | 'c
     subtitle: 'Por onde o Âmbar subia',
     exits: [
       { side: 'left', to: 'boca', entry: '2', range: [14, 23] },
-      { side: 'right', to: 'prensas', entry: '1', range: [14, 23] },
+      { side: 'right', to: 'alagada', entry: '1', range: [14, 23] },
     ],
     ...MINE,
     drips: 20,
@@ -783,6 +783,30 @@ const CHAPTER4: Record<'boca' | 'trilhos' | 'prensas' | 'veio' | 'espelhos' | 'c
       { x: 62, text: 'As vigas descem baixo aqui. Quem empurrava os vagonetes andava curvado.' },
     ],
   },
+  alagada: {
+    id: 'alagada',
+    map: MAP_ALAGADA,
+    theme: 'mine',
+    title: 'Galeria Alagada',
+    subtitle: 'Onde a água subiu e ninguém baixou',
+    exits: [
+      { side: 'left', to: 'trilhos', entry: '2', range: [14, 23] },
+      { side: 'right', to: 'prensas', entry: '1', range: [16, 23] },
+    ],
+    ...MINE,
+    drips: 26,
+    music: 'mine',
+    ambience: 'mine',
+    lamps: [[20, 21], [88, 21], [104, 11]],
+    hints: [],
+    thoughts: [
+      { x: 6, text: 'A água chegou até aqui e parou. A galeria continua embaixo dela.' },
+      { x: 45, y: 22, text: 'Dá para ver o fundo daqui. O Âmbar ainda acende lá embaixo, e não tem mais ninguém para tirar.' },
+      { x: 101, y: 12, text: 'A casa das bombas. Taparam a porta com Âmbar para ninguém abrir as comportas de novo.' },
+      { x: 93, y: 11, text: 'Dezessete capacetes pendurados. Nenhum tirado do prego.' },
+      { x: 107, text: 'Mais adiante, o barulho das prensas.' },
+    ],
+  },
   prensas: {
     id: 'prensas',
     map: MAP_PRENSAS,
@@ -790,7 +814,7 @@ const CHAPTER4: Record<'boca' | 'trilhos' | 'prensas' | 'veio' | 'espelhos' | 'c
     title: 'Casa das Prensas',
     subtitle: 'Onde espremiam o que as pessoas lembravam',
     exits: [
-      { side: 'left', to: 'trilhos', entry: '2', range: [16, 23] },
+      { side: 'left', to: 'alagada', entry: '2', range: [16, 23] },
       { side: 'down', to: 'veio', entry: '1', range: [74, 79] },
     ],
     ...MINE,
@@ -879,7 +903,7 @@ const SNOW: Pick<RoomDef, 'pit' | 'rain' | 'lightning' | 'petals' | 'motes' | 'd
 
 // capítulo 5: a Floresta Nevada, atrás do bloco de Âmbar da Galeria do Capataz. A floresta da abertura
 // do jogo, onde a Casa Vhalor caçava quem fugia com memórias proibidas (lore/floresta.md)
-const CHAPTER5: Record<'encosta' | 'pinhal' | 'lago' | 'cabana' | 'serra' | 'clareira', RoomDef> = {
+const CHAPTER5: Record<'encosta' | 'pinhal' | 'lago' | 'mata' | 'cabana' | 'serra' | 'clareira', RoomDef> = {
   encosta: {
     id: 'encosta',
     map: MAP_ENCOSTA,
@@ -934,7 +958,7 @@ const CHAPTER5: Record<'encosta' | 'pinhal' | 'lago' | 'cabana' | 'serra' | 'cla
     subtitle: 'O gelo guarda',
     exits: [
       { side: 'left', to: 'pinhal', entry: '2', range: [26, 31] },
-      { side: 'right', to: 'cabana', entry: '1', range: [12, 17] },
+      { side: 'right', to: 'mata', entry: '1', range: [12, 17] },
     ],
     ...SNOW,
     snow: 50,
@@ -949,6 +973,33 @@ const CHAPTER5: Record<'encosta' | 'pinhal' | 'lago' | 'cabana' | 'serra' | 'cla
       { x: 66, y: 28, text: 'A água ferve ali, no meio do gelo. O vapor sobe até o galho de cima.' },
     ],
   },
+  // v18: a baixada escura entre o lago e a cabana
+  mata: {
+    id: 'mata',
+    map: MAP_MATA,
+    theme: 'snow',
+    title: 'A Mata Fechada',
+    subtitle: 'Onde a copa não deixa entrar o dia',
+    exits: [
+      { side: 'left', to: 'lago', entry: '2', range: [22, 27] },
+      { side: 'right', to: 'cabana', entry: '1', range: [22, 27] },
+    ],
+    ...SNOW,
+    // a copa fechada quase não deixa a neve chegar ao chão
+    snow: 16,
+    music: 'forest',
+    ambience: 'snow',
+    // as fitas que o povo amarrou nas estacas do cercado, uma por quem a caçada levou
+    ribbons: [[24, 30], [24, 32], [44, 29], [22, 31]],
+    hints: [],
+    thoughts: [
+      { x: 6, text: 'Daqui para a frente a copa fecha. O dia entra em fiozinhos, e o chão afunda.' },
+      { x: 34, y: 33, text: 'Um cercado de estacas no meio da mata, com a cobertura de galhos ainda no lugar. O portão ficou aberto.' },
+      { x: 67, y: 38, text: 'Uma cova de caça, coberta de galhos. Nasceu um pinheiro no fundo dela, e ninguém veio cortar.' },
+      { x: 85, y: 25, text: 'Daqui de cima se vigiava o cercado inteiro. Eu já pisei nesta tábua.' },
+      { x: 118, text: 'Cheiro de lenha. A clareira da cabana é logo depois desta subida.' },
+    ],
+  },
   cabana: {
     id: 'cabana',
     map: MAP_CABANA,
@@ -956,7 +1007,7 @@ const CHAPTER5: Record<'encosta' | 'pinhal' | 'lago' | 'cabana' | 'serra' | 'cla
     title: 'A Cabana',
     subtitle: 'Onde ela guardava as flores',
     exits: [
-      { side: 'left', to: 'lago', entry: '2', range: [22, 27] },
+      { side: 'left', to: 'mata', entry: '2', range: [22, 27] },
       { side: 'right', to: 'serra', entry: '1', range: [22, 27] },
     ],
     ...SNOW,
@@ -1043,14 +1094,16 @@ export const MAP_POS: Partial<Record<RoomId, { x: number; y: number }>> = {
   abismo: { x: 1004, y: 145 },
   boca: { x: 1074, y: 143 },
   trilhos: { x: 1174, y: 149 },
-  prensas: { x: 1324, y: 149 },
-  veio: { x: 1390, y: 193 },
-  espelhos: { x: 1454, y: 245 },
-  capataz: { x: 1518, y: 241 },
-  encosta: { x: 1590, y: 241 },
-  pinhal: { x: 1702, y: 245 },
-  lago: { x: 1874, y: 246 },
-  cabana: { x: 2024, y: 236 },
-  serra: { x: 2108, y: 168 },
-  clareira: { x: 2168, y: 151 },
+  alagada: { x: 1324, y: 149 },
+  prensas: { x: 1436, y: 149 },
+  veio: { x: 1502, y: 193 },
+  espelhos: { x: 1566, y: 245 },
+  capataz: { x: 1630, y: 241 },
+  encosta: { x: 1702, y: 241 },
+  pinhal: { x: 1814, y: 245 },
+  lago: { x: 1986, y: 246 },
+  mata: { x: 2136, y: 236 },
+  cabana: { x: 2260, y: 236 },
+  serra: { x: 2344, y: 168 },
+  clareira: { x: 2404, y: 151 },
 };

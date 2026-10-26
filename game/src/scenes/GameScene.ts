@@ -679,7 +679,9 @@ export class GameScene extends Phaser.Scene {
     });
     const so = screenOrigin(this.cameras.main);
     if (room.theme !== 'memory') {
-      const dark = { bridge: 0.5, catacomb: 0.9, city: 0.55, nave: 0.8, prison: 0.85, mine: 0.85, snow: 0.45 }[room.theme];
+      // a vinheta do tema, mais fechada nas salas que são um lugar fechado dentro da área
+      const DARK_ROOM: Partial<Record<RoomId, number>> = { mata: 0.82 };
+      const dark = DARK_ROOM[room.id] ?? { bridge: 0.5, catacomb: 0.9, city: 0.55, nave: 0.8, prison: 0.85, mine: 0.85, snow: 0.45 }[room.theme];
       this.add.image(so.x, so.y, 'vignette').setOrigin(0).setScrollFactor(0).setDepth(29).setAlpha(dark);
     }
     if (room.theme === 'bridge') {

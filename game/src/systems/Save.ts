@@ -4,7 +4,7 @@ import { AMBER_BAR, MAGE_IDS, MAGIC, PLAYER, POWERS, POWER_IDS, WEAPONS, WEAPON_
 export const STARTERS: WeaponId[] = WEAPON_IDS.filter((w) => !WEAPONS[w].boss && !WEAPONS[w].mage);
 // as armas que os chefes deixam: para o mago, cada uma vira uma Energia
 export const BOSS_WEAPONS: WeaponId[] = WEAPON_IDS.filter((w) => !!WEAPONS[w].boss);
-import type { Ability, RoomId } from '../world/rooms';
+import { ROOMS, type Ability, type RoomId } from '../world/rooms';
 import { NAME_MEMORY, OFFERS, SLOTS } from '../world/lore';
 import { REGIONS, type RegionId } from '../world/regions';
 
@@ -90,13 +90,9 @@ const starterOf = (d: Partial<SaveData>): WeaponId | null => {
 };
 
 const KEY = 'eclipse-progresso-v1';
-const ROOM_IDS: RoomId[] = [
-  'ponte', 'catacumbas', 'memoria', 'sinos', 'cripta',
-  'escadaria', 'praca', 'rua', 'telhados', 'nave', 'claustro', 'galeria', 'altar',
-  'poco', 'celas', 'correntes', 'guarita', 'fuga', 'arena', 'mascara', 'fosso', 'abismo',
-  'boca', 'trilhos', 'prensas', 'veio', 'espelhos', 'capataz',
-  'encosta', 'pinhal', 'lago', 'cabana', 'serra', 'clareira',
-];
+// as salas que valem num save: todas as do mapa (tirado do próprio mapa, para nunca ficar atrás dele
+// quando entra uma sala nova)
+const ROOM_IDS = Object.keys(ROOMS) as RoomId[];
 export const ABILITIES: Ability[] = ['dash', 'wall', 'double', 'hook', 'veil', 'cape'];
 
 export function loadSave(): SaveData | null {

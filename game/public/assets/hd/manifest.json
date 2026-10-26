@@ -698,6 +698,63 @@
      "h": 640.0
     }
    ]
+  },
+  "alagada": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-alagada-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 896.0,
+     "h": 544.0
+    },
+    {
+     "file": "t-alagada-1.webp",
+     "x": 896.0,
+     "y": 0.0,
+     "w": 896.0,
+     "h": 544.0
+    }
+   ]
+  },
+  "mata": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-mata-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 992.0,
+     "h": 640.0
+    },
+    {
+     "file": "t-mata-1.webp",
+     "x": 992.0,
+     "y": 0.0,
+     "w": 992.0,
+     "h": 640.0
+    }
+   ]
+  },
+  "mata-pinhos": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-mata-pinhos-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 992.0,
+     "h": 640.0
+    },
+    {
+     "file": "t-mata-pinhos-1.webp",
+     "x": 992.0,
+     "y": 0.0,
+     "w": 992.0,
+     "h": 640.0
+    }
+   ]
   }
  },
  "backdrop": {

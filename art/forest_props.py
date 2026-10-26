@@ -38,6 +38,7 @@ puppet.RAMPS.setdefault('amber', [0x5a2a08, 0x9a4c12, 0xd27a26, 0xffa63c, 0xffe6
 puppet.RAMPS.setdefault('iron', [0x101218, 0x1d2029, 0x30343f, 0x4b505e, 0x737a8b])
 puppet.RAMPS.setdefault('oldwood', [0x1a110b, 0x2e1f14, 0x46301e, 0x634529, 0x84603a])
 puppet.RAMPS.setdefault('paper', [0x3a3226, 0x6a5c46, 0x9c8b6c, 0xc9b892, 0xece0be])
+puppet.RAMPS.setdefault('pineneedle', [0x0e1a12, 0x1a3121, 0x284a31, 0x386745, 0x4e8a5c])
 puppet.SHINY.setdefault('frost', (0.45, 12))
 puppet.SHINY.setdefault('brass', (0.6, 10))
 puppet.SHINY.setdefault('amber', (0.7, 16))
@@ -394,12 +395,102 @@ def lanca_item():
     return P, [], W, H, [(lx, ly + 4.0, AMBER)]
 
 
+# ------------------------------------------------- os dois registros da Mata Fechada
+def note_woodsman():
+    """O caderno do mateiro no fundo da cova: capa de pano encerado, aberto no meio, as duas páginas na
+    letra tremida de frio. Do lado, o galho da cobertura que caiu junto e, na terra revirada, o
+    pinheirinho de um palmo que nasceu no fundo dela."""
+    W, H = 30, 22
+    P = []
+    # a terra revirada do fundo da cova, com um fio de geada em cima
+    P.append(Ellipse('soil', 'oldwood', 1.0, (15.0, 21.4), 14.2, 2.6, bulge=0.25, shade=0.78))
+    P.append(Ellipse('soilfrost', 'frost', 1.01, (8.6, 20.4), 5.0, 0.5, shade=0.5))
+    # o galho da cobertura, caído de través, com dois gravetos
+    P.append(Capsule('stick', 'logbark', 1.02, (1.4, 18.8), (26.4, 15.4), 0.85, 0.6, shade=0.85))
+    for (a, b) in (((8.0, 17.9), (6.0, 14.8)), ((16.6, 16.7), (18.8, 14.0))):
+        P.append(Capsule('twig', 'logbark', 1.03, a, b, 0.42, 0.28, shade=0.8))
+    # o caderno aberto no meio
+    P.append(Poly('cover', 'leather', 1.2, [(4.0, 16.6), (18.2, 15.6), (18.8, 17.8), (4.4, 18.8)],
+                  nf=const((0.0, -0.4, 0.9)), shade=0.78))
+    P.append(Poly('pageL', 'paper', 1.25, [(4.6, 13.0), (11.2, 14.1), (11.2, 16.3), (4.3, 16.9)],
+                  nf=const((-0.3, -0.6, 0.74)), shade=0.95))
+    P.append(Poly('pageR', 'paper', 1.25, [(11.2, 14.1), (18.0, 12.9), (18.4, 15.5), (11.2, 16.3)],
+                  nf=const((0.3, -0.6, 0.74)), shade=0.84))
+    P.append(Capsule('spine', 'leather', 1.26, (11.2, 13.9), (11.2, 16.5), 0.45, 0.45))
+
+    def hand(x, y, cur):
+        # a letra tremida: as linhas tortas, cada uma puxando para um lado
+        top = 13.3 + abs(x - 11.2) * 0.17 + 0.7
+        if y > top and int((y - top + math.sin(x * 1.9) * 0.3) * 2.6) % 2 == 0 and abs(x - 11.2) > 0.9:
+            return ('paper', 1)
+        return None
+    # o pinheirinho que nasceu na terra revirada, do lado do caderno
+    P.append(Capsule('sprout', 'logbark', 1.3, (24.2, 20.8), (24.2, 14.6), 0.45, 0.32, shade=0.85))
+    for (y, n) in ((19.6, 3.4), (17.8, 2.8), (16.0, 2.0)):
+        for sgn in (-1, 1):
+            P.append(Capsule('needle', 'pineneedle', 1.31, (24.2, y - 0.4), (24.2 + sgn * n, y + 0.6), 0.5, 0.28))
+    P.append(Ellipse('crown', 'pineneedle', 1.32, (24.2, 14.4), 1.0, 1.3, bulge=0.3))
+    return P, [Decal('pageL', hand), Decal('pageR', hand)], W, H, []
+
+
+def note_tally():
+    """A lista do cercado: uma tábua pregada no corrimão da espera, com os nomes riscados a canivete e
+    um traço ao lado de cada um. Num canto a madeira foi raspada até o nome sair; o canivete ficou
+    fincado ali. Na ponta, o nó de uma fita vermelha e geada na borda de cima."""
+    W, H = 32, 22
+    P = []
+    # o pedaço de corrimão em que ela está pregada
+    P.append(Capsule('rail', 'logbark', 1.0, (0.6, 18.0), (31.4, 18.6), 1.7, 1.7, shade=0.8))
+    P.append(Ellipse('railsnow', 'snow', 1.01, (16.0, 16.6), 14.0, 0.9))
+    # a tábua, encostada e um pouco torta
+    board = [(3.2, 3.6), (28.4, 2.6), (29.0, 17.2), (3.6, 18.0)]
+    P.append(Poly('board', 'oldwood', 1.1, board, nf=const((0.0, -0.3, 0.95)), shade=0.9))
+
+    def grain(x, y, cur):
+        # o veio da tábua corre no comprimento dela, fininho
+        if abs(math.sin(y * 2.3 + math.sin(x * 0.22) * 0.8)) < 0.07:
+            return ('oldwood', 1)
+        return None
+
+    def names(x, y, cur):
+        # cada linha é um nome riscado a canivete (letras curtas, tortas) e, na direita, o traço ao
+        # lado dele; o canto raspado (embaixo, à direita) ficou sem nada
+        if x > 20.8 and y > 12.2:
+            return None
+        row = 4.6 + (x - 3.2) * -0.04
+        i = int((y - row) * 0.95)
+        if y < row or (y - row) % 1.05 > 0.42:
+            return None
+        if x < 18.6 - (i * 7919 % 5) * 1.1 and int(x * 1.7 + i) % 4 != 0 and x > 4.6:
+            return ('oldwood', 0)
+        if 21.4 < x < 22.1:
+            return ('oldwood', 4)
+        return None
+    # a madeira raspada: mais clara, sem letra nenhuma
+    P.append(Ellipse('scraped', 'oldwood', 1.12, (24.6, 14.6), 4.2, 2.1, bulge=0.2, shade=1.18))
+    # os dois pregos
+    for (x, y) in ((5.4, 5.2), (26.6, 4.4)):
+        P.append(Ellipse('nail', 'iron', 1.15, (x, y), 0.8, 0.8, shade=0.85))
+    # o canivete fincado na parte raspada
+    P.append(Capsule('knifeh', 'leather', 1.2, (25.4, 11.2), (28.8, 7.0), 0.9, 0.8, shade=0.85))
+    P.append(Poly('knifeb', 'steel', 1.21, [(24.0, 14.8), (25.8, 11.6), (26.8, 12.2), (25.0, 15.2)],
+                  nf=const((-0.3, -0.3, 0.9))))
+    # o nó da fita vermelha na ponta do corrimão
+    P.append(Capsule('knot', 'redcape', 1.3, (29.6, 17.0), (31.0, 18.4), 1.1, 0.9, shade=0.95))
+    P.append(Capsule('tail', 'redcape', 1.31, (30.4, 18.2), (29.2, 21.4), 0.7, 0.45, shade=0.85))
+    # geada na borda de cima da tábua
+    P.append(Ellipse('frosttop', 'frost', 1.35, (15.8, 3.2), 11.6, 0.7))
+    return P, [Decal('board', grain), Decal('board', names)], W, H, []
+
+
 PROPS = {
     'relic-cape': cape,
     'deco-palisade': palisade,
     'deco-note-pinhal-0': note_bark,
     'deco-note-cabana-0': note_herbarium,
     'deco-note-cabana-1': note_letter,
+    'deco-note-mata-0': note_woodsman,
+    'deco-note-mata-1': note_tally,
     'deco-note-clareira-0': note_huntbook,
     'item-lanca': lanca_item,
 }

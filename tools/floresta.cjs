@@ -145,8 +145,11 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
     await cross('pinhal', '1', left(33), 'encosta', 'pinhal pela esquerda');
     await cross('pinhal', '1', right(32), 'lago', 'pinhal pela direita');
     await cross('lago', '1', left(31), 'pinhal', 'lago pela esquerda');
-    await cross('lago', '1', right(17), 'cabana', 'lago pela direita');
-    await cross('cabana', '1', left(27), 'lago', 'cabana pela esquerda');
+    // A Mata Fechada (v18) entrou entre o lago e a cabana
+    await cross('lago', '1', right(17), 'mata', 'lago pela direita');
+    await cross('mata', '1', right(27), 'cabana', 'mata pela direita');
+    await cross('cabana', '1', left(27), 'mata', 'cabana pela esquerda');
+    await cross('mata', '2', left(27), 'lago', 'mata pela esquerda');
     await cross('cabana', '1', right(27), 'serra', 'cabana pela direita');
     await cross('serra', '1', left(95), 'cabana', 'serra pela esquerda');
     await cross('serra', '1', right(11), 'clareira', 'serra pela direita');

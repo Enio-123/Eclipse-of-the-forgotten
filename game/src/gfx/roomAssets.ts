@@ -16,12 +16,12 @@ const ROOM_IMAGES = new Set([
   'terrain-rua-secret', 'terrain-mercado-secret', 'terrain-telhados-secret', 'terrain-nave-secret', 'terrain-claustro-secret', 'terrain-galeria-secret',
   'terrain-poco', 'terrain-solitarias', 'terrain-celas', 'terrain-correntes', 'terrain-guarita', 'terrain-fuga', 'terrain-arena', 'terrain-mascara', 'terrain-celas-secret',
   'terrain-fosso', 'terrain-margem', 'terrain-abismo',
-  'terrain-boca', 'terrain-trilhos', 'terrain-prensas', 'terrain-veio', 'terrain-espelhos', 'terrain-capataz',
-  'terrain-encosta', 'terrain-pinhal', 'terrain-lago', 'terrain-cabana', 'terrain-serra', 'terrain-clareira',
-  'pinhos-encosta', 'pinhos-pinhal', 'pinhos-lago', 'pinhos-cabana', 'pinhos-serra', 'pinhos-clareira',
+  'terrain-boca', 'terrain-trilhos', 'terrain-alagada', 'terrain-prensas', 'terrain-veio', 'terrain-espelhos', 'terrain-capataz',
+  'terrain-encosta', 'terrain-pinhal', 'terrain-lago', 'terrain-mata', 'terrain-cabana', 'terrain-serra', 'terrain-clareira',
+  'pinhos-encosta', 'pinhos-pinhal', 'pinhos-lago', 'pinhos-mata', 'pinhos-cabana', 'pinhos-serra', 'pinhos-clareira',
   'bridge-sky', 'bridge-far', 'bridge-far-rim', 'bridge-mid', 'bridge-mid-rim', 'bridge-fg', 'cat-far', 'cat-mid', 'mem-sky', 'mem-far', 'mem-mid',
   'city-sky', 'city-far', 'city-mid', 'claustro-mid', 'nave-far', 'nave-mid', 'prison-far', 'prison-mid', 'fosso-far', 'fosso-mid',
-  'mine-far', 'mine-mid', 'snow-sky', 'snow-far', 'snow-mid', 'serra-far', 'serra-mid',
+  'mine-far', 'mine-mid', 'snow-sky', 'snow-far', 'snow-mid', 'mata-far', 'mata-mid', 'serra-far', 'serra-mid',
 ]);
 
 // as folhas dos chefes (grandes e cada uma usada numa sala só)

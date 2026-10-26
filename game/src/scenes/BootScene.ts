@@ -56,7 +56,7 @@ const IMAGES = [
   'item-flower', 'item-helmet', 'item-rawamber', 'item-watch', 'item-whistle', 'item-mirror', 'item-bornal', 'item-cinto',
   // a Floresta Nevada: os objetos (art/forest_props.py)
   'relic-cape', 'deco-palisade', 'deco-note-pinhal-0', 'deco-note-cabana-0', 'deco-note-cabana-1', 'deco-note-clareira-0', 'item-lanca',
-  'deco-record-nichos-0', 'deco-record-nichos-1', 'deco-record-mercado-0', 'deco-record-mercado-1', 'deco-record-solitarias-0', 'deco-record-solitarias-1', 'deco-record-margem-0', 'deco-record-margem-1', 'deco-balanca', 'deco-toldo',
+  'deco-record-nichos-0', 'deco-record-nichos-1', 'deco-record-mercado-0', 'deco-record-mercado-1', 'deco-record-solitarias-0', 'deco-record-solitarias-1', 'deco-record-margem-0', 'deco-record-margem-1', 'deco-record-alagada-0', 'deco-record-alagada-1', 'deco-balanca', 'deco-toldo',
 ];
 // tiras de quadros pequenos: [largura, altura] de cada quadro
 const STRIPS: Record<string, [number, number]> = {

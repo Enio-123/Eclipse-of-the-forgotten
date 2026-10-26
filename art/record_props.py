@@ -10,6 +10,8 @@ As Solitárias: o livro das sentenças aberto no cavalete do carcereiro e a laje
 cela, com a tigela virada no pé.
 A Margem da Tinta: o caderno do copista encostado no caixote virado da margem e a prancha de assinar
 da sacada, com a ordem em branco presa no clipe.
+Galeria Alagada: o caderno da bomba pendurado no prego da escora, com a régua de medir o nível, e o
+quadro das bombas, com a ordem da Casa e os capacetes pendurados na travessa.
 
 Cada função devolve (prims, decals, W, H, luzes) em pixels do mundo; as luzes (x, y, cor) ficam em
 relação ao canto da imagem. O jogo põe cada registro pelo meio de baixo, em pé no chão.
@@ -667,6 +669,105 @@ def margem_order():
     return P, [Decal('sheet', order)], W, H, []
 
 
+# ---------------------------------------------------------------- a galeria alagada
+def alagada_log():
+    """O caderno da bomba, pendurado no prego da escora: a tábua em pé com o prego, o caderno aberto
+    inchado de umidade (as folhas onduladas, a mesma linha repetida até o fim), a régua de medir o
+    nível ao lado, com as marcas da água, e a lamparina do turno apagada no pé."""
+    W, H = 30, 32
+    P = []
+    # a escora de madeira em pé, com a sapata de pedra no pé
+    P.append(Poly('base', 'citystone', 0.8, [(4.0, 29.4), (16.0, 29.4), (17.0, 31.6), (3.0, 31.6)], nf=const((0.0, -0.4, 0.9))))
+    def post_n(x, y):
+        t = np.clip((np.asarray(x, np.float32) - 9.5) / 3.0, -1, 1)
+        return (t * 0.8, -0.05 + 0 * t, np.sqrt(np.maximum(0.1, 1 - (t * 0.8) ** 2)))
+    P.append(Poly('post', 'oldwood', 0.95, [(6.4, 29.6), (6.6, 2.4), (12.6, 2.2), (12.8, 29.6)], nf=post_n))
+    P.append(Capsule('nail', 'iron', 1.3, (9.6, 6.4), (12.4, 6.0), 0.7, 0.6))
+    # o caderno pendurado, aberto, as folhas empenadas pela umidade
+    P.append(Poly('cover', 'leather', 1.1, [(2.6, 7.0), (24.4, 5.8), (25.0, 25.2), (3.2, 26.4)], nf=const((0.0, -0.22, 0.97)), shade=0.7))
+    def page_n(x, y):
+        w = np.sin((np.asarray(y, np.float32) - 8.0) * 0.46) * 0.17
+        return (w, -0.1 + 0 * w, 0.98 + 0 * w)
+    P.append(Poly('lpage', 'paper', 1.2, [(4.0, 8.2), (13.0, 7.6), (13.2, 24.0), (4.4, 24.8)], nf=page_n))
+    P.append(Poly('rpage', 'paper', 1.2, [(13.4, 7.5), (23.2, 6.9), (23.4, 23.2), (13.6, 24.0)], nf=page_n, shade=0.93))
+    P.append(Capsule('spine', 'leather', 1.22, (13.2, 7.4), (13.4, 24.2), 0.45, 0.45, shade=0.58))
+
+    def lines(x, y, cur):
+        # a mesma linha todo dia, com a data curta na frente; no pé da página da direita a letra some
+        left = x < 13.3
+        x0, x1, y0, y1 = (4.4, 12.8, 9.0, 23.4) if left else (13.8, 23.0, 8.4, 22.6)
+        if x < x0 or x > x1 or y < y0 or y > y1:
+            return None
+        if (y - y0) % 1.9 > 0.72:
+            return None
+        u = (x - x0) / (x1 - x0)
+        if not left and y > 19.6:
+            return None
+        if u < 0.26:
+            return ('paper', 1) if (x * 2.2) % 1.0 < 0.72 else None
+        return ('paper', 1) if (x * 1.5 + y) % 1.0 < 0.64 else None
+
+    def damp(x, y, cur):
+        # a água que subiu pelo pé das folhas
+        if y > 20.0 + np.sin(x * 0.8) * 0.9:
+            return ('oldwood', 1)
+        return None
+    # a régua de medir o nível, pendurada no prego do lado
+    P.append(Poly('rule', 'brass', 1.26, [(25.4, 6.6), (27.4, 6.5), (27.6, 27.8), (25.6, 27.9)], nf=const((0.2, -0.1, 0.97))))
+
+    def ticks(x, y, cur):
+        k = (y - 7.0) % 2.6
+        if k < 0.5 and x < 27.0:
+            return ('brass', 0)
+        return None
+    # a lamparina apagada no pé da escora
+    P.append(Ellipse('lamp', 'tin', 1.1, (20.0, 29.4), 3.0, 2.4))
+    P.append(Capsule('handle', 'iron', 1.08, (18.0, 27.4), (22.0, 27.4), 0.5, 0.5, shade=0.8))
+    return P, [Decal('lpage', lines), Decal('rpage', lines), Decal('lpage', damp), Decal('rpage', damp), Decal('rule', ticks)], W, H, []
+
+
+def alagada_order():
+    """O quadro das bombas, na casa das bombas: o cavalete de madeira com a ordem da Casa pregada e o
+    selo de cera, e, na travessa de cima, os ganchos com os capacetes de quem não subiu. No pé, a
+    chave da comporta, caída."""
+    W, H = 38, 32
+    P = []
+    # o cavalete: dois pés e a travessa de cima
+    for x in (5.0, 31.0):
+        P.append(Capsule('leg', 'oldwood', 0.9, (x, 31.4), (x + (1.6 if x < 10 else -1.6), 8.0), 1.2, 1.0, shade=0.86))
+    P.append(Capsule('beam', 'oldwood', 1.0, (3.4, 7.6), (34.6, 7.2), 1.3, 1.3))
+    # os capacetes pendurados na travessa (três; os outros catorze ficaram na parede)
+    for (hx, hy, s) in ((8.6, 11.6, 1.0), (19.0, 12.2, 1.06), (29.4, 11.4, 0.96)):
+        P.append(Capsule('hook', 'iron', 1.04, (hx, 8.0), (hx, hy - 2.0 * s), 0.45, 0.4, shade=0.9))
+        P.append(Ellipse('helm', 'tin', 1.06, (hx, hy), 3.4 * s, 2.9 * s))
+        P.append(Ellipse('brim', 'tin', 1.08, (hx, hy + 2.2 * s), 4.2 * s, 0.9 * s, shade=0.72))
+        P.append(Ellipse('lampring', 'brass', 1.1, (hx, hy - 1.4 * s), 1.0 * s, 0.8 * s))
+    # a prancha com a ordem
+    P.append(Poly('board', 'oldwood', 1.0, [(6.4, 15.6), (31.6, 15.0), (32.0, 29.0), (6.8, 29.6)], nf=const((0.0, -0.2, 0.98))))
+    P.append(Poly('sheet', 'paper', 1.14, [(8.6, 16.8), (29.4, 16.2), (29.8, 27.6), (9.0, 28.2)], nf=const((0.0, -0.12, 0.99))))
+
+    def order(x, y, cur):
+        if x < 9.6 or x > 28.6:
+            return None
+        if 17.8 < y < 19.2 and 11.0 < x < 26.0 and int(x * 1.4) % 5 != 4:
+            return ('paper', 0)
+        if 20.0 < y < 25.6 and x < 24.0:
+            k = (y - 20.0) % 1.6
+            if k < 0.6 and int(x * 1.8 + y) % 6 != 0:
+                return ('paper', 1)
+        return None
+    # o selo de cera da Casa, no canto de baixo
+    P.append(Ellipse('seal', 'waxred', 1.2, (26.4, 25.6), 2.4, 2.1, flat=3))
+    P.append(Ellipse('sealin', 'waxred', 1.22, (26.0, 25.2), 1.1, 0.9, flat=3, shade=1.2))
+    # os quatro cravos da prancha
+    for (nx, ny) in ((9.0, 17.0), (29.2, 16.6), (9.4, 27.8), (29.6, 27.2)):
+        P.append(Ellipse('nail', 'iron', 1.24, (nx, ny), 0.8, 0.8))
+    # a chave da comporta, caída no pé
+    P.append(Capsule('key', 'brass', 1.06, (14.0, 31.0), (22.0, 30.6), 0.7, 0.6))
+    P.append(Ellipse('bow', 'brass', 1.08, (13.2, 31.0), 1.8, 1.6, flat=3))
+    return P, [Decal('sheet', order)], W, H, []
+
+
 PROPS = {
     'deco-record-nichos-0': nichos_tomb,
     'deco-record-nichos-1': nichos_ledger,
@@ -676,6 +777,8 @@ PROPS = {
     'deco-record-solitarias-1': solitarias_marks,
     'deco-record-margem-0': margem_notebook,
     'deco-record-margem-1': margem_order,
+    'deco-record-alagada-0': alagada_log,
+    'deco-record-alagada-1': alagada_order,
     'deco-balanca': mercado_scale,
     'deco-toldo': mercado_awning,
 }
@@ -712,3 +815,9 @@ if __name__ == '__main__':
     hd = json.load(open(path)) if os.path.exists(path) else {}
     hd.update(made)
     json.dump(hd, open(path, 'w'), indent=1)
+    # as luzes de cada objeto (a chama da vela, o Âmbar aceso), como as dos outros props
+    if lights:
+        lp = f'{out}/portal-lights.json'
+        old = json.load(open(lp)) if os.path.exists(lp) else {}
+        old.update(lights)
+        json.dump(old, open(lp, 'w'), indent=1)

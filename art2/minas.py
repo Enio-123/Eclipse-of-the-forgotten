@@ -23,7 +23,7 @@ MAPS = next((a[7:] for a in sys.argv if a.startswith('--maps=')), None)
 if MAPS:
     terreno.MAPS = MAPS
 
-SEEDS = {'boca': 41, 'trilhos': 43, 'prensas': 45, 'veio': 47, 'espelhos': 49, 'capataz': 51}
+SEEDS = {'boca': 41, 'trilhos': 43, 'alagada': 44, 'prensas': 45, 'veio': 47, 'espelhos': 49, 'capataz': 51}
 # quanto Âmbar corre na pedra de cada sala (o veio é onde ele nasce)
 VEINS = {'boca': 0.5, 'trilhos': 0.45, 'prensas': 0.4, 'veio': 1.0, 'espelhos': 0.8, 'capataz': 0.7}
 

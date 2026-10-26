@@ -227,13 +227,9 @@ export class Forest {
     this.makeTrail();
     this.ribbons = (room.ribbons ?? []).map(([x, y], i) => ({ x: x * TILE + 8, y: y * TILE + 8, ph: i * 1.7 }));
     if (this.ribbons.length) this.ribbonG = s.add.graphics().setDepth(DEPTH.tiles + 0.4);
-    // os registros da floresta (cada 'r' na ordem do mapa)
-    let ri = 0;
-    for (const sp of L.spawns) {
-      if (sp.kind !== 'r') continue;
-      const id = `${room.id}:${ri++}`;
-      this.addNote(id, sp.x, sp.y);
-    }
+    // os registros da floresta, da esquerda para a direita (a mesma ordem do Records e da Mina)
+    L.spawns.filter((sp) => sp.kind === 'r').sort((a, b) => a.x - b.x)
+      .forEach((sp, i) => this.addNote(`${room.id}:${i}`, sp.x, sp.y));
   }
 
   // ---------- desenhos feitos aqui (pegadas, o brilho das dela) ----------

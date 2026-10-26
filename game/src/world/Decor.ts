@@ -55,6 +55,16 @@ export const DEPTH = {
   water: 12,
 } as const;
 
+// O líquido parado de cada região: a cor da massa funda (e quanto ela clareia por linha), as duas
+// cores da superfície que corre e o brilho solto nela. A água do riacho da memória não entra aqui:
+// é rasa, e usa a textura de sempre.
+const LIQUIDS: Partial<Record<string, { deep: [number, number, number]; step: [number, number, number]; dark: number; light: number; line: [number, number]; glint: number }>> = {
+  // a tinta das sentenças, no Fosso e na Margem
+  prison: { deep: [22, 11, 34], step: [1, 1, 2], dark: 0x2a1248, light: 0x381c5c, line: [0xb58cf0, 0x7b55b4], glint: 0xd8b7ff },
+  // a água que tomou as minas, esverdeada do Âmbar dissolvido
+  mine: { deep: [9, 24, 25], step: [1, 2, 2], dark: 0x0d2a2c, light: 0x14403c, line: [0x8fd8c8, 0x47897e], glint: 0xd9f6ea },
+};
+
 // Trechos do tabuleiro da ponte que recebem balaustrada (em tiles)
 const BRIDGE_RAILS: [number, number][] = [[24, 50], [57, 78], [99, 106], [124, 132], [145, 170]];
 const BRIDGE_DECK_ROW = 22;
@@ -220,48 +230,50 @@ export class Decor {
     // o lago da floresta é fundo: só a água que dá para o ar tem a linha da superfície; embaixo do gelo
     // (e mais para baixo) é água escura e fria, inteira, e dá para ver o que está parado nela
     const snow = L.theme === 'snow';
-    // a tinta das sentenças, na calha da prisão: roxa quase preta, e só a superfície corre
-    const ink = L.theme === 'prison';
-    const deepKey = snow ? 'water-deep' : 'ink-deep';
-    const open = (x: number, y: number) => (snow ? L.ch(x, y - 1) === '.' : !ink || L.ch(x, y - 1) !== '~');
-    if ((snow || ink) && !this.scene.textures.exists(deepKey)) {
+    // o líquido parado de cada região (a tinta das sentenças, a água que tomou as minas): a superfície
+    // corre, e a massa funda fica atrás de quem está dentro dela
+    const liq = snow ? null : LIQUIDS[L.theme];
+    const deepKey = snow ? 'water-deep' : `liquid-${L.theme}-deep`;
+    const topKey = `liquid-${L.theme}-top`;
+    const open = (x: number, y: number) => (snow ? L.ch(x, y - 1) === '.' : !liq || L.ch(x, y - 1) !== '~');
+    if (snow && !this.scene.textures.exists(deepKey)) {
       const g = this.scene.add.graphics();
-      for (let y = 0; y < 16; y++) {
-        const c = snow ? Phaser.Display.Color.GetColor(30 + y, 70 + y * 2, 104 + y * 2) : Phaser.Display.Color.GetColor(22 + y, 11 + y, 34 + y * 2);
-        g.fillStyle(c, 1).fillRect(0, y, 16, 1);
-      }
+      for (let y = 0; y < 16; y++) g.fillStyle(Phaser.Display.Color.GetColor(30 + y, 70 + y * 2, 104 + y * 2), 1).fillRect(0, y, 16, 1);
       g.generateTexture(deepKey, 16, 16);
       g.destroy();
     }
-    // a tinta corrente tem textura própria (a da água é azul demais para tingir de roxo)
-    if (ink && !this.scene.textures.exists('ink-top')) {
+    // as duas texturas do líquido (a da água do riacho é azul demais para tingir de roxo ou de verde)
+    if (liq && !this.scene.textures.exists(topKey)) {
       const g = this.scene.add.graphics();
+      for (let y = 0; y < 16; y++) g.fillStyle(Phaser.Display.Color.GetColor(liq.deep[0] + y * liq.step[0], liq.deep[1] + y * liq.step[1], liq.deep[2] + y * liq.step[2]), 1).fillRect(0, y, 16, 1);
+      g.generateTexture(deepKey, 16, 16);
+      g.clear();
       for (let y = 0; y < 16; y++) {
-        for (let x = 0; x < 32; x++) g.fillStyle((x * 7 + y * 13) % 5 < 2 ? 0x2a1248 : 0x381c5c, 0.9).fillRect(x, y, 1, 1);
+        for (let x = 0; x < 32; x++) g.fillStyle((x * 7 + y * 13) % 5 < 2 ? liq.dark : liq.light, 0.9).fillRect(x, y, 1, 1);
       }
-      for (let x = 0; x < 32; x++) g.fillStyle(x % 8 < 5 ? 0xb58cf0 : 0x7b55b4, 0.95).fillRect(x, 0, 1, 1);
-      for (const [x, y] of [[4, 4], [18, 7], [27, 3], [11, 10]]) g.fillStyle(0xd8b7ff, 0.85).fillRect(x, y, 1, 1);
-      g.generateTexture('ink-top', 32, 16);
+      for (let x = 0; x < 32; x++) g.fillStyle(x % 8 < 5 ? liq.line[0] : liq.line[1], 0.95).fillRect(x, 0, 1, 1);
+      for (const [x, y] of [[4, 4], [18, 7], [27, 3], [11, 10]]) g.fillStyle(liq.glint, 0.85).fillRect(x, y, 1, 1);
+      g.generateTexture(topKey, 32, 16);
       g.destroy();
     }
     for (const s of L.spans((x, y) => L.ch(x, y) === '~' && open(x, y))) {
       const sprite = this.scene.add
-        .tileSprite(s.x0 * TILE, s.y * TILE + 3, (s.x1 - s.x0 + 1) * TILE, TILE - 3, ink ? 'ink-top' : 'water')
+        .tileSprite(s.x0 * TILE, s.y * TILE + 3, (s.x1 - s.x0 + 1) * TILE, TILE - 3, liq ? topKey : 'water')
         .setOrigin(0)
-        .setAlpha(snow ? 0.7 : ink ? 0.95 : 0.82)
+        .setAlpha(snow ? 0.7 : liq ? 0.95 : 0.82)
         .setDepth(DEPTH.water);
       if (snow) sprite.setTint(0xb8d8ec);
       this.water.push({ sprite, x0: s.x0 * TILE, x1: (s.x1 + 1) * TILE, y: s.y * TILE + 3 });
     }
-    if (!snow && !ink) return;
-    // a tinta funda fica atrás de quem está dentro dela: na calha o cavaleiro some se ela passar por
-    // cima (só a linha da superfície, essa sim, corta o corpo dele)
+    if (!snow && !liq) return;
+    // a massa funda fica atrás de quem está dentro dela: na calha o cavaleiro sumiria se ela passasse
+    // por cima (só a linha da superfície, essa sim, corta o corpo dele)
     for (const s of L.spans((x, y) => L.ch(x, y) === '~' && !open(x, y))) {
       const w = (s.x1 - s.x0 + 1) * TILE;
       this.scene.add.tileSprite(s.x0 * TILE, s.y * TILE, w, TILE, deepKey).setOrigin(0)
         .setAlpha(snow ? 0.6 : 0.92).setDepth(snow ? DEPTH.water : DEPTH.front);
       // e um véu fino por cima, só para tingir quem está afundado nela
-      if (ink) this.scene.add.tileSprite(s.x0 * TILE, s.y * TILE, w, TILE, deepKey).setOrigin(0).setAlpha(0.3).setDepth(DEPTH.water);
+      if (liq) this.scene.add.tileSprite(s.x0 * TILE, s.y * TILE, w, TILE, deepKey).setOrigin(0).setAlpha(0.3).setDepth(DEPTH.water);
     }
   }
 

@@ -16,7 +16,7 @@ ASSETS = os.path.join(HERE, '..', 'game', 'public', 'assets')
 
 GOLD = [hexc(0xb4702e), hexc(0xe7ad55), hexc(0xfff0c8)]
 WIN = [hexc(0xd9772e), hexc(0xffc46e)]
-FOREST = ['encosta', 'pinhal', 'lago', 'cabana', 'serra', 'clareira']
+FOREST = ['encosta', 'pinhal', 'lago', 'mata', 'cabana', 'serra', 'clareira']
 
 # tipo de cada camada: 'opaque' (sem transparência), 'soft' (alfa suave em 16 níveis), 'exact'
 # (já está em 1x com o alfa certo, como o terreno, que segue a física) ou 'veil' (já em 1x, alfa
@@ -94,8 +94,8 @@ THEMES = {
     ),
     # Minas Abandonadas: rocha em camadas e os veios de Âmbar (só o terreno sai em pixel)
     'mine': dict(
-        layers={f'terreno-{n}': 'exact' for n in ['boca', 'trilhos', 'prensas', 'veio', 'espelhos', 'capataz']},
-        rename={f'terreno-{n}': f'terrain-{n}' for n in ['boca', 'trilhos', 'prensas', 'veio', 'espelhos', 'capataz']},
+        layers={f'terreno-{n}': 'exact' for n in ['boca', 'trilhos', 'alagada', 'prensas', 'veio', 'espelhos', 'capataz']},
+        rename={f'terreno-{n}': f'terrain-{n}' for n in ['boca', 'trilhos', 'alagada', 'prensas', 'veio', 'espelhos', 'capataz']},
         accents=[hexc(0xffa63c), hexc(0xffe6a6), hexc(0x8a4a12), hexc(0xd27a26), hexc(0x9a8064), hexc(0x4c5670), hexc(0x07060a)],
         colors=96,
     ),

@@ -20,6 +20,8 @@ export const MEMORIES: Record<string, { title: string; text: string }> = {
   'abismo:boss': { title: 'O machado', text: 'Ergui o machado sobre alguém ajoelhado no tablado. Numa versão, ele desceu. Na outra, caiu da minha mão, e a praça inteira ficou em silêncio.' },
   'espelhos:boss': { title: 'O reflexo', text: 'No Âmbar polido eu me vi de capuz, com a foice na mão. Atrás de mim, alguém de capa vermelha chamava. Numa versão eu me virei para ver. Na outra, segui em frente.' },
   'capataz:boss': { title: 'A fuga pelo túnel', text: 'Uma moça de capa vermelha correndo pelos túneis, com um caderno apertado no peito. Numa versão eu corria atrás dela com a ordem na mão. Na outra, eu segurava a grade para ela passar.' },
+  // A Mata Fechada (v18): o cercado da espera, onde ele lia a lista antes da caçada
+  'mata:0': { title: 'O cercado da espera', text: 'Eu li a lista em pé neste cercado, com a mão no portão. Numa versão eu abri o portão antes da corneta e fiquei de costas, para não ver para onde eles corriam. Na outra, eu esperei a corneta tocar e contei até dez antes de soltar os cães.' },
   'lago:0': { title: 'O lago congelado', text: 'Ela riu tanto quando eu escorreguei no gelo que caiu também. Ficamos deitados no lago, olhando o céu branco, sem frio nenhum.' },
   // NAME_MEMORY: a primeira vez que o nome dela aparece no jogo
   'cabana:0': { title: 'O nome dela', text: 'Arielle. O nome volta inteiro, com a voz dela dizendo, rindo do nó torto da minha capa. Arielle.' },
@@ -45,6 +47,7 @@ export const MEMORY_ECHO: Record<string, { kind: EchoKind; mode: WaveMode }> = {
   'espelhos:boss': { kind: 'carrasco', mode: 'corrupt' },
   'capataz:boss': { kind: 'ela', mode: 'corrupt' },
   'lago:0': { kind: 'ela', mode: 'restore' },
+  'mata:0': { kind: 'povo', mode: 'corrupt' },
   'cabana:0': { kind: 'ela', mode: 'restore' },
   'clareira:boss': { kind: 'ela', mode: 'corrupt' },
 };
@@ -138,6 +141,25 @@ export const RECORDS: Record<string, RecordInfo> = {
     ],
     proofs: ['inocentes', 'vhalor'],
   },
+  // Galeria Alagada (v18): a bacia que a Casa mandou alagar, entre os trilhos e as prensas
+  'alagada:0': {
+    title: 'O caderno da bomba',
+    region: 'Minas Abandonadas',
+    lines: [
+      'O caderno do homem da bomba, pendurado no prego, inchado de umidade. Todo dia a mesma linha: "nível medido, nível baixado, turno fechado". Anos de linhas iguais.',
+      'Nas últimas folhas a letra muda: "mandaram parar a bomba. Perguntei até quando. Responderam que até a galeria de baixo calar."',
+    ],
+    proofs: ['vhalor', 'inocentes'],
+  },
+  'alagada:1': {
+    title: 'A ordem de alagar',
+    region: 'Minas Abandonadas',
+    lines: [
+      'A ordem está pregada no quadro das bombas, com o selo da Casa: fechar as comportas e deixar a água subir na galeria de baixo, "pelo bem do Âmbar e da cidade".',
+      'No verso, com outra letra: "ainda tinha gente lá embaixo. Contei dezessete capacetes na parede e dezessete não voltaram. Quem assinou isto escreveu o nome da cidade, não o próprio."',
+    ],
+    proofs: ['vhalor', 'inocentes'],
+  },
   'boca:0': {
     title: 'O livro da entrada',
     region: 'Minas Abandonadas',
@@ -193,6 +215,27 @@ export const RECORDS: Record<string, RecordInfo> = {
       '"Se a neve apagar a trilha, siga as fitas: elas levam à casa da minha avó. Os cães da Casa não passam do lago. A."',
     ],
     proofs: ['arielle'],
+  },
+  // A Mata Fechada (v18): o caderno no fundo da cova e a lista pregada na espera do guarda
+  'mata:0': {
+    title: 'O caderno do mateiro',
+    region: 'Floresta Nevada',
+    lines: [
+      'Um caderno de capa de pano no fundo da cova, aberto no meio, com a letra tremida de frio.',
+      '"Cavei onze covas para a Casa e cobri todas de galho. Na décima segunda eu parei: eles mediram a cova com a vara, e a medida não era de bicho."',
+      '"Deixo o caderno aqui dentro e vou embora. Que nasça o que quiser no fundo desta."',
+    ],
+    proofs: ['inocentes', 'vhalor'],
+  },
+  'mata:1': {
+    title: 'A lista do cercado',
+    region: 'Floresta Nevada',
+    lines: [
+      'Uma tábua pregada no corrimão da espera, com nomes riscados a canivete e um traço ao lado de cada um.',
+      'Vinte e três traços. O último nome não tem traço: alguém raspou a madeira ali até o nome sair dela.',
+      'No canto, de outra letra: "cercado desativado. A caça passa para a clareira. Os cães não descem mais do lago."',
+    ],
+    proofs: ['inocentes'],
   },
   'cabana:0': {
     title: 'O herbário',

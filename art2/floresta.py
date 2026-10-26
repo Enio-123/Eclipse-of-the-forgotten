@@ -35,7 +35,7 @@ if MAPS:
     terreno.MAPS = MAPS
 ONLY = next((a[7:] for a in sys.argv if a.startswith('--only=')), None)
 
-SEEDS = {'encosta': 61, 'pinhal': 63, 'lago': 65, 'cabana': 67, 'serra': 69, 'clareira': 71}
+SEEDS = {'encosta': 61, 'pinhal': 63, 'lago': 65, 'mata': 73, 'cabana': 67, 'serra': 69, 'clareira': 71}
 # trechos que são túnel (a parede do fundo é pedra mesmo onde o ar vê o céu de lado): x0, y0, x1, y1 em tiles
 CAVES = {'encosta': [(0, 24, 13, 29)]}
 SOLID = '#+_'

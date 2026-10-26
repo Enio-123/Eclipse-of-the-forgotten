@@ -161,14 +161,15 @@ export class Mine {
       tint: [0x372c25, 0x514338, 0x221b17, 0x716050],
       emitting: false,
     }).setDepth(DEPTH.enemy + 2);
-    let ri = 0;
     for (const sp of L.spawns) {
       if (sp.kind === 'x') this.addCrystal(sp.tx, sp.ty);
       else if (sp.kind === 'y') this.addFrame(sp.tx, sp.ty);
       else if (sp.kind === 'h') this.addPress(sp.x, sp.y);
-      else if (sp.kind === 'r') this.addLedger(`${room.id}:${ri++}`, sp.x, sp.y);
       else if (sp.kind === 'j') this.addCart(sp.tx, sp.ty);
     }
+    // os registros da esquerda para a direita, que é a ordem em que ele passa por eles (e não a
+    // ordem das linhas do mapa, que poria o de um andar de cima na frente do da galeria)
+    L.spawns.filter((sp) => sp.kind === 'r').sort((a, b) => a.x - b.x).forEach((sp, i) => this.addLedger(`${room.id}:${i}`, sp.x, sp.y));
     for (const [x0, x1, row] of room.rails ?? []) this.addRails(x0, x1, row);
     for (const [tx, ty] of room.lamps ?? []) this.addLamp(tx * TILE + 8, ty * TILE, 12);
     this.addPlugs();
@@ -909,9 +910,12 @@ export class Mine {
   // ---------- registros ----------
   private addLedger(id: string, x: number, y: number) {
     const s = this.s;
-    if (!s.textures.exists('deco-ledger') || !RECORDS[id]) return;
-    const img = hd(s.add.image(x, y + 1, 'deco-ledger').setOrigin(0.5, 1).setDepth(DEPTH.prop + 0.5));
-    const [lx, ly, lc] = this.light('deco-ledger');
+    // cada registro pode ter o seu objeto (deco-record-<sala>-<n>); sem ele, o livro de sempre
+    const own = `deco-record-${id.replace(':', '-')}`;
+    const key = s.textures.exists(own) ? own : 'deco-ledger';
+    if (!s.textures.exists(key) || !RECORDS[id]) return;
+    const img = hd(s.add.image(x, y + 1, key).setOrigin(0.5, 1).setDepth(DEPTH.prop + 0.5));
+    const [lx, ly, lc] = this.light(key);
     const glow = this.glow(x - img.displayWidth / 2 + lx, y + 1 - img.displayHeight + ly, lc, 0.4, progress.seen.has(`record:${id}`) ? 0.25 : 0.5, 1.4, 0.08, false);
     this.ledgers.push({ id, x, y, img, glow });
   }

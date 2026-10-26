@@ -1276,6 +1276,57 @@ def trilhos():
     return g.rows()
 
 
+def alagada():
+    """Galeria Alagada: o trecho dos trilhos que a agua tomou quando a mina furou o lencol e as
+    bombas pararam. Dos dois lados sobra o leito seco; no meio, a bacia, atravessada pelos vagonetes
+    afundados e pelas pedras que sobraram de pe (ou por cima, pelas vigas das bombas). No fim, as
+    tabuas sobem ate a plataforma das bombas, e a casa delas esta tapada com Ambar: so a picareta
+    abre, e la dentro esta a ordem que mandou alagar a galeria de baixo."""
+    W, H = 112, 34
+    g = Grid(W, H, '#')
+    # as duas bocas, na altura das dos Trilhos e da Casa das Prensas
+    g.fill(0, 14, 2, 23, '.')
+    g.fill(109, 16, 111, 23, '.')
+    # a galeria, de ponta a ponta, com o teto baixo dos trilhos
+    g.fill(3, 14, 108, 23, '.')
+    # a bacia alagada no meio (fundo na linha 31)
+    g.fill(23, 24, 86, 30, '~')
+    # o que sobrou de pe na bacia: vagonetes afundados e pedras, um a cada cinco tiles
+    for x0, x1, top in ((27, 29, 23), (35, 38, 24), (44, 47, 22), (53, 55, 24), (61, 64, 23), (70, 73, 24), (79, 81, 22)):
+        g.fill(x0, top, x1, 30, '#')
+    # o fim da galeria sobe ate a plataforma das bombas; a casa das bombas, atras do tampao de Ambar
+    g.fill(97, 8, 108, 13, '.')
+    g.fill(97, 12, 104, 13, '#')
+    g.fill(90, 8, 96, 11, '.')
+    for y in range(8, 12):
+        g.put(97, y, '@')
+        g.put(98, y, '@')
+    # as vigas de onde penduravam as bombas e as tabuas que sobem ate a plataforma
+    plank(g, 40, 46, 19)
+    plank(g, 55, 61, 19)
+    plank(g, 99, 105, 19)
+    plank(g, 103, 108, 15)
+    r = 23
+    g.put(1, r, '1')
+    g.put(110, r, '2')
+    g.put(8, r, 'r')
+    g.put(93, 11, 'r')
+    g.put(95, 11, '$')
+    g.put(44, 18, '$')
+    g.put(14, r, 'j')
+    g.put(91, r, 'j')
+    g.put(18, r, 'u')
+    g.put(102, 18, 'u')
+    g.put(50, 17, 'z')
+    g.put(76, 16, 'z')
+    for x in (6, 21, 88, 106):
+        g.put(x, r, 'y')
+    for (x, y) in ((12, 15), (32, 14), (58, 15), (84, 14), (92, 10)):
+        g.put(x, y, 'x')
+    snap_crystals(g)
+    return g.rows()
+
+
 def prensas():
     """Casa das Prensas: o salão onde a Casa Vhalor espremia a memória das pessoas direto no
     Âmbar. Entra-se pelo alto, à esquerda, vindo dos trilhos. Três prensas enormes no chão; a ordem
@@ -1632,6 +1683,59 @@ def cabana():
     return g.rows()
 
 
+def mata():
+    """A Mata Fechada: entre o lago e a cabana a copa fecha em cima e o chão afunda numa baixada escura,
+    onde a luz só entra pelos buracos da copa. Da margem do lago se desce por uma pedra solta. Na
+    baixada, o cercado das esperas (duas estacas altas e a cobertura de galhos, por onde se desce) e a
+    cova coberta, no fundo da qual nasceu um pinheiro que ninguém cortou. Em cima, a espera do guarda,
+    em postes, e dali sobe-se de galho em galho até a caixa esquecida no facho de luz. Sai-se da
+    baixada pelo tronco caído encostado no morro da clareira."""
+    W, H = 124, 40
+    g = Grid(W, H, '.')
+    # a borda da margem do lago (esquerda) e o morro da clareira da cabana (direita)
+    ground(g, 0, 16, 28)
+    ground(g, 104, 123, 28)
+    # a baixada, seis linhas abaixo das duas bordas
+    ground(g, 17, 103, 34)
+    # a pedra solta encostada na borda da esquerda e o tronco caído encostado no morro da direita:
+    # os dois degraus que ligam a baixada às bordas
+    g.fill(17, 30, 19, 33, '#')
+    g.fill(98, 31, 103, 32, '#')
+    # o cercado das esperas: as duas estacas e a cobertura de galhos por cima
+    g.fill(24, 29, 24, 33, '#')
+    # a estaca da direita é o portão, que ficou aberto: só a travessa de cima atravessa
+    g.fill(44, 29, 44, 30, '#')
+    plank(g, 25, 43, 29)
+    # a cova coberta: lascas de gelo nas duas beiradas do fundo e o meio limpo
+    g.fill(61, 34, 73, 38, '.')
+    for x in list(range(61, 64)) + list(range(71, 74)):
+        g.put(x, 38, '^')
+    # a espera do guarda, em postes, sobre a baixada
+    plank(g, 80, 90, 26)
+    pine(g, 8, 28, [(1, 6, 22)])
+    pine(g, 22, 34, [(1, 4, 27)])
+    pine(g, 50, 34, [(1, 6, 21)])
+    pine(g, 56, 34)
+    pine(g, 78, 34, [(-1, 5, 30)])
+    pine(g, 94, 34, [(-1, 6, 24), (-1, 4, 20), (1, 5, 17)])
+    # o pinheiro que nasceu na cova: a copa dele passa da boca
+    pine(g, 67, 39, [(-1, 4, 36), (1, 4, 33)])
+    pine(g, 112, 28, [(-1, 6, 22)])
+    pine(g, 119, 28)
+    for (x, top) in ((13, 28), (33, 34), (88, 34), (109, 28)):
+        g.put(x, top - 1, 't')
+    g.put(1, 27, '1')
+    g.put(122, 27, '2')
+    g.put(34, 33, 'm')
+    g.put(84, 25, 'r')
+    g.put(65, 38, 'r')
+    g.put(97, 16, '$')
+    g.put(53, 33, 'd')
+    g.put(86, 33, 'd')
+    g.put(31, 21, 'e')
+    return g.rows(), {(25, 43, 29), (80, 90, 26)}
+
+
 def serra():
     """A Serra: a subida pela fenda da montanha, por onde ela passou. Embaixo, a saída da clareira da
     cabana. À esquerda, a chaminé de pedra (saliências dos dois lados, para as garras e o pulo duplo),
@@ -1707,13 +1811,22 @@ if __name__ == '__main__':
                      'capataz': capataz()})
     # v18: as salas novas no meio das regiões
     if '--v18' in sys.argv:
-        maps.update({'nichos': nichos(), 'mercado': mercado(), 'solitarias': solitarias(), 'margem': margem()})
+        maps.update({'nichos': nichos(), 'mercado': mercado(), 'solitarias': solitarias(), 'margem': margem(),
+                     'alagada': alagada()})
     # a Floresta Nevada (--floresta)
     if '--floresta' in sys.argv:
         pin, stands = pinhal()
         forest = {'encosta': encosta(), 'pinhal': pin, 'lago': lago(), 'cabana': cabana(), 'serra': serra(), 'clareira': clareira()}
+        # v18: A Mata Fechada, entre o lago e a cabana
+        if '--v18' in sys.argv:
+            mat, mstands = mata()
+            forest['mata'] = mat
+            forest = {'encosta': forest['encosta'], 'pinhal': forest['pinhal'], 'lago': forest['lago'],
+                      'mata': mat, 'cabana': forest['cabana'], 'serra': forest['serra'], 'clareira': forest['clareira']}
+        else:
+            mstands = ()
         for k, rows in forest.items():
-            check_forest(k, rows, stands if k == 'pinhal' else ())
+            check_forest(k, rows, stands if k == 'pinhal' else (mstands if k == 'mata' else ()))
         maps.update(forest)
     lines = ['// Gerado por ferramentas/rooms.py: não edite à mão', '']
     for k, rows in maps.items():

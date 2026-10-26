@@ -35,7 +35,9 @@ export function backdropKeys(theme: string, room: string): string[] {
     case 'mine':
       return ['mine-far', 'mine-mid'];
     case 'snow':
-      return room === 'serra' ? ['snow-sky', 'serra-far', 'serra-mid'] : ['snow-sky', 'snow-far', 'snow-mid'];
+      if (room === 'serra') return ['snow-sky', 'serra-far', 'serra-mid'];
+      // a Mata Fechada tem o pinhal dela, junto e escuro, no lugar das montanhas
+      return room === 'mata' ? ['snow-sky', 'mata-far', 'mata-mid'] : ['snow-sky', 'snow-far', 'snow-mid'];
     default:
       return ['mem-sky', 'mem-far', 'mem-mid'];
   }
@@ -383,9 +385,11 @@ export class Backdrop {
   private snow() {
     this.snowFallback();
     const shaft = this.room === 'serra';
+    // a Mata Fechada: as mesmas camadas, mas pintadas juntas e escuras (a copa fecha por cima)
+    const dense = this.room === 'mata';
     hd(this.img('snow-sky', BG.sky));
-    const far = this.hdTile(shaft ? 'serra-far' : 'snow-far', BG.far, VIEW_H);
-    const mid = this.hdTile(shaft ? 'serra-mid' : 'snow-mid', BG.mid, VIEW_H);
+    const far = this.hdTile(shaft ? 'serra-far' : dense ? 'mata-far' : 'snow-far', BG.far, VIEW_H);
+    const mid = this.hdTile(shaft ? 'serra-mid' : dense ? 'mata-mid' : 'snow-mid', BG.mid, VIEW_H);
     const fog = this.tile('fog', BG.fog, 140, 236).setAlpha(0.32).setTint(0xe4ecf6);
     // na fenda as duas camadas repetem na vertical e andam com a câmera; no resto elas ficam presas
     // embaixo, no chão da sala, e descem quando a câmera sobe (aparece o céu por cima das copas)
@@ -415,8 +419,12 @@ export class Backdrop {
       },
     );
     const add = Phaser.BlendModes.ADD;
-    for (const [x, a, rot] of [[110, 0.1, 0.32], [330, 0.07, 0.28], [540, 0.09, 0.36]] as const) {
-      const beam = this.scene.add.image(x + this.so.x * 0.7, -30 + this.so.y * 0.9, 'beam').setOrigin(0.5, 0).setScale(2.4, 2.8).setRotation(rot).setAlpha(a)
+    // na Mata os fachos são o que sobra do dia: poucos, duros, e bem mais fortes que no resto
+    const beams: readonly (readonly [number, number, number])[] = dense
+      ? [[90, 0.26, 0.2], [300, 0.19, 0.14], [470, 0.3, 0.24], [640, 0.17, 0.12]]
+      : [[110, 0.1, 0.32], [330, 0.07, 0.28], [540, 0.09, 0.36]];
+    for (const [x, a, rot] of beams) {
+      const beam = this.scene.add.image(x + this.so.x * 0.7, -30 + this.so.y * 0.9, 'beam').setOrigin(0.5, 0).setScale(dense ? 1.5 : 2.4, 3.2).setRotation(rot).setAlpha(a)
         .setTint(0xeaf2ff).setBlendMode(add).setScrollFactor(0.3, 0.1).setDepth(BG.beams);
       this.layers.push({ o: beam, update: (_sx, _sy, t) => void (beam.alpha = a * (0.7 + 0.3 * Math.sin(t * 0.0004 + x))) });
     }

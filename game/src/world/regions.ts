@@ -37,12 +37,12 @@ export const REGIONS: RegionDef[] = [
     blurb: 'Só o que a corda alcançou. Lá embaixo a tinta escorre do papel.',
   },
   {
-    id: 'minas', name: 'Minas Abandonadas', rooms: ['boca', 'trilhos', 'prensas', 'veio', 'espelhos', 'capataz'], wash: '#c0843c', price: 35, surveyor: { room: 'boca', x: 13, y: 29 },
+    id: 'minas', name: 'Minas Abandonadas', rooms: ['boca', 'trilhos', 'alagada', 'prensas', 'veio', 'espelhos', 'capataz'], wash: '#c0843c', price: 35, surveyor: { room: 'boca', x: 13, y: 29 },
     blurb: 'Segui os trilhos até onde o Âmbar deixou. Os túneis que ele fechou eu marquei com cruz.',
   },
   {
-    id: 'floresta', name: 'Floresta Nevada', rooms: ['encosta', 'pinhal', 'lago', 'cabana', 'serra', 'clareira'], wash: '#7aa0ad', price: 40, surveyor: { room: 'encosta', x: 14, y: 29 },
-    blurb: 'A encosta, o pinhal, o lago e a cabana. Na neve as trilhas somem; os troncos ficam.',
+    id: 'floresta', name: 'Floresta Nevada', rooms: ['encosta', 'pinhal', 'lago', 'mata', 'cabana', 'serra', 'clareira'], wash: '#7aa0ad', price: 40, surveyor: { room: 'encosta', x: 14, y: 29 },
+    blurb: 'A encosta, o pinhal, o lago e a cabana. Na mata fechada a copa tapa o dia; os troncos ficam.',
   },
 ];
 

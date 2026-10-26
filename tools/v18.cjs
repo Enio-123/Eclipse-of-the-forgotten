@@ -7,7 +7,9 @@
 // cima (que só o Véu atravessa), o livro das sentenças e as marcas da parede.
 // A Margem da Tinta: a tinta que atrasa o passo, os pilares da comporta, a calha funda, as tábuas da
 // sacada dos copistas, as correntes do gancho, os dois registros e o nicho atrás da membrana.
-// uso: node v18.cjs <pasta-saida> [url]   (ONLY=nichos,mercado,solitarias,margem roda só essas partes)
+// Galeria Alagada: a água que atrasa o passo, as pedras e os vagonetes da bacia, as vigas das bombas,
+// o tampão de Âmbar da casa das bombas (só a Picareta) e os dois registros.
+// uso: node v18.cjs <pasta-saida> [url]   (ONLY=nichos,mercado,solitarias,margem,alagada roda só essas)
 const { chromium } = require('playwright');
 const OUT = process.argv[2] || '.';
 const URL = process.argv[3] || 'http://localhost:8765/index.html';
@@ -107,7 +109,12 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
     // a câmera vai atrás do cavaleiro aos poucos: num salto desses a foto sairia na sala errada
     await page.evaluate(() => { const s = window.__scene; s.cameras.main.centerOn(s.player.x, s.player.body.center.y); });
     await waitGame(0.3);
-    const hint = await page.evaluate(() => { const s = window.__scene; const h = s.records && s.records.nearby(s.player); return h && h.hint; });
+    // nas minas e na floresta o registro é da sala, não do Records: a dica vem de quem o guarda
+    const hint = await page.evaluate(() => {
+      const s = window.__scene;
+      const h = (s.mine && s.mine.nearby(s.player)) || (s.forest && s.forest.nearby(s.player)) || (s.records && s.records.nearby(s.player));
+      return h && h.hint;
+    });
     await page.evaluate(() => { window.__talks = []; });
     await page.keyboard.down('KeyW');
     await page.waitForTimeout(160);
@@ -397,6 +404,176 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
     p = await P();
     check(p.ground && p.x > 84 && Math.abs(p.bottom - 14) < 0.1, `com o Véu ele atravessa a membrana e entra no nicho (x ${p.x.toFixed(1)}, pé ${p.bottom.toFixed(2)})`);
     await shot('margem-nicho');
+  }
+
+  if (part('alagada')) {
+    // ---------- Galeria Alagada (Minas, entre os trilhos e as prensas) ----------
+    const MINAS = ['gate:catacumbas', 'memory:vale', 'boss:sineiro', 'weapon:badalo', 'boss:arcebispo', 'weapon:incensario', 'relic:hook',
+      'boss:carcereira', 'weapon:corrente', 'boss:sombra', 'relic:veil'];
+    await setProgress(MINAS, ['wall', 'double', 'hook', 'veil']);
+    await start('alagada', '1');
+    await hookUi();
+    await calm();
+    await setP(6, 24);
+    await waitGame(0.6);
+    await setP(45, 22);
+    await waitGame(0.6);
+    let th = await page.evaluate(() => window.__thoughts);
+    check(th.some((x) => /embaixo dela/.test(x)), `na margem seca ele vê até onde a água subiu (${th[0]})`);
+    check(th.some((x) => /não tem mais ninguém para tirar/.test(x)), `em cima da bacia, pensa no Âmbar aceso lá embaixo (${th[1]})`);
+    // a água parada atrasa o passo, como a tinta do Fosso
+    const corre = async (tx, fr) => {
+      await setP(tx, fr);
+      await waitGame(0.4);
+      const wet = await page.evaluate(() => window.__scene.player.inWater);
+      const x0 = (await P()).x;
+      await page.keyboard.down('KeyD');
+      await waitGame(1);
+      await page.keyboard.up('KeyD');
+      const x1 = (await P()).x;
+      await waitGame(0.2);
+      return { wet, d: x1 - x0 };
+    };
+    const seco = await corre(6, 24);
+    const fundo = await corre(31, 31);
+    check(!seco.wet && seco.d > 6, `no leito seco ele anda solto (${seco.d.toFixed(1)} tiles)`);
+    check(fundo.wet && fundo.d < seco.d * 0.85, `no fundo da bacia ele atrasa (${fundo.d.toFixed(1)} tiles, molhado ${fundo.wet})`);
+    await shot('alagada-bacia');
+    // o que sobrou de pé na bacia: dá para atravessar por cima, de cinco em cinco tiles
+    for (const [tx, fr] of [[28, 23], [36, 24], [45, 22], [54, 24], [62, 23], [71, 24], [80, 22]]) {
+      await setP(tx, fr - 0.4);
+      await waitGame(0.8);
+      const p = await P();
+      check(p.ground && Math.abs(p.bottom - fr) < 0.1, `a pedra em ${tx} aguenta (pé ${p.bottom.toFixed(2)})`);
+    }
+    // as vigas das bombas e as tábuas que sobem até a plataforma
+    for (const [tx, fr, what] of [[43, 19, 'a viga da esquerda'], [58, 19, 'a viga da direita'], [102, 19, 'a tábua de baixo'], [105, 15, 'a tábua de cima'], [100, 12, 'a plataforma das bombas']]) {
+      await setP(tx, fr - 0.4);
+      await waitGame(0.8);
+      const p = await P();
+      check(p.ground && Math.abs(p.bottom - fr) < 0.1, `${what} aguenta (pé ${p.bottom.toFixed(2)})`);
+    }
+    // o tampão de Âmbar: a foice só tilinta, a Picareta abre a casa das bombas
+    await page.evaluate(() => window.__scene.player.setWeapon('scythe'));
+    const tampao = await page.evaluate(() => ({ n: window.__scene.mine.plugs.length, tile: window.__scene.level.tileAt(97 * 16 + 8, 10 * 16 + 8) }));
+    check(tampao.n === 1 && tampao.tile >= 2, `o Âmbar tapa a porta das bombas (${JSON.stringify(tampao)})`);
+    await setP(100, 12);
+    await page.evaluate(() => { window.__scene.player.facing = -1; });
+    await waitGame(0.3);
+    await page.keyboard.down('KeyJ');
+    await page.waitForTimeout(120);
+    await page.keyboard.up('KeyJ');
+    await waitGame(0.8);
+    check((await page.evaluate(() => window.__scene.mine.plugs.length)) === 1, 'com a foice o Âmbar não cede');
+    await page.evaluate(() => window.__scene.player.setWeapon('picareta'));
+    await setP(100, 12);
+    await page.evaluate(() => { window.__scene.player.facing = -1; });
+    await waitGame(0.3);
+    await page.keyboard.down('KeyJ');
+    await page.waitForTimeout(120);
+    await page.keyboard.up('KeyJ');
+    await waitGame(0.9);
+    const aberto = await page.evaluate(() => ({ n: window.__scene.mine.plugs.length, tile: window.__scene.level.tileAt(97 * 16 + 8, 10 * 16 + 8) }));
+    check(aberto.n === 0 && aberto.tile < 2, `a Picareta abre a casa das bombas (${JSON.stringify(aberto)})`);
+    await page.keyboard.down('KeyA');
+    await waitGame(1.4);
+    await page.keyboard.up('KeyA');
+    let p = await P();
+    check(p.ground && p.x < 96 && Math.abs(p.bottom - 12) < 0.1, `e dá para entrar nela (x ${p.x.toFixed(1)}, pé ${p.bottom.toFixed(2)})`);
+    await shot('alagada-bombas');
+    // os registros: o caderno da bomba no leito seco e a ordem lá dentro
+    let t = await read(0);
+    check(t && t.name === 'O caderno da bomba' && /calar/.test(t.lines.join(' ')) && t.hint && t.tx === 8, `o caderno da bomba no prego (${t && t.name}, x ${t && t.tx})`);
+    t = await read(1);
+    check(t && t.name === 'A ordem de alagar' && /dezessete/.test(t.lines.join(' ')) && t.tx === 93, `a ordem no quadro das bombas (${t && t.name}, x ${t && t.tx})`);
+  }
+
+  if (part('mata')) {
+    // ---------- A Mata Fechada (Floresta Nevada, entre o lago e a cabana) ----------
+    await setProgress(['banner:lago'], ['wall', 'double', 'cape']);
+    await start('mata', '1');
+    await hookUi();
+    await calm();
+    // os pensamentos: a entrada, o cercado, a cova, a espera do guarda e a saída
+    await setP(6, 28);
+    await waitGame(0.6);
+    await setP(34, 34);
+    await waitGame(0.8);
+    await setP(67, 39);
+    await waitGame(0.8);
+    await setP(85, 26);
+    await waitGame(0.8);
+    await setP(118, 28);
+    await waitGame(0.8);
+    const th = await page.evaluate(() => window.__thoughts);
+    check(th.some((x) => /copa fecha/.test(x)), `na entrada ele vê a copa fechar (${th[0]})`);
+    check(th.some((x) => /cercado de estacas/.test(x)), 'no cercado ele vê a cobertura de galhos');
+    check(th.some((x) => /cova de caça/.test(x)), 'no fundo da cova ele vê o pinheiro que nasceu');
+    check(th.some((x) => /vigiava o cercado/.test(x)), 'em cima da espera ele lembra de já ter pisado nela');
+    await shot('mata-baixada');
+    // a pedra da esquerda e o tronco da direita: os dois degraus que ligam a baixada às bordas
+    for (const [tx, fr, what] of [[18, 30, 'a pedra solta da esquerda'], [100, 31, 'o tronco caído da direita'],
+                                  [85, 26, 'a espera do guarda'], [91, 24, 'o galho do meio'], [92, 20, 'o galho de cima'], [97, 17, 'o galho da caixa']]) {
+      await setP(tx, fr - 0.4);
+      await waitGame(0.8);
+      const p = await P();
+      check(p.ground && Math.abs(p.bottom - fr) < 0.1, `${what} aguenta (pé ${p.bottom.toFixed(2)})`);
+    }
+    // a cobertura do cercado é prancha: ele anda em cima e desce por ela com {down}
+    await setP(34, 28.6);
+    await waitGame(0.9);
+    let p = await P();
+    check(p.ground && Math.abs(p.bottom - 29) < 0.1, `a cobertura de galhos aguenta (pé ${p.bottom.toFixed(2)})`);
+    await page.keyboard.down('KeyS');
+    await page.waitForTimeout(90);
+    await page.keyboard.down('Space');
+    await page.waitForTimeout(90);
+    await page.keyboard.up('Space');
+    await page.keyboard.up('KeyS');
+    await waitGame(1.2);
+    p = await P();
+    check(p.ground && Math.abs(p.bottom - 34) < 0.1, `com {down} ele desce para dentro do cercado (pé ${p.bottom.toFixed(2)})`);
+    // o portão da direita ficou aberto: dá para sair andando
+    await page.keyboard.down('KeyD');
+    await waitGame(1.3);
+    await page.keyboard.up('KeyD');
+    p = await P();
+    check(p.ground && p.x > 45 && Math.abs(p.bottom - 34) < 0.1, `o portão do cercado ficou aberto (x ${p.x.toFixed(1)})`);
+    await shot('mata-cercado');
+    // a cova: as lascas nas duas beiradas do fundo e o meio limpo, com os galhos do pinheiro no caminho
+    const cova = await page.evaluate(() => {
+      const L = window.__scene.level;
+      const t = (x, y) => L.tileAt(x * 16 + 8, y * 16 + 8);
+      return { esq: t(62, 38), meio: t(66, 38), dir: t(72, 38), boca: t(67, 34) };
+    });
+    check(cova.esq === 1 && cova.dir === 1 && cova.meio === -1 && cova.boca === -1,
+          `as lascas ficam nas beiradas da cova (${JSON.stringify(cova)})`);
+    for (const [tx, fr, what] of [[65, 36, 'o galho de baixo do pinheiro da cova'], [69, 33, 'a copa que passa da boca']]) {
+      await setP(tx, fr - 0.4);
+      await waitGame(0.8);
+      p = await P();
+      check(p.ground && Math.abs(p.bottom - fr) < 0.1, `${what} aguenta (pé ${p.bottom.toFixed(2)})`);
+    }
+    // a memória do cercado está lá dentro, e o nome dela ainda não aparece nesta sala
+    const mem = await page.evaluate(() => {
+      const s = window.__scene;
+      const k = s.props.memories.find((m) => m.id === 'mata:0');
+      return k ? { x: k.x / 16, y: k.y / 16 } : null;
+    });
+    check(mem && Math.abs(mem.x - 34.5) < 1.5, `a memória do cercado fica no cercado (${JSON.stringify(mem)})`);
+    const texto = await page.evaluate(() => {
+      const r = window.__scene.room;
+      return JSON.stringify([r.thoughts, r.title, r.subtitle]);
+    });
+    check(!/Arielle/.test(texto), 'o nome dela não aparece antes da cabana');
+    // os dois registros: o caderno no fundo da cova e a lista pregada na espera
+    let t = await read(0);
+    check(t && t.name === 'O caderno do mateiro' && /não era de bicho/.test(t.lines.join(' ')) && t.hint && t.tx === 65,
+          `o caderno no fundo da cova (${t && t.name}, x ${t && t.tx})`);
+    t = await read(1);
+    check(t && t.name === 'A lista do cercado' && /não descem mais do lago/.test(t.lines.join(' ')) && t.tx === 84,
+          `a lista pregada na espera (${t && t.name}, x ${t && t.tx})`);
+    await shot('mata-cova');
   }
 
   console.log(errs.length ? errs.join('\n') : 'sem erros no console');

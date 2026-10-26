@@ -218,12 +218,32 @@ const ROOMS: Partial<Record<RoomId, Partial<Look>>> = {
     highTint: [1.01, 0.98, 1.03],
     oil: 0.2,
   },
+  // a Galeria Alagada: a bacia parada reflete o Âmbar das paredes, esverdeada
+  alagada: { water: 0.42, reflTint: [0.8, 1.05, 0.98], wet: 0.12 },
   // a cabana: lá fora o dia de neve; debaixo do telhado só a lareira esquenta (e ilumina) por dentro
   cabana: { ambient: [0.46, 0.47, 0.52], sky: [0.58, 0.6, 0.62], knightR: 110, knight: 0.36, lightGain: 1.6, reach: 1.25, highTint: [1.05, 1.0, 0.94], flicker: 0.14 },
   // a fenda da serra: mais fria e mais funda; a luz do céu desce pela fenda e a gruta do lado fica no escuro
   serra: { ambient: [0.5, 0.53, 0.6], sky: [0.5, 0.54, 0.58], skyDepth: 40, knight: 0.4, knightR: 112, lightGain: 1.5, reach: 1.2, mist: 0.36, shadowTint: [0.95, 0.99, 1.08] },
   // o lago congelado reflete
   lago: { wet: 0.14 },
+  // a Mata Fechada: a copa tapa o dia, então o chão fica no escuro e a luz entra em fachos duros pelos
+  // buracos da copa; dentro da cova e do cercado é mais escuro ainda
+  mata: {
+    ambient: [0.42, 0.44, 0.5],
+    sky: [0.3, 0.33, 0.36],
+    knight: 0.3,
+    knightR: 116,
+    ao: 0.42,
+    lightGain: 1.5,
+    reach: 1.2,
+    rays: 0.95,
+    bloomThreshold: 0.66,
+    bloom: 0.56,
+    mistColor: [0.74, 0.8, 0.88],
+    mist: 0.4,
+    shadowTint: [0.95, 0.98, 1.08],
+    highTint: [1.04, 1.01, 0.95],
+  },
   abismo: {
     ambient: [0.34, 0.3, 0.42],
     reflTint: [1.0, 0.7, 1.1],
