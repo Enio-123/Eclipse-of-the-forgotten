@@ -309,7 +309,7 @@ const URL = process.argv[3] || 'http://localhost:8765/index.html';
   // ----- Necromante -----
   await setup('necro', { kills: { crawler: 3, guard: 1 }, seen: ['boss:sineiro'] });
   await place(20 * 16);
-  f = await spawn('c', 34);
+  f = await spawn('c', 34, true);
   await waitGame(0.4);
   h0 = (await foe(f)).hp;
   await press('KeyJ');
@@ -361,7 +361,7 @@ const URL = process.argv[3] || 'http://localhost:8765/index.html';
   // ----- Véu Abissal -----
   await setup('veu');
   await place(20 * 16);
-  f = await spawn('c', 72);
+  f = await spawn('c', 72, true);
   await waitGame(0.4);
   h0 = (await foe(f)).hp;
   await press('KeyJ');
@@ -403,7 +403,7 @@ const URL = process.argv[3] || 'http://localhost:8765/index.html';
   // ----- Espaço -----
   await setup('espaco');
   await place(20 * 16);
-  f = await spawn('c', 40);
+  f = await spawn('c', 40, true);
   await waitGame(0.4);
   const e0 = await foe(f);
   await press('KeyJ');
