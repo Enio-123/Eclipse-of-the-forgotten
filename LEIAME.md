@@ -37,6 +37,19 @@ Bíblia do jogo: https://claude.ai/artifact/VH5Rv24AoRCu32MxqSBvx8
 - Chefe: o Arcebispo do Dízimo, ajoelhado diante da rosácea do altar. Varre com o incensário (aparável), deixa nuvens de incenso, arremessa o incensário (pula por cima ou rebate de volta, o que deixa ele tonto), chove moedas do dízimo pela arena (o tablado protege), some na fumaça e reaparece atrás do cavaleiro. Na metade da vida quebra a rosácea: entram fachos de luz (a sombra do tablado protege) e dois penitentes vêm ajudar. Vencido, solta a memória e o Incensário e mostra a tela "Fim do segundo capítulo"; depois disso o altar fica em paz, com a rosácea quebrada.
 - Arma do chefe: Incensário do Arcebispo, golpe largo pela corrente que deixa incenso queimando onde passa (o incenso pega até atrás do escudo do guarda). Corrida 0,95. Trancado em Trocar arma até vencer o Arcebispo.
 
+### v18: as regiões mais longas
+
+- Cada região ganhou uma sala no meio do caminho: **Galeria dos Nichos** (Vespera), **Mercado do
+  Dízimo** (Cidade), **As Solitárias** (Prisão), **A Margem da Tinta** (Fosso), **Galeria Alagada**
+  (Minas) e **A Mata Fechada** (Floresta). São 39 salas no mapa.
+- O mapa foi redesenhado e mostra onde o cavaleiro está. Ele não vem de graça: o agrimensor vende o
+  mapa de cada região, e sem ele a região aparece em branco.
+- O dash também não vem de graça: é a habilidade das Esporas, pegada durante o jogo.
+- As salas que são um lugar fechado ficaram bem mais escuras, com a luz entrando em fachos duros (a
+  Mata Fechada tem até um fundo próprio, de pinheiros quase pretos, no lugar das montanhas).
+- Corrida, pulo e queda ganharam quadros intermediários e ficaram mais fluidos.
+- Líquido parado com fundo e reflexo por região: a tinta roxa do Fosso e a água esverdeada das Minas.
+
 ## Estilo da arte
 
 - Terreno: pintado em 2x (pedra, luz, musgo, pinceladas) e reduzido para os pixels do jogo com uma paleta por tema, porque ele segue a física bloco por bloco.

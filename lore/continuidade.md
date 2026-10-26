@@ -86,7 +86,7 @@ O que o jogo só pode afirmar no fim: que ele matou Arielle, e por quê. Antes d
 3. Cidade: as alianças, a irmã que cantou no casamento (já existe); um registro do arquivo com flores prensadas, sem nome.
 4. Prisão: ela anotava os nomes dos condenados para que alguém lembrasse (registro assinado só "A.").
 5. Minas: ela investigava as minas; ficha assinada "A.", primeira prova do Âmbar.
-6. Floresta Nevada: o nome dela volta. A calma ao lado dela contra a violência dele. No jogo desde a v17: o bilhete das fitas, o herbário (o nome escorrega antes da memória e fica parado depois), a carta da cabana, o livro da caça, as memórias "O lago congelado", "O nome dela" (primeira vez que o nome aparece) e "A trilha na neve" (duas versões). Ver `floresta.md`.
+6. Floresta Nevada: o nome dela volta. A calma ao lado dela contra a violência dele. No jogo desde a v17: o bilhete das fitas, o herbário (o nome escorrega antes da memória e fica parado depois), a carta da cabana, o livro da caça, as memórias "O lago congelado", "O nome dela" (primeira vez que o nome aparece) e "A trilha na neve" (duas versões). Ver `floresta.md`. Na v18 entrou **A Mata Fechada**, entre o lago e a cabana: o caderno do mateiro (as covas de caça, a medida que não era de bicho), a lista do cercado (vinte e três traços e o nome raspado; o aviso de que os cães não descem mais do lago, que casa com o bilhete das fitas) e a memória "O cercado da espera", em duas versões — abrir o portão antes da corneta, ou contar até dez e soltar os cães. O nome dela continua sem aparecer antes de `cabana:0`.
 7. Vale das Cachoeiras: o plano de partir; o nome na areia termina de aparecer.
 8. Torres Rúnicas: o que ela descobriu, o mecanismo, a noite.
 
@@ -116,3 +116,19 @@ O que o jogo só pode afirmar no fim: que ele matou Arielle, e por quê. Antes d
 - Pronto também: as Minas Abandonadas (v15) e o caminho do Mago com os quatro magos (v16; ver `magos.md`). Nos dois caminhos ele segue sendo o último carrasco de Vespera.
 - Pronto também (v17): a Floresta Nevada com os registros dela (4), as memórias (3), o nome de Arielle (depois de "O nome dela") e a Casa Vhalor no texto (livro da caça, bestiário). Os registros das Minas e da Floresta ficam no Diário, aba Registros.
 - Não existe ainda: registros nas 22 salas da Cidade e da Prisão, memórias essenciais, versões com prova (a carta e o livro da caça já existem como prova, falta o Diário rachar a versão falsa), corrupção, momentos decisivos, os três finais, a Coroação no texto do jogo, e as duas áreas que faltam (Vale das Cachoeiras, Torres Rúnicas).
+
+
+## 11. Salas novas da v18 (26/10/2026)
+
+Cada região ganhou uma sala, e com ela os registros que a integração da lore pedia:
+
+- **Galeria dos Nichos** (Vespera): as lápides raspadas a cinzel, e quem lembrava deles.
+- **Mercado do Dízimo** (Cidade): o édito da Casa Vhalor no poste, com o preço da memória em tabela.
+- **As Solitárias** (Prisão): o livro das sentenças na mesa do escrivão ("no lugar do irmão").
+- **A Margem da Tinta** (Fosso): o caderno do copista (trinta e duas ordens em branco), a ordem sem
+  crime escrito e a memória "A tinta nas mãos", em duas versões.
+- **Galeria Alagada** (Minas): o caderno da bomba e a ordem de alagar (os dezessete capacetes).
+- **A Mata Fechada** (Floresta): o caderno do mateiro, a lista do cercado e "O cercado da espera".
+
+As provas que esses registros somam: `inocentes` (as covas medidas para gente, a lista do cercado, as
+sentenças), `vhalor` (o édito, as ordens assinadas) e `ambar` (a ordem de alagar).
