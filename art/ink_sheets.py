@@ -20,7 +20,7 @@ ICON_S = 4   # ícones do inventário: 24 -> 96 (a tela mostra com 48)
 
 def sheets():
     import anims, knight, guard, crow, archer, censer, sineiro, arcebispo, townsfolk, enemy, props, deco, jailer, carcereira, sombra
-    import miner, ambat, capataz, wolf, owl, cacador, trout, heron
+    import miner, ambat, capataz, wolf, owl, cacador, trout, heron, barqueiro
     out = {}
     for w in anims.WEAPONS:
         out[f'knight-{w}'] = dict(anims=anims.anims_for(w), mod='knight', W=knight.W, H=knight.H, feet=knight.FEET,
@@ -82,6 +82,9 @@ def sheets():
     # Vale das Cachoeiras: a Truta de Âmbar e a Garça Cinzenta (a ponta do bico em cada quadro: o bote)
     add('trout', trout, trout.ANIMS)
     add('heron', heron, heron.ANIMS, points=heron.points)
+    # O Barqueiro: a mão da frente, a vara (o jogo desenha a vara solta), a mão da corda, a cabeça, o chapéu
+    # e a lanterna da proa em cada quadro
+    add('barqueiro', barqueiro, barqueiro.ANIMS, points=barqueiro.points, cap=3)
     # o mineiro que ficou (NPC do Veio de Âmbar): o mesmo boneco, sentado, com a vela acesa
     A, holds = fluid.densify(miner.NPC_ANIMS, miner)
     out['oldminer'] = dict(anims=A, mod='miner', W=miner.W, H=miner.H, feet=miner.FEET, meta_extra={'holds': holds} if holds else None)
@@ -109,6 +112,15 @@ def groma(out_dir, made):
     made['deco-groma'] = ink.S
 
 
+def barq_singles(out_dir, made):
+    """A vara solta do Barqueiro e a mão que vai por cima dela."""
+    import barqueiro
+    for key, fn in (('barqueiro-pole', barqueiro.pole_image), ('barqueiro-fist', barqueiro.fist_image)):
+        prims, decals, W, H = fn()
+        to_png(ink.render_frame(prims, decals, W, H, style=ink.HK)).save(f'{out_dir}/{key}.png')
+        made[key] = ink.S
+
+
 def singles(out_dir):
     """Imagens soltas: o incensário que o Arcebispo arremessa, o sino que cai, as armas no chão, os
     cortes e a flecha."""
@@ -128,6 +140,7 @@ def singles(out_dir):
     items.incensario().save(f'{out_dir}/item-incensario.png')
     made['item-badalo'] = made['item-incensario'] = ink.S
     groma(out_dir, made)
+    barq_singles(out_dir, made)
     # enfeites da Cidade-Catedral e da Prisão Subterrânea
     import props_hd, prison_props
     for k, fn in list(props_hd.PROPS.items()) + list(prison_props.PROPS.items()):
@@ -160,9 +173,12 @@ def main():
                                       extra=d.get('extra'), meta_extra=d.get('meta_extra'),
                                       preview=f'{prev_dir}/{name}.png' if prev_dir else None)
         print(f'{name}: {sheet.shape[1]}x{sheet.shape[0]}, {len(meta["frames"])} quadros, {time.time() - t0:.0f}s', flush=True)
-    if 'groma' in only:
+    if 'groma' in only or 'barqueiro-pole' in only:
         made = {}
-        groma(out_dir, made)
+        if 'groma' in only:
+            groma(out_dir, made)
+        if 'barqueiro-pole' in only:
+            barq_singles(out_dir, made)
         path = f'{out_dir}/hd.json'
         hd = json.load(open(path)) if os.path.exists(path) else {}
         hd.update(made)

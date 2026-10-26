@@ -3,6 +3,7 @@ import { PLAYER as C, TILE } from '../config';
 import type { GameScene } from '../scenes/GameScene';
 import type { Player } from '../entities/Player';
 import { DEPTH, WATER_LOOKS, paintWater } from './Decor';
+import { BG } from './Backdrop';
 import type { Span } from './Level';
 import type { Rect } from './rooms';
 import { rng } from '../gfx/raster';
@@ -43,7 +44,34 @@ interface Log {
   sink: number;
   rise: number;
   ph: number;
+  // o barco passando por cima (afunda o tronco; 0 a 1), a onda que balança (decai) e, puxado para a
+  // cachoeira Âmbar, quanto falta para voltar ao lugar depois de afundar no pé dela (s)
+  dunk: number;
+  pressed: boolean;
+  bob: number;
+  gone: number;
+  // o Remo do Barqueiro: o tranco da remada (px/s, decai), o quanto o tronco do lago foi levado do lugar
+  // (px; volta devagar quando ninguém está em cima) e até onde a água deixa ir (o meio do tronco)
+  push: number;
+  shift: number;
+  span: [number, number];
 }
+
+// a cachoeira grande do fundo (RoomDef.backFall): a cortina larga atrás do lago, o brilho de Âmbar por
+// cima dela (a luta do Barqueiro acende) e a névoa do pé
+interface BackFall {
+  x: number;
+  w: number;
+  foot: number;
+  layers: Phaser.GameObjects.TileSprite[];
+  glow: Phaser.GameObjects.TileSprite;
+  mist: Phaser.GameObjects.Image[];
+  acc: number;
+}
+
+// a cor da cortina do fundo: verde-água de longe e, puxando a correnteza, o Âmbar
+const BACK_TINT = 0xd8f0ea;
+const AMBER_TINT = 0xffb35a;
 
 // O Vale das Cachoeiras (capítulo 6, lore/vale.md): o vale da Lembrança do prólogo, agora no presente.
 // Aqui fica o que é só do vale: a água funda pintada pela profundidade (a linha d'água, o verde que
@@ -75,6 +103,15 @@ export class Vale {
   private ashAcc = 0;
   // sem o filtro do Alto e do EXTREME (Performance): a tela inteira desbota enquanto o cinza dura
   private greyFx: Phaser.FX.ColorMatrix | null = null;
+  // a cachoeira do fundo e o lago embaixo dela (px: as pontas da água, a linha d'água e o fundo). Na luta
+  // do Barqueiro: o quanto ela está Âmbar (0 a 1) e a correnteza que puxa para o pé dela (px/s)
+  private back: BackFall | null = null;
+  lake: { x0: number; x1: number; surface: number; bottom: number } | null = null;
+  private amberK = 0;
+  private amberGoal = 0;
+  private pullV = 0;
+  private amberFoam: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
+  private pullAcc = 0;
 
   constructor(private s: GameScene) {
     const room = s.room;
@@ -121,6 +158,7 @@ export class Vale {
       emitting: false,
     }).setDepth(DEPTH.water + 0.4);
     for (const r of room.falls ?? []) this.addFall(r);
+    if (room.backFall) this.addBackFall(room.backFall);
     for (const d of room.drafts ?? []) {
       this.drafts.push({ rect: new Phaser.Geom.Rectangle(d.x0 * TILE, d.y0 * TILE, (d.x1 - d.x0 + 1) * TILE, (d.y1 - d.y0 + 1) * TILE), acc: 0 });
     }
@@ -314,6 +352,108 @@ export class Vale {
     this.falls.push({ r, x, y, w, h, back, front, mist, foot, acc: 0 });
   }
 
+  // a cachoeira grande do fundo: cai atrás do lago (não empurra ninguém), do alto da sala até a linha
+  // d'água, com duas cortinas em ritmos diferentes e a névoa do pé por cima da água
+  private addBackFall(r: { x0: number; x1: number }) {
+    const s = this.s;
+    const L = s.level;
+    const x = r.x0 * TILE;
+    const w = (r.x1 - r.x0 + 1) * TILE;
+    const cx = Math.floor((x + w / 2) / TILE);
+    let ty = 0;
+    while (ty < L.h - 1 && L.ch(cx, ty) !== '~') ty++;
+    const foot = ty * TILE + 3;
+    // o lago embaixo dela: a linha d'água de margem a margem e o fundo
+    let x0 = cx;
+    let x1 = cx;
+    while (x0 > 0 && L.ch(x0 - 1, ty) === '~') x0--;
+    while (x1 < L.w - 1 && L.ch(x1 + 1, ty) === '~') x1++;
+    let by = ty;
+    while (by < L.h - 1 && L.ch(cx, by + 1) === '~') by++;
+    this.lake = { x0: x0 * TILE, x1: (x1 + 1) * TILE, surface: foot, bottom: (by + 1) * TILE };
+    const d = BG.beams + 0.5;
+    const layers = [
+      s.add.tileSprite(x, 0, w, foot, 'fall-back').setOrigin(0).setAlpha(0.9).setTint(BACK_TINT).setDepth(d),
+      s.add.tileSprite(x - 4, 0, w + 8, foot, 'fall-front').setOrigin(0).setAlpha(0.5).setTint(BACK_TINT).setDepth(d + 0.05),
+    ];
+    layers[1].tilePositionX = 23;
+    // o Âmbar: a mesma água somando luz por cima (apagado até a luta)
+    const glow = s.add.tileSprite(x, 0, w, foot, 'fall-back').setOrigin(0).setTint(AMBER_TINT).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0).setDepth(d + 0.1);
+    const mist: Phaser.GameObjects.Image[] = [];
+    for (let i = 0; i < 4; i++) {
+      mist.push(s.add.image(x + w / 2 + (i - 1.5) * w * 0.55, foot - 8 - (i % 2) * 6, 'glow').setScale(2.6 + (i % 2) * 0.8, 1.6).setTint(0xf2fff8)
+        .setAlpha(0.22).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.water + 0.3));
+    }
+    this.back = { x, w, foot, layers, glow, mist, acc: 0 };
+    // a espuma revolta do pé quando ela vira Âmbar
+    this.amberFoam = s.add.particles(0, 0, 'glow', {
+      lifespan: { min: 500, max: 1000 },
+      speedX: { min: -70, max: 70 },
+      speedY: { min: -90, max: -20 },
+      scale: { start: 0.16, end: 0.5 },
+      alpha: { start: 0.5, end: 0 },
+      tint: [0xffc070, 0xffe2a8, 0xff9a3c],
+      blendMode: Phaser.BlendModes.ADD,
+      emitting: false,
+    }).setDepth(DEPTH.water + 0.55);
+  }
+
+  // ---------- a luta do Barqueiro ----------
+  // o meio da cachoeira do fundo (px), se a sala tem uma
+  get fallX() {
+    return this.back ? this.back.x + this.back.w / 2 : null;
+  }
+
+  // a cachoeira vai ficando Âmbar (0 a 1) no ritmo de quem chama (o Barqueiro afundando, ou vencido)
+  amber(k: number) {
+    this.amberGoal = Phaser.Math.Clamp(k, 0, 1);
+  }
+
+  // a correnteza do lago puxando para o pé da cachoeira (px/s; 0 desliga)
+  setPull(v: number) {
+    this.pullV = v;
+  }
+
+  // a água revolta no pé da cachoeira Âmbar (machuca) ou null
+  churn() {
+    const b = this.back;
+    if (!b || this.pullV <= 0 || this.amberK < 0.5) return null;
+    return new Phaser.Geom.Rectangle(b.x - 6, b.foot - 14, b.w + 12, 50);
+  }
+
+  // o casco passando por cima: os troncos de x0 a x1 afundam enquanto ele está em cima (quem estava de
+  // pé neles cai na água). Chamado a cada quadro; o que ficou de fora volta a boiar
+  pressLogs(x0: number, x1: number) {
+    for (const l of this.logs) {
+      if (l.seg) continue;
+      const b = l.body;
+      if (b.right > x0 && b.left < x1) l.pressed = true;
+    }
+  }
+
+  // o Remo do Barqueiro: de pé num tronco, a remada leva o tronco para o lado do golpe (false: não está
+  // num tronco que boia)
+  row(dir: number) {
+    const pb = this.s.player.body;
+    const l = this.logs.find((k) => {
+      const b = k.body;
+      return k.sink <= 0 && k.gone <= 0 && pb.blocked.down && Math.abs(pb.bottom - b.top) < 3 && pb.right > b.left && pb.left < b.right;
+    });
+    if (!l) return false;
+    l.push = dir * C.rowLog;
+    if (!l.seg) l.shift = Phaser.Math.Clamp(l.shift + dir * 40, l.span[0] - l.home, l.span[1] - l.home);
+    l.bob = Math.max(l.bob, 0.4);
+    this.s.splash(l.body.center.x - dir * 30, l.surface);
+    return true;
+  }
+
+  // a onda passando: os troncos perto de x balançam (k: a força)
+  rockLogs(x: number, k: number) {
+    for (const l of this.logs) {
+      if (Math.abs(l.body.center.x - x) < 40) l.bob = Math.max(l.bob, k);
+    }
+  }
+
   // ---------- troncos boiando ----------
   private addLog(x: number, ty: number, seg: [number, number] | null, i: number) {
     const s = this.s;
@@ -330,11 +470,26 @@ export class Vale {
     body.checkCollision.right = false;
     const img = s.add.image(x, surface, 'vale-log').setScale(0.5).setOrigin(0.5, 0.42).setDepth(DEPTH.enemy - 0.5);
     const ripple = s.add.image(x, surface + 1, 'vale-ripple').setScale(0.9, 1).setAlpha(0.5).setDepth(DEPTH.water + 0.2);
-    this.logs.push({ zone, body, img, ripple, seg: seg ? [seg[0] * TILE, (seg[1] + 1) * TILE] : null, home: x, surface, load: 0, sink: 0, rise: 1, ph: i * 1.7 });
+    // a água livre dos dois lados, na linha d'água (a margem e o que fica por cima seguram o tronco)
+    const wet = (tx: number) => L.ch(tx, Math.floor((surface + 6) / TILE)) === '~' && !L.solidCell(tx, Math.floor((surface - 4) / TILE));
+    let a = Math.floor(x / TILE);
+    let c = a;
+    while (a > 0 && wet(a - 1)) a--;
+    while (c < L.w - 1 && wet(c + 1)) c++;
+    const span: [number, number] = [a * TILE + 36, (c + 1) * TILE - 36];
+    this.logs.push({ zone, body, img, ripple, seg: seg ? [seg[0] * TILE, (seg[1] + 1) * TILE] : null, home: x, surface, load: 0, sink: 0, rise: 1, ph: i * 1.7, dunk: 0, pressed: false, bob: 0, gone: 0, push: 0, shift: 0, span });
   }
 
-  // a correnteza num ponto (px/s para o lado)
+  // a correnteza num ponto (px/s para o lado). Com a cachoeira do fundo puxando, o lago inteiro corre para
+  // o pé dela, mais forte perto
   flowAt(x: number, y: number) {
+    const lk = this.lake;
+    if (this.pullV > 0 && lk && this.back && x > lk.x0 && x < lk.x1 && y > lk.surface - 4 && y < lk.bottom) {
+      const fx = this.back.x + this.back.w / 2;
+      const d = fx - x;
+      if (Math.abs(d) < this.back.w / 2 - 6) return 0;
+      return Math.sign(d) * this.pullV * (0.55 + 0.45 * Math.max(0, 1 - Math.abs(d) / 420));
+    }
     for (const c of this.currents) if (c.rect.contains(x, y)) return c.vx;
     return 0;
   }
@@ -349,6 +504,7 @@ export class Vale {
     }
     const view = s.cameras.main.worldView;
     this.updateFalls(dt, p, view);
+    this.updateBack(dt, view);
     this.updateDrafts(dt, p, view);
     // a correnteza leva quem está na água (nadando ou andando no raso)
     p.current = p.swim || p.inWater ? this.flowAt(p.x, p.body.center.y) : 0;
@@ -359,9 +515,20 @@ export class Vale {
       w.sprite.tilePositionX -= (w.vx * 0.6 + (i % 2 ? -7 : 5)) * dt;
       w.sprite.tilePositionY = Math.sin(this.time * 0.6 + (i % 2)) * 6;
     });
-    // pétalas e folhas descendo o rio, só no trecho que aparece
-    if (this.currents.length) {
+    // pétalas e folhas descendo o rio, só no trecho que aparece (e no lago, indo para a cachoeira Âmbar)
+    const lk = this.lake;
+    if (this.pullV > 0 && lk) {
+      this.pullAcc += dt * 5;
+      while (this.pullAcc >= 1) {
+        this.pullAcc -= 1;
+        const x0 = Math.max(lk.x0, view.x);
+        const x1 = Math.min(lk.x1, view.right);
+        if (x1 > x0) this.drift.emitParticleAt(x0 + Math.random() * (x1 - x0), lk.surface + 1);
+      }
+    }
+    if (this.currents.length || this.pullV > 0) {
       this.driftAcc += dt * 1.6;
+      if (!this.currents.length) this.driftAcc = 0;
       while (this.driftAcc >= 1) {
         this.driftAcc -= 1;
         const sp = this.surfaces[Math.floor(Math.random() * this.surfaces.length)];
@@ -403,6 +570,43 @@ export class Vale {
     p.fall = push;
   }
 
+  // a cachoeira do fundo corre, a névoa do pé respira e, Âmbar, a água do pé ferve e espirra
+  private updateBack(dt: number, view: Phaser.Geom.Rectangle) {
+    const b = this.back;
+    if (!b) return;
+    const k0 = this.amberK;
+    this.amberK += Phaser.Math.Clamp(this.amberGoal - this.amberK, -dt / 2.2, dt / 1.6);
+    const k = this.amberK;
+    const fast = 1 + k * 0.5;
+    b.layers[0].tilePositionY -= 260 * fast * dt;
+    b.layers[1].tilePositionY -= 380 * fast * dt;
+    b.glow.tilePositionY = b.layers[0].tilePositionY;
+    if (k !== k0) {
+      const c = Phaser.Display.Color.Interpolate.ColorWithColor(
+        Phaser.Display.Color.ValueToColor(BACK_TINT),
+        Phaser.Display.Color.ValueToColor(AMBER_TINT),
+        100,
+        Math.round(k * 100),
+      );
+      const tint = Phaser.Display.Color.GetColor(c.r, c.g, c.b);
+      for (const l of b.layers) l.setTint(tint);
+      for (const m of b.mist) m.setTint(tint);
+    }
+    const show = b.x + b.w > view.x - 80 && b.x < view.right + 80;
+    if (!show) return;
+    const t = this.time;
+    b.glow.setAlpha(k * (0.42 + 0.08 * Math.sin(t * 3.1)));
+    b.mist.forEach((m, i) => m.setAlpha((0.18 + 0.06 * Math.sin(t * 1.2 + i * 1.7)) * (1 + k * 0.6)).setScale(2.6 + (i % 2) * 0.8 + 0.25 * Math.sin(t * 0.8 + i), 1.6 + k * 0.4));
+    b.acc += dt * (16 + k * 30);
+    while (b.acc >= 1) {
+      b.acc -= 1;
+      const x = b.x + Math.random() * b.w;
+      if (k > 0.3 && Math.random() < k) this.amberFoam?.explode(1, x, b.foot - 2);
+      else this.foam.explode(1, x, b.foot - 2);
+      if (Math.random() < 0.4 + k * 0.4) this.spray.explode(1, x, b.foot - 1);
+    }
+  }
+
   // a névoa do lado das quedas sobe: com a capa aberta, ele sobe junto
   private updateDrafts(dt: number, p: Player, view: Phaser.Geom.Rectangle) {
     let rise = 0;
@@ -421,11 +625,21 @@ export class Vale {
 
   private updateLogs(dt: number, p: Player) {
     const pb = p.body;
+    const lk = this.lake;
+    const fx = this.fallX;
     for (const l of this.logs) {
       const b = l.body;
       // ele está de pé em cima?
       const on = pb.blocked.down && Math.abs(pb.bottom - b.top) < 3 && pb.right > b.left && pb.left < b.right;
       l.load += ((on ? 1 : 0) - l.load) * Math.min(1, dt * (on ? 9 : 4));
+      // o casco por cima afunda o tronco depressa; saindo, ele volta devagar
+      l.dunk = Phaser.Math.Clamp(l.dunk + (l.pressed ? dt / 0.25 : -dt / 0.7), 0, 1);
+      l.pressed = false;
+      l.bob = Math.max(0, l.bob - dt * 1.4);
+      l.push *= Math.pow(0.12, dt);
+      if (Math.abs(l.push) < 2) l.push = 0;
+      // levado pelo remo: sem ninguém em cima, volta devagar para o lugar dele
+      if (l.load < 0.3 && l.shift !== 0) l.shift = Math.abs(l.shift) < 12 * dt ? 0 : l.shift - Math.sign(l.shift) * 12 * dt;
       let tx = b.center.x;
       let vx = 0;
       if (l.seg) {
@@ -445,18 +659,51 @@ export class Vale {
           }
         }
         l.rise = Math.min(1, l.rise + dt / 0.8);
+      } else if (l.gone > 0) {
+        // engolido no pé da cachoeira Âmbar: espera embaixo e volta a boiar no lugar dele
+        l.gone -= dt;
+        if (l.gone <= 0) {
+          l.sink = 0;
+          l.rise = 0;
+          l.shift = 0;
+          l.push = 0;
+          b.reset(l.home, l.surface - 3);
+        }
+      } else if (l.sink > 0) {
+        l.sink = Math.min(1, l.sink + dt / 0.9);
+        vx = this.flowAt(b.center.x, l.surface + 6) * 0.4;
+        if (l.sink >= 1) l.gone = 2.5;
       } else {
-        // no lago: boia no lugar, rodando devagar
-        tx = l.home + Math.sin(this.time * 0.32 + l.ph) * 20;
-        vx = (tx - b.center.x) * 2;
+        const pull = this.pullV > 0 && lk ? this.flowAt(b.center.x, l.surface + 6) : 0;
+        if (pull !== 0) {
+          // a correnteza leva para a cachoeira; no pé dela o tronco afunda
+          vx = pull * 0.85;
+          if (fx !== null && Math.abs(b.center.x - fx) < (this.back?.w ?? 0) / 2 + 10) {
+            l.sink = 0.001;
+            this.s.splash(b.center.x, l.surface);
+          }
+        } else {
+          // no lago: boia no lugar, rodando devagar (e volta para lá devagar se foi levado)
+          tx = l.home + l.shift + Math.sin(this.time * 0.32 + l.ph) * 20 * (l.shift ? 0.4 : 1);
+          vx = Phaser.Math.Clamp((tx - b.center.x) * 2, -60, 60);
+        }
+        l.rise = Math.min(1, l.rise + dt / 0.8);
       }
-      const sinking = l.sink > 0 ? l.sink : 1 - l.rise;
-      const ty = l.surface - 3 + Math.sin(this.time * 1.7 + l.ph) * 1.4 + l.load * 4 + sinking * 16;
+      // o tranco da remada, sem passar da água livre
+      if (l.push && l.sink <= 0 && l.gone <= 0) {
+        const nx = b.center.x + (vx + l.push) * dt;
+        if (nx > l.span[0] && nx < l.span[1]) vx += l.push;
+        else l.push = 0;
+      }
+      const sinking = Math.max(l.sink > 0 ? l.sink : 1 - l.rise, l.gone > 0 ? 1 : 0);
+      const wave = l.bob * Math.sin(this.time * 9 + l.ph) * 5;
+      const ty = l.surface - 3 + Math.sin(this.time * 1.7 + l.ph) * 1.4 + l.load * 4 + sinking * 16 + l.dunk * 15 + wave;
       b.setVelocity(vx, (ty - b.center.y) * 9);
-      // afundando (ou voltando) o tronco não segura ninguém
-      b.checkCollision.up = sinking < 0.4;
-      l.img.setPosition(b.center.x, b.center.y + 3).setAlpha(1 - sinking).setRotation(Math.sin(this.time * 1.1 + l.ph) * 0.015 - l.load * 0.01);
-      l.ripple.setPosition(b.center.x, l.surface + 1).setAlpha((0.35 + 0.15 * Math.sin(this.time * 2 + l.ph)) * (1 - sinking));
+      // afundando (ou voltando, ou embaixo do casco) o tronco não segura ninguém
+      b.checkCollision.up = sinking < 0.4 && l.dunk < 0.45;
+      const fade = Math.max(sinking, l.dunk * 0.45);
+      l.img.setPosition(b.center.x, b.center.y + 3).setAlpha(1 - fade).setRotation(Math.sin(this.time * 1.1 + l.ph) * 0.015 - l.load * 0.01 + l.bob * Math.sin(this.time * 7 + l.ph) * 0.06);
+      l.ripple.setPosition(b.center.x, l.surface + 1).setAlpha((0.35 + 0.15 * Math.sin(this.time * 2 + l.ph)) * (1 - sinking) + l.bob * 0.3);
     }
   }
 

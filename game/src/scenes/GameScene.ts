@@ -17,6 +17,7 @@ import { AmberBat } from '../entities/AmberBat';
 import { Reflexo } from '../entities/Reflexo';
 import { Capataz } from '../entities/Capataz';
 import { Cacador } from '../entities/Cacador';
+import { Barqueiro } from '../entities/Barqueiro';
 import { Wolf } from '../entities/Wolf';
 import { Owl } from '../entities/Owl';
 import { Trout } from '../entities/Trout';
@@ -143,6 +144,9 @@ interface BossInfo {
   relic?: Ability;
   // o registro que ele carregava e cai do corpo (dx como em item)
   note?: { id: string; dx: number };
+  // vencido, o corpo vai até um lugar certo (o barco do Barqueiro atraca no cais): x do corpo, quanto o
+  // chão onde as coisas caem fica acima da base dele e quanto tempo a mais elas esperam (ms)
+  moor?: { x: number; lift: number; delay: number };
 }
 
 const BOSSES: Record<BossId, BossInfo> = {
@@ -248,6 +252,22 @@ const BOSSES: Record<BossId, BossInfo> = {
     after: ['A lanterna apagou. Pela primeira vez, ninguém segue a trilha.', 'Do outro lado da clareira, a neve fechou a descida para o vale. Por enquanto.'],
     note: { id: 'clareira:0', dx: 30 },
   },
+  barqueiro: {
+    make: (s, x, y) => new Barqueiro(s, x, y),
+    sheet: 'barqueiro',
+    name: 'O Barqueiro',
+    title: 'Ainda espera passageiros',
+    music: 'boss6',
+    memory: 'cais:boss',
+    wakeX: 10,
+    orb: 110,
+    drop: 170,
+    corpse: 'death',
+    corpseFacing: 1,
+    after: ['O barco veio sozinho até o cais e parou, como quem espera alguém subir.', 'Duas passagens pagas. Para quem era a outra?'],
+    note: { id: 'cais:0', dx: 230 },
+    moor: { x: 922, lift: 35, delay: 2200 },
+  },
 };
 
 // as folhas grandes que a sala carrega quando abre (a do chefe dela)
@@ -270,6 +290,10 @@ const CHAPTERS: Record<string, { title: string; text: string }> = {
   'clareira:boss': {
     title: 'Fim do quinto capítulo',
     text: 'Na floresta da Casa Vhalor ficou a cabana onde ela guardava as cópias dos registros, e o retalho da capa dela. Numa noite de caçada ele mandou a matilha para o lado errado e ela passou a serra. Foi a única vez que ele desobedeceu. Ele sabia que podia escolher.',
+  },
+  'cais:boss': {
+    title: 'Fim do sexto capítulo',
+    text: 'O vale ficava fora do alcance da Casa: o rio descia as cachoeiras e saía do reino, e o barqueiro levava quem fugia com a memória inteira. Ela arranjou as passagens e esperou no cais com duas. Ele chegou até o barco e disse que voltava depois da Coroação. Ela soltou a corda e voltou a pé, sozinha. A água do vale agora desce por um aqueduto até as Torres Rúnicas.',
   },
   'abismo:boss': {
     title: 'Fim do terceiro capítulo',
@@ -430,6 +454,8 @@ export class GameScene extends Phaser.Scene {
   private elo: { x: number; y: number; sprite: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image } | null = null;
   // inimigos leves sendo puxados pelo gancho da corrente
   private pulls: { e: Enemy; dir: number; t: number }[] = [];
+  // empurrados pela pá do remo: andam de lado perdendo força, sem entrar na pedra
+  private shoves: { e: Enemy; dir: number; speed: number; t: number }[] = [];
   // poderes de memória: quanto falta da Lembrança (o resto do mundo parado), o véu cor de Âmbar dela,
   // quem ela está segurando (e se o corpo dele andava antes), a cópia do Eco e o Remendo de joelhos
   private stopT = 0;
@@ -570,6 +596,7 @@ export class GameScene extends Phaser.Scene {
     this.arena = null;
     this.elo = null;
     this.pulls = [];
+    this.shoves = [];
     this.boss = null;
     this.bossFrac = -1;
     this.rose = null;
@@ -1117,6 +1144,7 @@ export class GameScene extends Phaser.Scene {
     this.updateArena(dt);
     this.updateElo(time);
     this.updatePulls(dt);
+    this.updateShoves(dt);
     this.updateArrows(dt);
     this.combat();
     this.loot.update(dt);
@@ -1170,6 +1198,8 @@ export class GameScene extends Phaser.Scene {
         else if (p.weapon.pull && LIGHT.has(e.kind) && (p.atkDir === 'side' || p.atkDir === 'low')) this.pulls.push({ e, dir: Math.sign(p.x - e.zone.x) || 1, t: 0.16 });
         // o pulso do Cajado da Dobra empurra para longe (o chefe não sai do lugar)
         else if (p.weapon.pulse && e.kind !== 'boss') this.magic?.shove(e, p.facing, MAGIC.pulse.push, 0.14);
+        // a pá do remo também, e os leves vão mais longe
+        else if (p.weapon.shove && e.kind !== 'boss' && p.atkDir !== 'down') this.shove(e, p.facing, LIGHT.has(e.kind) ? 520 : 300);
       }
       if (parried) {
         this.onParry(parried.x, parried.y, true);
@@ -2466,6 +2496,39 @@ export class GameScene extends Phaser.Scene {
     ui.banner(ELO.name, ELO.text, 4200);
   }
 
+  private shove(e: Enemy, dir: number, speed: number) {
+    const old = this.shoves.find((s) => s.e === e);
+    if (old) {
+      old.dir = dir;
+      old.speed = Math.max(old.speed, speed);
+      old.t = 0.3;
+      return;
+    }
+    this.shoves.push({ e, dir, speed, t: 0.3 });
+  }
+
+  private updateShoves(dt: number) {
+    if (!this.shoves.length) return;
+    for (const sh of this.shoves) {
+      sh.t -= dt;
+      const e = sh.e;
+      if (!e.alive) {
+        sh.t = 0;
+        continue;
+      }
+      const b = e.body;
+      const step = sh.dir * sh.speed * dt;
+      const lead = sh.dir > 0 ? b.right + step + 1 : b.left + step - 1;
+      if (isSolid(this.level.tileAt(lead, b.center.y)) || isSolid(this.level.tileAt(lead, b.bottom - 4))) {
+        sh.t = 0;
+        continue;
+      }
+      b.x += step;
+      sh.speed *= Math.max(0, 1 - dt * 6);
+    }
+    this.shoves = this.shoves.filter((s) => s.t > 0);
+  }
+
   // inimigo leve preso no gancho da corrente: vem arrastado até perto do cavaleiro
   private updatePulls(dt: number) {
     if (!this.pulls.length) return;
@@ -3132,6 +3195,7 @@ export class GameScene extends Phaser.Scene {
 
   // ---------- chefes ----------
   private placeBoss(id: BossId, x: number, y: number) {
+    // (x e y mudam para o lugar do corpo nos chefes que atracam)
     const info = BOSSES[id];
     const done = progress.seen.has(`boss:${id}`);
     if (id === 'arcebispo') this.placeRose(done);
@@ -3142,7 +3206,8 @@ export class GameScene extends Phaser.Scene {
       this.enemies.push(b);
       return;
     }
-    // já vencido: o corpo continua caído onde ele lutava (o Reflexo não deixa corpo, só o espelho rachado)
+    // já vencido: o corpo continua caído onde ele lutava (o Reflexo não deixa corpo, só o espelho rachado;
+    // o Barqueiro fica sentado no barco atracado no cais, com a lanterna da proa acesa)
     const f = info.corpseFacing;
     if (info.corpse === 'none') {
       if (!progress.memories.has(info.memory)) this.props.addMemory(info.memory, this.bossX(x + f * info.orb), y - 26);
@@ -3150,12 +3215,24 @@ export class GameScene extends Phaser.Scene {
     }
     const a = this.anims.get(`${info.sheet}-${info.corpse}`);
     const o = this.registry.get(`${info.sheet}-origin`) as { x: number; y: number };
-    face(hd(this.add.image(x, y, info.sheet, a.frames[a.frames.length - 1].textureFrame)).setOrigin(o.x, o.y).setDepth(DEPTH.prop).setTint(0x9a948c), f < 0);
+    const m = info.moor;
+    if (m) {
+      x = m.x;
+      y = this.level.waterAt(x, y + 8)?.surface ?? y;
+    }
+    const corpse = face(hd(this.add.image(x, y, info.sheet, a.frames[a.frames.length - 1].textureFrame)).setOrigin(o.x, o.y).setDepth(m ? DEPTH.enemy - 1 : DEPTH.prop).setTint(0x9a948c), f < 0);
+    if (m) {
+      const pts = (this.cache.json.get(`${info.sheet}-meta`) as { points?: Record<string, { lamp?: [number, number] }[]> } | undefined)?.points?.[info.corpse];
+      const lp = pts?.[pts.length - 1]?.lamp ?? [73, -35];
+      const lamp = this.add.image(x + f * lp[0], y + lp[1] + 2, 'glow').setTint(0xffb050).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.enemy - 0.9).setScale(0.55).setAlpha(0.8);
+      this.tweens.add({ targets: [corpse, lamp], y: '+=1.2', duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      y -= m.lift;
+    }
     if (!progress.memories.has(info.memory)) this.props.addMemory(info.memory, this.bossX(x + f * info.orb), y - 26);
     const w = this.bossWeapon(id);
     if (w) this.dropWeapon(w, this.bossX(x + f * info.drop), y, false);
     if (info.item) this.finds.add(info.item.id, this.bossX(x + f * info.item.dx), y);
-    if (info.note) this.forest?.addNote(info.note.id, this.bossX(x + f * info.note.dx), y);
+    if (info.note) (this.forest ?? this.records).addNote(info.note.id, this.bossX(x + f * info.note.dx), y);
   }
 
   // longe das paredes, para dar para pegar o que o chefe deixa
@@ -3208,32 +3285,37 @@ export class GameScene extends Phaser.Scene {
     ui.bossBar(info.name, 0);
     this.time.delayedCall(1400, () => ui.bossBar(null));
     this.releaseSummons();
-    const x = b.zone.x;
-    const f = b.facing;
-    const bottom = b.body.bottom;
+    // onde as coisas dele caem: no lugar da queda ou, nos que atracam, no chão do cais (depois que o
+    // corpo chega lá)
+    const m = info.moor;
+    const x = m ? m.x : b.zone.x;
+    const f = m ? info.corpseFacing : b.facing;
+    const bottom = m ? (b instanceof Barqueiro ? b.base : b.body.bottom) - m.lift : b.body.bottom;
+    const wait = m?.delay ?? 0;
     // a sala sente a queda: a cor de antes volta por um instante (a tinta da Sombra se espalha roxa)
+    const cx = b.zone.x;
     const cy = b.body.center.y;
-    this.time.delayedCall(700, () => this.memWave?.start(x, cy, b instanceof Sombra ? 'corrupt' : 'restore', { radius: 760, hold: 2.6 }));
+    this.time.delayedCall(700, () => this.memWave?.start(cx, cy, b instanceof Sombra ? 'corrupt' : 'restore', { radius: 760, hold: 2.6 }));
     if (info.relic && b instanceof Sombra) this.time.delayedCall(2400, () => this.absorbShadow(b, info.relic!, () => this.bossAfter(id, x, f, bottom, 5600)));
-    else this.time.delayedCall(2600, () => this.bossAfter(id, x, f, bottom));
+    else this.time.delayedCall(2600 + wait, () => this.bossAfter(id, x, f, bottom));
     // o achado dele cai do corpo, e o que a sala guardava para depois da luta aparece (a lasca do espelho)
     const it = info.item;
-    if (it) this.time.delayedCall(1800, () => this.finds.add(it.id, this.bossX(x + f * it.dx), bottom, { x, y: bottom - 40 }));
+    if (it) this.time.delayedCall(1800 + wait, () => this.finds.add(it.id, this.bossX(x + f * it.dx), bottom, { x, y: bottom - 40 }));
     const note = info.note;
     if (note) {
-      this.time.delayedCall(2000, () => {
+      this.time.delayedCall(2000 + wait, () => {
         const nx = this.bossX(x + f * note.dx);
         const top = this.level.groundBelow(Math.floor(nx / TILE), Math.floor((bottom - 8) / TILE));
-        this.forest?.addNote(note.id, nx, top >= 0 ? top * TILE : bottom, true);
+        (this.forest ?? this.records).addNote(note.id, nx, top >= 0 ? top * TILE : bottom, true);
       });
     }
     this.time.delayedCall(900, () => this.unlockFinds(`boss:${id}`));
     // e a arma dele cai do outro lado (o incensário sai do chão onde rolou)
     const w = this.bossWeapon(id);
     if (w) {
-      this.time.delayedCall(3300, () => {
+      this.time.delayedCall(3300 + wait, () => {
         if (info.corpse !== 'death' && b.sprite.active) b.sprite.play(`${info.sheet}-${info.corpse}`);
-        this.dropWeapon(w, this.bossX(x + f * info.drop), b.body.bottom, true);
+        this.dropWeapon(w, this.bossX(x + f * info.drop), m ? bottom : b.body.bottom, true);
       });
     }
   }

@@ -26,6 +26,8 @@ export const MEMORIES: Record<string, { title: string; text: string }> = {
   // NAME_MEMORY: a primeira vez que o nome dela aparece no jogo
   'cabana:0': { title: 'O nome dela', text: 'Arielle. O nome volta inteiro, com a voz dela dizendo, rindo do nó torto da minha capa. Arielle.' },
   'clareira:boss': { title: 'A trilha na neve', text: 'As pegadas dela na neve e as minhas atrás. Numa versão eu mandei a matilha para o vale e fiquei olhando ela subir a serra. Na outra, eu mostrei o caminho aos cães.' },
+  // O Cais do Barqueiro (v19): a noite das duas passagens
+  'cais:boss': { title: 'As duas passagens', text: 'O cais na lua cheia. Ela de pé no barco, a mão estendida para mim, a outra passagem paga. Numa versão eu dei um passo para trás porque ainda tinha nomes no bolso para devolver. Na outra, porque a ordem de levá-la de volta estava no outro bolso.' },
 };
 export const MEMORY_TOTAL = Object.keys(MEMORIES).length;
 
@@ -50,6 +52,7 @@ export const MEMORY_ECHO: Record<string, { kind: EchoKind; mode: WaveMode }> = {
   'mata:0': { kind: 'povo', mode: 'corrupt' },
   'cabana:0': { kind: 'ela', mode: 'restore' },
   'clareira:boss': { kind: 'ela', mode: 'corrupt' },
+  'cais:boss': { kind: 'ela', mode: 'corrupt' },
 };
 
 // as provas que cada registro carrega (lore/continuidade.md, 6.1)
@@ -271,6 +274,24 @@ export const RECORDS: Record<string, RecordInfo> = {
       'Avisar a Casa Vhalor: ele não serve para caçar.',
     ],
     proofs: ['vhalor', 'inocentes'],
+  },
+  // O Cais do Barqueiro (v19): o livro de bordo que ficou no banco do barco
+  'cais:0': {
+    title: 'O livro de bordo',
+    region: 'Vale das Cachoeiras',
+    lines: [
+      'Um livro de bordo embrulhado em oleado, no banco do barco. Cada linha é uma travessia rio abaixo: a lua, quem subiu e com o que pagou. Ninguém pagou com memória.',
+      '"O homem da bomba, das minas: pagou com o relógio." "O mateiro, sem bagagem: uma faca de cabo de osso." "Uma parteira e o filho pequeno: passagem paga por A."',
+      '"Duas passagens, lua cheia, pagas por A. Ela veio. Ele veio também, mas não embarcou: ficou no cais olhando a água. Ela soltou a corda e voltou a pé."',
+    ],
+    named: {
+      lines: [
+        'Um livro de bordo embrulhado em oleado, no banco do barco. Cada linha é uma travessia rio abaixo: a lua, quem subiu e com o que pagou. Ninguém pagou com memória.',
+        '"O homem da bomba, das minas: pagou com o relógio." "O mateiro, sem bagagem: uma faca de cabo de osso." "Uma parteira e o filho pequeno: passagem paga por Arielle."',
+        '"Duas passagens, lua cheia, pagas por Arielle. Ela veio. Ele veio também, mas não embarcou: ficou no cais olhando a água. Ela soltou a corda e voltou a pé."',
+      ],
+    },
+    proofs: ['inocentes', 'arielle'],
   },
 };
 export const RECORD_IDS = Object.keys(RECORDS);
@@ -641,6 +662,11 @@ export const BESTIARY: { kind: string; name: string; text: string; tip: string }
     kind: 'boss:cacador', name: 'O Mestre da Caça',
     text: 'Caçador-mor da Casa Vhalor. Trazia os fugitivos de volta pela neve e entregava ao carrasco no fim da trilha. Congelou esperando uma presa que passou a serra.',
     tip: 'Agache na estocada alta, pule a baixa e saia de baixo do salto. Na nevasca, olhe a lanterna: ela pisca antes do golpe.',
+  },
+  {
+    kind: 'boss:barqueiro', name: 'O Barqueiro',
+    text: 'Levava rio abaixo quem fugia de Vespera, sem cobrar memória: anotava cada passageiro no livro de bordo. A Casa cobrou a dele, e ele ficou no lago empurrando o barco em roda, esperando a passagem.',
+    tip: 'A varrida vem na altura de onde você pisa: alta, agache; baixa, pule; nadando, mergulhe. Dois golpes arrebentam a corda. Quando o barco afundar, saia de cima das bolhas e fique longe da cachoeira.',
   },
 ];
 

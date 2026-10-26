@@ -10,8 +10,8 @@ export type SfxName =
   | 'parry' | 'break' | 'glass' | 'page' | 'anvil' | 'smoke' | 'coinrain' | 'door' | 'locked' | 'censer' | 'draw' | 'gate'
   | 'echo' | 'echo-die' | 'veil' | 'veil-form'
   | 'howl' | 'hoot' | 'horn' | 'gust' | 'flap' | 'crunch' | 'ice-crack' | 'ice-break' | 'freeze' | 'growl' | 'yelp' | 'lantern'
-  | 'plop' | 'leap' | 'flop' | 'heron' | 'buzz';
-export type TrackId = 'title' | 'bridge' | 'crypt' | 'memory' | 'boss' | 'city' | 'nave' | 'boss2' | 'boss3' | 'mine' | 'mirror' | 'boss4' | 'forest' | 'cabin' | 'boss5' | FileTrackId | 'none';
+  | 'plop' | 'leap' | 'flop' | 'heron' | 'buzz' | 'gurgle' | 'creak' | 'rope';
+export type TrackId = 'title' | 'bridge' | 'crypt' | 'memory' | 'boss' | 'city' | 'nave' | 'boss2' | 'boss3' | 'mine' | 'mirror' | 'boss4' | 'forest' | 'cabin' | 'boss5' | 'boss6' | FileTrackId | 'none';
 export type AmbienceId = 'rain' | 'crypt' | 'wind' | 'city' | 'nave' | 'prison' | 'mine' | 'snow' | 'hearth' | 'none';
 // faixas gravadas, em arquivo (as trilhas que o Enio escolheu)
 type FileTrackId = 'prison' | 'fosso' | 'shadow';
@@ -51,6 +51,11 @@ const AMIN4 = [45, 48, 52], BB4 = [46, 50, 53], EMAJ4 = [40, 44, 47], DMIN4 = [5
 // capítulo 5 (a floresta): si menor aberto; o chefe em mi menor, com o si maior da caçada
 const BMIN5 = [47, 50, 54], GMAJ5 = [43, 47, 50], DMAJ5 = [50, 54, 57], FSM5 = [42, 45, 49];
 const EMIN5 = [40, 43, 47], CMAJ5 = [48, 52, 55], AMIN5 = [45, 48, 52], BMAJ5 = [47, 51, 54];
+// a travessia do Barqueiro (seis colcheias por compasso; 0 é pausa), em ré menor
+const BARCAROLA = [
+  [69, 0, 0, 67, 0, 65], [64, 0, 0, 65, 0, 0], [70, 0, 0, 69, 0, 67], [65, 0, 0, 0, 0, 0],
+  [67, 0, 0, 70, 0, 74], [72, 0, 0, 70, 0, 0], [69, 0, 0, 73, 0, 76], [73, 0, 0, 0, 0, 0],
+];
 // a cantiga que ela cantarolava na cabana (oito compassos de colcheias; 0 é pausa)
 const CANTIGA = [
   [78, 0, 81, 0, 78, 0, 74, 0], [79, 0, 83, 0, 81, 0, 79, 0], [78, 0, 74, 0, 71, 0, 74, 0], [76, 0, 0, 0, 69, 0, 0, 0],
@@ -363,6 +368,30 @@ const TRACKS: Record<SynthTrackId, TrackDef> = {
       }
       if (bar % 8 === 6 && i === 0) e.horn(p.bus, t, ch[2] + 12, d * 8, 0.045);
       if (i === 0 && bar % 8 === 7) e.choir(p.bus, t, ch[2] + 12, d * 10, 0.024);
+    },
+  },
+  // O Barqueiro: ré menor em seis por oito, uma barcarola. O piano embala como o barco (a mão esquerda
+  // vai e volta), o bumbo bate como a vara na água, a travessia passa da flauta para o piano a cada volta
+  // e o coro chega no fim de cada frase
+  boss6: {
+    bpm: 76,
+    start(e, p) {
+      p.stop.push(e.drone(p.bus, 38, 0.035), e.drone(p.bus, 45, 0.014));
+    },
+    step(e, p, s, t, d) {
+      const bar = Math.floor(s / 6);
+      const i = s % 6;
+      const ch = [DM, DM, BB, BB, GM, GM, AM, AM][bar % 8];
+      const r = ch[0];
+      if (i === 0 || i === 3) e.drum(p.bus, t, i === 0 ? 0.16 : 0.09);
+      e.piano(p.bus, t, [r - 12, ch[2] - 12, r, ch[1], r, ch[2] - 12][i], i === 0 ? 0.1 : 0.05, d * 2.5);
+      if (i === 0 && bar % 2 === 0) e.pad(p.bus, t, ch.map((n) => n + 12), d * 12, 0.026, 1000);
+      const m = BARCAROLA[bar % 8][i];
+      if (m) {
+        if (Math.floor(bar / 8) % 2 === 0) e.flute(p.bus, t, m + 12, d * 2.6, 0.032);
+        else e.piano(p.bus, t, m + 12, 0.05, d * 3);
+      }
+      if (i === 0 && bar % 4 === 3) e.choir(p.bus, t, ch[2] + 12, d * 9, 0.022);
     },
   },
   // Memória: ré maior, caixinha de música, pad quente e uma flauta
@@ -1493,6 +1522,27 @@ class AudioEngine {
         this.tone(out, t, 0.7, 'sawtooth', 68 * r, 64 * r, 0.035);
         this.tone(out, t, 0.7, 'sawtooth', 71 * r, 67 * r, 0.03);
         for (let k = 0; k < 6; k++) this.nz(out, t + k * 0.1, 0.08, 'bandpass', 420 * r, 360 * r, 0.05, 5);
+        break;
+      case 'gurgle':
+        // o barco subindo por baixo: bolhas grandes e ocas estourando e o ronco da água funda
+        this.nz(out, t, 0.9, 'lowpass', 380 * r, 160 * r, 0.16, 0.7);
+        for (let k = 0; k < 7; k++) {
+          const tt = t + k * 0.09 + Math.random() * 0.05;
+          const f = (220 + Math.random() * 180) * r;
+          this.tone(out, tt, 0.07, 'sine', f, f * 2.3, 0.07);
+        }
+        break;
+      case 'creak':
+        // a madeira molhada do barco e da vara rangendo: um serrote lento e rouco
+        this.tone(out, t, 0.32, 'sawtooth', 170 * r, 120 * r, 0.035);
+        this.tone(out, t + 0.05, 0.25, 'sawtooth', 240 * r, 205 * r, 0.02);
+        this.nz(out, t, 0.3, 'bandpass', 900 * r, 600 * r, 0.06, 8);
+        break;
+      case 'rope':
+        // a corda esticando de uma vez: o estalo e a fibra zunindo
+        this.nz(out, t, 0.05, 'bandpass', 1800 * r, 1200 * r, 0.25, 3);
+        this.tone(out, t, 0.25, 'triangle', 190 * r, 150 * r, 0.08);
+        this.nz(out, t + 0.03, 0.2, 'bandpass', 600 * r, 400 * r, 0.06, 4);
         break;
       case 'lantern':
         // a lanterna do caçador balançando na ponta da lança: o rangido da alça e o vidro tocando

@@ -2,7 +2,7 @@
 
 uso: python3 slash.py <pasta_saida> [--hd]
 Gera slash.png (espada), slash-big.png (foice), slash-small.png (adagas), slash-heavy.png (badalo),
-slash-censer.png (incensário), slash-thrust.png (a estocada da lança) e arrow.png. Com --hd (ou main(out, hd=2)) sai no traço liso, com 2
+slash-censer.png (incensário), slash-thrust.png (a estocada da lança), slash-oar.png (a remada do remo) e arrow.png. Com --hd (ou main(out, hd=2)) sai no traço liso, com 2
 pixels por pixel do mundo: o fio sem serrilhado e o rastro em degradê no lugar do xadrez de pixels;
 slashes.json guarda o tamanho do quadro na folha e a escala.
 """
@@ -22,9 +22,12 @@ C_CORE, C_MID, C_EDGE, C_DEEP = (255, 238, 196), (236, 190, 110), (150, 132, 120
 # lança: a estocada reta e fria, com as brasas de Âmbar da lanterna caindo atrás
 T_CORE, T_MID, T_EDGE, T_DEEP = (250, 248, 240), (198, 214, 232), (112, 136, 170), (60, 74, 104)
 EMBER = (255, 166, 60)
+# remo: a pá varrendo larga, cor de água, com as gotas espirrando pelo arco
+O_CORE, O_MID, O_EDGE, O_DEEP = (240, 253, 255), (168, 226, 230), (72, 156, 168), (26, 72, 88)
+DROP = (236, 252, 255)
 
 
-def arc_frame(W, H, cx, R, squash, start, end, thick, alpha, cols, a0=-80, a1=80, trail=2.2, sparkle=None):
+def arc_frame(W, H, cx, R, squash, start, end, thick, alpha, cols, a0=-80, a1=80, trail=2.2, sparkle=None, spark=GOLD, nspark=14):
     core, mid, edge, rim = cols
     img = Image.new('RGBA', (W, H), (0, 0, 0, 0))
     cy = H / 2
@@ -58,17 +61,17 @@ def arc_frame(W, H, cx, R, squash, start, end, thick, alpha, cols, a0=-80, a1=80
     if sparkle:
         import random
         rnd = random.Random(sparkle)
-        for _ in range(int(14 * alpha)):
+        for _ in range(int(nspark * alpha)):
             t = rnd.uniform(start, end)
             a = math.radians(a0 + (a1 - a0) * t)
             r = R - rnd.uniform(0, thick * 1.6)
             x, y = int(cx + math.cos(a) * r), int(cy + math.sin(a) * r / squash)
             if 0 <= x < W and 0 <= y < H:
-                img.putpixel((x, y), GOLD + (230,))
+                img.putpixel((x, y), spark + (230,))
     return img
 
 
-def arc_hd(W, H, cx, R, squash, start, end, thick, alpha, cols, a0=-80, a1=80, trail=2.2, sparkle=None, s=2, aa=3):
+def arc_hd(W, H, cx, R, squash, start, end, thick, alpha, cols, a0=-80, a1=80, trail=2.2, sparkle=None, s=2, aa=3, spark=GOLD, nspark=14):
     """O mesmo arco no traço liso: `s` pixels por pixel do mundo e aa x aa amostras por pixel."""
     core, mid, edge, rim = [np.array(c, np.float32) / 255 for c in cols]
     k = s * aa
@@ -99,8 +102,8 @@ def arc_hd(W, H, cx, R, squash, start, end, thick, alpha, cols, a0=-80, a1=80, t
     if sparkle:
         import random
         rnd = random.Random(sparkle)
-        gold = np.array(GOLD, np.float32) / 255
-        for _ in range(int(14 * alpha)):
+        gold = np.array(spark, np.float32) / 255
+        for _ in range(int(nspark * alpha)):
             ts = rnd.uniform(start, end)
             an = math.radians(a0 + (a1 - a0) * ts)
             rr = R - rnd.uniform(0, thick * 1.6)
@@ -303,6 +306,13 @@ def main(out, hd=0):
     fr.append(thrust_hd(W, H, 6, 98, cols=cols, s=hd or 1, seed=13, **keys[-1]))
     sheet(fr, f'{out}/slash-thrust.png')
     meta['slash-thrust'] = dict(w=W, h=H, ox=6 / W, frames=len(fr), fps=54)
+    # remo: a pá desce por trás da cabeça e varre larga e baixa na frente, espirrando gotas
+    W, H = 112, 96
+    cols = (O_CORE, O_MID, O_EDGE, O_DEEP)
+    fr, fps = swing(W, H, 14, 78, 1.7, [K(0.0, 0.42, 10, 1.0, 2.8), K(0.0, 0.86, 13, 1.0, 2.8), K(0.2, 1.0, 12, 0.95, 2.8), K(0.56, 1.0, 7, 0.6, 2.2)],
+                    cols, 22, seed=21, a0=-70, a1=88, spark=DROP, nspark=24)
+    sheet(fr, f'{out}/slash-oar.png')
+    meta['slash-oar'] = dict(w=W, h=H, ox=14 / W, frames=len(fr), fps=fps)
     # flecha
     a = Image.new('RGBA', (24, 7), (0, 0, 0, 0))
     px = a.putpixel
@@ -327,7 +337,7 @@ def main(out, hd=0):
     # prévia
     prev = Image.new('RGBA', (520 * max(1, hd), 500 * max(1, hd)), (24, 28, 42, 255))
     y = 4
-    for k in ('slash', 'slash-big', 'slash-small', 'slash-heavy', 'slash-censer', 'slash-thrust'):
+    for k in ('slash', 'slash-big', 'slash-small', 'slash-heavy', 'slash-censer', 'slash-thrust', 'slash-oar'):
         im = Image.open(f'{out}/{k}.png')
         prev.alpha_composite(im, (4, y))
         y += im.height + 4

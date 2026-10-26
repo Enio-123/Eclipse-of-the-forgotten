@@ -1,7 +1,8 @@
 """Modelo do Cavaleiro de Máscara Partida (o carrasco de Vespera) para o renderizador de esqueleto.
 
 Armas: espada, foice, adagas duplas, arco, o badalo do Sineiro, o incensário do Arcebispo, a corrente da
-Carcereira, a picareta do Capataz e a lança do Mestre da Caça (liberados ao vencer cada chefe). A mão de
+Carcereira, a picareta do Capataz, a lança do Mestre da Caça e o remo do Barqueiro (liberados ao vencer cada
+chefe). A mão de
 trás pode usar cinemática inversa para segurar o cabo da foice ou puxar a corda do arco.
 """
 import math
@@ -23,6 +24,11 @@ puppet.RAMPS.setdefault('brass', [0x3a2a10, 0x5e4419, 0x8a6a2a, 0xb8923f, 0xdcc0
 puppet.SHINY.setdefault('brass', (0.6, 10))
 puppet.RAMPS.setdefault('frost', [0x4f5f74, 0x7d90a8, 0xa9bdd3, 0xd3e2f0, 0xf4f9ff])
 puppet.SHINY.setdefault('frost', (0.45, 12))
+# o remo do Barqueiro: madeira escura encharcada, a corda do punho e o fio de alga da pá
+puppet.RAMPS.setdefault('oarwood', [0x150e08, 0x2a1c11, 0x45301d, 0x664729, 0x8c6a40])
+puppet.SHINY.setdefault('oarwood', (0.35, 14))
+puppet.RAMPS.setdefault('rope', [0x2a2012, 0x4a3a20, 0x6e5a34, 0x958050, 0xbba878])
+puppet.RAMPS.setdefault('weed', [0x0b150e, 0x152518, 0x203824, 0x2f4f34, 0x426a47])
 
 W, H = 144, 120
 BASE_HIP = (72.0, 87.0)
@@ -337,6 +343,46 @@ def build(pose, weapon='sword'):
         decals.append(Decal('lglass', flame))
         # a luz da lanterna (o jogo acende ali)
         LAST['focus'] = body_c
+        if p['ikB'] and p['ikB'][0] == 'staff':
+            back_target = add(handF, sd, p['ikB'][1])
+
+    elif weapon == 'remo':
+        # o remo do barco do Barqueiro: o cabo comprido de madeira encharcada, a corda enrolada onde as mãos
+        # seguram, a ponteira de ferro no pé e a pá larga na ponta (lascada na borda, com a craca de Âmbar
+        # e um fio de alga pendurado)
+        grip = (p['grip'] if p['grip'] is not None else 20.0) + 3.0
+        LEN = 58.0
+        BL = 17.5
+        butt = add(handF, sd, -grip)
+        side = (sd[1], -sd[0])
+        neck = add(butt, sd, LEN - BL)
+        prims.append(Capsule('haft', 'oarwood', 6.4, butt, add(neck, sd, 1.2), 0.85, 0.75, shade=0.9))
+        prims.append(Ellipse('ferrule', 'steel', 6.41, add(butt, sd, 0.6), 1.1, 1.1, shade=0.8))
+        for t in (0.3, 0.35, 0.4, 0.45):
+            c = add(butt, sd, LEN * t)
+            prims.append(Capsule('wrap', 'rope', 6.42, add(c, sd, -0.8), add(c, sd, 0.8), 1.15, 1.15, shade=0.85))
+
+        def B(a, b):
+            return add(add(neck, sd, a), side, b)
+
+        # a pá: alarga do pescoço até a ponta arredondada, com uma lasca na borda de cá
+        blade = [B(-1.4, -0.75), B(2.4, -1.9), B(7.5, -2.5), B(13.0, -2.5), B(16.3, -1.8), B(17.5, -0.3),
+                 B(17.2, 1.1), B(15.3, 2.3), B(12.6, 2.1), B(11.8, 2.6), B(7.5, 2.5), B(2.4, 1.9), B(-1.4, 0.75)]
+        nb = norm((side[0] * 0.2, side[1] * 0.2 - 0.35, 0.9))
+        prims.append(Poly('oblade', 'wood', 6.44, blade, nf=lambda x, y, nb=nb: nb, shade=0.8))
+        prims.append(Capsule('orib', 'oarwood', 6.45, B(-0.8, 0.0), B(11.0, 0.0), 0.55, 0.3, shade=1.1))
+        # a borda gasta da pá e as cracas de Âmbar
+        prims.append(Capsule('oedge', 'wood', 6.46, B(16.0, -1.7), B(17.3, -0.2), 0.45, 0.4, shade=1.2))
+        prims.append(Ellipse('ocraca', 'amber', 6.47, B(9.6, 1.3), 0.85, 0.7, flat=3))
+        prims.append(Ellipse('ocraca', 'amber', 6.47, B(12.2, -1.5), 0.55, 0.5, flat=3))
+        # o fio de alga preso no pescoço da pá, caindo reto
+        g0 = B(0.6, 1.4)
+        prev = g0
+        for k in range(1, 4):
+            q = add(g0, (0.0, 1.0), 2.1 * k)
+            q = (q[0] + math.sin(k * 1.7) * 0.5, q[1])
+            prims.append(Capsule('oweed', 'weed', 6.43, prev, q, 0.5 - 0.1 * k, 0.4 - 0.1 * k, shade=0.9))
+            prev = q
         if p['ikB'] and p['ikB'][0] == 'staff':
             back_target = add(handF, sd, p['ikB'][1])
 

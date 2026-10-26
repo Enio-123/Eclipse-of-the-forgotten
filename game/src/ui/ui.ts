@@ -58,7 +58,7 @@ const PREVIEW_SCREENS: (ScreenId | null)[] = ['weapons', 'path', 'mages'];
 const hex = (c: number) => `#${c.toString(16).padStart(6, '0')}`;
 const rgba = (c: number, a: number) => `rgba(${(c >> 16) & 255}, ${(c >> 8) & 255}, ${c & 255}, ${a})`;
 
-const WEAPON_ORDER: WeaponId[] = ['scythe', 'sword', 'daggers', 'bow', 'badalo', 'incensario', 'corrente', 'picareta', 'lanca'];
+const WEAPON_ORDER: WeaponId[] = ['scythe', 'sword', 'daggers', 'bow', 'badalo', 'incensario', 'corrente', 'picareta', 'lanca', 'remo'];
 const TAGS: Partial<Record<WeaponId, string>> = { scythe: 'Arma do carrasco · recomendada' };
 const TOUCH_LABEL: Record<Action, string> = {
   left: 'Analógico', right: 'Analógico', up: 'Analógico para cima', down: 'Analógico para baixo',

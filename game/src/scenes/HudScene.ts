@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { PAL, PLAYER } from '../config';
+import { MAGIC, PAL, PLAYER } from '../config';
 import { progress } from '../systems/Save';
 import { fixedCamera } from '../gfx/view';
 
@@ -168,8 +168,8 @@ export class HudScene extends Phaser.Scene {
       amberShown = a;
     };
     // habilidade do mago: o desenho da escola num disco escuro embaixo da máscara. A recarga enche
-    // o anel em volta (no sentido do relógio, a partir de cima) e os quatro pontinhos embaixo são a
-    // Energia dos chefes vencidos
+    // o anel em volta (no sentido do relógio, a partir de cima) e os pontinhos embaixo são a Energia dos
+    // chefes vencidos (um por chefe)
     type SkillHud = { mage: string; color: number; cd: number; max: number; aiming: boolean; energy: number };
     const SK_R = 8.5;
     const sk = this.add.container(24, 66);
@@ -208,10 +208,13 @@ export class HudScene extends Phaser.Scene {
       skGlow.setTint(st.color);
       if (!st.aiming) skGlow.setAlpha(ready ? 0.26 : 0);
       skPips.clear();
-      for (let i = 0; i < 4; i++) {
-        const x = -7.5 + i * 5;
+      const n = MAGIC.maxEnergy;
+      const gap = Math.min(5, 22 / n);
+      const r = Math.min(2, gap * 0.42);
+      for (let i = 0; i < n; i++) {
+        const x = (i - (n - 1) / 2) * gap;
         const y = SK_R + 4.5;
-        const pts = [new Phaser.Math.Vector2(x, y - 2), new Phaser.Math.Vector2(x + 2, y), new Phaser.Math.Vector2(x, y + 2), new Phaser.Math.Vector2(x - 2, y)];
+        const pts = [new Phaser.Math.Vector2(x, y - r), new Phaser.Math.Vector2(x + r, y), new Phaser.Math.Vector2(x, y + r), new Phaser.Math.Vector2(x - r, y)];
         if (i < st.energy) skPips.fillStyle(st.color, 1).fillPoints(pts, true);
         else skPips.fillStyle(0x0a0b12, 0.8).fillPoints(pts, true).lineStyle(0.8, 0x4a4d5e, 1).strokePoints(pts, true);
       }

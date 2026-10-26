@@ -2,7 +2,7 @@
 import math
 
 TAU = math.pi * 2
-WEAPONS = ['sword', 'scythe', 'daggers', 'bow', 'badalo', 'incensario', 'corrente', 'picareta', 'lanca']
+WEAPONS = ['sword', 'scythe', 'daggers', 'bow', 'badalo', 'incensario', 'corrente', 'picareta', 'lanca', 'remo']
 # os cajados dos magos (staffs.py desenha)
 STAFFS = ['eclipse', 'necro', 'veu', 'espaco']
 
@@ -287,6 +287,19 @@ def carry(w, name, i=0, n=1, ph=0.0, b=0.0):
                 'crouch': dict(armF=(58, 32), wpn=94, grip=24, swing=4),
                 'slide': dict(armF=(-60, 30), wpn=-112, grip=20, swing=-30),
                 'kneel': dict(armF=(100, 30), wpn=178, grip=31, swing=0)}[name]
+    if w == 'remo':
+        # o remo do Barqueiro: parado, em pé do lado da frente com a pá para cima; correndo, no ombro com a
+        # pá para trás, balançando no passo
+        return {'idle': dict(armF=(26 + b * 2, 58 - b * 2), wpn=172 - b, grip=21),
+                'run': dict(armF=(-24 - 12 * s, 46), wpn=-122 + 6 * s, grip=17),
+                'jump': dict(armF=(-38, 52), wpn=-136, grip=17),
+                'fall': dict(armF=(-54, 50), wpn=-152, grip=17),
+                'land': dict(armF=(-10, 50), wpn=-94, grip=17),
+                'dash': dict(armF=(-78, 10), wpn=-98, grip=15),
+                'hurt': dict(armF=(40, 40), wpn=126, grip=19),
+                'crouch': dict(armF=(-8, 60), wpn=-102, grip=15),
+                'slide': dict(armF=(-64, 30), wpn=-114, grip=15),
+                'kneel': dict(armF=(100, 30), wpn=178, grip=29)}[name]
     if w in STAFFS:
         # o cajado: parado, em pé na frente do corpo com a cabeça acima do capuz; andando, levado
         # inclinado para trás, como a foice
@@ -614,6 +627,44 @@ def attacks(w):
             lerp(CROUCH, dict(armF=(92, -2), wpn=91, grip=19, ikB=two(-11), zB=4.9, swing=-20, lean=38), 1),
             lerp(CROUCH, dict(armF=(58, 32), wpn=94, grip=24, swing=6, lean=32), 1),
         ], 20)
+    elif w == 'remo':
+        # a remada: as duas mãos no cabo, a pá sobe por trás da cabeça e varre larga até rente ao chão na
+        # frente (como quem puxa a água); para cima, a pá passa por cima da cabeça; no ar, desce de ponta
+        two = lambda s: ('staff', s)
+        L = dict(legF=(34, 30), legB=(-32, 24), footF=-4, footB=-8)
+        A['attack'] = ([
+            dict(L, lean=-8, armF=(150, 30), wpn=208, grip=20, ikB=two(-12), zB=4.9, cape=dict(lift=8, wave=4, phase=0.3), hoodtip=(1, 1)),
+            dict(L, lean=-12, armF=(166, 18), wpn=228, grip=20, ikB=two(-12), zB=4.9, cape=dict(lift=6, wave=4, phase=0.8), hoodtip=(2, 1), head=(0, -1)),
+            dict(L, lean=12, armF=(108, 4), wpn=126, grip=21, ikB=two(-12), zB=4.9, cape=dict(lift=32, wave=7, phase=1.5), hoodtip=(-2, -2)),
+            dict(L, lean=20, armF=(78, -4), wpn=86, grip=22, ikB=two(-12), zB=4.9, cape=dict(lift=36, wave=7, phase=2.2), hoodtip=(-3, -2)),
+            dict(L, lean=22, armF=(62, 0), wpn=70, grip=24, ikB=two(-12), zB=4.9, cape=dict(lift=28, wave=6, phase=2.8), hoodtip=(-3, -1)),
+            dict(L, lean=8, armF=(26, 60), wpn=164, grip=21, cape=dict(lift=14, wave=4, phase=3.4), hoodtip=(-1, 0)),
+        ], 19)
+        U = dict(legF=(20, 22), legB=(-20, 20))
+        A['attack_up'] = ([
+            dict(U, lean=8, armF=(18, 40), wpn=-64, grip=18, ikB=two(-10), zB=4.9, cape=dict(lift=10, wave=4, phase=0.4)),
+            dict(U, lean=10, armF=(0, 40), wpn=-82, grip=18, ikB=two(-10), zB=4.9, cape=dict(lift=12, wave=4, phase=0.9)),
+            dict(U, lean=-4, armF=(120, 20), wpn=128, grip=18, ikB=two(-10), zB=4.9, head=(0, -1), tilt=-6, cape=dict(lift=16, wave=6, phase=1.4)),
+            dict(U, lean=-10, armF=(164, 10), wpn=178, grip=18, ikB=two(-10), zB=4.9, head=(0, -1), tilt=-10, cape=dict(lift=20, wave=6, phase=2.0)),
+            dict(U, lean=-12, armF=(178, 4), wpn=202, grip=18, ikB=two(-10), zB=4.9, head=(0, -1), tilt=-10, cape=dict(lift=20, wave=6, phase=2.6)),
+            dict(U, lean=-2, armF=(140, 20), wpn=176, grip=20, cape=dict(lift=12, wave=4, phase=3.2)),
+        ], 19)
+        D = dict(legF=(40, 70), legB=(-6, 50), footF=20)
+        A['attack_down'] = ([
+            dict(D, lean=-2, armF=(150, 24), wpn=170, grip=24, ikB=two(-10), zB=4.9, cape=dict(lift=56, wave=8, phase=0.3), hoodtip=(2, -5)),
+            dict(D, lean=4, armF=(70, 4), wpn=40, grip=22, ikB=two(-10), zB=4.9, cape=dict(lift=64, wave=9, phase=1.0), hoodtip=(2, -6)),
+            dict(D, lean=8, armF=(16, -4), wpn=2, grip=28, ikB=two(-10), zB=4.9, cape=dict(lift=72, wave=10, phase=1.7), hoodtip=(3, -6)),
+            dict(D, lean=6, armF=(10, 0), wpn=0, grip=28, ikB=two(-10), zB=4.9, cape=dict(lift=74, wave=10, phase=2.4), hoodtip=(3, -6)),
+            dict(D, lean=4, armF=(30, 30), wpn=60, grip=24, cape=dict(lift=70, wave=10, phase=3.1), hoodtip=(3, -6)),
+        ], 20)
+        A['crouch_attack'] = ([
+            lerp(CROUCH, dict(armF=(-40, 40), wpn=-100, grip=16, ikB=two(-10), zB=4.9, lean=26), 1),
+            lerp(CROUCH, dict(armF=(-56, 40), wpn=-116, grip=16, ikB=two(-10), zB=4.9, lean=24), 1),
+            lerp(CROUCH, dict(armF=(90, 0), wpn=98, grip=18, ikB=two(-11), zB=4.9, lean=36), 1),
+            lerp(CROUCH, dict(armF=(82, -6), wpn=96, grip=19, ikB=two(-11), zB=4.9, lean=38), 1),
+            lerp(CROUCH, dict(armF=(62, 0), wpn=92, grip=20, ikB=two(-11), zB=4.9, lean=36), 1),
+            lerp(CROUCH, dict(armF=(20, 30), wpn=-100, grip=15, lean=32), 1),
+        ], 19)
     elif w in STAFFS:
         A.update(staff_attacks(w))
     return A

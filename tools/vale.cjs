@@ -5,7 +5,7 @@
 const { chromium } = require('playwright');
 const OUT = process.argv[2] || '.';
 const URL = process.argv[3] || process.env.GAME && process.env.GAME + '/index.html' || 'http://localhost:8765/index.html';
-// ONLY=links,neve roda só essas partes (neve, links, agrimensor, agua, nado, quedas, rio, alagada, gruta, presente, truta, garca, vagalumes, fotos)
+// ONLY=links,neve roda só essas partes (neve, links, agrimensor, agua, nado, quedas, rio, alagada, gruta, presente, truta, garca, vagalumes, barqueiro, fotos)
 const ONLY = (process.env.ONLY || '').split(',').filter(Boolean);
 const part = (k) => !ONLY.length || ONLY.includes(k);
 (async () => {
@@ -645,6 +645,370 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
     await waitGame(1.4);
     m = await M();
     check(!m[0].alive && m[0].n === 0, `um golpe espalha o enxame e os pontos apagam (${JSON.stringify(m[0])})`);
+  }
+
+  if (part('barqueiro')) {
+    // ---------- 18. O Barqueiro: de pé no barco, esperando; acorda e a grade fecha; a varrida mira na altura de
+    // onde o cavaleiro pisa (tronco, margem ou nadando), a pancada solta ondas pela linha d'água, a corda reboca
+    // até a estocada (dois golpes arrebentam), o casco afunda os troncos; na metade afunda e sobe por baixo, a
+    // cachoeira vira Âmbar e puxa o lago; vencido, o barco atraca no cais ----------
+    await setProgress(['boss:cacador'], ['wall', 'double', 'hook', 'veil', 'cape', 'swim']);
+    await page.evaluate(() => {
+      const ui = window.__ui;
+      window.__says = [];
+      window.__thoughts = [];
+      if (ui.__bqHooked) return;
+      ui.__bqHooked = true;
+      const os = ui.say.bind(ui);
+      ui.say = (n, t, h) => { window.__says.push(t); return os(n, t, h); };
+      const ot = ui.thought.bind(ui);
+      ui.thought = (t, h) => { window.__thoughts.push(t); return ot(t, h); };
+    });
+    await start('cais', '1');
+    await page.evaluate(() => window.__scene.player.setWeapon('scythe'));
+    const B = () => page.evaluate(() => {
+      const s = window.__scene;
+      const b = s.boss;
+      return { state: b.state, anim: b.anim, hp: +b.hp.toFixed(1), alive: b.alive, x: +(b.x / 16).toFixed(2), f: b.facing, phase2: b.phase2, sink: Math.round(b.sinkY), waves: b.waves.length, hook: !!b.hook, tow: !!s.player.tow, amber: +s.vale.amberK.toFixed(2), pull: s.vale.pullV, pole: b.pole.visible };
+    });
+    let b = await B();
+    check(b.state === 'sleep' && b.anim === 'sleep' && b.pole, `de pé no barco, a vara em pé na água, esperando (${JSON.stringify(b)})`);
+    await page.evaluate(() => { const s = window.__scene; s.player.invuln = 99; });
+    await put(4, 31);
+    await waitGame(0.5);
+    await shot('b01-esperando');
+    await page.keyboard.down('KeyD');
+    await until(() => window.__scene.boss.state !== 'sleep', null, 20000).catch(() => null);
+    await page.keyboard.up('KeyD');
+    const gate = await page.evaluate(() => window.__scene.level.tileAt(6 * 16 + 8, 28 * 16 + 8));
+    check(gate >= 2, `acorda e a grade da entrada fecha (${gate})`);
+    await waitGame(0.9);
+    await shot('b02-passagem');
+    await until(() => window.__scene.boss.state === 'idle', null, 20000);
+    const bar = await page.evaluate(() => document.querySelector('#bossbar p').textContent);
+    check(bar === 'O Barqueiro', `barra de vida do chefe (${bar})`);
+    // segura o chefe parado, sem pensar, num lugar
+    const hush = (tx, f) => page.evaluate(([tx, f]) => {
+      const s = window.__scene;
+      const b = s.boss;
+      b.toIdle = function () { this.go('idle', 'idle'); this.thinkT = 99; };
+      b.toIdle();
+      b.waves = [];
+      b.hook = null;
+      s.player.tow = null;
+      b.vx = 0;
+      if (tx !== undefined) b.x = tx * 16 + 8;
+      if (f) b.facing = f;
+      b.sync();
+    }, [tx, f]);
+    const rec = (probe) => page.evaluate((probe) => {
+      const s = window.__scene;
+      const b = s.boss;
+      const fn0 = probe ? new Function('s', 'b', 'p', probe) : null;
+      window.__rec = { states: [], hurt: [], probe: null };
+      const p = s.player;
+      if (!p.__wrapped) {
+        const orig = p.hurt.bind(p);
+        p.hurt = (fx) => { const r = orig(fx); if (r && window.__rec) { window.__rec.hurt.push({ state: s.boss && s.boss.state }); p.hp = 5; } return r; };
+        p.__wrapped = true;
+      }
+      if (window.__unrec) window.__unrec();
+      const fn = () => {
+        const R = window.__rec;
+        if (R.states[R.states.length - 1] !== b.state) R.states.push(b.state);
+        if (fn0 && R.probe === null) { const v = fn0(s, b, s.player); if (v) R.probe = v; }
+      };
+      s.events.on('postupdate', fn);
+      window.__unrec = () => s.events.off('postupdate', fn);
+    }, probe);
+    const force = async (a, probe, band) => {
+      await rec(probe);
+      await page.evaluate(([a, band]) => {
+        const b = window.__scene.boss;
+        b.thinkT = 99;
+        b.startAttack(a);
+        if (band) { b.band = band; b.play(`sweepwind-${band}`); }
+      }, [a, band]);
+    };
+    const idle = () => until(() => window.__scene.boss.state === 'idle', null, 20000);
+    const R = () => page.evaluate(() => window.__rec);
+    const ready = (inv = 0) => page.evaluate((inv) => { const p = window.__scene.player; p.invuln = inv; p.hp = 5; }, inv);
+    // a altura da vara onde o cavaleiro está, com ela de lado (px acima dos pés dele)
+    const POLEY = 'if (b.state !== "sweep") return null; const v = b.geo(); if (!v || v.pf < 0.9 || (v.tx - v.bx) * b.facing <= 0) return null; const k = (p.x - v.bx) / (v.tx - v.bx); if (k < 0 || k > 1) return { miss: true, tip: v.tx / 16 }; return { above: +(p.body.bottom - (v.by + (v.ty - v.by) * k)).toFixed(1), feet: +(p.body.bottom / 16).toFixed(2) };';
+
+    // 1. varrida baixa num tronco: mira a canela dele; parado, apanha
+    await hush(31, 1);
+    await put(38, 32);
+    await until(() => window.__scene.player.body.blocked.down, null, 5000).catch(() => null);
+    await waitGame(0.3);
+    await ready();
+    await force('sweep', POLEY, 'lo');
+    await until(() => window.__rec.states.includes('sweeprec'), null, 20000);
+    let rr = await R();
+    check(rr.probe && !rr.probe.miss && Math.abs(rr.probe.above - 11) < 6, `a varrida baixa passa na canela de quem está no tronco (${JSON.stringify(rr.probe)})`);
+    check(rr.hurt.length > 0, `parado no tronco, a vara baixa acerta (${rr.states.join(' > ')})`);
+    await idle();
+    // 2. varrida alta no mesmo tronco: na altura da cabeça; agachado, passa por cima
+    await hush(31, 1);
+    await put(38, 32);
+    await waitGame(0.4);
+    await ready();
+    await page.keyboard.down('KeyS');
+    await waitGame(0.2);
+    await force('sweep', POLEY, 'hi');
+    await waitGame(0.75);
+    await shot('b03-varrida-alta');
+    await until(() => window.__rec.states.includes('sweeprec'), null, 20000);
+    await page.keyboard.up('KeyS');
+    rr = await R();
+    check(rr.probe && !rr.probe.miss && Math.abs(rr.probe.above - 37) < 6, `a varrida alta passa na altura da cabeça (${JSON.stringify(rr.probe)})`);
+    check(rr.hurt.length === 0, `agachado no tronco, a vara alta passa por cima (${rr.hurt.length})`);
+    await idle();
+    // 3. na margem do cais: a varrida baixa mira mais alto (o chão dele é mais alto)
+    await hush(56, 1);
+    await put(64, 31);
+    await waitGame(0.5);
+    await ready();
+    await force('sweep', POLEY, 'lo');
+    await until(() => window.__rec.states.includes('sweeprec'), null, 20000);
+    rr = await R();
+    check(rr.probe && !rr.probe.miss && Math.abs(rr.probe.above - 11) < 6, `no cais, a varrida baixa sobe junto com o chão dele (${JSON.stringify(rr.probe)})`);
+    await idle();
+    // 4. nadando: rente à água; boiando apanha, mergulhado passa por cima
+    await hush(31, 1);
+    await put(40, 34);
+    await waitGame(0.8);
+    await ready();
+    await force('sweep', POLEY);
+    await waitGame(0.75);
+    await shot('b04-varrida-agua');
+    await until(() => window.__rec.states.includes('sweeprec'), null, 20000);
+    rr = await R();
+    const sw = await page.evaluate(() => { const s = window.__scene; return { swim: s.player.swim, band: s.boss.band }; });
+    check(sw.swim && sw.band === 'lo' && rr.hurt.length > 0, `boiando, a vara passa rente à água e acerta (${JSON.stringify(sw)} ${rr.hurt.length})`);
+    await idle();
+    await hush(31, 1);
+    await put(40, 38);
+    await waitGame(0.2);
+    await ready();
+    await page.keyboard.down('KeyS');
+    await force('sweep');
+    await until(() => window.__rec.states.includes('sweeprec'), null, 20000);
+    await page.keyboard.up('KeyS');
+    rr = await R();
+    check(rr.hurt.length === 0, `mergulhado, a vara passa por cima (${rr.hurt.length})`);
+    await idle();
+    // 5. a pancada: a onda corre pela linha d'água, balança os troncos e pega quem está de pé num tronco
+    await hush(40, 1);
+    await put(50, 32);
+    await until(() => window.__scene.player.body.blocked.down, null, 5000).catch(() => null);
+    await waitGame(0.3);
+    await ready();
+    await force('slam', 'return b.waves.length ? { n: b.waves.length, x: b.waves.map((w) => +(w.x / 16).toFixed(1)) } : null;');
+    await until(() => window.__rec.states.includes('slamrec'), null, 20000);
+    await waitGame(0.35);
+    await shot('b05-onda');
+    await waitGame(0.6);
+    rr = await R();
+    check(rr.probe && rr.probe.n === 2, `a vara bate na água e solta uma onda para cada lado (${JSON.stringify(rr.probe)})`);
+    check(rr.hurt.length > 0, `de pé no tronco, a onda pega (${rr.hurt.length})`);
+    await idle();
+    // 6. a corda: da margem, o gancho prende, reboca até a ponta da vara e vem a estocada
+    await hush(19, -1);
+    await put(10, 31);
+    await waitGame(0.4);
+    await ready();
+    const x0 = (await P()).x;
+    await force('rope', 'return s.player.tow ? { towed: true } : null;');
+    await until(() => window.__rec.states.includes('jabrec') || window.__rec.states.includes('ropeback'), null, 20000);
+    rr = await R();
+    let pp = await P();
+    check(rr.probe && rr.probe.towed && rr.states.includes('pull') && rr.states.includes('jab'), `o gancho prende e a corda reboca até a estocada (${rr.states.join(' > ')})`);
+    check(pp.x > x0 + 3, `rebocado da margem para o lago (${x0.toFixed(1)} -> ${pp.x.toFixed(1)})`);
+    await shot('b06-corda');
+    await idle();
+    // 7. dois golpes na corda arrebentam e ele perde o equilíbrio
+    await hush(25, -1);
+    await put(10, 31);
+    await waitGame(0.4);
+    await ready();
+    await page.evaluate(() => {
+      const s = window.__scene;
+      const b = s.boss;
+      // um golpe a cada 0,3 s enquanto estiver preso na corda
+      let n = 0;
+      let last = 0;
+      const fn = () => {
+        const t = s.player.tow;
+        const now = performance.now();
+        if (t && n < 6 && now - last > 300) {
+          n++;
+          last = now;
+          window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyJ' }));
+          setTimeout(() => window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyJ' })), 70);
+        }
+        if (b.state === 'stagger' || b.state === 'jab' || b.state === 'idle') s.events.off('postupdate', fn);
+      };
+      s.events.on('postupdate', fn);
+    });
+    await force('rope');
+    await until(() => window.__rec.states.includes('stagger') || window.__rec.states.includes('jab'), null, 20000);
+    rr = await R();
+    check(rr.states.includes('stagger') && !rr.states.includes('jab'), `dois golpes arrebentam a corda e ele cambaleia (${rr.states.join(' > ')})`);
+    await idle();
+    // 8. o casco por cima de um tronco afunda o tronco e quem estava de pé cai na água
+    await hush(30, 1);
+    await put(38, 32);
+    await until(() => window.__scene.player.body.blocked.down, null, 5000).catch(() => null);
+    await waitGame(0.3);
+    await page.evaluate(() => { const b = window.__scene.boss; b.goal = 38 * 16 + 8; b.go('pole', 'pole'); });
+    await waitGame(2.2);
+    const dk = await page.evaluate(() => { const s = window.__scene; const l = s.vale.logs.find((k) => Math.abs(k.home - (38 * 16 + 8)) < 2); return { dunk: +l.dunk.toFixed(2), swim: s.player.swim, bx: +(s.boss.x / 16).toFixed(1) }; });
+    check(dk.dunk > 0.6 && dk.swim, `o barco passa por cima do tronco, afunda ele e o cavaleiro cai na água (${JSON.stringify(dk)})`);
+    await shot('b07-tronco');
+    await idle().catch(() => null);
+    // 9. segunda fase: afunda, as bolhas seguem, avisam e ele sobe por baixo; a cachoeira vira Âmbar e puxa
+    await page.evaluate(() => { const b = window.__scene.boss; delete b.toIdle; b.hp = b.maxHp * 0.52; b.thinkT = 0.5; });
+    await hush();
+    await page.evaluate(() => { const b = window.__scene.boss; delete b.toIdle; });
+    await put(46, 34);
+    await ready(99);
+    await rec();
+    await page.evaluate(() => { const b = window.__scene.boss; b.hit(b.x - 30, 2, 'side'); });
+    await until(() => window.__scene.boss.state === 'under', null, 20000);
+    await waitGame(1.4);
+    b = await B();
+    check(b.phase2 && b.amber > 0.5 && b.pull > 0, `na metade ele afunda e a cachoeira vira Âmbar e puxa (${JSON.stringify(b)})`);
+    await shot('b08-ambar');
+    await until(() => window.__scene.boss.state === 'bubbles', null, 20000);
+    await waitGame(0.5);
+    await shot('b09-bolhas');
+    await until(() => window.__rec.states.includes('surge'), null, 20000);
+    await waitGame(0.12);
+    await shot('b10-sobe');
+    rr = await R();
+    check(['sink', 'under', 'bubbles', 'surge'].every((k) => rr.states.includes(k)), `afunda, as bolhas seguem e ele sobe por baixo (${rr.states.join(' > ')})`);
+    // a correnteza puxa o cavaleiro parado na água para a cachoeira
+    await hush(20, 1);
+    await page.evaluate(() => { const s = window.__scene; s.vale.setPull(58); s.vale.amber(1); });
+    await put(30, 35);
+    await waitGame(1.5);
+    pp = await P();
+    check(pp.x > 30.6, `a correnteza do lago leva para o pé da cachoeira (${pp.x.toFixed(1)})`);
+    // 10. a derrota: o barco vem até o cais, a lanterna acende, a fala, o livro de bordo no cais
+    await page.evaluate(() => { const b = window.__scene.boss; delete b.toIdle; b.hp = 1; b.hit(b.x - 30, 5, 'side'); });
+    await until(() => !window.__scene.boss.alive, null, 20000);
+    await waitGame(2.4);
+    await shot('b11-derrota');
+    await waitGame(5);
+    const end = await page.evaluate(() => {
+      const s = window.__scene;
+      const b = s.boss;
+      const n = s.records.list.find((k) => k.id === 'cais:0');
+      return { seen: window.__progress.seen.has('boss:barqueiro'), says: window.__says, x: +(b.x / 16).toFixed(2), moor: b.moorX / 16, amber: s.vale.amberK, pull: s.vale.pullV, note: n && { x: n.x / 16, y: n.y / 16 }, lamp: b.lamp.alpha };
+    });
+    check(end.seen, 'vencer marca o chefe');
+    check(end.says.some((t) => t.includes('Ela pagou as duas passagens')), `a fala dele (${end.says.join(' | ')})`);
+    check(Math.abs(end.x - end.moor) < 0.2 && end.lamp > 0.5, `o barco atraca no cais com a lanterna acesa (${end.x} / ${end.moor}, ${end.lamp})`);
+    check(end.amber < 0.2 && end.pull === 0, `a cachoeira volta a ser água (${end.amber})`);
+    check(end.note && end.note.y === 31 && end.note.x > 62, `o livro de bordo cai no cais (${JSON.stringify(end.note)})`);
+    await shot('b12-cais');
+    // 11. voltando à sala: o barco atracado, a lanterna acesa, a memória e o livro no cais
+    await start('cais', '1');
+    const back = await page.evaluate(() => {
+      const s = window.__scene;
+      return { boss: !!s.boss, note: !!s.records.list.find((k) => k.id === 'cais:0'), mem: s.props.memories.some((m) => m.id === 'cais:boss') };
+    });
+    check(!back.boss && back.note && back.mem, `voltando, o barco fica atracado e o que ele deixou continua no cais (${JSON.stringify(back)})`);
+    await put(70, 31);
+    await waitGame(0.8);
+    await shot('b13-atracado');
+  }
+
+  if (part('remo')) {
+    // ---------- 19. o Remo do Barqueiro: cai no cais depois da luta; nadando, a remada leva o cavaleiro; de pé
+    // num tronco, leva o tronco (e o tronco volta devagar); a pá empurra os inimigos para longe ----------
+    await setProgress(['boss:cacador'], ['wall', 'double', 'hook', 'veil', 'cape', 'swim']);
+    await start('cais', '1');
+    await page.evaluate(() => { window.__scene.player.setWeapon('scythe'); });
+    await put(12, 31);
+    await until(() => window.__scene.boss.state === 'idle', null, 20000);
+    await page.evaluate(() => { const b = window.__scene.boss; b.hp = 1; b.hit(b.x - 30, 5, 'side'); });
+    await until(() => !!window.__scene.weaponDrop && window.__scene.weaponDrop.ready, null, 20000);
+    const drop = await page.evaluate(() => { const d = window.__scene.weaponDrop; return { id: d.id, x: +(d.x / 16).toFixed(2), y: +(d.y / 16).toFixed(2) }; });
+    check(drop.id === 'remo' && drop.x > 62 && Math.abs(drop.y - 30) < 1.2, `o remo cai no cais (${JSON.stringify(drop)})`);
+    await waitGame(0.3);
+    await shot('r01-remo-no-cais');
+    await put(Math.round(drop.x), 31);
+    await until(() => window.__progress.seen.has('weapon:remo') && !window.__scene.cinematic, null, 20000).catch(() => null);
+    const got = await page.evaluate(() => ({ seen: window.__progress.seen.has('weapon:remo'), claimed: window.__progress.claimed('remo') }));
+    check(got.seen && got.claimed, `pegou o remo (${JSON.stringify(got)})`);
+    await page.evaluate(() => { const s = window.__scene; s.player.setWeapon('remo'); s.player.invuln = 99; });
+    const J = () => page.evaluate(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyJ' }));
+      setTimeout(() => window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyJ' })), 70);
+    });
+    // nadando, parado: a remada leva para a frente
+    await put(26, 34);
+    await waitGame(1.0);
+    await page.evaluate(() => { window.__scene.player.facing = 1; });
+    let a0 = await P();
+    await waitGame(0.7);
+    let a1 = await P();
+    await page.evaluate(() => { window.__scene.player.facing = 1; });
+    await J();
+    await waitGame(0.25);
+    await shot('r02-remada');
+    await waitGame(0.6);
+    let a2 = await P();
+    check(Math.abs(a1.x - a0.x) < 0.8 && a2.x - a1.x > 4, `nadando, a remada leva o cavaleiro (parado ${(a1.x - a0.x).toFixed(2)}, remando ${(a2.x - a1.x).toFixed(2)})`);
+    // de pé no tronco do meio: três remadas para a direita levam o tronco junto, com ele em cima
+    const LG = () => page.evaluate(() => { const s = window.__scene; const l = s.vale.logs.find((k) => Math.abs(k.home - (38 * 16 + 8)) < 2); return { x: +(l.body.center.x / 16).toFixed(2), shift: Math.round(l.shift), top: l.body.top / 16 }; });
+    await put(38, 32);
+    await until(() => window.__scene.player.body.blocked.down, null, 5000).catch(() => null);
+    await waitGame(0.4);
+    const l0 = await LG();
+    for (let i = 0; i < 3; i++) {
+      await page.evaluate(() => { window.__scene.player.facing = 1; });
+      await J();
+      await waitGame(0.6);
+    }
+    await waitGame(0.8);
+    const l1 = await LG();
+    a2 = await P();
+    check(l1.x - l0.x > 3.5 && Math.abs(a2.bottom - l1.top) < 0.3, `de pé no tronco, o remo leva o tronco com ele em cima (${l0.x} -> ${l1.x}, ${JSON.stringify(a2)})`);
+    await shot('r03-tronco');
+    // desce do tronco: ele volta devagar para o lugar
+    await put(10, 31);
+    await waitGame(4);
+    const l2 = await LG();
+    check(l2.shift < l1.shift && l2.x < l1.x, `sem ninguém em cima, o tronco volta devagar para o lugar (${l1.shift} -> ${l2.shift})`);
+    // a pá empurra para longe: um rastejante leve na ponte
+    await start('ponte', '1');
+    await page.evaluate(() => { const s = window.__scene; s.player.setWeapon('remo'); s.player.invuln = 99; });
+    const cr = await page.evaluate(() => { const s = window.__scene; const c = s.enemies.find((e) => e.kind === 'crawler'); if (!c) return null; c.hp = 99; return { x: c.zone.x / 16, bottom: c.body.bottom / 16 }; });
+    check(!!cr, `há um rastejante na ponte (${JSON.stringify(cr)})`);
+    if (cr) {
+      await put(Math.floor(cr.x) - 3, Math.round(cr.bottom) - 1);
+      await waitGame(0.3);
+      const c0 = await page.evaluate(() => { const s = window.__scene; const c = s.enemies.find((e) => e.kind === 'crawler' && e.hp > 50); s.player.facing = Math.sign(c.zone.x - s.player.x) || 1; return { x: c.zone.x / 16, f: s.player.facing }; });
+      await J();
+      await waitGame(0.6);
+      const c1 = await page.evaluate(() => { const c = window.__scene.enemies.find((e) => e.kind === 'crawler' && e.hp > 50); return { x: c.zone.x / 16, hp: c.hp }; });
+      check(c1.hp < 99 && (c1.x - c0.x) * c0.f > 2.5, `a pá empurra o rastejante para longe (${c0.x.toFixed(2)} -> ${c1.x.toFixed(2)}, ${c1.hp})`);
+    }
+    // o Grimório: o eco do Barqueiro aparece com a vara e bate
+    await setProgress(['boss:cacador', 'boss:barqueiro']);
+    const w0 = await page.evaluate(() => { const w = window.__settings.data.weapon; window.__progress.starter = 'necro'; window.__settings.data.weapon = 'necro'; window.__settings.save(); window.__progress.save(); return w; });
+    await start('ponte', '1');
+    await waitGame(0.3);
+    await page.evaluate(() => { const s = window.__scene; const p = s.player; s.magic.bossEcho('barqueiro', p.x + 70, p.body.bottom); });
+    await until(() => window.__scene.magic.bosses.length > 0, null, 15000).catch(() => null);
+    await waitGame(0.6);
+    const eco = await page.evaluate(() => { const b = window.__scene.magic.bosses[0]; return b ? { pole: !!b.pole && b.pole.visible, anim: b.sprite.anims.currentAnim && b.sprite.anims.currentAnim.key, a: +b.pole.alpha.toFixed(2) } : null; });
+    await shot('r04-eco-barqueiro');
+    check(eco && eco.pole && eco.a > 0.5 && /barqueiro-(slamwind|slam)/.test(eco.anim), `o eco do Barqueiro aparece com a vara (${JSON.stringify(eco)})`);
+    await page.evaluate((w0) => { window.__progress.starter = null; window.__settings.data.weapon = w0; window.__settings.save(); window.__progress.save(); }, w0);
   }
 
   if (part('fotos')) {

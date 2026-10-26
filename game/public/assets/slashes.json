@@ -46,5 +46,13 @@
   "frames": 10,
   "fps": 54,
   "scale": 2
+ },
+ "slash-oar": {
+  "w": 224,
+  "h": 192,
+  "ox": 0.125,
+  "frames": 13,
+  "fps": 66,
+  "scale": 2
  }
 }

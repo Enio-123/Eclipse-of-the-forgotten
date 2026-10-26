@@ -11,7 +11,7 @@ import { drawChain, drawWhip, type LashPose } from '../gfx/lash';
 
 export type AttackDir = 'side' | 'up' | 'down' | 'low';
 // ações que o jogador já descobriu (as dicas somem quando ele usa)
-export type PlayerAction = 'move' | 'attack' | 'jump' | 'dash' | 'slide' | 'pogo' | 'crouch' | 'trip' | 'walljump' | 'doublejump' | 'parry' | 'hook' | 'glide';
+export type PlayerAction = 'move' | 'attack' | 'jump' | 'dash' | 'slide' | 'pogo' | 'crouch' | 'trip' | 'walljump' | 'doublejump' | 'parry' | 'hook' | 'glide' | 'row';
 
 // a ponta do gancho: voando até a argola (ou até o fim do alcance), puxando o cavaleiro, voltando
 export interface HookState {
@@ -29,7 +29,7 @@ const approach = (v: number, target: number, step: number) =>
 
 export const SLASH_KEY: Record<WeaponId, string | null> = {
   sword: 'slash', scythe: 'slash-big', daggers: 'slash-small', bow: null, badalo: 'slash-heavy', incensario: 'slash-censer', corrente: null, picareta: 'slash-heavy',
-  lanca: 'slash-thrust',
+  lanca: 'slash-thrust', remo: 'slash-oar',
   // os cajados: o do Grimório bate como bordão (o arco do corte na cor dele); os outros têm o desenho próprio
   eclipse: null, necro: 'slash', veu: null, espaco: null,
 };
@@ -106,6 +106,9 @@ export class Player {
   hook: HookState | null = null;
   // vagonete das Minas: sentado dentro, preso ao assento que a cena põe a cada quadro (pés em x, y)
   ride: { x: number; y: number; vx: number; vy: number } | null = null;
+  // rebocado pela corda do Barqueiro: puxado até (x, y), que quem puxa põe a cada quadro. Não anda nem
+  // pula, mas golpeia: cada golpe dado conta em cuts (quem puxa decide quando a corda arrebenta)
+  tow: { x: number; y: number; speed: number; cuts: number } | null = null;
   // gravidade da sala (a fragmentação do Capataz deixa tudo leve por um tempo)
   gravMul = 1;
   // Fôlego (troca com o Cobrador): o dash recarrega mais rápido
@@ -277,7 +280,7 @@ export class Player {
   }
   // dá para abrir a mira agora: de pé no chão, sem golpe, dash, gancho ou vagonete no meio
   get canAim() {
-    return !this.dead && !this.frozen && !this.pose && this.hurtT <= 0 && this.dashT <= 0 && this.slideT <= 0 && !this.hook && !this.ride && !this.dive &&
+    return !this.dead && !this.frozen && !this.pose && this.hurtT <= 0 && this.dashT <= 0 && this.slideT <= 0 && !this.hook && !this.ride && !this.tow && !this.dive &&
       this.atkAnimT <= 0 && this.castT <= 0 && this.body.blocked.down;
   }
   // etapa do Véu na tela (dissolve, flow, form ou off), para os testes
@@ -346,6 +349,8 @@ export class Player {
 
     if (this.ride && !this.dead) {
       this.rideUpdate(dt, input);
+    } else if (this.tow && !this.dead) {
+      this.towUpdate(dt, input, onGround);
     } else if (this.dive && !this.dead) {
       this.diveUpdate(dt);
     } else if (this.frozen || this.dead) {
@@ -414,6 +419,8 @@ export class Player {
     // gravidade: subida normal, um leve flutuar no topo do pulo e queda suave
     const vy = b.velocity.y;
     if (this.dashT > 0 || this.hook?.phase === 'pull') b.gravity.y = 0;
+    // rebocado, quem decide a velocidade é a corda (a gravidade do mundo fica anulada)
+    else if (this.tow) b.gravity.y = -C.gravity;
     else if (this.swim) {
       // a água segura: o nado (ou o afundar) decide a velocidade de subida e de descida; machucado ou
       // parado por outra coisa, ele afunda devagar
@@ -421,12 +428,12 @@ export class Player {
       if (this.hurtT > 0 || this.frozen || this.dead || this.aiming || this.castT > 0) b.velocity.y = approach(b.velocity.y, C.sinkSpeed, 900 * dt);
     } else if (Math.abs(vy) < 70 && input.held.jump && !onGround && !this.frozen) b.gravity.y = -C.gravity * (1 - C.apexHang);
     else b.gravity.y = vy > 0 ? C.gravity * C.fallGravity : 0;
-    if (this.gravMul !== 1 && !this.swim && !(this.dashT > 0 || this.hook?.phase === 'pull')) b.gravity.y -= C.gravity * (1 - this.gravMul);
+    if (this.gravMul !== 1 && !this.swim && !this.tow && !(this.dashT > 0 || this.hook?.phase === 'pull')) b.gravity.y -= C.gravity * (1 - this.gravMul);
     // na gravidade leve a queda também é mais lenta (o teto de velocidade vale para cima também, então
     // só a descida é limitada aqui)
     if (this.gravMul < 1 && b.velocity.y > C.maxFall * 0.7) b.velocity.y = C.maxFall * 0.7;
     // a queda d'água empurra para baixo com força: não se sobe por dentro dela (o dash atravessa de lado)
-    if (this.fall > 0 && this.dashT <= 0 && !this.ride && !this.dive && this.hook?.phase !== 'pull') {
+    if (this.fall > 0 && this.dashT <= 0 && !this.ride && !this.dive && !this.tow && this.hook?.phase !== 'pull') {
       b.velocity.y = approach(b.velocity.y, this.fall, 2400 * dt);
       this.jumping = false;
     }
@@ -1097,6 +1104,8 @@ export class Player {
       this.altHand = !this.altHand;
       if (this.altHand) this.atkAnim = 'attack2';
     }
+    // o remo: nadando, o golpe para o lado é uma remada; de pé num tronco, leva o tronco
+    if (W.row && this.atkDir === 'side') this.row(onGround);
     this.windupT = W.windup;
     this.atkT = W.ranged ? 0 : W.active;
     this.lungeT = W.lunge && this.atkDir === 'side' ? W.windup + W.active * 0.9 : 0;
@@ -1112,6 +1121,21 @@ export class Player {
       this.scene.sfx('heavy', 0.6, 0.9);
     } else this.scene.sfx(W.id === 'scythe' ? 'heavy' : W.id === 'daggers' || W.lunge ? 'stab' : W.ranged ? 'bow' : 'slash', 1, W.lunge ? 0.8 : 1);
     this.scene.onPlayerAction('attack');
+  }
+
+  private row(onGround: boolean) {
+    const b = this.body;
+    const s = this.scene;
+    if (this.swim && this.canSwim && !onGround) {
+      b.velocity.x = this.facing * C.rowVel + this.current;
+      s.bubbles(this.zone.x - this.facing * 10, b.center.y + 4, 6);
+      if (this.surface !== null) s.splash(this.zone.x + this.facing * 26, this.surface);
+      s.sfx('splash', 0.45, 1.25);
+      s.onPlayerAction('row');
+    } else if (onGround && s.vale?.row(this.facing)) {
+      s.sfx('splash', 0.4, 1.15);
+      s.onPlayerAction('row');
+    }
   }
 
   private cancelAttack() {
@@ -1260,6 +1284,7 @@ export class Player {
     this.hurtT = C.hurtLock;
     if (this.dashT > 0) this.endDash();
     this.dropHook();
+    this.tow = null;
     this.graceT = 0;
     this.slideT = 0;
     this.cancelAttack();
@@ -1338,6 +1363,29 @@ export class Player {
     if (this.atkBuffer > 0 && this.atkCd <= 0 && this.canAttack) {
       this.atkBuffer = 0;
       this.startAttack(input, true);
+    }
+  }
+
+  // rebocado: vai na direção do ponto, de frente para quem puxa (de lado e para baixo; o chão segura como
+  // sempre). Golpear continua valendo, e cada golpe conta
+  private towUpdate(dt: number, input: Controls, onGround: boolean) {
+    const t = this.tow!;
+    const b = this.body;
+    if (this.hook) this.dropHook();
+    const dx = t.x - this.zone.x;
+    const dy = t.y - b.center.y;
+    const d = Math.hypot(dx, dy) || 1;
+    const k = Math.min(1, d / 12);
+    b.velocity.x = (dx / d) * t.speed * k;
+    b.velocity.y = (dy / d) * t.speed * k;
+    if (this.atkAnimT <= 0 && Math.abs(dx) > 2) this.facing = dx > 0 ? 1 : -1;
+    this.buffer = 0;
+    if (input.pressed.attack) this.atkBuffer = C.attackBuffer;
+    else this.atkBuffer -= dt;
+    if (this.atkBuffer > 0 && this.atkCd <= 0 && this.canAttack) {
+      this.atkBuffer = 0;
+      t.cuts++;
+      this.startAttack(input, onGround);
     }
   }
 
@@ -1464,6 +1512,7 @@ export class Player {
     else if (this.dashT > 0) anim = 'dash';
     else if (this.hook?.phase === 'pull') anim = 'dash';
     else if (this.atkAnimT > 0) anim = this.atkAnim;
+    else if (this.tow) anim = 'hurt';
     else if (this.wallDir !== 0) anim = 'wall';
     else if (this.ride) anim = this.crouched ? 'crouch' : 'idle';
     else if (this.swim && this.canSwim && !onGround) {

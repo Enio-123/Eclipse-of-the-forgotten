@@ -7,7 +7,8 @@ import { overlap, type Enemy, type HitDir } from '../entities/Enemy';
 import { DEPTH } from '../world/Decor';
 import { isGround, isSolid } from '../world/Level';
 import { BESTIARY } from '../world/lore';
-import { face, hd } from '../gfx/flip';
+import { face, hd, hdScale } from '../gfx/flip';
+import { poleFrame } from '../entities/Barqueiro';
 import { ensureSheet } from '../gfx/sheets';
 
 // uma escolha da habilidade forte: a versão (Eclipse, Véu, Espaço) ou quem volta do Grimório
@@ -48,7 +49,8 @@ const REV: Record<string, RevKind> = {
 };
 
 // os chefes vencidos que voltam por um instante: a folha, o golpe (preparo e batida) e o nome
-const BOSS_ECHO: Record<string, { sheet: string; name: string; wind: string | null; strike: string }> = {
+// pole: a vara solta do Barqueiro, desenhada por cima da folha como na luta
+const BOSS_ECHO: Record<string, { sheet: string; name: string; wind: string | null; strike: string; pole?: boolean }> = {
   sineiro: { sheet: 'sineiro', name: 'O Sineiro', wind: 'slamwind', strike: 'slam' },
   arcebispo: { sheet: 'arcebispo', name: 'O Arcebispo', wind: 'swingwind', strike: 'swing' },
   carcereira: { sheet: 'carcereira', name: 'A Carcereira', wind: 'lashwind', strike: 'lash' },
@@ -56,6 +58,7 @@ const BOSS_ECHO: Record<string, { sheet: string; name: string; wind: string | nu
   reflexo: { sheet: 'knight-scythe', name: 'O Reflexo', wind: null, strike: 'attack' },
   capataz: { sheet: 'capataz', name: 'O Capataz de Âmbar', wind: 'slamwind', strike: 'slam' },
   cacador: { sheet: 'cacador', name: 'O Mestre da Caça', wind: 'thrustwind-lo', strike: 'thrust-lo' },
+  barqueiro: { sheet: 'barqueiro', name: 'O Barqueiro', wind: 'slamwind', strike: 'slam', pole: true },
 };
 
 const NECRO = 0x7fe0c8;
@@ -284,6 +287,7 @@ class Revenant {
 class BossEcho {
   private sprite: Phaser.GameObjects.Sprite;
   private glow: Phaser.GameObjects.Image;
+  private pole: Phaser.GameObjects.Image | null = null;
   private t = 0;
   private struck = false;
   done = false;
@@ -297,6 +301,25 @@ class BossEcho {
     this.glow = s.add.image(x, floor - 30, 'glow').setTint(NECRO).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.enemy - 0.4).setAlpha(0).setScale(2.4, 3);
     const idle = `${info.sheet}-idle`;
     if (s.anims.exists(idle)) this.sprite.play(idle);
+    if (info.pole && s.textures.exists('barqueiro-pole')) {
+      this.pole = s.add.image(x, floor, 'barqueiro-pole').setOrigin(2 / 178, 0.5).setAlpha(0).setTint(0xe6fff8, 0xe6fff8, 0x2a7f6c, 0x2a7f6c);
+      this.pole.preFX?.addGlow(NECRO, 2, 0, false, 0.1, 8);
+    }
+  }
+
+  // a vara do Barqueiro no ângulo do quadro de agora
+  private syncPole(alpha: number) {
+    const v = this.pole;
+    if (!v) return;
+    const key = this.sprite.anims.currentAnim?.key.replace(`${this.info.sheet}-`, '') ?? 'idle';
+    const fr = poleFrame(this.s, key, (this.sprite.anims.currentFrame?.index ?? 1) - 1, this.x, this.floor, this.facing);
+    if (!fr) {
+      v.setVisible(false);
+      return;
+    }
+    const k = hdScale(this.s, 'barqueiro-pole');
+    v.setVisible(true).setPosition(fr.x, fr.y).setRotation(fr.rot).setScale(fr.pf * k, k).setFlipY(this.facing < 0)
+      .setDepth(DEPTH.enemy - 0.3 + (fr.behind ? -0.02 : 0.02)).setAlpha(alpha);
   }
 
   update(dt: number) {
@@ -307,6 +330,7 @@ class BossEcho {
     const a = t < 0.35 ? t / 0.35 : t > life - 0.5 ? Math.max(0, (life - t) / 0.5) : 1;
     this.sprite.setAlpha(0.9 * a);
     this.glow.setAlpha(0.5 * a);
+    this.syncPole(0.9 * a);
     if (Math.random() < dt * 40) this.m.motes(this.x + (Math.random() - 0.5) * 50, this.floor - Math.random() * 70, NECRO);
     const wind = this.info.wind ? `${this.info.sheet}-${this.info.wind}` : null;
     const strike = `${this.info.sheet}-${this.info.strike}`;
@@ -326,6 +350,7 @@ class BossEcho {
       this.done = true;
       this.sprite.destroy();
       this.glow.destroy();
+      this.pole?.destroy();
     }
   }
 }

@@ -41,7 +41,7 @@ export interface DoorDef {
   bar?: boolean;
 }
 
-export type BossId = 'sineiro' | 'arcebispo' | 'carcereira' | 'sombra' | 'reflexo' | 'capataz' | 'cacador';
+export type BossId = 'sineiro' | 'arcebispo' | 'carcereira' | 'sombra' | 'reflexo' | 'capataz' | 'cacador' | 'barqueiro';
 
 // alçapão (cada grupo de '=' do mapa, de cima para baixo e da esquerda para a direita): sólido até a
 // marca existir. auto: com esta outra marca, ele cai sozinho quando o cavaleiro chega perto
@@ -141,6 +141,9 @@ export interface RoomDef {
   logs?: ([number, number] | null)[];
   // manchas do presente: onde a lembrança falha e o vale fica cinza e seco quando ele passa
   present?: Rect[];
+  // a cachoeira grande que cai no fundo, atrás do lago (de x0 a x1, em tiles): não empurra ninguém; na
+  // luta do Barqueiro ela vira Âmbar e puxa a correnteza do lago para o pé dela
+  backFall?: { x0: number; x1: number };
 }
 
 export interface Rect {
@@ -1268,17 +1271,20 @@ const CHAPTER6: Record<'descida' | 'prado' | 'riacho' | 'cachoeiras' | 'gruta' |
     theme: 'vale',
     title: 'O Cais da Lua',
     subtitle: 'O barco que não partiu',
-    exits: [{ side: 'left', to: 'rio', entry: '2', range: [26, 30] }],
+    exits: [{ side: 'left', to: 'rio', entry: '2', range: [27, 30] }],
     ...VALE,
     music: 'memory',
     ambience: 'wind',
+    boss: 'barqueiro',
+    // a cachoeira grande, no fundo do lago (a lua passa por trás dela)
+    backFall: { x0: 43, x1: 48 },
     // o portão do aqueduto, lá em cima da escada: as Torres Rúnicas ainda não existem
     locks: ['torres'],
     // os troncos do lago ficam boiando no lugar
     logs: [null, null, null],
     hints: [],
     thoughts: [
-      { x: 4, text: 'Um cais de madeira. Um barco rodando devagar no meio do lago, sem ninguém remando.' },
+      { x: 4, text: 'Um cais de madeira. No meio do lago, um barco rodando devagar, e alguém de pé nele, parado.' },
       { x: 90, y: 27, text: 'A escada sobe junto do aqueduto. O portão lá em cima está fechado.' },
     ],
   },

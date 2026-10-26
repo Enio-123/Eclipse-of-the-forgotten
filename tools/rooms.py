@@ -2072,17 +2072,23 @@ def rio():
 
 
 def cais():
-    """O Cais da Lua: o lago embaixo da cachoeira grande, onde o barqueiro esperava os passageiros. O
-    cais de madeira entra no lago pela direita; troncos boiam no meio. Arena do Barqueiro. Depois da
-    luta, a escada do aqueduto sobe para as Torres Rúnicas (fechada até a área existir)."""
+    """O Cais da Lua: o lago embaixo da cachoeira grande (ela cai no fundo, atrás do lago: RoomDef
+    backFall), onde o barqueiro esperava os passageiros. Entra-se pela passagem embaixo do paredão da
+    esquerda; a grade desce atrás dele. A margem de cá é curta; o cais de madeira entra no lago pela
+    direita, em postes; troncos boiam no meio. Arena do Barqueiro. Depois da luta, a escada do aqueduto
+    sobe para as Torres Rúnicas (fechada até a área existir)."""
     W, H = 100, 50
     g = Grid(W, H, '.')
-    ground(g, 0, 10, 31)
-    ground(g, 81, 99, 31)
-    ground(g, 11, 80, 46)
-    g.fill(11, 33, 80, 45, '~')
+    ground(g, 0, 14, 31)
+    ground(g, 80, 99, 31)
+    ground(g, 15, 79, 46)
+    g.fill(15, 33, 79, 45, '~')
+    # o paredão por cima da entrada (a passagem do rio, linhas 27 a 30) e a grade da arena
+    g.fill(0, 0, 6, 26, '#')
+    for y in range(27, 31):
+        g.put(6, y, '|')
     # o cais, em postes
-    plank(g, 60, 80, 31)
+    plank(g, 62, 79, 31)
     # a escada do aqueduto: três degraus de pedra até o patamar, e lá em cima o portão das Torres
     # Rúnicas, fechado até a área existir (coluna 'Y' na x 97, trancada por 'torres')
     g.fill(86, 28, 99, 30, '#')
@@ -2092,10 +2098,11 @@ def cais():
     for y in range(17, 22):
         g.put(97, y, 'Y')
     g.put(1, 30, '1')
-    g.put(40, 32, 'X')
-    for x in (26, 40, 52):
+    g.put(30, 32, 'X')
+    # o terceiro tronco fica longe do cais (o barco atracado não fica por cima dele)
+    for x in (24, 38, 50):
         g.put(x, 33, '[')
-    return g.rows(), {(60, 80, 31)}
+    return g.rows(), {(62, 79, 31)}
 
 
 if __name__ == '__main__':

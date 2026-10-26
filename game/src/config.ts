@@ -70,6 +70,9 @@ export const PLAYER = {
   swimDecel: 420,
   strokeVel: 290,
   strokeCd: 0.42,
+  // o Remo do Barqueiro: a remada nadando (px/s para o lado) e no tronco de baixo dos pés
+  rowVel: 330,
+  rowLog: 150,
   floatRise: 120,
   // boiando, a linha d'água fica nesta altura abaixo do alto da cabeça (px)
   floatHead: 15,
@@ -82,8 +85,8 @@ export const PLAYER = {
   knockY: 230,
 };
 
-export type WeaponId = 'sword' | 'scythe' | 'daggers' | 'bow' | 'badalo' | 'incensario' | 'corrente' | 'picareta' | 'lanca' | MageId;
-export const WEAPON_IDS: WeaponId[] = ['sword', 'scythe', 'daggers', 'bow', 'badalo', 'incensario', 'corrente', 'picareta', 'lanca', 'eclipse', 'necro', 'veu', 'espaco'];
+export type WeaponId = 'sword' | 'scythe' | 'daggers' | 'bow' | 'badalo' | 'incensario' | 'corrente' | 'picareta' | 'lanca' | 'remo' | MageId;
+export const WEAPON_IDS: WeaponId[] = ['sword', 'scythe', 'daggers', 'bow', 'badalo', 'incensario', 'corrente', 'picareta', 'lanca', 'remo', 'eclipse', 'necro', 'veu', 'espaco'];
 
 // os quatro magos (o caminho do Mago): cada um com o cajado dele (o golpe básico é a "arma" do
 // cajado em WEAPONS) e a habilidade forte com versões de escolha
@@ -121,6 +124,10 @@ export interface WeaponDef {
   // a lanterna de Âmbar pendurada na arma: ilumina em volta e mostra o rastro de quem lembra demais
   // (as rachaduras das paredes falsas e as pegadas dela, de mais longe)
   lantern?: boolean;
+  // a pá larga do remo: o golpe empurra para longe (os leves vão mais longe) e, nadando ou de pé num
+  // tronco, o golpe para o lado é uma remada (leva o cavaleiro, ou o tronco, junto)
+  shove?: boolean;
+  row?: boolean;
   // cajado de mago: a bolinha de eclipse (no lugar da flecha), o chicote de tinta e o pulso do espaço
   mage?: MageId;
   orb?: boolean;
@@ -183,6 +190,13 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
     boss: { id: 'cacador', name: 'Mestre da Caça', art: 'o', found: 'A lanterna acendeu de novo na minha mão. Ela mostra o rastro de quem lembra demais. Dá para usar em Trocar arma, no menu de pausa.' },
     lunge: true, lantern: true,
     stats: { dano: 3, velocidade: 3, alcance: 5, corrida: 3 },
+  },
+  remo: {
+    id: 'remo', name: 'Remo do Barqueiro', summary: 'A pá larga varre e empurra para longe. Na água, cada remada leva o cavaleiro junto, e de pé num tronco, leva o tronco.',
+    dmg: 1.7, cooldown: 0.5, windup: 0.12, active: 0.13, reach: 80, height: 38, recoil: 60, moveMul: 0.55, ranged: false, speed: 0.96,
+    boss: { id: 'barqueiro', name: 'Barqueiro', art: 'o', found: 'Estava embaixo do banco do barco, enrolado no oleado. A pá larga empurra para longe, e na água cada remada me leva junto. Dá para usar em Trocar arma, no menu de pausa.' },
+    shove: true, row: true,
+    stats: { dano: 3, velocidade: 3, alcance: 4, corrida: 3 },
   },
   eclipse: {
     id: 'eclipse', name: 'Cajado do Eclipse', summary: 'A bolinha de eclipse vai reta e longe. Fraca, mas sai rápido.',
@@ -281,12 +295,13 @@ export const MAGES: Record<MageId, MageDef> = {
   },
 };
 
-// números das magias: a Energia de cada chefe (o mago não pega a arma: a magia fica mais forte),
-// a mira e cada habilidade
+// números das magias: a Energia de cada chefe (o mago não pega a arma: a magia fica mais forte; com
+// todas, bate 60% mais forte e recarrega 40% mais rápido), a mira e cada habilidade
+const BOSS_ENERGY = WEAPON_IDS.filter((w) => !!WEAPONS[w].boss).length;
 export const MAGIC = {
-  energyDmg: 0.15,
-  energyCd: 0.1,
-  maxEnergy: 4,
+  energyDmg: 0.6 / BOSS_ENERGY,
+  energyCd: 0.4 / BOSS_ENERGY,
+  maxEnergy: BOSS_ENERGY,
   aimRange: 176,
   aimSpeed: 230,
   orb: { speed: 300, life: 0.8 },
@@ -595,6 +610,57 @@ export const CACADOR = {
   whiteout: 0.62,
   blink: 0.8,
   rushSpeed: 430,
+};
+
+// O Barqueiro (Cais da Lua): de pé no barco, no lago. A vara varre na altura de onde o cavaleiro pisa
+// (baixa: pule; alta: agache; nadando, ela passa rente à água: mergulhe), a pancada na água solta uma
+// onda para cada lado pela linha d'água (de pé num tronco, pule; nadando, mergulhe), e a corda com o
+// gancho puxa o cavaleiro até a ponta da vara (dois golpes arrebentam a corda). O casco afunda os
+// troncos por onde passa. Na metade ele afunda com o barco: as bolhas seguem o cavaleiro e o barco sobe
+// por baixo dele; a cachoeira do fundo vira Âmbar e puxa o lago para o pé dela, onde a água machuca.
+export const BARQUEIRO = {
+  bodyW: 30,
+  bodyH: 92,
+  hp: 72,
+  phase2: 0.5,
+  think: 0.55,
+  // o barco na vara (px/s, aceleração) e a distância que ele gosta de ficar do cavaleiro
+  pole: 96,
+  accel: 170,
+  keep: 118,
+  // a varrida: preparo, a vara passando, a volta; o alcance a partir dele e a altura de cada faixa
+  // acima de onde o cavaleiro pisa (nadando, rente à água)
+  sweepWind: 0.56,
+  sweepActive: 0.28,
+  sweepRec: 0.52,
+  reach: 168,
+  lowY: 11,
+  highY: 37,
+  swimY: 7,
+  // a pancada: preparo, a volta; a onda (px/s, quanto dura)
+  slamWind: 0.62,
+  slamRec: 0.72,
+  waveSpeed: 205,
+  waveLife: 1.7,
+  // a corda: girando por cima da cabeça, o gancho voando (px/s) até onde vai, o reboque (px/s) e os
+  // golpes que arrebentam a corda; a estocada curta quando ele chega
+  ropeWind: 0.78,
+  hookSpeed: 430,
+  ropeRange: 330,
+  tow: 190,
+  cuts: 2,
+  jabWind: 0.3,
+  jabRec: 0.55,
+  stagger: 1.35,
+  // a segunda fase: afundando, as bolhas seguindo o cavaleiro (s, px/s), o aviso antes de subir, a
+  // coluna que sobe e quanto tempo ele luta em cima antes de afundar de novo; a correnteza do lago
+  sink: 0.9,
+  under: 2.1,
+  underSpeed: 125,
+  warn: 0.8,
+  surgeW: 34,
+  up: 7.5,
+  pull: 58,
 };
 
 // O Reflexo (Câmara de Âmbar): o espelho de Âmbar devolve o cavaleiro com atraso. Ele repete tudo
