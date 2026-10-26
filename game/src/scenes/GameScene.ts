@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { AMBER_BAR, ARCHER, FRAGMENT, INCENSE, MINE_ITEMS, PAL, PARRY, PLAYER, POWERS, QUAKE, TILE, VIEW_H, VIEW_W, WEAPONS, WEAPON_IDS, type PowerId, type WeaponId } from '../config';
+import { AMBER_BAR, ARCHER, FRAGMENT, INCENSE, MAGES, MAGIC, MINE_ITEMS, PAL, PARRY, PLAYER, POWERS, QUAKE, TILE, VIEW_H, VIEW_W, WEAPONS, WEAPON_IDS, type PowerId, type WeaponId } from '../config';
 import { Player, type AttackDir, type PlayerAction } from '../entities/Player';
 import { MemoryEcho } from '../entities/MemoryEcho';
 import { Crawler } from '../entities/Crawler';
@@ -22,6 +22,7 @@ import { overlap, type BossFoe, type Enemy } from '../entities/Enemy';
 import { SmokeField } from '../entities/Smoke';
 import { Arrow } from '../entities/Arrow';
 import { Controls } from '../systems/Controls';
+import { Magic } from '../systems/Magic';
 import { audio, type SfxName, type TrackId } from '../systems/Audio';
 import { gfx, settings } from '../systems/Settings';
 import { MAX_LEVEL, progress, type Upgrade } from '../systems/Save';
@@ -286,6 +287,8 @@ export class GameScene extends Phaser.Scene {
   npcs!: Npcs;
   // as Minas: cristais, escoras, trilhos e vagonete, prensas, registros e blocos de Âmbar
   mine: Mine | null = null;
+  // o caminho do Mago: a mira da habilidade, as magias e os ecos do Grimório (null no Cavaleiro)
+  magic: Magic | null = null;
   // os achados no chão da sala (itens e espaços do inventário)
   finds!: Finds;
   loot!: Loot;
@@ -562,6 +565,9 @@ export class GameScene extends Phaser.Scene {
     this.player.facing = spawn.x < W / 2 ? 1 : -1;
     this.player.canAttack = !room.noAttack;
     if (data.via === 'down') this.player.body.setVelocityY(220);
+    this.magic = progress.mage ? new Magic(this, progress.mage) : null;
+    // o cavaleiro não tem habilidade: o ícone dela some do HUD
+    if (!this.magic) this.registry.set('skill', null);
     this.applyProgress();
     const keepHp = data.from === 'door' ? (this.registry.get('hp') as number | undefined) : undefined;
     this.player.hp = keepHp && keepHp > 0 ? Math.min(keepHp, progress.maxHp) : progress.maxHp;
@@ -680,6 +686,8 @@ export class GameScene extends Phaser.Scene {
     if (pauseBtn) pauseBtn.onclick = () => this.openPause();
     this.events.once('shutdown', () => {
       offGfx();
+      this.magic?.destroy();
+      this.magic = null;
       ui.hint(null);
       ui.bossBar(null);
       ui.onStackChange = null;
@@ -928,7 +936,7 @@ export class GameScene extends Phaser.Scene {
   private oneWayFilter(_obj: unknown, tile: unknown) {
     const t = tile as Phaser.Tilemaps.Tile;
     // no Véu a tinta escorre por entre as barras da cela e atravessa a membrana abissal
-    if (this.player.veiling && this.level.veilCell(t.x, t.y)) return false;
+    if (this.player.veilPassing && this.level.veilCell(t.x, t.y)) return false;
     if (t.index !== TILE_ONEWAY) return true;
     if (this.player.dropT > 0) return false;
     const b = this.player.body;
@@ -969,10 +977,12 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     const p = this.player;
-    if (this.controls.pressed.memory) this.usePower();
+    // mirando, a tecla do poder troca a versão da magia
+    if (this.controls.pressed.memory && !this.magic?.aiming) this.usePower();
     // o vagonete anda antes do cavaleiro (ele vai sentado no assento já no lugar novo)
     this.mine?.update(time, dt, this.stopT > 0);
     p.update(dt, this.controls);
+    this.magic?.update(dt, this.controls);
     this.hookHits();
     if (p.canHook) this.fixtures.markRing(p.hook || p.dead ? null : this.hookTarget(p));
     for (const e of this.enemies) if (!this.hold(e)) e.update(dt);
@@ -1043,6 +1053,8 @@ export class GameScene extends Phaser.Scene {
         if (!e.alive) this.onKill(e);
         // o gancho da corrente traz os leves para perto
         else if (p.weapon.pull && LIGHT.has(e.kind) && (p.atkDir === 'side' || p.atkDir === 'low')) this.pulls.push({ e, dir: Math.sign(p.x - e.zone.x) || 1, t: 0.16 });
+        // o pulso do Cajado da Dobra empurra para longe (o chefe não sai do lugar)
+        else if (p.weapon.pulse && e.kind !== 'boss') this.magic?.shove(e, p.facing, MAGIC.pulse.push, 0.14);
       }
       if (parried) {
         this.onParry(parried.x, parried.y, true);
@@ -1085,6 +1097,8 @@ export class GameScene extends Phaser.Scene {
     for (const e of this.enemies) {
       // parado pela Lembrança, o golpe dele fica no ar sem chegar
       if (this.held.has(e)) continue;
+      // a parede de espaço do mago segura o golpe que vem do outro lado
+      if (this.magic?.shields(e.harmFrom ?? e.zone.x, p.body.center.y)) continue;
       if (e.alive && e.harms(pr, p.untouchable) && p.hurt(e.harmFrom ?? e.zone.x)) {
         this.onHurt();
         break;
@@ -1113,6 +1127,24 @@ export class GameScene extends Phaser.Scene {
         ui.thought('Por um instante, nada me toca.', 3600);
       }
     }
+  }
+
+  // as magias do mago usam o mesmo caminho do golpe: moedas, bestiário, Âmbar e faíscas
+  killed(e: Enemy) {
+    this.onKill(e);
+  }
+
+  gainAmberFrom(e: Enemy) {
+    this.gainAmber(e);
+  }
+
+  sparkAt(x: number, y: number, n: number) {
+    this.sparks.explode(n, x, y);
+  }
+
+  clang(x: number, y: number) {
+    this.clangs.explode(8, x, y);
+    this.sfx('clang', 0.6, 1.1);
   }
 
   // inimigo derrotado: deixa moedas e, de vez em quando, um caco de vida
@@ -1584,10 +1616,33 @@ export class GameScene extends Phaser.Scene {
     this.memEcho?.noteShot(x, y, dx, dy, dmg * progress.dmgFor('bow'));
   }
 
-  // a flecha repetida pelo Eco, do lugar de onde o cavaleiro atirou
+  // a flecha repetida pelo Eco, do lugar de onde o cavaleiro atirou (do Mago do Eclipse, a bolinha)
   echoArrow(x: number, y: number, dx: number, dy: number, dmg: number) {
-    this.arrows.push(new Arrow(this, x, y, dx, dy, dmg, { echo: true }));
-    this.sfx('bow', 0.4, 1.2);
+    const orb = this.player.weapon.orb;
+    this.arrows.push(new Arrow(this, x, y, dx, dy, dmg, orb ? { echo: true, orb: true, speed: MAGIC.orb.speed, life: MAGIC.orb.life } : { echo: true }));
+    this.sfx(orb ? 'swoosh' : 'bow', 0.4, 1.2);
+  }
+
+  // a bolinha do Cajado do Eclipse: reta, rápida e curta; estoura na pedra em vez de cravar
+  spawnOrb(x: number, y: number, dx: number, dy: number, dmg: number) {
+    const d = dmg * progress.dmgFor('eclipse');
+    this.arrows.push(new Arrow(this, x, y, dx, dy, d, { orb: true, speed: MAGIC.orb.speed, life: MAGIC.orb.life }));
+    this.sfx('swoosh', 0.55, 1.7);
+    this.sfx('censer', 0.25, 1.9);
+    if (this.boss instanceof Reflexo && this.boss.alive) this.boss.noteShot(x, y, dx, dy);
+    this.memEcho?.noteShot(x, y, dx, dy, d);
+  }
+
+  // a flecha do arqueiro que voltou do Grimório (acerta inimigos, com a cor do eco)
+  allyArrow(x: number, y: number, dir: number, dmg: number) {
+    this.arrows.push(new Arrow(this, x, y, dir, 0, dmg, { echo: true, tint: MAGES.necro.color }));
+    this.sfx('bow', 0.5, 0.9);
+  }
+
+  // o pulso do Cajado da Dobra (só o desenho: o dano é o do golpe)
+  spacePulse(box: Phaser.Geom.Rectangle, facing: number, _dir: AttackDir) {
+    this.magic?.pulseFx(box, facing);
+    this.sfx('veil', 0.35, 1.8);
   }
 
   // a fragmentação: a onda roxa passa pela sala inteira e a cor some por um instante
@@ -1634,13 +1689,25 @@ export class GameScene extends Phaser.Scene {
       if (a.dead) continue;
       // a Lembrança segura a flecha inimiga no ar
       if (a.hostile && this.stopT > 0) continue;
+      const before = a.rect;
       if (a.update(dt, this.level) === 'wall') {
         this.sparks.explode(4, a.tip.x, a.tip.y);
-        this.sfx('thunk', a.hostile ? 0.6 : 1);
+        if (a.orb) this.orbBurst(a);
+        else this.sfx('thunk', a.hostile ? 0.6 : 1);
         if (!a.hostile) this.fixtures.arrow(a.rect, a.tip, a.x - a.dx * 20);
+        if (a.orb) {
+          this.mine?.magicHit(a.rect);
+          a.destroy();
+        }
         continue;
       }
       if (a.dead || a.stuck) continue;
+      // a parede de espaço do mago segura os tiros (o caminho todo do quadro: num quadro lento a
+      // flecha anda mais que a espessura da parede)
+      if (a.hostile && this.magic?.blocksShot(Phaser.Geom.Rectangle.Union(before, a.rect))) {
+        a.destroy();
+        continue;
+      }
       if (a.hostile) {
         // golpe na flecha: rebate de volta pelo mesmo caminho
         if (p.attacking && overlap(a.rect, p.attackBox())) {
@@ -1657,6 +1724,12 @@ export class GameScene extends Phaser.Scene {
         continue;
       }
       if (this.fixtures.arrow(a.rect, a.tip, a.x - a.dx * 20)) {
+        if (a.orb) this.orbBurst(a);
+        a.destroy();
+        continue;
+      }
+      if (a.orb && this.mine?.magicHit(a.rect)) {
+        this.orbBurst(a);
         a.destroy();
         continue;
       }
@@ -1673,6 +1746,7 @@ export class GameScene extends Phaser.Scene {
           if (!e.alive) this.onKill(e);
           if (!a.echo) this.hitstop(0.035);
         }
+        if (a.orb) this.orbBurst(a);
         a.destroy();
         break;
       }
@@ -1680,10 +1754,30 @@ export class GameScene extends Phaser.Scene {
     this.arrows = this.arrows.filter((a) => !a.dead);
   }
 
+  // a bolinha do eclipse estoura: um anel de fogo curto com o miolo escuro
+  private orbBurst(a: Arrow) {
+    const x = a.x;
+    const y = a.y;
+    this.sfx('censer', 0.4, 1.6);
+    const g = this.add.graphics().setDepth(DEPTH.slash).setBlendMode(Phaser.BlendModes.ADD);
+    this.tweens.addCounter({
+      from: 0,
+      to: 1,
+      duration: 220,
+      ease: 'Quad.easeOut',
+      onUpdate: (tw) => {
+        const k = tw.getValue() ?? 0;
+        g.clear().lineStyle(2, 0xf28c22, 0.9 * (1 - k)).strokeCircle(x, y, 2 + k * 9);
+        g.fillStyle(0xffd27a, 0.7 * (1 - k)).fillCircle(x, y, 3 * (1 - k));
+      },
+      onComplete: () => g.destroy(),
+    });
+  }
+
   private hazards() {
     const p = this.player;
-    // no Véu nem os espinhos tocam o corpo (só na janela do dash)
-    if (this.respawning || p.dead || this.transitioning || p.veiling) return;
+    // no Véu nem os espinhos tocam o corpo (só na janela do dash, e só com a relíquia)
+    if (this.respawning || p.dead || this.transitioning || p.veilPassing) return;
     const b = p.body;
     const spiked = this.level.touchesSpikes(b.x + 1, b.y, b.width - 2, b.height);
     const fell = this.room.pit && b.top > this.level.heightPx + 8;
@@ -1791,10 +1885,10 @@ export class GameScene extends Phaser.Scene {
         ui.thought(t.text);
       });
     }
-    // dica: perto do espelho ela vira um convite; no resto, a dica do trecho
-    let hint: string | null = null;
+    // dica: mirando, a da magia; perto do espelho ela vira um convite; no resto, a dica do trecho
+    let hint: string | null = this.magic?.aimHint ?? null;
     const m = this.decor.mirror;
-    if (m && !this.transitioning && !this.cinematic) {
+    if (m && !hint && !this.transitioning && !this.cinematic) {
       const near = Math.abs(p.x - m.x) < 30 && Math.abs(p.body.bottom - m.y) < 10 && p.onGround;
       if (near) {
         hint = '{up} tocar o espelho';
@@ -2615,6 +2709,7 @@ export class GameScene extends Phaser.Scene {
     this.registry.set('memories', [...progress.memories].map((m) => (progress.traded.has(m) ? 0 : 1)));
     this.registry.set('coins', progress.coins);
     document.body.classList.toggle('has-memory', progress.powers.size > 0);
+    document.body.classList.toggle('is-mage', !!progress.mage);
     this.registry.set('power', progress.power ?? '');
     this.registry.set('amber', progress.amber);
   }
@@ -2826,10 +2921,10 @@ export class GameScene extends Phaser.Scene {
     return Phaser.Math.Clamp(x, 5 * TILE, (this.level.w - 5) * TILE);
   }
 
-  // arma que um chefe deixa (cada chefe tem a sua)
+  // arma que um chefe deixa (cada chefe tem a sua; para o mago ela vira Energia)
   private bossWeapon(boss: string): WeaponId | null {
     const id = WEAPON_IDS.find((w) => WEAPONS[w].boss?.id === boss);
-    return id && !progress.hasWeapon(id) ? id : null;
+    return id && !progress.claimed(id) ? id : null;
   }
 
   private bossFight() {
@@ -3025,6 +3120,16 @@ export class GameScene extends Phaser.Scene {
     pad.rumble(0.6, 0.8, 400);
   }
 
+  // nos testes: faz nascer um inimigo do mapa em qualquer ponto da sala (não conta como trecho)
+  spawn(kind: string, x: number, y: number) {
+    const make = SPAWNERS[kind];
+    if (!make || this.transitioning) return null;
+    const e = make(this, x, y);
+    this.enemies.push(e);
+    this.physics.add.collider(e.zone, this.level.layer);
+    return e;
+  }
+
   // o chefe chama ajuda: nasce como os do mapa, mas não conta como trecho do caminho
   summon(kind: string, x: number, y: number) {
     const make = SPAWNERS[kind];
@@ -3063,10 +3168,14 @@ export class GameScene extends Phaser.Scene {
 
   // ---------- armas de chefe ----------
   private dropWeapon(id: WeaponId, x: number, floorY: number, animate: boolean) {
-    if (this.weaponDrop || progress.hasWeapon(id)) return;
+    if (this.weaponDrop || progress.claimed(id)) return;
     const y = floorY - 16;
-    const glow = this.add.image(x, y, 'glow').setScale(2).setTint(0xffc46a).setAlpha(0.5).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.front);
-    const sprite = hd(this.add.image(x, y, `item-${id}`).setDepth(DEPTH.enemy + 0.5));
+    // para o mago o chefe deixa a Energia dele: uma esfera na cor da escola, no lugar da arma
+    const mage = progress.mage;
+    const tint = mage ? MAGES[mage].color : 0xffc46a;
+    const glow = this.add.image(x, y, 'glow').setScale(2).setTint(tint).setAlpha(0.5).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.front);
+    const sprite = hd(this.add.image(x, y, mage ? 'mage-energy' : `item-${id}`).setDepth(DEPTH.enemy + 0.5));
+    if (mage) sprite.setTint(0xffffff, 0xffffff, tint, tint);
     const d: WeaponDrop = { id, x, y, t: 0, sprite, glow, ready: !animate };
     this.weaponDrop = d;
     if (!animate) return;
@@ -3132,17 +3241,22 @@ export class GameScene extends Phaser.Scene {
         d.glow.destroy();
       },
     });
+    const mage = progress.mage;
     this.time.delayedCall(1250, () => {
       this.sfx('bell', 0.7, 1.3);
-      this.glowBurst(p.x, p.body.center.y, 0xffc46a, 6);
+      this.glowBurst(p.x, p.body.center.y, mage ? MAGES[mage].color : 0xffc46a, 6);
       this.cameras.main.flash(200, 70, 60, 40);
       pad.rumble(0.3, 0.6, 300);
-      ui.banner(W.name, 'Arma liberada', 4000);
+      const b = W.boss;
+      if (mage && b) ui.banner(`Energia d${b.art} ${b.name}`, `A magia ficou mais forte · ${progress.energy} de ${MAGIC.maxEnergy}`, 4000);
+      else ui.banner(W.name, 'Arma liberada', 4000);
+      this.registry.set('skill', { ...((this.registry.get('skill') as object | undefined) ?? {}), energy: progress.energy });
     });
     this.time.delayedCall(4000, () => {
       p.frozen = false;
       this.cinematic = false;
-      if (W.boss) ui.thought(W.boss.found, 5200);
+      if (mage) ui.thought(W.id === 'picareta' ? 'A força dele entrou no cajado. Agora o Âmbar cede à magia também.' : 'A força dele entrou no cajado. A magia bate mais forte e volta mais rápido.', 5200);
+      else if (W.boss) ui.thought(W.boss.found, 5200);
     });
   }
 
@@ -3307,7 +3421,8 @@ export class GameScene extends Phaser.Scene {
           onBack: () => ui.pop(),
         }),
       onJournal: progress.seen.has('journal') ? () => ui.journal({ onBack: () => ui.pop() }) : undefined,
-      onWeapon: () =>
+      // o mago fica com o cajado dele até o fim: não há o que trocar
+      onWeapon: progress.mage ? undefined : () =>
         ui.weapons({
           current: settings.data.weapon,
           has: (w) => progress.hasWeapon(w),

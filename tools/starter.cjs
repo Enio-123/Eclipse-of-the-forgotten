@@ -20,6 +20,8 @@ const OUT = process.argv[2] || 'shots/x';
   };
   // jogo novo: a tela de armas mostra as quatro de começo
   await page.click('#screen-menu [data-cmd="new"]');
+  await page.waitForSelector('#screen-path.show', { timeout: 10000 });
+  await page.click('#screen-path [data-cmd="confirm"]');
   await page.waitForSelector('#screen-weapons.show', { timeout: 10000 });
   const first = await page.$$eval('#screen-weapons .card', (cs) => cs.map((c) => c.dataset.w + (c.disabled ? '-' : '')));
   console.log('jogo novo:', first.join(' '));

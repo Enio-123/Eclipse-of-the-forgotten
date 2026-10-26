@@ -4,13 +4,15 @@ import { progress } from '../systems/Save';
 import { fixedCamera } from '../gfx/view';
 
 // Interface do jogo: a máscara (memórias seladas com ouro), os fragmentos de vida, as memórias
-// guardadas (as trocadas com o Cobrador ficam apagadas), as contas de Âmbar dos poderes e as moedas
-// (texto em HTML, nítido em qualquer tela)
+// guardadas (as trocadas com o Cobrador ficam apagadas), as contas de Âmbar dos poderes, a
+// habilidade do mago e as moedas (texto em HTML, nítido em qualquer tela)
 export class HudScene extends Phaser.Scene {
   private shards: Phaser.GameObjects.Image[] = [];
   private mems: Phaser.GameObjects.Image[] = [];
   private mask!: Phaser.GameObjects.Image;
   private root!: Phaser.GameObjects.Container;
+  private skGlow: Phaser.GameObjects.Image | null = null;
+  private skAiming = false;
 
   constructor() {
     super('hud');
@@ -165,6 +167,64 @@ export class HudScene extends Phaser.Scene {
       });
       amberShown = a;
     };
+    // habilidade do mago: o desenho da escola num disco escuro embaixo da máscara. A recarga enche
+    // o anel em volta (no sentido do relógio, a partir de cima) e os quatro pontinhos embaixo são a
+    // Energia dos chefes vencidos
+    type SkillHud = { mage: string; color: number; cd: number; max: number; aiming: boolean; energy: number };
+    const SK_R = 8.5;
+    const sk = this.add.container(24, 66);
+    const skGlow = this.add.image(0, 0, 'glow').setBlendMode(Phaser.BlendModes.ADD).setScale(0.46).setAlpha(0);
+    const skG = this.add.graphics();
+    const skIcon = this.add.image(0, 0, 'skill-eclipse').setScale((this.registry.get('skill-eclipse-scale') as number | undefined) ?? 0.25);
+    const skPips = this.add.graphics();
+    sk.add([skGlow, skG, skIcon, skPips]);
+    this.root.add(sk);
+    this.skGlow = skGlow;
+    let skReady: boolean | null = null;
+    const syncSkill = () => {
+      const st = this.registry.get('skill') as SkillHud | null | undefined;
+      sk.setVisible(!!st);
+      this.skAiming = !!st?.aiming;
+      if (!st) {
+        skReady = null;
+        return;
+      }
+      // sem as contas de Âmbar ainda, o ícone sobe para perto da máscara
+      sk.y = progress.powers.size > 0 ? 66 : 57;
+      const k = st.max > 0 ? Phaser.Math.Clamp(1 - st.cd / st.max, 0, 1) : 1;
+      const ready = st.cd <= 0;
+      skG.clear();
+      skG.fillStyle(0x0a0b12, 0.8).fillCircle(0, 0, SK_R);
+      skG.lineStyle(1.6, 0x2c2e3c, 1).strokeCircle(0, 0, SK_R);
+      if (k > 0) {
+        skG.lineStyle(1.6, st.color, ready ? 1 : 0.7);
+        skG.beginPath();
+        skG.arc(0, 0, SK_R, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2, false);
+        skG.strokePath();
+      }
+      const key = `skill-${st.mage}`;
+      if (skIcon.texture.key !== key) skIcon.setTexture(key);
+      skIcon.setTint(ready ? st.color : 0x5c6072).setAlpha(ready ? 1 : 0.85);
+      skGlow.setTint(st.color);
+      if (!st.aiming) skGlow.setAlpha(ready ? 0.26 : 0);
+      skPips.clear();
+      for (let i = 0; i < 4; i++) {
+        const x = -7.5 + i * 5;
+        const y = SK_R + 4.5;
+        const pts = [new Phaser.Math.Vector2(x, y - 2), new Phaser.Math.Vector2(x + 2, y), new Phaser.Math.Vector2(x, y + 2), new Phaser.Math.Vector2(x - 2, y)];
+        if (i < st.energy) skPips.fillStyle(st.color, 1).fillPoints(pts, true);
+        else skPips.fillStyle(0x0a0b12, 0.8).fillPoints(pts, true).lineStyle(0.8, 0x4a4d5e, 1).strokePoints(pts, true);
+      }
+      // a recarga terminou: o desenho acende com um estalo
+      if (ready && skReady === false) {
+        sparks.explode(10, sk.x, sk.y);
+        this.tweens.add({ targets: skIcon, scale: { from: skIcon.scale * 1.5, to: skIcon.scale }, duration: 360, ease: 'Back.easeOut' });
+      }
+      skReady = ready;
+    };
+    const denySkill = () => {
+      this.tweens.add({ targets: sk, x: { from: 21.5, to: 24 }, duration: 260, ease: 'Bounce.easeOut' });
+    };
     const denyAmber = () => {
       for (const b of beads) this.tweens.add({ targets: [b.bg, b.fill, b.glow], x: { from: b.x - 2.5, to: b.x }, duration: 260, ease: 'Bounce.easeOut' });
     };
@@ -182,10 +242,14 @@ export class HudScene extends Phaser.Scene {
       ['changedata-amber', syncAmber], ['setdata-amber', syncAmber],
       ['changedata-power', syncAmber], ['setdata-power', syncAmber],
       ['changedata-amber-deny', denyAmber], ['setdata-amber-deny', denyAmber],
+      ['changedata-skill', syncSkill], ['setdata-skill', syncSkill],
+      ['changedata-power', syncSkill], ['setdata-power', syncSkill],
+      ['changedata-skill-deny', denySkill], ['setdata-skill-deny', denySkill],
     ];
     for (const [e, f] of events) this.registry.events.on(e, f);
     this.events.once('shutdown', () => {
       for (const [e, f] of events) this.registry.events.off(e, f);
+      this.skGlow = null;
       clearTimeout(gainTimer);
       coinEl?.classList.remove('on', 'bump');
       coinGain?.classList.remove('on');
@@ -207,7 +271,13 @@ export class HudScene extends Phaser.Scene {
     syncMems();
     syncMask();
     syncAmber();
+    syncSkill();
     syncVis();
     if (coinNum) coinNum.textContent = String(coinsShown);
+  }
+
+  // mirando: o brilho em volta da habilidade pulsa
+  update(time: number) {
+    if (this.skAiming && this.skGlow) this.skGlow.setAlpha(0.42 + Math.sin(time / 110) * 0.16);
   }
 }

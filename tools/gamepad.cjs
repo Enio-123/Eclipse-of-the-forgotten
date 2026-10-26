@@ -88,7 +88,12 @@ const check = (name, ok, extra = '') => {
   // ---------- começa um jogo novo só com o controle ----------
   for (let k = 0; k < 4 && (await focused()) !== 'Novo jogo'; k++) await tap(12);
   await tap(0);
+  await page.waitForSelector('#screen-path.show', { timeout: 3000 });
+  const pathFocus = await page.evaluate(() => document.activeElement?.classList.contains('path-knight'));
+  check('o caminho abre com o foco no Cavaleiro', !!pathFocus);
+  await tap(0);
   await page.waitForSelector('#screen-weapons.show', { timeout: 3000 });
+  check('botão de baixo na carta escolhida confirma o caminho', true);
   await tap(15);
   const w = await page.evaluate(() => document.querySelector('.card[aria-checked="true"]')?.dataset.w);
   check('direcional troca a arma', w === 'sword', w);

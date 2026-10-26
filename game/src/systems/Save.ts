@@ -1,7 +1,9 @@
-import { AMBER_BAR, PLAYER, POWERS, POWER_IDS, WEAPONS, WEAPON_IDS, type PowerId, type WeaponId } from '../config';
+import { AMBER_BAR, MAGE_IDS, MAGIC, PLAYER, POWERS, POWER_IDS, WEAPONS, WEAPON_IDS, type MageId, type PowerId, type WeaponId } from '../config';
 
-// as quatro armas de começo (as outras vêm dos chefes)
-export const STARTERS: WeaponId[] = WEAPON_IDS.filter((w) => !WEAPONS[w].boss);
+// as quatro armas de começo do cavaleiro (as outras vêm dos chefes; os cajados são dos magos)
+export const STARTERS: WeaponId[] = WEAPON_IDS.filter((w) => !WEAPONS[w].boss && !WEAPONS[w].mage);
+// as armas que os chefes deixam: para o mago, cada uma vira uma Energia
+export const BOSS_WEAPONS: WeaponId[] = WEAPON_IDS.filter((w) => !!WEAPONS[w].boss);
 import type { Ability, RoomId } from '../world/rooms';
 import { OFFERS, SLOTS } from '../world/lore';
 
@@ -11,7 +13,8 @@ export interface SaveData {
   entry: string;
   weapon: WeaponId;
   // a arma escolhida no começo: vale para o jogo inteiro, as outras três não voltam
-  // (null num save de antes dessa regra que estava com uma arma de chefe: escolhe uma vez)
+  // (null num save de antes dessa regra que estava com uma arma de chefe: escolhe uma vez).
+  // No caminho do Mago é o cajado dele
   starter: WeaponId | null;
   kintsugi: number;
   prologueDone: boolean;
@@ -77,9 +80,9 @@ const echoOf = (v: unknown): Echo | null => {
   return { room: e.room as RoomId, x: e.x!, y: e.y!, coins: Math.floor(e.coins!) };
 };
 
-// arma do começo: a gravada; num save antigo, a que ele estava usando (se não for de chefe)
+// arma do começo: a gravada (ou o cajado do mago); num save antigo, a que ele estava usando (se não for de chefe)
 const starterOf = (d: Partial<SaveData>): WeaponId | null => {
-  if (STARTERS.includes(d.starter as WeaponId)) return d.starter as WeaponId;
+  if (STARTERS.includes(d.starter as WeaponId) || MAGE_IDS.includes(d.starter as MageId)) return d.starter as WeaponId;
   return STARTERS.includes(d.weapon as WeaponId) ? (d.weapon as WeaponId) : null;
 };
 
@@ -271,9 +274,35 @@ export const progress = {
     return this.levels.get(w) ?? 0;
   },
 
-  // dano de uma arma com as melhorias ligadas e o nível do ferreiro
+  // dano de uma arma com as melhorias ligadas e o nível do ferreiro (no mago, também a Energia dos chefes)
   dmgFor(w: WeaponId) {
-    return this.dmgMul * LEVEL_MUL[this.level(w)];
+    return this.dmgMul * LEVEL_MUL[this.level(w)] * (this.mage ? 1 + MAGIC.energyDmg * this.energy : 1);
+  },
+
+  // ---------- magos ----------
+  // o caminho do Mago: o cajado escolhido no começo (null no caminho do Cavaleiro)
+  get mage(): MageId | null {
+    return (this.starter && WEAPONS[this.starter].mage) || null;
+  },
+
+  // quantas Energias de chefe o mago já pegou (a arma de cada chefe vira uma)
+  get energy() {
+    return Math.min(MAGIC.maxEnergy, BOSS_WEAPONS.filter((w) => this.seen.has(`weapon:${w}`)).length);
+  },
+
+  // recarga da habilidade forte com a Energia (cada uma tira 10%)
+  get skillCdMul() {
+    return 1 - MAGIC.energyCd * this.energy;
+  },
+
+  // o que o chefe deixou já foi pego (a arma, ou a Energia no mago)
+  claimed(w: WeaponId) {
+    return this.seen.has(`weapon:${w}`);
+  },
+
+  // a Energia do Capataz faz a magia quebrar o Âmbar (no cavaleiro, quem quebra é a picareta)
+  get mageBreaksAmber() {
+    return !!this.mage && this.claimed('picareta');
   },
 
   // ---------- inventário ----------
@@ -316,15 +345,18 @@ export const progress = {
   },
 
   // ---------- armas ----------
-  // de chefe: depois da vitória; de começo: só a escolhida (sem escolha gravada, qualquer uma)
+  // de chefe: depois da vitória; de começo: só a escolhida (sem escolha gravada, qualquer uma).
+  // O mago só tem o cajado dele (o que o chefe deixa vira Energia), e o cavaleiro nunca tem cajado
   hasWeapon(id: WeaponId) {
+    if (this.mage) return id === this.starter;
+    if (WEAPONS[id].mage) return false;
     if (WEAPONS[id].boss) return this.seen.has(`weapon:${id}`);
     return !this.starter || id === this.starter;
   },
 
   // escolhe a arma do começo de vez (jogo novo, ou a primeira troca num save antigo)
   setStarter(id: WeaponId) {
-    if (WEAPONS[id].boss || this.starter) return;
+    if (WEAPONS[id].boss || WEAPONS[id].mage || this.starter) return;
     this.starter = id;
     this.save();
   },

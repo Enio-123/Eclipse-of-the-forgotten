@@ -47,3 +47,29 @@ mudar. A arte do cajado do Eclipse é dele: `magos/cajado-eclipse-arte-enio.png`
 ## Arte
 - Cada mago com um cajado próprio, no nível da arte do Enio: Eclipse (a dele), Necromante, Véu, Espaço.
 - O cavaleiro com o cajado e animações de lançar (básico, mira, soltar).
+
+## Como ficou no jogo (v16, 26/10/2026)
+- Jogo novo: Novo jogo abre "Escolha o caminho" (Cavaleiro ou Mago, com o cavaleiro animado em cada
+  carta). Mago leva à tela dos quatro magos: a ilustração do cajado (a do Eclipse com "Arte do cajado:
+  Enio"), o cavaleiro lançando, o golpe básico, a habilidade com as versões e a recarga de cada uma, e
+  as barras de dano, velocidade, alcance e corrida. Voltar mantém o que estava escolhido.
+- Teclas: a habilidade abre a mira com o clique direito ou I (R1 no controle; no celular, o botão novo
+  em cima do pulo). Setas ou mouse mexem a mira no chão, cima e baixo (ou Q/R) trocam a versão,
+  clique esquerdo ou J solta, e a própria habilidade, pular ou dash cancelam. Só mira com os pés no chão.
+- A mira mostra o arco pontilhado da ponta do cajado até o chão e o desenho do que vai sair ali; em
+  cinza com um X quando não dá (sem chão, parede no meio, Mergulho sem caminho de chão).
+- HUD: embaixo da máscara, o desenho da escola num disco; o anel em volta enche com a recarga, acende
+  com um estalo quando volta, treme se tentar usar antes e pulsa enquanto mira. Embaixo, quatro
+  pontinhos: a Energia dos chefes.
+- Energia: o chefe deixa uma esfera na cor da escola no lugar da arma. Cada uma: +15% de dano na
+  magia e no básico, -10% na recarga (até 4). A do Capataz também faz a magia quebrar o Âmbar.
+- O mago não troca de cajado (a pausa não tem Trocar arma); o ferreiro melhora o cajado; o inventário
+  mostra "Cajado e Energia".
+- Números: Eclipse (bolinha 0,7 a cada 0,3 s; Coluna 3,0, Leque 1,8 e empurra, recarga 7 s);
+  Necromante (bordão 1,1; eco 12 s, dois de cada vez, recarga 12 s; eco de chefe 3 s com golpe de 5,0
+  que escudo nenhum segura, recarga 20 s); Véu (chicote 0,9 com alcance 84; Tentáculos 3x1,4 e
+  Mergulho 2,4, recarga 10 s; dash de tinta atravessa golpes e inimigos, grade e membrana só com a
+  relíquia); Espaço (pulso 1,2 que empurra; Torre 4,0 na queda, recarga 18 s; Parede que protege 5 s
+  segurando golpes e tiros, Parede que empurra 0,8 e joga longe, recarga 8 s).
+- Agachado, a bolinha do Eclipse sai rente ao chão (como a flecha do arco), para pegar os rastejantes.
+- A sombra que fica onde o mago cai segura o cajado dele e bate de perto (a magia não volta com ela).

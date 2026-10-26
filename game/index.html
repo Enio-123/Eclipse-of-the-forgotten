@@ -30,6 +30,9 @@
       <button data-action="memory" aria-label="Poder de memória">
         <svg viewBox="0 0 24 24"><path d="M12 3l6 9-6 9-6-9zM12 8v8M9.5 12h5" /></svg>
       </button>
+      <button data-action="skill" aria-label="Habilidade do mago">
+        <svg viewBox="0 0 24 24"><path d="M5 20L14 11M14 11l1.6-4.4L20 5l-1.6 4.4zM17.6 13.5a5.5 5.5 0 0 1-7.1 7.1M6.4 9.4a5.5 5.5 0 0 1 4.1-4.9" /></svg>
+      </button>
     </div>
     <button id="pause-btn" aria-label="Pausar">
       <svg viewBox="0 0 24 24"><path d="M9 6v12M15 6v12" /></svg>
@@ -80,6 +83,40 @@
           <button data-cmd="cancel">Cancelar</button>
           <button data-cmd="confirm" class="danger">Apagar tudo</button>
         </nav>
+      </div>
+    </section>
+
+    <section id="screen-path" class="screen">
+      <div class="panel wide">
+        <h2>Escolha o caminho</h2>
+        <p class="sub">Nos dois caminhos ele é o último carrasco de Vespera. Muda só o jeito de lutar, e a escolha vale para o jogo inteiro.</p>
+        <div class="path-cards" role="radiogroup" aria-label="Caminhos"></div>
+        <div class="row">
+          <button data-cmd="back" class="ghost">Voltar</button>
+          <button data-cmd="confirm" class="primary">Continuar</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-mages" class="screen">
+      <div class="panel wide">
+        <h2>Escolha o seu mago</h2>
+        <p class="sub">Quatro escolas de magia. O cajado escolhido vai com você até o fim, e cada chefe vencido deixa Energia para ele.</p>
+        <div class="mage-list" role="radiogroup" aria-label="Magos"></div>
+        <div class="mage-detail">
+          <figure class="mage-art"><img alt="" /><figcaption></figcaption></figure>
+          <div class="mage-info">
+            <div class="mage-side">
+              <div class="mage-view view" aria-hidden="true"></div>
+              <div class="mage-stats"></div>
+            </div>
+            <div class="mage-text"></div>
+          </div>
+        </div>
+        <div class="row">
+          <button data-cmd="back" class="ghost">Voltar</button>
+          <button data-cmd="confirm" class="primary">Começar</button>
+        </div>
       </div>
     </section>
 
@@ -228,7 +265,7 @@
           <div class="inv-powers" role="radiogroup" aria-label="Poder de memória"></div>
         </section>
         <div class="inv-more">
-          <section><h3>Armas <span>troque em Trocar arma</span></h3><ul class="inv-weapons"></ul></section>
+          <section><h3 class="inv-weapons-head">Armas <span>troque em Trocar arma</span></h3><ul class="inv-weapons"></ul></section>
           <section><h3>Relíquias</h3><ul class="inv-relics"></ul></section>
           <section class="inv-extra-wrap" hidden><h3>Espaços a mais</h3><ul class="inv-extra"></ul></section>
         </div>

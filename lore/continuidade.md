@@ -90,7 +90,11 @@ O que o jogo só pode afirmar no fim: que ele matou Arielle, e por quê. Antes d
 7. Vale das Cachoeiras: o plano de partir; o nome na areia termina de aparecer.
 8. Torres Rúnicas: o que ela descobriu, o mecanismo, a noite.
 
-## 8. Minas Abandonadas (a próxima área, já com a lore)
+## 8. Minas Abandonadas (pronta no jogo desde a v15, 26/10/2026)
+
+- No jogo: 11 salas, o Reflexo no espelho e O Capataz de Âmbar (nome decidido), a Picareta do Capataz
+  (quebra o Âmbar), os poderes de memória (Lembrança, Eco, Remendo), os seis itens das Minas e os
+  dois espaços escondidos. Abaixo, a lore que guiou a área.
 
 - Revela: os trabalhadores cavavam o Âmbar bruto, que vai sugando a memória de quem passa tempo demais perto dele; quando o veio secava, a Casa Vhalor mandou instalar prensas que espremiam a memória das pessoas direto no Âmbar. É a origem industrial.
 - Chefe: o Capataz, que tocava as prensas e acabou coberto de Âmbar cristalizado. Vencido, mostra a revelação que muda o jogo: as luzes douradas que o cavaleiro coleta desde a ponte são Âmbar, memória de gente. Nome a decidir entre "O Capataz de Cristal" (o do plano) e "O Capataz de Âmbar" (mais coerente com a lore).
@@ -109,4 +113,5 @@ O que o jogo só pode afirmar no fim: que ele matou Arielle, e por quê. Antes d
 ## 10. O que está pronto e o que não está
 
 - Pronto no jogo: 12 memórias, 14 páginas do diário, falas da irmã Luzia, do Brás, do Tomé e dos esquecidos, 3 fins de capítulo, a abertura, o bestiário.
-- Não existe ainda: registros, memórias essenciais, versões com prova, corrupção, momentos decisivos, cenas de eco, os três finais, o nome de Arielle, a Casa Vhalor, o Âmbar e a Coroação no texto do jogo, e as quatro áreas novas.
+- Pronto também: as Minas Abandonadas (v15) e o caminho do Mago com os quatro magos (v16; ver `magos.md`). Nos dois caminhos ele segue sendo o último carrasco de Vespera.
+- Não existe ainda: registros, memórias essenciais, versões com prova, corrupção, momentos decisivos, cenas de eco, os três finais, o nome de Arielle, a Casa Vhalor e a Coroação no texto do jogo, e as três áreas novas que faltam (Floresta Nevada, Vale das Cachoeiras, Torres Rúnicas).

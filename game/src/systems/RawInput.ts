@@ -52,6 +52,28 @@ class RawInput {
     window.addEventListener('pointerup', (e) => {
       if (e.pointerType === 'mouse') this.held.delete(`Mouse${e.button}`);
     });
+    // com um botão já apertado, o segundo (o clique de lançar com a mira aberta, por exemplo) não
+    // gera pointerdown, só pointermove com outros botões: compara o que mudou
+    // (um botão que já vinha apertado de fora do jogo, ou de um menu, fica de fora até soltar)
+    const BIT_BUTTON = [0, 2, 1, 3, 4];
+    const outside = new Set<string>();
+    window.addEventListener('pointermove', (e) => {
+      if (e.pointerType !== 'mouse') return;
+      const inGame = !!(e.target as HTMLElement | null)?.closest?.('#game');
+      for (let i = 0; i < BIT_BUTTON.length; i++) {
+        const code = `Mouse${BIT_BUTTON[i]}`;
+        const on = (e.buttons & (1 << i)) !== 0;
+        if (!on) {
+          this.held.delete(code);
+          outside.delete(code);
+        } else if (!this.held.has(code) && !outside.has(code)) {
+          if (inGame && this.enabled) {
+            this.held.add(code);
+            this.latched.add(code);
+          } else outside.add(code);
+        }
+      }
+    });
   }
 
   startCapture(cb: (code: string) => void) {

@@ -938,10 +938,10 @@ export class Mine {
     }
   }
 
-  // golpe no Âmbar: só a Picareta quebra; as outras armas tilintam
+  // golpe no Âmbar: só a Picareta quebra (e a magia, depois da Energia do Capataz); as outras armas tilintam
   private hitPlug(pl: Plug, p: Player) {
     const s = this.s;
-    if (!p.weapon.pick) {
+    if (!p.weapon.pick && !progress.mageBreaksAmber) {
       pl.shakeT = 0.18;
       s.sfx('tink', 0.9, 0.7);
       s.sfx('clang', 0.4, 1.6);
@@ -949,6 +949,27 @@ export class Mine {
       s.thinkOnce('mine:amber', 'O Âmbar não cede. Precisa de uma ferramenta feita para a pedra.');
       return;
     }
+    this.breakPlug(pl);
+  }
+
+  // a magia (bolinha, feixe, torre) bateu no Âmbar: só quebra com a Energia do Capataz
+  magicHit(box: Phaser.Geom.Rectangle) {
+    let hit = false;
+    for (const pl of [...this.plugs]) {
+      if (!overlap(box, pl.rect)) continue;
+      hit = true;
+      if (progress.mageBreaksAmber) this.breakPlug(pl);
+      else if (pl.shakeT <= 0) {
+        pl.shakeT = 0.18;
+        this.s.sfx('tink', 0.7, 0.8);
+        this.s.thinkOnce('mine:amber:magic', 'A magia escorre pelo Âmbar sem quebrar. Ele guarda a força como guarda as lembranças.');
+      }
+    }
+    return hit;
+  }
+
+  private breakPlug(pl: Plug) {
+    const s = this.s;
     progress.seen.add(pl.id);
     progress.save();
     s.level.openAmber(pl.cells);

@@ -49,15 +49,17 @@ export class Echo implements Enemy {
   private aimY = 0;
 
   constructor(private scene: GameScene, x: number, feetY: number, weapon: WeaponId) {
-    // o arco não corta: a sombra dele usa a espada
-    const w: WeaponId = WEAPONS[weapon].ranged ? 'sword' : weapon;
+    // o arco não corta: a sombra dele usa a espada. A sombra do mago fica com o cajado e bate com ele
+    // de perto, como um bordão (a magia não volta com ela)
+    const mage = !!WEAPONS[weapon].mage;
+    const w: WeaponId = WEAPONS[weapon].ranged && !mage ? 'sword' : weapon;
     this.sheet = `knight-${w}`;
-    this.slashKey = SLASH_KEY[w] ?? 'slash';
+    this.slashKey = (mage ? 'slash' : SLASH_KEY[w]) ?? 'slash';
     const meta = (scene.registry.get('slashes') as Record<string, SlashMeta>)[this.slashKey];
     this.slashOx = meta?.ox ?? 0.2;
     this.slashK = 1 / (meta?.scale ?? 1);
-    this.reach = Math.min(WEAPONS[w].reach, 74);
-    this.tall = Math.min(WEAPONS[w].height, 48);
+    this.reach = Math.min(WEAPONS[w].reach || 48, 74);
+    this.tall = Math.min(WEAPONS[w].height || 40, 48);
     this.home = new Phaser.Math.Vector2(x, feetY - 8);
     this.zone = scene.add.zone(x, this.home.y - C.bodyH / 2, C.bodyW, C.bodyH);
     scene.physics.add.existing(this.zone);

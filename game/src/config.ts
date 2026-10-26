@@ -57,8 +57,13 @@ export const PLAYER = {
   knockY: 230,
 };
 
-export type WeaponId = 'sword' | 'scythe' | 'daggers' | 'bow' | 'badalo' | 'incensario' | 'corrente' | 'picareta';
-export const WEAPON_IDS: WeaponId[] = ['sword', 'scythe', 'daggers', 'bow', 'badalo', 'incensario', 'corrente', 'picareta'];
+export type WeaponId = 'sword' | 'scythe' | 'daggers' | 'bow' | 'badalo' | 'incensario' | 'corrente' | 'picareta' | MageId;
+export const WEAPON_IDS: WeaponId[] = ['sword', 'scythe', 'daggers', 'bow', 'badalo', 'incensario', 'corrente', 'picareta', 'eclipse', 'necro', 'veu', 'espaco'];
+
+// os quatro magos (o caminho do Mago): cada um com o cajado dele (o golpe básico é a "arma" do
+// cajado em WEAPONS) e a habilidade forte com versões de escolha
+export type MageId = 'eclipse' | 'necro' | 'veu' | 'espaco';
+export const MAGE_IDS: MageId[] = ['eclipse', 'necro', 'veu', 'espaco'];
 
 export interface WeaponDef {
   id: WeaponId;
@@ -86,6 +91,11 @@ export interface WeaponDef {
   pull?: boolean;
   // a ponta feita para a pedra: quebra os blocos de Âmbar das minas (a picareta)
   pick?: boolean;
+  // cajado de mago: a bolinha de eclipse (no lugar da flecha), o chicote de tinta e o pulso do espaço
+  mage?: MageId;
+  orb?: boolean;
+  whip?: boolean;
+  pulse?: boolean;
   stats: { dano: number; velocidade: number; alcance: number; corrida: number };
 }
 
@@ -137,6 +147,122 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
     pick: true,
     stats: { dano: 4, velocidade: 2, alcance: 2, corrida: 2 },
   },
+  eclipse: {
+    id: 'eclipse', name: 'Cajado do Eclipse', summary: 'A bolinha de eclipse vai reta e longe. Fraca, mas sai rápido.',
+    dmg: 0.7, cooldown: 0.3, windup: 0.05, active: 0, reach: 0, height: 0, recoil: 0, moveMul: 0.85, ranged: true, speed: 1,
+    mage: 'eclipse', orb: true,
+    stats: { dano: 2, velocidade: 4, alcance: 5, corrida: 3 },
+  },
+  necro: {
+    id: 'necro', name: 'Cajado do Grimório', summary: 'Bate de perto como um bordão: no começo ainda não há ninguém para trazer de volta.',
+    dmg: 1.1, cooldown: 0.36, windup: 0.06, active: 0.1, reach: 48, height: 40, recoil: 120, moveMul: 0.9, ranged: false, speed: 1,
+    mage: 'necro',
+    stats: { dano: 3, velocidade: 3, alcance: 2, corrida: 3 },
+  },
+  veu: {
+    id: 'veu', name: 'Cajado do Véu Abissal', summary: 'Um chicote de tinta sai da forquilha e estala longe. O dash vira tinta.',
+    dmg: 0.9, cooldown: 0.42, windup: 0.08, active: 0.12, reach: 84, height: 24, recoil: 70, moveMul: 0.75, ranged: false, speed: 1.04,
+    mage: 'veu', whip: true,
+    stats: { dano: 2, velocidade: 3, alcance: 4, corrida: 4 },
+  },
+  espaco: {
+    id: 'espaco', name: 'Cajado da Dobra', summary: 'Um pulso curto entorta o espaço na frente dele e empurra quem estiver ali.',
+    dmg: 1.2, cooldown: 0.5, windup: 0.1, active: 0.1, reach: 56, height: 58, recoil: 60, moveMul: 0.6, ranged: false, speed: 0.96,
+    mage: 'espaco', pulse: true,
+    stats: { dano: 3, velocidade: 2, alcance: 3, corrida: 2 },
+  },
+};
+
+// ---------- magos ----------
+// uma versão da habilidade forte (a seta para cima ou para baixo troca, mirando)
+export interface SkillVersion {
+  id: string;
+  name: string;
+  text: string;
+  cd: number;
+}
+
+export interface MageDef {
+  id: MageId;
+  name: string;
+  // nome da escola, a frase da escolha e o que o golpe básico faz
+  school: string;
+  summary: string;
+  basic: string;
+  skill: string;
+  versions: SkillVersion[];
+  color: number;
+  // de quem é a arte do cajado na escolha
+  credit?: string;
+}
+
+export const MAGES: Record<MageId, MageDef> = {
+  eclipse: {
+    id: 'eclipse', name: 'Mago do Eclipse', school: 'Eclipse',
+    summary: 'A luz que sobra em volta do sol apagado. Bate de longe e abre o chão em fogo.',
+    basic: 'Bolinha de eclipse reta, para o lado ou para cima.',
+    skill: 'Feixe do Chão',
+    versions: [
+      { id: 'coluna', name: 'Coluna', text: 'Alto e estreito: sobe do chão onde a mira estiver e tira muito.', cd: 7 },
+      { id: 'leque', name: 'Leque', text: 'Baixo e largo: varre o chão e empurra, tirando menos.', cd: 7 },
+    ],
+    color: 0xf28c22, credit: 'Arte do cajado: Enio',
+  },
+  necro: {
+    id: 'necro', name: 'Mago Necromante', school: 'Necromante',
+    summary: 'Quem ele já venceu entra no Grimório e volta como eco de memória, lutando do lado dele.',
+    basic: 'O cajado bate de perto.',
+    skill: 'Reviver',
+    versions: [
+      { id: 'eco', name: 'Eco de quem caiu', text: 'Escolha no Grimório quem volta e onde. Luta do seu lado por 12 segundos (dois de cada vez).', cd: 12 },
+      { id: 'chefe', name: 'Eco de chefe', text: 'Um chefe vencido volta por 3 segundos e faz o golpe dele.', cd: 20 },
+    ],
+    color: 0x7fe0c8,
+  },
+  veu: {
+    id: 'veu', name: 'Mago do Véu Abissal', school: 'Véu Abissal',
+    summary: 'A tinta viva do abismo. O dash atravessa golpes e inimigos; grades e membranas só com a relíquia do Véu.',
+    basic: 'Chicote curto de tinta.',
+    skill: 'Maré de Tinta',
+    versions: [
+      { id: 'tentaculos', name: 'Tentáculos', text: 'Três tentáculos saem do chão onde a mira estiver.', cd: 10 },
+      { id: 'mergulho', name: 'Mergulho', text: 'Some no chão, passa por baixo e sai na mira, batendo para cima.', cd: 10 },
+    ],
+    color: 0xb27fea,
+  },
+  espaco: {
+    id: 'espaco', name: 'Mago do Espaço', school: 'Espaço',
+    summary: 'Dobra o espaço: o mais forte dos quatro, com as recargas mais longas.',
+    basic: 'Pulso curto que entorta o espaço na frente.',
+    skill: 'Dobra',
+    versions: [
+      { id: 'torre', name: 'Torre', text: 'Uma torre de terra sobe, joga o inimigo para o alto e a queda machuca muito.', cd: 18 },
+      { id: 'protege', name: 'Parede que protege', text: 'Uma parede de espaço dobrado segura golpes e tiros por 5 segundos.', cd: 8 },
+      { id: 'empurra', name: 'Parede que empurra', text: 'A parede sai andando e joga os inimigos longe.', cd: 8 },
+    ],
+    color: 0x8fb4ff,
+  },
+};
+
+// números das magias: a Energia de cada chefe (o mago não pega a arma: a magia fica mais forte),
+// a mira e cada habilidade
+export const MAGIC = {
+  energyDmg: 0.15,
+  energyCd: 0.1,
+  maxEnergy: 4,
+  aimRange: 176,
+  aimSpeed: 230,
+  orb: { speed: 300, life: 0.8 },
+  coluna: { dmg: 3, w: 22, h: 150 },
+  leque: { dmg: 1.8, w: 108, h: 40, push: 320 },
+  // os ecos do Grimório: quanto duram, quantos de uma vez, o golpe de cada um (dano e intervalo) e a
+  // passada; o eco de chefe aparece, faz o golpe dele numa área grande e some
+  revive: { life: 12, max: 2, bossLife: 3, dmg: 1, cd: 0.9, speed: 118, bossDmg: 5, bossW: 104, bossH: 76 },
+  tentaculo: { dmg: 1.4, gap: 18, h: 48 },
+  mergulho: { dmg: 2.4, w: 36, h: 72, travel: 0.32 },
+  torre: { dmg: 4, bossDmg: 2, w: 28, h: 64, launch: 520 },
+  parede: { life: 5, w: 12, h: 60, push: 440, dmg: 0.8, speed: 260 },
+  pulse: { push: 300 },
 };
 
 // nuvem do incensário: fica onde o golpe passou e queima cada inimigo uma vez

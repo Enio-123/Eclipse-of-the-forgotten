@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { PLAYER as C, WEAPONS, type WeaponDef, type WeaponId } from '../config';
+import { MAGES, PLAYER as C, WEAPONS, type WeaponDef, type WeaponId } from '../config';
 import type { Controls } from '../systems/Controls';
 import type { GameScene } from '../scenes/GameScene';
 import { isGround, isSolid } from '../world/Level';
@@ -26,7 +26,11 @@ export interface HookState {
 const approach = (v: number, target: number, step: number) =>
   v < target ? Math.min(v + step, target) : Math.max(v - step, target);
 
-export const SLASH_KEY: Record<WeaponId, string | null> = { sword: 'slash', scythe: 'slash-big', daggers: 'slash-small', bow: null, badalo: 'slash-heavy', incensario: 'slash-censer', corrente: null, picareta: 'slash-heavy' };
+export const SLASH_KEY: Record<WeaponId, string | null> = {
+  sword: 'slash', scythe: 'slash-big', daggers: 'slash-small', bow: null, badalo: 'slash-heavy', incensario: 'slash-censer', corrente: null, picareta: 'slash-heavy',
+  // os cajados: o do Grimório bate como bordão (o arco do corte na cor dele); os outros têm o desenho próprio
+  eclipse: null, necro: 'slash', veu: null, espaco: null,
+};
 // velocidade em que a animação de corrida foi desenhada (acima disso as pernas aceleram junto)
 const RUN_ANIM_SPEED = 192;
 
@@ -130,6 +134,13 @@ export class Player {
   // golpe da corrente: ela estica até a ponta do golpe e volta (no lugar do arco de corte)
   private lashG: Phaser.GameObjects.Graphics;
   private lashT = -1;
+  // mago: mirando a habilidade (parado, a cena mexe a mira), soltando (a animação de lançar) e o
+  // Mergulho do Véu (some no chão e sai na mira)
+  aiming = false;
+  private castT = 0;
+  private dive: { x0: number; x1: number; y1: number; t: number; dur: number; done: () => void } | null = null;
+  // de onde sai a magia em cada quadro de cada animação (a ponta do cajado, a partir dos pés)
+  private points: Record<string, [number, number][]> | null = null;
 
   constructor(private scene: GameScene, x: number, feetY: number, weapon: WeaponId) {
     this.zone = scene.add.zone(x, feetY - C.bodyH / 2, C.bodyW, C.bodyH);
@@ -157,8 +168,29 @@ export class Player {
       this.slashOx = meta.ox;
       this.slashK = 1 / (meta.scale ?? 1);
     }
+    // o arco do bordão do Necromante sai na cor da escola dele
+    const mage = this.weapon.mage;
+    if (mage) {
+      const c = MAGES[mage].color;
+      this.slash.setTint(0xeafff8, 0xeafff8, c, c);
+    } else this.slash.clearTint();
+    this.points = mage ? ((this.scene.cache.json.get(`knight-${id}-meta`) as { points?: Record<string, [number, number][]> } | undefined)?.points ?? null) : null;
     this.cancelAttack();
+    this.aiming = false;
+    this.castT = 0;
     this.curAnim = '';
+  }
+
+  // a ponta do cajado agora, no mundo (onde nasce a bolinha, de onde sai o chicote). Sem os pontos
+  // da folha, um palmo na frente do peito
+  staffTip(anim?: string, frame?: number) {
+    const s = this.sprite;
+    const name = anim ?? s.anims.currentAnim?.key.slice(`knight-${this.weapon.id}-`.length) ?? 'idle';
+    const list = this.points?.[name];
+    const i = frame ?? Math.max(0, (s.anims.currentFrame?.index ?? 1) - 1);
+    const pt = list?.[Math.min(i, list.length - 1)];
+    if (!pt) return { x: this.body.center.x + this.facing * 14, y: this.body.top + 12 };
+    return { x: s.x + this.facing * pt[0], y: s.y + pt[1] };
   }
 
   get x() {
@@ -171,9 +203,26 @@ export class Player {
   get dashing() {
     return this.dashT > 0;
   }
-  // no meio do Véu: intangível, não toma dano nem esbarra em grade de cela ou membrana
+  // no meio do Véu: intangível, não toma dano (o dash do Mago do Véu já sai assim desde o começo)
   get veiling() {
     return this.dashT > 0 && this.veilDash;
+  }
+  // o Véu de verdade (a relíquia): a tinta passa por grade de cela, membrana e espinho
+  get veilPassing() {
+    return this.veiling && this.canVeil;
+  }
+  // embaixo do chão, no Mergulho do Mago do Véu
+  get diving() {
+    return !!this.dive;
+  }
+  // soltando a habilidade (a animação de lançar segura o corpo um instante)
+  get casting() {
+    return this.castT > 0;
+  }
+  // dá para abrir a mira agora: de pé no chão, sem golpe, dash, gancho ou vagonete no meio
+  get canAim() {
+    return !this.dead && !this.frozen && !this.pose && this.hurtT <= 0 && this.dashT <= 0 && this.slideT <= 0 && !this.hook && !this.ride && !this.dive &&
+      this.atkAnimT <= 0 && this.castT <= 0 && this.body.blocked.down;
   }
   // etapa do Véu na tela (dissolve, flow, form ou off), para os testes
   get veilStage() {
@@ -181,7 +230,7 @@ export class Player {
   }
   // dash fantasma: atravessa inimigos e golpes sem levar dano (espinhos ainda machucam)
   get ghost() {
-    return this.dashT > 0 || this.graceT > 0;
+    return this.dashT > 0 || this.graceT > 0 || !!this.dive;
   }
   get sliding() {
     return this.slideT > 0;
@@ -240,12 +289,20 @@ export class Player {
 
     if (this.ride && !this.dead) {
       this.rideUpdate(dt, input);
+    } else if (this.dive && !this.dead) {
+      this.diveUpdate(dt);
     } else if (this.frozen || this.dead) {
       if (this.hook) this.dropHook();
       b.velocity.x = approach(b.velocity.x, 0, C.groundDecel * dt);
       this.buffer = 0;
     } else if (this.hurtT > 0) {
       this.hurtT -= dt;
+    } else if (this.aiming || this.castT > 0) {
+      // mirando ou soltando: fica plantado (a cena lê as teclas da mira)
+      this.castT -= dt;
+      b.velocity.x = approach(b.velocity.x, 0, C.groundDecel * dt);
+      this.buffer = 0;
+      this.atkBuffer = 0;
     } else if (this.slideT > 0) {
       this.slideT -= dt;
       const k = Math.max(0, this.slideT / C.slideTime);
@@ -274,7 +331,7 @@ export class Player {
       // alcance certo; volta pelo caminho que já fez, então nunca entra em parede
       const reach = C.dashSpeed * C.dashTime;
       const L = this.scene.level;
-      if (this.veilDash && L.overlapsVeil(b.x, b.y, b.width, b.height)) {
+      if (this.veilDash && this.canVeil && L.overlapsVeil(b.x, b.y, b.width, b.height)) {
         // o Véu não para no meio da grade: segue mais um pouco até sair do outro lado; se não
         // der (pedra logo atrás, ou grossa demais), volta pelo caminho até o lugar livre
         if (this.dashT <= 0 || Math.abs(b.x - this.dashX0) >= reach - 0.01) {
@@ -531,6 +588,10 @@ export class Player {
     g.clear();
     if (this.lashT < 0) return;
     this.lashT += dt;
+    if (this.weapon.whip) {
+      this.updateWhip(g);
+      return;
+    }
     const out = 0.05;
     const hold = this.weapon.active;
     const back = 0.12;
@@ -559,6 +620,61 @@ export class Player {
       ty = this.atkDir === 'low' ? b.bottom - 9 : box.centerY;
     }
     this.drawChain(from.x, from.y, from.x + (tx - from.x) * k, from.y + (ty - from.y) * k, g);
+  }
+
+  // o chicote de tinta do Mago do Véu: sai da forquilha do cajado, estala na ponta da área do golpe
+  // (uma onda corre do cabo à ponta) e se recolhe
+  private updateWhip(g: Phaser.GameObjects.Graphics) {
+    const out = 0.06;
+    const hold = this.weapon.active;
+    const back = 0.14;
+    const t = this.lashT;
+    let k: number;
+    if (t < out) k = t / out;
+    else if (t < out + hold) k = 1;
+    else if (t < out + hold + back) k = 1 - (t - out - hold) / back;
+    else {
+      this.lashT = -1;
+      return;
+    }
+    const b = this.body;
+    const box = this.attackBox();
+    const from = this.staffTip();
+    let tx: number;
+    let ty: number;
+    if (this.atkDir === 'up') {
+      tx = b.center.x + this.facing * 6;
+      ty = box.y + 4;
+    } else if (this.atkDir === 'down') {
+      tx = b.center.x + this.facing * 3;
+      ty = box.bottom - 4;
+    } else {
+      tx = this.facing > 0 ? box.right - 2 : box.x + 2;
+      ty = this.atkDir === 'low' ? b.bottom - 8 : box.centerY;
+    }
+    const ex = from.x + (tx - from.x) * k;
+    const ey = from.y + (ty - from.y) * k;
+    const len = Math.hypot(ex - from.x, ey - from.y) || 1;
+    const nx = -(ey - from.y) / len;
+    const ny = (ex - from.x) / len;
+    const n = Math.max(6, Math.floor(len / 4));
+    const wave = Math.sin(t * 40) * 3 * (1 - Math.min(1, t / (out + hold)));
+    const pts: { x: number; y: number }[] = [];
+    for (let i = 0; i <= n; i++) {
+      const u = i / n;
+      const off = Math.sin(u * Math.PI) * (wave + 2 * Math.sin(u * 9 - t * 30));
+      pts.push({ x: from.x + (ex - from.x) * u + nx * off, y: from.y + (ey - from.y) * u + ny * off });
+    }
+    // corpo escuro e grosso perto do cajado, fino na ponta; o brilho lilás por cima
+    for (let i = 0; i < n; i++) {
+      const w = 3.4 - (i / n) * 2.4;
+      g.lineStyle(w, 0x140c1e, 1).lineBetween(pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y);
+    }
+    for (let i = 0; i < n; i += 2) {
+      g.lineStyle(1, 0xb27fea, 0.75 * (1 - i / n) + 0.2).lineBetween(pts[i].x, pts[i].y - 0.6, pts[i + 1].x, pts[i + 1].y - 0.6);
+    }
+    g.fillStyle(0x140c1e, 1).fillCircle(ex, ey, 2.2);
+    g.fillStyle(0xe2c8ff, 0.9).fillCircle(ex, ey - 0.5, 0.9);
   }
 
   private drawChain(ax: number, ay: number, bx: number, by: number, g = this.chain) {
@@ -705,7 +821,8 @@ export class Player {
     this.body.setVelocity(this.dashDir * C.dashSpeed, 0);
     this.ghostT = 0;
     this.cancelAttack();
-    this.veilDash = this.canVeil;
+    // o Mago do Véu já corre em tinta (grade e membrana, só depois da relíquia)
+    this.veilDash = this.canVeil || this.weapon.mage === 'veu';
     this.veilOver = 0;
     if (this.veilDash) {
       // o corpo se desfaz em tinta na hora (a mesma direção e a mesma velocidade do dash)
@@ -721,7 +838,7 @@ export class Player {
 
   private endDash() {
     if (this.veilDash) {
-      this.unstickVeil();
+      if (this.canVeil) this.unstickVeil();
       this.veilFx?.finish(this.body.center.x, this.body.bottom);
       this.scene.sfx('veil-form');
       this.veilDash = false;
@@ -851,6 +968,13 @@ export class Player {
     this.shotPending = false;
     const b = this.body;
     const d = this.atkDir;
+    if (this.weapon.orb) {
+      // a bolinha do eclipse sai da esfera do cajado, no quadro em que ele estica
+      const tip = this.staffTip(this.atkAnim, 2);
+      const [dx, dy] = d === 'up' ? [0, -1] : d === 'down' ? [0, 1] : [this.facing, 0];
+      this.scene.spawnOrb(tip.x, tip.y, dx, dy, this.weapon.dmg);
+      return;
+    }
     if (d === 'up') this.scene.spawnArrow(b.center.x + this.facing * 3, b.top - 2, 0, -1, this.weapon.dmg);
     else if (d === 'down') this.scene.spawnArrow(b.center.x, b.bottom + 2, 0, 1, this.weapon.dmg);
     else {
@@ -860,8 +984,13 @@ export class Player {
   }
 
   private showSlash() {
-    if (this.weapon.id === 'corrente') {
+    if (this.weapon.id === 'corrente' || this.weapon.whip) {
       this.lashT = 0;
+      return;
+    }
+    // o pulso do Cajado da Dobra: o espaço entorta na área do golpe (a cena desenha)
+    if (this.weapon.pulse) {
+      this.scene.spacePulse(this.attackBox(), this.facing, this.atkDir);
       return;
     }
     const key = SLASH_KEY[this.weapon.id];
@@ -928,8 +1057,10 @@ export class Player {
 
   hurt(fromX: number) {
     // no meio do Véu nada machuca (só a janela do dash; o respiro depois é o mesmo do dash comum)
-    if (this.dead || this.invuln > 0 || this.veiling) return false;
+    if (this.dead || this.invuln > 0 || this.veiling || this.dive) return false;
     this.hp -= 1;
+    this.aiming = false;
+    this.castT = 0;
     this.invuln = C.invuln;
     this.hurtT = C.hurtLock;
     if (this.dashT > 0) this.endDash();
@@ -1015,8 +1146,69 @@ export class Player {
     }
   }
 
+  // ---------- mago ----------
+  startAim() {
+    this.aiming = true;
+    this.cancelAttack();
+    this.moveTarget = null;
+    if (this.crouched && this.canStand()) this.crouched = false;
+    this.curAnim = '';
+  }
+
+  stopAim() {
+    this.aiming = false;
+    this.curAnim = '';
+  }
+
+  // solta a habilidade: o cajado desce apontando para a mira (segura o corpo pela animação)
+  castAnim(len = 0.3) {
+    this.aiming = false;
+    this.castT = len;
+    this.curAnim = '';
+  }
+
+  // Mergulho: a tinta afunda onde ele está, corre por baixo do chão e sobe na mira (done: a cena bate)
+  startDive(x1: number, feetY: number, dur: number, done: () => void) {
+    this.aiming = false;
+    this.castT = 0;
+    this.cancelAttack();
+    this.dive = { x0: this.zone.x, x1, y1: feetY, t: 0, dur, done };
+    const b = this.body;
+    b.setVelocity(0, 0);
+    b.setAllowGravity(false);
+    b.checkCollision.none = true;
+    this.sprite.setVisible(false);
+  }
+
+  private diveUpdate(dt: number) {
+    const d = this.dive!;
+    const b = this.body;
+    d.t += dt;
+    const k = Math.min(1, d.t / d.dur);
+    const e = k * k * (3 - 2 * k);
+    b.reset(d.x0 + (d.x1 - d.x0) * e, b.y + b.height / 2);
+    if (k < 1) return;
+    this.dive = null;
+    b.checkCollision.none = false;
+    b.setAllowGravity(true);
+    b.reset(d.x1, d.y1 - C.bodyH / 2);
+    b.setVelocity(0, -C.jumpVel * 0.55);
+    this.sprite.setVisible(true);
+    this.graceT = C.ghostGrace;
+    this.curAnim = '';
+    d.done();
+  }
+
   teleport(x: number, feetY: number) {
     this.leaveRide(0, 0);
+    if (this.dive) {
+      this.dive = null;
+      this.body.checkCollision.none = false;
+      this.body.setAllowGravity(true);
+      this.sprite.setVisible(true);
+    }
+    this.aiming = false;
+    this.castT = 0;
     if (this.dashT > 0) this.endDash();
     this.dropHook();
     this.graceT = 0;
@@ -1050,6 +1242,8 @@ export class Player {
     let anim: string;
     if (this.pose) anim = this.pose;
     else if (this.dead || this.hurtT > 0) anim = 'hurt';
+    else if (this.castT > 0) anim = 'cast';
+    else if (this.aiming) anim = 'cast_aim';
     else if (this.slideT > 0) anim = 'slide';
     else if (this.dashT > 0) anim = 'dash';
     else if (this.hook?.phase === 'pull') anim = 'dash';

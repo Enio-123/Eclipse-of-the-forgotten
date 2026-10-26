@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { setHdManifest } from '../gfx/hdAssets';
 import { buildTextures, coinIconUrl } from '../gfx/textures';
 import { buildVeilTextures } from '../gfx/veil';
+import { buildMagicTextures } from '../gfx/magicTextures';
 import { ui } from '../ui/ui';
 
 interface SheetMeta {
@@ -28,7 +29,9 @@ interface SlashMeta {
 // Folhas de personagens geradas pelas ferramentas de arte (arte/gerador)
 const SHEETS = ['knight-scythe', 'knight-sword', 'knight-daggers', 'knight-bow', 'knight-badalo', 'knight-incensario', 'knight-corrente', 'penitent', 'figure', 'guard', 'crow', 'cobrador', 'sineiro', 'archer', 'censer', 'nun', 'smith', 'folk', 'arcebispo', 'jailer', 'carcereira', 'prisoner', 'sombra',
   // Minas Abandonadas
-  'knight-picareta', 'miner', 'ambat', 'oldminer', 'capataz'];
+  'knight-picareta', 'miner', 'ambat', 'oldminer', 'capataz',
+  // o caminho do Mago: o personagem com cada um dos quatro cajados
+  'knight-eclipse', 'knight-necro', 'knight-veu', 'knight-espaco'];
 const IMAGES = [
   'title-sky', 'title-land', 'title-rim', 'clouds-far', 'clouds-near',
   'bridge-sky', 'bridge-far', 'bridge-far-rim', 'bridge-mid', 'bridge-mid-rim', 'bridge-fg', 'cat-far', 'cat-mid', 'mem-sky', 'mem-far', 'mem-mid',
@@ -103,6 +106,7 @@ export class BootScene extends Phaser.Scene {
   create() {
     buildTextures(this);
     buildVeilTextures(this);
+    buildMagicTextures(this);
     for (const key of SHEETS) {
       const meta = this.cache.json.get(`${key}-meta`) as SheetMeta;
       for (const [name, a] of Object.entries(meta.anims)) {

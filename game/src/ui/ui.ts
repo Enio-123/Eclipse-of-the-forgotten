@@ -1,5 +1,5 @@
 import type Phaser from 'phaser';
-import { POWERS, POWER_IDS, WEAPONS, WEAPON_IDS, type PowerId, type WeaponId } from '../config';
+import { MAGES, MAGE_IDS, POWERS, POWER_IDS, WEAPONS, WEAPON_IDS, type MageId, type PowerId, type WeaponId } from '../config';
 import { raw } from '../systems/RawInput';
 import { ACTIONS, ACTION_LABEL, PAD_ACTIONS, codeName, settings, type Action, type Quality } from '../systems/Settings';
 import { audio } from '../systems/Audio';
@@ -11,7 +11,7 @@ import { drawMarker, renderMap, type MapHere } from './mapview';
 import { RES, applyRes, resFor } from '../gfx/view';
 import { FORCED_PRESET, PRESETS, PRESET_LABEL, applyFpsLimit, presetOf, type FpsLimit, type GfxFlags, type Level3, type Preset } from '../systems/Graphics';
 
-type ScreenId = 'loading' | 'intro' | 'menu' | 'erase' | 'weapons' | 'settings' | 'pause' | 'end' | 'map' | 'shop' | 'inventory' | 'talk' | 'forge' | 'journal';
+type ScreenId = 'loading' | 'intro' | 'menu' | 'erase' | 'path' | 'mages' | 'weapons' | 'settings' | 'pause' | 'end' | 'map' | 'shop' | 'inventory' | 'talk' | 'forge' | 'journal';
 
 const COBRADOR_LINES = [
   'Voltou. Sempre voltam.',
@@ -39,11 +39,25 @@ interface SheetMeta {
   scale?: number;
 }
 
+// prévia animada de uma folha do cavaleiro (nas cartas das armas, dos caminhos e dos magos)
+interface Preview {
+  sprite: HTMLElement;
+  cel: HTMLElement;
+  meta: SheetMeta;
+  // quando ela foi escolhida: o golpe começa do primeiro quadro
+  t0: number;
+}
+
+export type PathId = 'knight' | 'mage';
+const PREVIEW_SCREENS: (ScreenId | null)[] = ['weapons', 'path', 'mages'];
+const hex = (c: number) => `#${c.toString(16).padStart(6, '0')}`;
+const rgba = (c: number, a: number) => `rgba(${(c >> 16) & 255}, ${(c >> 8) & 255}, ${c & 255}, ${a})`;
+
 const WEAPON_ORDER: WeaponId[] = ['scythe', 'sword', 'daggers', 'bow', 'badalo', 'incensario', 'corrente', 'picareta'];
 const TAGS: Partial<Record<WeaponId, string>> = { scythe: 'Arma do carrasco · recomendada' };
 const TOUCH_LABEL: Record<Action, string> = {
   left: 'Analógico', right: 'Analógico', up: 'Analógico para cima', down: 'Analógico para baixo',
-  jump: 'Pular', attack: 'Atacar', dash: 'Dash', crouch: 'Analógico para baixo', hook: 'Gancho', memory: 'Memória',
+  jump: 'Pular', attack: 'Atacar', dash: 'Dash', crouch: 'Analógico para baixo', hook: 'Gancho', memory: 'Memória', skill: 'Habilidade',
 };
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector(sel) as T;
@@ -63,6 +77,8 @@ class UI {
   private padRepeat = 0;
   private padBrandShown: PadBrand | null = null;
   private cardLoop = 0;
+  // andando pelas cartas com as setas ou o direcional (o clique só escolhe, não confirma)
+  private picking = false;
   onStackChange: ((open: boolean) => void) | null = null;
 
   init(game: Phaser.Game) {
@@ -115,7 +131,7 @@ class UI {
     const open = this.stack.length > 0;
     raw.enabled = !open;
     document.body.classList.toggle('menu-open', open);
-    if (top !== 'weapons') cancelAnimationFrame(this.cardLoop);
+    if (!PREVIEW_SCREENS.includes(top)) cancelAnimationFrame(this.cardLoop);
     this.onStackChange?.(open);
   }
 
@@ -140,7 +156,7 @@ class UI {
   private focusFirst() {
     const s = document.getElementById(`screen-${this.top}`);
     if (!s) return;
-    const target = s.querySelector<HTMLElement>('.card[aria-checked="true"]') ?? s.querySelector<HTMLElement>('button:not([hidden])');
+    const target = s.querySelector<HTMLElement>('[role="radio"][aria-checked="true"]') ?? s.querySelector<HTMLElement>('button:not([hidden])');
     window.setTimeout(() => target?.focus({ preventScroll: true }), 30);
   }
 
@@ -206,7 +222,11 @@ class UI {
     if (i < 0) i = 0;
     else i = (i + dir + items.length) % items.length;
     items[i].focus();
-    if (items[i].classList.contains('card')) items[i].click();
+    if (items[i].getAttribute('role') === 'radio') {
+      this.picking = true;
+      items[i].click();
+      this.picking = false;
+    }
     audio.sfx('ui');
   }
 
@@ -380,7 +400,7 @@ class UI {
     $('.sub', s).textContent = o.sub;
     const list = WEAPON_ORDER.filter((w) => !o.show || o.show(w));
     let sel: WeaponId = o.has(o.current) && list.includes(o.current) ? o.current : (list.find((w) => o.has(w)) ?? 'scythe');
-    const items: { id: WeaponId; card: HTMLButtonElement; sprite: HTMLElement; cel: HTMLElement; meta: SheetMeta; t0: number }[] = [];
+    const items: { id: WeaponId; card: HTMLButtonElement; pv: Preview }[] = [];
     for (const id of list) {
       const W = WEAPONS[id];
       const locked = !o.has(id);
@@ -388,79 +408,248 @@ class UI {
       card.setAttribute('role', 'radio');
       card.dataset.w = id;
       card.disabled = locked;
-      const view = card.appendChild(el('div', 'view'));
-      const sprite = view.appendChild(el('div', 'sprite'));
-      // o quadro do atlas fica num pedaço do tamanho dele, no lugar que ocupava no quadro inteiro
-      const cel = sprite.appendChild(el('i'));
+      const pv = this.preview(card.appendChild(el('div', 'view')), `knight-${id}`);
       card.appendChild(el('h3', '', W.name));
       const b = W.boss;
       card.appendChild(el('p', 'tag', b ? (locked ? `Vença ${b.art} ${b.name}` : `Arma d${b.art} ${b.name}`) : TAGS[id] ?? ''));
       card.appendChild(el('p', 'sum', W.summary));
-      const dl = card.appendChild(el('dl', 'stats'));
-      const rows = [['Dano', W.stats.dano], ['Velocidade', W.stats.velocidade], ['Alcance', W.stats.alcance], ['Corrida', W.stats.corrida]] as const;
-      for (const [label, v] of rows) {
-        dl.appendChild(el('dt', '', label));
-        const dd = dl.appendChild(el('dd'));
-        dd.setAttribute('aria-label', `${v} de 5`);
-        for (let k = 0; k < 5; k++) dd.appendChild(el('i', k < v ? 'on' : ''));
-      }
-      card.onclick = () => {
+      card.appendChild(this.statsList(id));
+      card.onclick = (e) => {
         if (locked) return;
+        if (this.confirmsPick(e, sel === id)) return o.onConfirm(sel);
         if (sel !== id) audio.sfx('ui');
         sel = id;
         sync();
       };
       card.ondblclick = () => !locked && o.onConfirm(sel);
       cards.appendChild(card);
-      const meta = this.game!.cache.json.get(`knight-${id}-meta`) as SheetMeta;
-      (meta.frames ? cel : sprite).style.backgroundImage = `url(assets/knight-${id}.png)`;
-      sprite.classList.toggle('hd', !!meta.frames);
-      items.push({ id, card, sprite, cel, meta, t0: 0 });
+      items.push({ id, card, pv });
     }
     const sync = () => {
       for (const it of items) {
         const on = it.id === sel;
-        if (on && it.card.getAttribute('aria-checked') !== 'true') it.t0 = performance.now() / 1000;
+        if (on && it.card.getAttribute('aria-checked') !== 'true') it.pv.t0 = performance.now() / 1000;
         it.card.setAttribute('aria-checked', String(on));
       }
     };
     sync();
-    // anima as prévias: a arma escolhida ataca, as outras respiram
-    const tick = () => {
-      const t = performance.now() / 1000;
-      for (const it of items) {
-        const idle = it.meta.anims.idle;
-        const atk = it.meta.anims.attack;
-        let f: number;
-        if (it.id === sel) {
-          const atkDur = atk.count / atk.fps;
-          const ph = (t - it.t0) % (atkDur + 1.1);
-          f = ph < atkDur ? atk.start + Math.floor(ph * atk.fps) : idle.start + (Math.floor((ph - atkDur) * idle.fps) % idle.count);
-        } else f = idle.start + (Math.floor(t * idle.fps) % idle.count);
-        const fr = it.meta.frames?.[String(f)];
-        if (fr) {
-          // a prévia mostra o mundo em dobro (288x240 para um quadro de 144x120)
-          const k = 2 / (it.meta.scale ?? 1);
-          const st = it.cel.style;
-          st.left = `${fr.spriteSourceSize.x * k}px`;
-          st.top = `${fr.spriteSourceSize.y * k}px`;
-          st.width = `${fr.frame.w * k}px`;
-          st.height = `${fr.frame.h * k}px`;
-          st.backgroundSize = `${it.meta.meta!.size.w * k}px auto`;
-          st.backgroundPosition = `${-fr.frame.x * k}px ${-fr.frame.y * k}px`;
-        } else {
-          const cols = it.meta.columns;
-          it.sprite.style.backgroundPosition = `${-(f % cols) * 288}px ${-Math.floor(f / cols) * 240}px`;
-        }
-      }
-      this.cardLoop = requestAnimationFrame(tick);
-    };
     $<HTMLButtonElement>('[data-cmd="confirm"]', s).textContent = o.confirmLabel;
     $<HTMLButtonElement>('[data-cmd="confirm"]', s).onclick = () => o.onConfirm(sel);
     $<HTMLButtonElement>('[data-cmd="back"]', s).onclick = () => o.onBack();
     this.push('weapons', o.onBack);
+    // a arma escolhida ataca, as outras respiram
+    this.animate(() => items.map((it) => ({ pv: it.pv, active: it.id === sel, anims: ['attack'] })));
+  }
+
+  // Enter ou o botão de baixo do controle na carta já escolhida confirmam (o clique do mouse só
+  // escolhe: para confirmar com ele, clique duas vezes)
+  private confirmsPick(e: MouseEvent, already: boolean) {
+    return already && e.detail === 0 && !this.picking;
+  }
+
+  // as barras de dano, velocidade, alcance e corrida de uma arma (ou cajado)
+  private statsList(id: WeaponId) {
+    const W = WEAPONS[id];
+    const dl = el('dl', 'stats');
+    const rows = [['Dano', W.stats.dano], ['Velocidade', W.stats.velocidade], ['Alcance', W.stats.alcance], ['Corrida', W.stats.corrida]] as const;
+    for (const [label, v] of rows) {
+      dl.appendChild(el('dt', '', label));
+      const dd = dl.appendChild(el('dd'));
+      dd.setAttribute('aria-label', `${v} de 5`);
+      for (let k = 0; k < 5; k++) dd.appendChild(el('i', k < v ? 'on' : ''));
+    }
+    return dl;
+  }
+
+  // ---------- prévias animadas ----------
+  private preview(box: HTMLElement, sheet: string): Preview {
+    const sprite = box.appendChild(el('div', 'sprite'));
+    // o quadro do atlas fica num pedaço do tamanho dele, no lugar que ocupava no quadro inteiro
+    const cel = sprite.appendChild(el('i'));
+    const meta = this.game!.cache.json.get(`${sheet}-meta`) as SheetMeta;
+    (meta.frames ? cel : sprite).style.backgroundImage = `url(assets/${sheet}.png)`;
+    sprite.classList.toggle('hd', !!meta.frames);
+    return { sprite, cel, meta, t0: performance.now() / 1000 };
+  }
+
+  // a escolhida faz os golpes da lista, cada um seguido de um respiro; as outras só respiram
+  private animate(get: () => { pv: Preview; active: boolean; anims: string[] }[]) {
     cancelAnimationFrame(this.cardLoop);
+    const tick = () => {
+      const t = performance.now() / 1000;
+      for (const { pv, active, anims } of get()) this.drawPreview(pv, this.previewFrame(pv, t, active, anims));
+      this.cardLoop = requestAnimationFrame(tick);
+    };
     this.cardLoop = requestAnimationFrame(tick);
+  }
+
+  private previewFrame(pv: Preview, t: number, active: boolean, anims: string[]) {
+    const idle = pv.meta.anims.idle;
+    const rest = (ph: number) => idle.start + (Math.floor(ph * idle.fps) % idle.count);
+    const segs = active ? anims.map((a) => pv.meta.anims[a]).filter(Boolean) : [];
+    if (!segs.length) return rest(t);
+    const pause = 1.1;
+    const len = segs.reduce((n, a) => n + a.count / a.fps + pause, 0);
+    let ph = (t - pv.t0) % len;
+    for (const a of segs) {
+      const d = a.count / a.fps;
+      if (ph < d) return a.start + Math.min(a.count - 1, Math.floor(ph * a.fps));
+      ph -= d;
+      if (ph < pause) return rest(ph);
+      ph -= pause;
+    }
+    return rest(t);
+  }
+
+  private drawPreview(pv: Preview, f: number) {
+    const fr = pv.meta.frames?.[String(f)];
+    if (fr) {
+      // a prévia mostra o mundo em dobro (288x240 para um quadro de 144x120)
+      const k = 2 / (pv.meta.scale ?? 1);
+      const st = pv.cel.style;
+      st.left = `${fr.spriteSourceSize.x * k}px`;
+      st.top = `${fr.spriteSourceSize.y * k}px`;
+      st.width = `${fr.frame.w * k}px`;
+      st.height = `${fr.frame.h * k}px`;
+      st.backgroundSize = `${pv.meta.meta!.size.w * k}px auto`;
+      st.backgroundPosition = `${-fr.frame.x * k}px ${-fr.frame.y * k}px`;
+    } else {
+      const cols = pv.meta.columns;
+      pv.sprite.style.backgroundPosition = `${-(f % cols) * 288}px ${-Math.floor(f / cols) * 240}px`;
+    }
+  }
+
+  // ---------- caminho: Cavaleiro ou Mago ----------
+  // knight e mage: a arma e o cajado que aparecem nas prévias (os últimos escolhidos)
+  path(o: { current: PathId; knight: WeaponId; mage: MageId; onConfirm: (p: PathId) => void; onBack: (p: PathId) => void }) {
+    const s = $('#screen-path');
+    const cards = $('.path-cards', s);
+    cards.innerHTML = '';
+    let sel = o.current;
+    const defs: { id: PathId; name: string; tag: string; sum: string; points: string[]; sheet: string; anims: string[] }[] = [
+      {
+        id: 'knight', name: 'Cavaleiro', tag: 'Arma na mão',
+        sum: 'O carrasco luta de perto com a arma que escolher. Força, alcance e ritmo mudam de uma arma para outra.',
+        points: [
+          'Quatro armas para começar: foice, espada, adagas ou arco.',
+          'Cada chefe vencido deixa a arma dele para você usar.',
+          'Troca de arma no menu de pausa.',
+        ],
+        sheet: `knight-${o.knight}`, anims: ['attack'],
+      },
+      {
+        id: 'mage', name: 'Mago', tag: 'Cajado e magia',
+        sum: 'O mesmo carrasco, agora com um cajado. Um golpe básico de mago e uma habilidade forte, que você mira antes de soltar.',
+        points: [
+          'Quatro escolas: Eclipse, Necromante, Véu Abissal e Espaço.',
+          'A habilidade tem versões para escolher e um tempo de recarga.',
+          'Os chefes não deixam arma: deixam Energia, que fortalece a magia.',
+        ],
+        sheet: `knight-${o.mage}`, anims: ['cast', 'attack'],
+      },
+    ];
+    const items: { id: PathId; card: HTMLButtonElement; pv: Preview; anims: string[] }[] = [];
+    for (const d of defs) {
+      const card = el('button', `card path-card path-${d.id}`) as HTMLButtonElement;
+      card.setAttribute('role', 'radio');
+      const pv = this.preview(card.appendChild(el('div', 'view')), d.sheet);
+      card.appendChild(el('h3', '', d.name));
+      card.appendChild(el('p', 'tag', d.tag));
+      card.appendChild(el('p', 'sum', d.sum));
+      const ul = card.appendChild(el('ul', 'points'));
+      for (const line of d.points) ul.appendChild(el('li', '', line));
+      card.onclick = (e) => {
+        if (this.confirmsPick(e, sel === d.id)) return o.onConfirm(sel);
+        if (sel !== d.id) audio.sfx('ui');
+        sel = d.id;
+        sync();
+      };
+      card.ondblclick = () => o.onConfirm(sel);
+      cards.appendChild(card);
+      items.push({ id: d.id, card, pv, anims: d.anims });
+    }
+    const sync = () => {
+      for (const it of items) {
+        const on = it.id === sel;
+        if (on && it.card.getAttribute('aria-checked') !== 'true') it.pv.t0 = performance.now() / 1000;
+        it.card.setAttribute('aria-checked', String(on));
+      }
+    };
+    sync();
+    $<HTMLButtonElement>('[data-cmd="confirm"]', s).onclick = () => o.onConfirm(sel);
+    $<HTMLButtonElement>('[data-cmd="back"]', s).onclick = () => o.onBack(sel);
+    this.push('path', () => o.onBack(sel));
+    this.animate(() => items.map((it) => ({ pv: it.pv, active: it.id === sel, anims: it.anims })));
+  }
+
+  // ---------- os quatro magos ----------
+  // em cima, as quatro escolas; embaixo, a ilustração do cajado e tudo o que o mago faz
+  mages(o: { current: MageId; onConfirm: (m: MageId) => void; onBack: (m: MageId) => void }) {
+    const s = $('#screen-mages');
+    const list = $('.mage-list', s);
+    list.innerHTML = '';
+    let sel: MageId = MAGE_IDS.includes(o.current) ? o.current : 'eclipse';
+    const tabs: { id: MageId; b: HTMLButtonElement }[] = [];
+    for (const id of MAGE_IDS) {
+      const M = MAGES[id];
+      const b = el('button', 'mage-tab') as HTMLButtonElement;
+      b.setAttribute('role', 'radio');
+      b.style.setProperty('--mc', hex(M.color));
+      b.style.setProperty('--mc-soft', rgba(M.color, 0.13));
+      const thumb = b.appendChild(el('span', 'thumb'));
+      thumb.style.backgroundImage = `url(assets/staff-${id}.webp)`;
+      const txt = b.appendChild(el('span', 'txt'));
+      txt.append(el('b', '', M.name), el('small', '', M.skill));
+      b.onclick = (e) => {
+        if (this.confirmsPick(e, sel === id)) return o.onConfirm(sel);
+        if (sel !== id) audio.sfx('ui');
+        sel = id;
+        render();
+      };
+      b.ondblclick = () => o.onConfirm(sel);
+      list.append(b);
+      tabs.push({ id, b });
+    }
+    const art = $('.mage-art', s);
+    const img = $<HTMLImageElement>('img', art);
+    const credit = $('figcaption', art);
+    const view = $('.mage-view', s);
+    const info = $('.mage-text', s);
+    const stats = $('.mage-stats', s);
+    let pv: Preview | null = null;
+    const render = () => {
+      for (const t of tabs) t.b.setAttribute('aria-checked', String(t.id === sel));
+      const M = MAGES[sel];
+      const W = WEAPONS[sel];
+      s.style.setProperty('--mc', hex(M.color));
+      s.style.setProperty('--mc-soft', rgba(M.color, 0.13));
+      img.src = `assets/staff-${sel}.webp`;
+      img.alt = W.name;
+      credit.textContent = M.credit ?? '';
+      credit.hidden = !M.credit;
+      view.replaceChildren();
+      pv = this.preview(view, `knight-${sel}`);
+      info.replaceChildren();
+      info.append(el('h3', '', M.name), el('p', 'tag', W.name), el('p', 'sum', M.summary));
+      const facts = info.appendChild(el('dl', 'facts'));
+      facts.append(el('dt', '', 'Golpe básico'), el('dd', '', M.basic));
+      const sk = el('dd');
+      sk.innerHTML = `<b>${M.skill}</b> · ${this.format('{skill} mira, {up} ou {down} trocam a versão, {attack} solta')}`;
+      facts.append(el('dt', '', 'Habilidade'), sk);
+      const vl = info.appendChild(el('ul', 'versions'));
+      for (const v of M.versions) {
+        const li = vl.appendChild(el('li'));
+        const head = li.appendChild(el('p', 'v-head'));
+        head.append(el('b', '', v.name), el('span', 'cd', `recarga ${v.cd} s`));
+        li.appendChild(el('p', 'v-text', v.text));
+      }
+      stats.replaceChildren(this.statsList(sel));
+    };
+    render();
+    $<HTMLButtonElement>('[data-cmd="confirm"]', s).onclick = () => o.onConfirm(sel);
+    $<HTMLButtonElement>('[data-cmd="back"]', s).onclick = () => o.onBack(sel);
+    this.push('mages', () => o.onBack(sel));
+    this.animate(() => (pv ? [{ pv, active: true, anims: ['cast', 'attack'] }] : []));
   }
 
   // ---------- configurações ----------
@@ -672,7 +861,7 @@ class UI {
   }
 
   // ---------- pausa e fim ----------
-  pause(o: { onResume: () => void; onMap?: () => void; onInventory: () => void; onJournal?: () => void; onWeapon: () => void; onTitle: () => void }) {
+  pause(o: { onResume: () => void; onMap?: () => void; onInventory: () => void; onJournal?: () => void; onWeapon?: () => void; onTitle: () => void }) {
     const s = $('#screen-pause');
     const jBtn = $<HTMLButtonElement>('[data-cmd="journal"]', s);
     jBtn.hidden = !o.onJournal;
@@ -683,7 +872,10 @@ class UI {
     mapBtn.onclick = () => o.onMap?.();
     $<HTMLButtonElement>('[data-cmd="inventory"]', s).onclick = () => o.onInventory();
     $<HTMLButtonElement>('[data-cmd="settings"]', s).onclick = () => this.openSettings();
-    $<HTMLButtonElement>('[data-cmd="weapon"]', s).onclick = () => o.onWeapon();
+    // o mago não troca de cajado no caminho: a escolha da escola vale para o jogo inteiro
+    const wBtn = $<HTMLButtonElement>('[data-cmd="weapon"]', s);
+    wBtn.hidden = !o.onWeapon;
+    wBtn.onclick = () => o.onWeapon?.();
     $<HTMLButtonElement>('[data-cmd="title"]', s).onclick = () => o.onTitle();
     this.push('pause', o.onResume);
   }
@@ -870,7 +1062,27 @@ class UI {
     // armas: a que está em uso, as liberadas e as de chefe ainda trancadas
     const wl = $('.inv-weapons', s);
     wl.replaceChildren();
+    const mage = progress.mage;
+    $('.inv-weapons-head', s).innerHTML = mage
+      ? 'Cajado e Energia <span>cada chefe vencido fortalece a magia</span>'
+      : 'Armas <span>troque em Trocar arma</span>';
+    if (mage) {
+      const li = el('li');
+      li.append(el('b', '', WEAPONS[mage].name), el('span', 'how', 'em uso'));
+      wl.append(li);
+    }
     for (const id of WEAPON_IDS) {
+      if (mage) {
+        // o mago não pega a arma do chefe: fica com a Energia dele
+        const b = WEAPONS[id].boss;
+        if (!b) continue;
+        const got = progress.claimed(id);
+        const li = el('li', got ? '' : 'unknown');
+        if (got) li.append(el('b', '', `Energia d${b.art} ${b.name}`), el('span', 'how', id === 'picareta' ? 'a magia ficou mais forte e quebra o Âmbar' : 'a magia ficou mais forte'));
+        else li.append(el('b', '', 'Energia trancada'), el('span', 'how', `vença ${b.art} ${b.name}`));
+        wl.append(li);
+        continue;
+      }
       const W = WEAPONS[id];
       const has = progress.hasWeapon(id);
       // as armas de começo que ele não escolheu ficaram para trás: nem aparecem
@@ -1033,7 +1245,7 @@ class UI {
     const render = (focusId?: WeaponId) => {
       $('.forge-coins', s).textContent = plural(progress.coins, 'moeda', 'moedas');
       list.replaceChildren();
-      for (const id of WEAPON_ORDER) {
+      for (const id of [...WEAPON_ORDER, ...MAGE_IDS]) {
         if (!progress.hasWeapon(id)) continue;
         const W = WEAPONS[id];
         const lv = progress.level(id);

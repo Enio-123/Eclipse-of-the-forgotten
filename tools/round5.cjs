@@ -402,6 +402,8 @@ let fails = 0;
   await page.screenshot({ path: `${OUT}/apagado.png` });
   // novo jogo: armas de chefe trancadas
   await page.click('#screen-menu [data-cmd="new"]');
+  await page.waitForSelector('#screen-path.show');
+  await page.click('#screen-path [data-cmd="confirm"]');
   await page.waitForSelector('#screen-weapons.show');
   const newLock = await page.evaluate(() => document.querySelector('#screen-weapons .card[data-w="badalo"]').disabled);
   ok(newLock, 'no jogo novo o Badalo aparece trancado');

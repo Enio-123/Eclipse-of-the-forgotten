@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { FxScene } from './FxScene';
-import { VIEW_W, WEAPONS, type WeaponId } from '../config';
+import { MAGE_IDS, VIEW_W, WEAPONS, type MageId, type WeaponId } from '../config';
 import { settings } from '../systems/Settings';
 import { audio } from '../systems/Audio';
 import { loadSave, progress } from '../systems/Save';
@@ -9,6 +9,7 @@ import { ui } from '../ui/ui';
 import { fixedCamera } from '../gfx/view';
 import { hd } from '../gfx/flip';
 import type { GameInit } from './GameScene';
+import type { PathId } from '../ui/ui';
 
 // Tela de título: o castelo de Vespera sob o eclipse, na chuva, e o cavaleiro no penhasco
 export class TitleScene extends Phaser.Scene {
@@ -19,6 +20,9 @@ export class TitleScene extends Phaser.Scene {
   private fogFront!: Phaser.GameObjects.TileSprite;
   private knight!: Phaser.GameObjects.Sprite;
   private leaving = false;
+  // o que ficou escolhido nas telas do jogo novo (voltar e ir de novo mantém)
+  private pathSel: PathId | null = null;
+  private mageSel: MageId | null = null;
 
   constructor() {
     super('title');
@@ -27,6 +31,8 @@ export class TitleScene extends Phaser.Scene {
   create() {
     fixedCamera(this);
     this.leaving = false;
+    this.pathSel = null;
+    this.mageSel = null;
     (this.scene.get('fx') as FxScene | null)?.setGrain(0.09);
     const add = this.add;
     add.image(0, 0, 'title-sky').setOrigin(0).setDepth(-20);
@@ -75,7 +81,7 @@ export class TitleScene extends Phaser.Scene {
         settings.save();
         this.go({ room: save.room, entry: save.entry, from: 'continue' });
       },
-      onNew: () => this.pickWeapon(),
+      onNew: () => this.pickPath(),
       onErase: () => this.erase(),
     });
   }
@@ -93,6 +99,26 @@ export class TitleScene extends Phaser.Scene {
     this.showMenu('Progresso apagado. O jogo começa do zero; as configurações continuam iguais.');
   }
 
+  // primeiro o caminho (Cavaleiro ou Mago), depois a arma ou a escola
+  private pickPath() {
+    const w = settings.data.weapon;
+    const mage = WEAPONS[w].mage;
+    ui.path({
+      current: this.pathSel ?? (mage ? 'mage' : 'knight'),
+      knight: !mage && !WEAPONS[w].boss ? w : 'scythe',
+      mage: this.mageSel ?? mage ?? 'eclipse',
+      onConfirm: (p) => {
+        this.pathSel = p;
+        if (p === 'mage') this.pickMage();
+        else this.pickWeapon();
+      },
+      onBack: (p) => {
+        this.pathSel = p;
+        this.showMenu();
+      },
+    });
+  }
+
   private pickWeapon() {
     // num jogo novo, as armas de chefe ainda não foram ganhas
     ui.weapons({
@@ -100,21 +126,36 @@ export class TitleScene extends Phaser.Scene {
       has: (w) => !WEAPONS[w].boss,
       sub: 'A foice é a arma do carrasco. As outras são estilos diferentes de lutar. A escolhida vai com você até o fim: as outras três não voltam.',
       confirmLabel: 'Começar',
-      onConfirm: (w) => {
-        if (this.leaving) return;
-        this.leaving = true;
-        settings.data.weapon = w;
-        settings.save();
-        progress.reset();
-        // a escolha vale para o jogo inteiro (entra no primeiro save)
-        progress.starter = w;
-        ui.closeAll();
-        const cam = this.cameras.main;
-        cam.fadeOut(900, 0, 0, 0);
-        cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => this.scene.start('intro'));
-      },
-      onBack: () => this.showMenu(),
+      onConfirm: (w) => this.start(w),
+      onBack: () => this.pickPath(),
     });
+  }
+
+  private pickMage() {
+    const w = settings.data.weapon;
+    ui.mages({
+      current: this.mageSel ?? (MAGE_IDS.includes(w as MageId) ? (w as MageId) : 'eclipse'),
+      onConfirm: (m) => this.start(m),
+      onBack: (m) => {
+        this.mageSel = m;
+        this.pickPath();
+      },
+    });
+  }
+
+  private start(w: WeaponId) {
+    if (this.leaving) return;
+    this.leaving = true;
+    settings.data.weapon = w;
+    settings.save();
+    progress.reset();
+    // a escolha vale para o jogo inteiro (entra no primeiro save)
+    progress.starter = w;
+    this.showKnight(w);
+    ui.closeAll();
+    const cam = this.cameras.main;
+    cam.fadeOut(900, 0, 0, 0);
+    cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => this.scene.start('intro'));
   }
 
   private go(data: GameInit) {

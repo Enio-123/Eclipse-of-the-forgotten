@@ -13,6 +13,8 @@ const OUT = process.argv[2] || '/tmp/shots';
   await page.waitForTimeout(2500);
   await page.screenshot({ path: `${OUT}/01-title.png` });
   await page.click('[data-cmd="new"]');
+  await page.waitForSelector('#screen-path.show');
+  await page.click('#screen-path [data-cmd="confirm"]');
   await page.waitForSelector('#screen-weapons.show');
   await page.waitForTimeout(900);
   await page.screenshot({ path: `${OUT}/02-weapons.png` });

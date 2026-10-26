@@ -65,6 +65,9 @@ body.has-hook #buttons [data-action="hook"] { display: flex; }
 /* o poder de memória aparece depois da primeira lembrança das Minas */
 #buttons [data-action="memory"] { right: 166px; bottom: 12px; width: 50px; height: 50px; display: none; }
 body.has-memory #buttons [data-action="memory"] { display: flex; }
+/* a habilidade do mago fica em cima do pulo e do dash, ao alcance do polegar */
+#buttons [data-action="skill"] { right: 2px; bottom: 164px; width: 60px; height: 60px; display: none; }
+body.is-mage #buttons [data-action="skill"] { display: flex; }
 #pause-btn {
   width: 46px; height: 46px; top: calc(12px + env(safe-area-inset-top, 0px)); right: calc(14px + env(safe-area-inset-right, 0px));
 }
@@ -276,6 +279,66 @@ span.key { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 2px;
 .stats i { height: 5px; background: rgba(232, 228, 218, 0.12); }
 .stats i.on { background: var(--gold); }
 
+/* ---------- caminho: Cavaleiro ou Mago ---------- */
+#screen-path .panel.wide { width: min(100%, 940px); }
+.path-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 22px; }
+.path-card .view { height: 190px; }
+.path-card .sprite { transform: scale(1.12); transform-origin: 50% 100%; }
+.path-card .sum { min-height: 0; font-size: 15px; }
+.points { margin: 12px 16px 0; padding: 0; list-style: none; display: grid; gap: 6px; font-size: 14px; color: #c9c3b5; line-height: 1.4; }
+.points li { position: relative; padding-left: 16px; }
+.points li::before { content: ""; position: absolute; left: 2px; top: 0.6em; width: 5px; height: 5px; background: var(--gold); transform: rotate(45deg); }
+.path-mage .view { background: radial-gradient(ellipse at 50% 78%, rgba(150, 170, 255, 0.2), transparent 62%); }
+
+/* ---------- os quatro magos ---------- */
+#screen-mages { --mc: var(--gold); --mc-soft: var(--gold-soft); }
+#screen-mages .panel.wide { width: min(100%, 1120px); }
+.mage-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 20px; }
+.mage-tab {
+  display: flex; align-items: center; gap: 12px; padding: 8px 12px 8px 8px; cursor: pointer; text-align: left;
+  background: rgba(255, 255, 255, 0.025); border: 1px solid var(--faint); transition: border-color 0.18s ease, background 0.18s ease;
+}
+.mage-tab:hover, .mage-tab:focus-visible { border-color: var(--mc); outline: none; }
+.mage-tab[aria-checked="true"] { border-color: var(--mc); background: var(--mc-soft); }
+.mage-tab .thumb { flex: none; width: 52px; height: 52px; background: #e9e6e0 center / cover no-repeat; border: 1px solid rgba(0, 0, 0, 0.5); }
+.mage-tab .txt { display: grid; gap: 2px; min-width: 0; }
+.mage-tab b { font-family: var(--display); font-weight: 400; font-size: 18px; letter-spacing: 0.02em; line-height: 1.1; }
+.mage-tab small { color: var(--mc); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
+.mage-detail { display: grid; grid-template-columns: minmax(0, 330px) minmax(0, 1fr); gap: 22px; margin-top: 16px; align-items: start; }
+.mage-art { margin: 0; }
+.mage-art img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border: 1px solid var(--line); box-shadow: 0 10px 34px rgba(0, 0, 0, 0.55); background: #e9e6e0; }
+.mage-art figcaption { margin-top: 8px; color: var(--muted); font-family: var(--italic); font-style: italic; font-size: 14px; text-align: center; }
+.mage-art figcaption[hidden] { display: none; }
+.mage-info { position: relative; display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 4px 20px; }
+.mage-side { display: grid; gap: 16px; align-content: start; }
+.mage-stats .stats { margin: 0; }
+.mage-stats .stats i.on { background: var(--mc); }
+.mage-view {
+  position: relative; height: 170px; overflow: hidden; border: 1px solid var(--faint);
+  background: radial-gradient(ellipse at 50% 80%, var(--mc-soft), transparent 70%);
+}
+.mage-view::after { content: ""; position: absolute; left: 16%; right: 16%; bottom: 23px; height: 1px; background: var(--line); }
+.mage-view .sprite { transform: scale(0.94); transform-origin: 50% 100%; }
+.mage-text h3 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 26px; letter-spacing: 0.03em; }
+.mage-text .tag { margin: 2px 0 0; color: var(--mc); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; }
+.mage-text .sum { margin: 8px 0 0; color: #c9c3b5; font-size: 15px; line-height: 1.45; }
+.mage-text .facts { margin: 12px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 14px; line-height: 1.4; }
+.mage-text .facts dt { margin: 0; color: var(--muted); }
+.mage-text .facts dd { margin: 0; color: #d9d3c5; }
+.mage-text .facts b { color: var(--mc); font-weight: 500; }
+.mage-text .versions { margin: 12px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.mage-text .versions li { padding: 8px 12px; border-left: 2px solid var(--mc); background: rgba(255, 255, 255, 0.025); }
+.v-head { margin: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.v-head b { font-family: var(--display); font-weight: 400; font-size: 17px; letter-spacing: 0.03em; }
+.v-head .cd { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.v-text { margin: 3px 0 0; color: #b9b4a8; font-size: 13.5px; line-height: 1.4; }
+@media (max-width: 900px) {
+  .mage-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mage-detail { grid-template-columns: minmax(0, 220px) minmax(0, 1fr); }
+  .mage-info { grid-template-columns: minmax(0, 1fr); }
+  .mage-side { display: none; }
+}
+
 /* tela de notebook (até 780 de altura): cartas mais baixas para os botões caberem sem rolar */
 @media (max-height: 780px) and (min-height: 501px) {
   #screen-weapons .panel { padding: 22px 28px; }
@@ -286,6 +349,17 @@ span.key { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 2px;
   .card h3 { margin-top: 10px; }
   .stats { gap: 4px 10px; margin-top: 10px; }
   #screen-weapons .row { margin-top: 16px; }
+  #screen-path .panel, #screen-mages .panel { padding: 22px 28px; }
+  #screen-mages .sub { display: none; }
+  .mage-list { margin-top: 14px; }
+  .mage-tab .thumb { width: 44px; height: 44px; }
+  .mage-detail { grid-template-columns: minmax(0, 270px) minmax(0, 1fr); margin-top: 12px; }
+  .mage-view { height: 150px; }
+  .mage-info { grid-template-columns: 150px minmax(0, 1fr); }
+  .mage-view .sprite { transform: scale(0.82); }
+  .mage-text .sum { font-size: 14px; }
+  .mage-text .versions li { padding: 6px 10px; }
+  #screen-path .row, #screen-mages .row { margin-top: 16px; }
 }
 
 /* celular deitado: as sete armas cabem numa linha, sem rolar */
@@ -308,6 +382,28 @@ span.key { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 2px;
   .stats i { height: 4px; }
   .row { margin-top: 10px; }
   .row button { min-height: 38px; padding: 6px 16px; font-size: 16px; }
+  #screen-path .sub, #screen-mages .sub { display: none; }
+  .path-cards { gap: 8px; margin-top: 10px; }
+  .path-card .view { height: 110px; }
+  .path-card .sprite { transform: scale(0.62); }
+  .path-card .sum { display: block; font-size: 12px; margin-top: 4px; }
+  .points { margin: 6px 10px 0; gap: 2px; font-size: 11.5px; }
+  .mage-list { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; margin-top: 10px; }
+  .mage-tab { padding: 4px 6px 4px 4px; gap: 6px; }
+  .mage-tab .thumb { width: 30px; height: 30px; }
+  .mage-tab b { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mage-tab small { display: none; }
+  .mage-detail { grid-template-columns: minmax(0, 132px) minmax(0, 1fr); gap: 12px; margin-top: 8px; }
+  .mage-art figcaption { font-size: 11px; margin-top: 4px; }
+  .mage-info { grid-template-columns: minmax(0, 1fr); }
+  .mage-side { display: none; }
+  .mage-text h3 { font-size: 19px; }
+  .mage-text .sum { display: none; }
+  .mage-text .facts { margin-top: 6px; font-size: 12px; gap: 3px 10px; }
+  .mage-text .versions { margin-top: 6px; gap: 4px; }
+  .mage-text .versions li { padding: 4px 8px; }
+  .v-head b { font-size: 14px; }
+  .v-text { font-size: 11.5px; }
 }
 
 /* abas e controles */

@@ -88,7 +88,8 @@ export class IntroScene extends Phaser.Scene {
   }
 
   private finish() {
-    if (this.leaving) return;
+    // a cena já saiu (os textos podem terminar depois)
+    if (this.leaving || !this.scene.isActive()) return;
     this.leaving = true;
     const cam = this.cameras.main;
     cam.fadeOut(1300, 0, 0, 0);

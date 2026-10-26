@@ -11,6 +11,10 @@ export interface ArrowOpts {
   life?: number;
   // a flecha que o Eco repete: de tinta, com o ouro da máscara em volta (não enche o Âmbar)
   echo?: boolean;
+  // a bolinha do Cajado do Eclipse (estoura na pedra em vez de cravar)
+  orb?: boolean;
+  // cor da flecha amiga (o arqueiro que voltou do Grimório)
+  tint?: number;
 }
 
 // Flecha: anda em linha reta, crava na pedra e some depois de um tempo. As do arco do cavaleiro
@@ -22,6 +26,8 @@ export class Arrow {
   stuck = false;
   hostile: boolean;
   readonly echo: boolean;
+  readonly orb: boolean;
+  private t = 0;
   private speed: number;
   private life: number;
   private stuckT = 0;
@@ -29,11 +35,23 @@ export class Arrow {
   constructor(scene: Phaser.Scene, public x: number, public y: number, public dx: number, public dy: number, public dmg: number, opts: ArrowOpts = {}) {
     this.hostile = !!opts.hostile;
     this.echo = !!opts.echo;
+    this.orb = !!opts.orb;
     this.speed = opts.speed ?? ARROW.speed;
     this.life = opts.life ?? ARROW.life;
+    if (this.orb) {
+      // a esfera escura com a coroa de fogo em volta (no Eco, a coroa vira ouro)
+      this.img = hd(scene.add.image(x, y, 'orb-eclipse').setDepth(11));
+      this.glow = scene.add.image(x, y, 'glow').setDepth(10.9).setTint(this.echo ? 0xf0c468 : 0xf28c22).setAlpha(0.55).setScale(0.42).setBlendMode(Phaser.BlendModes.ADD);
+      if (this.echo) this.img.setAlpha(0.8);
+      return;
+    }
     this.img = hd(scene.add.image(x, y, 'arrow').setDepth(11).setOrigin(0.85, 0.5));
     this.img.setRotation(Math.atan2(dy, dx));
-    if (this.hostile) {
+    if (opts.tint !== undefined) {
+      this.img.setTint(opts.tint);
+      this.glow = scene.add.image(x, y, 'glow').setDepth(10.9).setTint(opts.tint).setAlpha(0.4).setScale(0.45, 0.22).setBlendMode(Phaser.BlendModes.ADD);
+      this.glow.setRotation(this.img.rotation);
+    } else if (this.hostile) {
       // a flecha do inimigo vem avermelhada, com um brilho fraco para dar tempo de reagir
       this.img.setTint(0xffb08c);
       this.glow = scene.add.image(x, y, 'glow').setDepth(10.9).setTint(0xff8a5c).setAlpha(0.32).setScale(0.45, 0.22).setBlendMode(Phaser.BlendModes.ADD);
@@ -46,7 +64,7 @@ export class Arrow {
   }
 
   get tip() {
-    return { x: this.x + this.dx * 3, y: this.y + this.dy * 3 };
+    return this.orb ? { x: this.x + this.dx * 2, y: this.y + this.dy * 2 } : { x: this.x + this.dx * 3, y: this.y + this.dy * 3 };
   }
 
   // rebatida por um golpe: volta pelo mesmo caminho, mais rápida, e passa a acertar inimigos
@@ -92,6 +110,13 @@ export class Arrow {
       }
     }
     this.img.setPosition(Math.round(this.x), Math.round(this.y));
+    if (this.orb) {
+      // a coroa tremula e a bolinha gira devagar
+      this.t += dt;
+      this.img.setRotation(this.t * 9);
+      this.glow?.setPosition(this.x - this.dx * 2, this.y - this.dy * 2).setScale(0.4 + Math.sin(this.t * 40) * 0.05);
+      return null;
+    }
     this.glow?.setPosition(this.x - this.dx * 4, this.y - this.dy * 4);
     return null;
   }

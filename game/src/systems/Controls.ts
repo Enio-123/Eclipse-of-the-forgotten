@@ -16,6 +16,8 @@ export class Controls {
   moveHeld = false;
   movePressed = false;
   pointerWorld = new Phaser.Math.Vector2();
+  // onde o mouse está na tela (só muda quando ele mexe de verdade; toques não contam)
+  pointerScreen = new Phaser.Math.Vector2();
   // códigos crus tocados neste quadro (Esc, P...)
   rawPressed = new Set<string>();
   // Esc, P ou Start no controle
@@ -99,6 +101,7 @@ export class Controls {
     if (cam) {
       const p = this.scene.input.activePointer;
       cam.getWorldPoint(p.x, p.y, this.pointerWorld);
+      if (!p.wasTouch) this.pointerScreen.set(p.x, p.y);
     }
   }
 

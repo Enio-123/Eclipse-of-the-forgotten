@@ -2,8 +2,8 @@ import { WEAPON_IDS, type WeaponId } from '../config';
 import { RESERVED } from './Pad';
 import { FORCED_PRESET, FPS_LIMITS, PRESETS, cleanFlags, defaultPreset, type FpsLimit, type GfxFlags } from './Graphics';
 
-export type Action = 'left' | 'right' | 'up' | 'down' | 'jump' | 'attack' | 'dash' | 'crouch' | 'hook' | 'memory';
-export const ACTIONS: Action[] = ['left', 'right', 'up', 'down', 'jump', 'attack', 'dash', 'crouch', 'hook', 'memory'];
+export type Action = 'left' | 'right' | 'up' | 'down' | 'jump' | 'attack' | 'dash' | 'crouch' | 'hook' | 'memory' | 'skill';
+export const ACTIONS: Action[] = ['left', 'right', 'up', 'down', 'jump', 'attack', 'dash', 'crouch', 'hook', 'memory', 'skill'];
 export type Scheme = 'keyboard' | 'click';
 // resolução da tela: automática (nítida, e mais leve sozinha se o jogo ficar lento), nítida ou leve
 export type Quality = 'auto' | 'high' | 'low';
@@ -20,6 +20,7 @@ export const ACTION_LABEL: Record<Action, string> = {
   crouch: 'Agachar',
   hook: 'Gancho de corrente',
   memory: 'Poder de memória',
+  skill: 'Habilidade do mago',
 };
 
 export const DEFAULT_BINDS: Record<Action, string[]> = {
@@ -33,6 +34,8 @@ export const DEFAULT_BINDS: Record<Action, string[]> = {
   crouch: ['ControlLeft', 'KeyC'],
   hook: ['KeyE', 'KeyL'],
   memory: ['KeyQ', 'KeyR'],
+  // a habilidade do mago: o clique direito abre a mira (sem mouse, o I, em cima do ataque)
+  skill: ['Mouse2', 'KeyI'],
 };
 
 // botões do controle (posição no mapeamento padrão: 0 = botão de baixo, 7 = gatilho direito...)
@@ -45,11 +48,12 @@ export const DEFAULT_PAD: Record<Action, number[]> = {
   attack: [2],
   dash: [7, 1],
   crouch: [6, 4],
-  hook: [3, 5],
+  hook: [3],
   memory: [11],
+  skill: [5],
 };
 // ações que aparecem na troca de botões do controle (andar fica no analógico e no direcional)
-export const PAD_ACTIONS: Action[] = ['jump', 'attack', 'dash', 'crouch', 'hook', 'memory'];
+export const PAD_ACTIONS: Action[] = ['jump', 'attack', 'dash', 'crouch', 'hook', 'memory', 'skill'];
 
 export interface SettingsData {
   scheme: Scheme;
@@ -93,6 +97,8 @@ function load(): SettingsData {
       const b = parsed.pad?.[a];
       if (Array.isArray(b) && b.every((i) => Number.isInteger(i) && i >= 0 && i < 32 && !RESERVED.has(i))) padBinds[a] = b.slice(0, 2);
     }
+    // o R1 era o segundo botão do gancho: num ajuste de antes da habilidade do mago, ele passa para ela
+    if (!parsed.pad?.skill && padBinds.hook.length === 2 && padBinds.hook[0] === 3 && padBinds.hook[1] === 5) padBinds.hook = [3];
     // ação nova num ajuste antigo: as teclas padrão dela que outra ação já usa ficam de fora
     for (const a of ACTIONS) {
       if (!parsed.binds?.[a]) binds[a] = binds[a].filter((c) => !ACTIONS.some((o) => o !== a && binds[o].includes(c)));
@@ -183,6 +189,8 @@ export const settings = {
     const codes = this.data.binds[a] ?? [];
     if (this.data.scheme !== 'click') return codes;
     if (a === 'attack') return [...codes.filter((c) => c !== 'Mouse0'), 'Mouse2'];
+    // no modo clique o direito já é o ataque: a habilidade vai para o clique do meio
+    if (a === 'skill') return [...codes.filter((c) => c !== 'Mouse0' && c !== 'Mouse2'), 'Mouse1'];
     return codes.filter((c) => c !== 'Mouse0');
   },
 };
