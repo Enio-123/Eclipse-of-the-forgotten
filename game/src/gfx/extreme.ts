@@ -107,6 +107,7 @@ uniform float uWaterN;
 uniform float uPost;
 uniform vec4 uMem;
 uniform float uMemMode;
+uniform vec4 uPres;
 
 float lum(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -115,6 +116,25 @@ float noise(vec2 p) {
   vec2 f = fract(p);
   f = f * f * (3.0 - 2.0 * f);
   return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+
+// rachaduras finas: a curva de nível do ruído (entortado para não seguir a grade), com a largura
+// medida em pixels do mundo pela inclinação do ruído, cortada em trechos e com galhos menores
+float cracks(vec2 world) {
+  vec2 q = world + vec2(noise(world * 0.021), noise(world * 0.021 + 7.3)) * 34.0;
+  float f1 = 0.03;
+  float n1 = noise(q * f1);
+  vec2 g1 = vec2(noise((q + vec2(1.0, 0.0)) * f1), noise((q + vec2(0.0, 1.0)) * f1)) - n1;
+  float d1 = abs(n1 - 0.5) / max(length(g1), 0.002);
+  float f2 = 0.071;
+  float n2 = noise(q * f2 + 19.0);
+  vec2 g2 = vec2(noise((q + vec2(1.0, 0.0)) * f2 + 19.0), noise((q + vec2(0.0, 1.0)) * f2 + 19.0)) - n2;
+  float d2 = abs(n2 - 0.5) / max(length(g2), 0.002);
+  float seg = smoothstep(0.34, 0.6, noise(q * 0.045 + 3.1));
+  float crack = (1.0 - smoothstep(0.25, 0.95, d1)) * seg;
+  crack = max(crack, (1.0 - smoothstep(0.15, 0.65, d2)) * seg * smoothstep(0.55, 0.8, noise(q * 0.09 + 8.0)) * 0.7);
+  float halo = (exp(-d1 * 0.45) * seg) * 0.22;
+  return crack + halo;
 }
 
 void main() {
@@ -205,23 +225,8 @@ void main() {
   // ouro na pedra (como a máscara do cavaleiro); a memória corrompida drena a cor e acende veios roxos
   if (uMem.w > 0.001) {
     float inside = (1.0 - smoothstep(uMem.z - 30.0, uMem.z + 2.0, memD)) * uMem.w;
-    // rachaduras finas: a curva de nível do ruído (entortado para não seguir a grade), com a largura
-    // medida em pixels do mundo pela inclinação do ruído, cortada em trechos e com galhos menores
-    vec2 q = world + vec2(noise(world * 0.021), noise(world * 0.021 + 7.3)) * 34.0;
-    float f1 = 0.03;
-    float n1 = noise(q * f1);
-    vec2 g1 = vec2(noise((q + vec2(1.0, 0.0)) * f1), noise((q + vec2(0.0, 1.0)) * f1)) - n1;
-    float d1 = abs(n1 - 0.5) / max(length(g1), 0.002);
-    float f2 = 0.071;
-    float n2 = noise(q * f2 + 19.0);
-    vec2 g2 = vec2(noise((q + vec2(1.0, 0.0)) * f2 + 19.0), noise((q + vec2(0.0, 1.0)) * f2 + 19.0)) - n2;
-    float d2 = abs(n2 - 0.5) / max(length(g2), 0.002);
-    float seg = smoothstep(0.34, 0.6, noise(q * 0.045 + 3.1));
-    float crack = (1.0 - smoothstep(0.25, 0.95, d1)) * seg;
-    crack = max(crack, (1.0 - smoothstep(0.15, 0.65, d2)) * seg * smoothstep(0.55, 0.8, noise(q * 0.09 + 8.0)) * 0.7);
-    float halo = (exp(-d1 * 0.45) * seg) * 0.22;
     float rim = mask.r * (1.0 - mask.r) * 4.0;
-    float lines = (crack + halo) * mask.r + rim * 0.25;
+    float lines = cracks(world) * mask.r + rim * 0.25;
     if (uMemMode < 0.5) {
       vec3 w = col * vec3(1.2, 1.07, 0.86) + vec3(0.045, 0.03, 0.0);
       float lw = lum(w);
@@ -234,6 +239,18 @@ void main() {
       col = mix(col, dr, inside);
       col += vec3(0.56, 0.24, 0.9) * (lines * inside * 0.6 + memRing * 0.26);
     }
+  }
+
+  // o presente aparecendo onde a lembrança do vale falha: em volta dele tudo fica cinza, seco e mais
+  // apagado, com a borda roída (ela respira) e a terra rachada
+  if (uPres.w > 0.001) {
+    float pd = length((world - uPres.xy) * vec2(1.0, 1.15));
+    float edge = uPres.z * (0.8 + 0.4 * noise(world * 0.017 + vec2(uTime * 0.09, uTime * 0.05)));
+    float inside = (1.0 - smoothstep(edge - 54.0, edge, pd)) * uPres.w;
+    float lc = lum(col);
+    vec3 dry = vec3(lc) * vec3(1.0, 0.96, 0.9) * 0.84 + vec3(0.03, 0.028, 0.024);
+    dry *= 1.0 - cracks(world * 1.3) * mask.r * 0.5;
+    col = mix(col, dry, inside);
   }
 
   if (uPost < 0.5) {
@@ -354,6 +371,8 @@ export interface ExtremeFeed {
   // onda de memória: [x, y, raio, força] no mundo e o tipo (0 lembrança, 1 corrompida)
   mem: Float32Array;
   memMode: number;
+  // o presente cinzento do vale em volta dele: [x, y, raio, força] no mundo
+  pres: Float32Array;
 }
 
 export const EXTREME = 'ExtremeGraphics';
@@ -452,6 +471,7 @@ export class ExtremePipeline extends Phaser.Renderer.WebGL.Pipelines.PostFXPipel
     this.set1f('uWaterN', f.waterCount, comp);
     this.set4f('uMem', f.mem[0], f.mem[1], f.mem[2], f.mem[3], comp);
     this.set1f('uMemMode', f.memMode, comp);
+    this.set4f('uPres', f.pres[0], f.pres[1], f.pres[2], f.pres[3], comp);
 
     if (f.post) this.bindTexture(half1.texture, 1);
     const glOf = (tex: Phaser.Textures.Texture | null) => (tex ? tex.source[0].glTexture : null);

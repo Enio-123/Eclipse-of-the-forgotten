@@ -1129,6 +1129,8 @@ const CHAPTER6: Record<'descida' | 'prado' | 'riacho' | 'cachoeiras' | 'gruta' |
     music: 'memory',
     ambience: 'wind',
     hints: [],
+    // o primeiro trecho onde a lembrança falha: o meio do campo, com duas árvores
+    present: [{ x0: 62, x1: 92, y0: 0, y1: 41 }],
     thoughts: [
       { x: 6, text: 'Pétalas no vento. Aqui ninguém cobrava nada, nem a lembrança.' },
       { x: 42, y: 33, text: 'Garças no raso, paradas como estátuas. Até a hora da bicada.' },
@@ -1244,18 +1246,20 @@ const CHAPTER6: Record<'descida' | 'prado' | 'riacho' | 'cachoeiras' | 'gruta' |
     music: 'memory',
     ambience: 'wind',
     hints: [],
-    // a correnteza: mais forte nos arcos dos pilares; cada tronco desce o trecho entre duas ilhas
+    // a correnteza aperta rio abaixo, a caminho da cachoeira do cais; cada tronco desce o trecho entre
+    // duas ilhas
     currents: [
-      { x0: 13, x1: 69, y0: 34, y1: 43, vx: 60 },
-      { x0: 70, x1: 73, y0: 34, y1: 43, vx: 105 },
-      { x0: 74, x1: 119, y0: 34, y1: 43, vx: 60 },
-      { x0: 120, x1: 123, y0: 34, y1: 43, vx: 105 },
-      { x0: 124, x1: 187, y0: 34, y1: 43, vx: 60 },
+      { x0: 13, x1: 39, y0: 34, y1: 43, vx: 55 },
+      { x0: 53, x1: 91, y0: 34, y1: 43, vx: 65 },
+      { x0: 105, x1: 139, y0: 34, y1: 43, vx: 80 },
+      { x0: 151, x1: 187, y0: 34, y1: 43, vx: 95 },
     ],
     logs: [[13, 39], [53, 91], [105, 139], [151, 187]],
+    // o pilar da Casa e a ordem pregada nele ficam onde a lembrança falha
+    present: [{ x0: 86, x1: 112, y0: 0, y1: 45 }],
     thoughts: [
       { x: 6, text: 'O rio inteiro desce para fora do reino. Era por aqui que eles fugiam.' },
-      { x: 66, y: 22, text: 'Um pilar de pedra escura no meio do vale, com bronze nas juntas. Isto é da Casa.' },
+      { x: 90, y: 31, text: 'Um pilar de pedra escura no meio do vale, com bronze nas juntas. Isto é da Casa.' },
     ],
   },
   cais: {

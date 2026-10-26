@@ -148,6 +148,7 @@ export class RoomLighting {
       waterCount: 0,
       mem: new Float32Array(4),
       memMode: 0,
+      pres: new Float32Array(4),
     };
     this.findWater(look);
     this.buildMask();

@@ -5,7 +5,7 @@
 const { chromium } = require('playwright');
 const OUT = process.argv[2] || '.';
 const URL = process.argv[3] || process.env.GAME && process.env.GAME + '/index.html' || 'http://localhost:8765/index.html';
-// ONLY=links,neve roda só essas partes (neve, links, agrimensor, agua, nado, quedas, rio, alagada, gruta, fotos)
+// ONLY=links,neve roda só essas partes (neve, links, agrimensor, agua, nado, quedas, rio, alagada, gruta, presente, fotos)
 const ONLY = (process.env.ONLY || '').split(',').filter(Boolean);
 const part = (k) => !ONLY.length || ONLY.includes(k);
 (async () => {
@@ -424,6 +424,27 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
     w = await W();
     check(w.ground && !w.swim && w.x > 72 && Math.abs(w.bottom - 31 * 16) < 2, `sai da água na laje do baú, no bolsão de ar (x ${w.x.toFixed(1)}, pés ${(w.bottom / 16).toFixed(1)})`);
     await shot('v29-bolsao');
+  }
+
+  if (part('presente')) {
+    // ---------- 13. o presente cinzento: dentro do trecho o cinza abre em volta dele e a flor cai ----------
+    await setProgress(['boss:cacador']);
+    await start('prado', '1');
+    await clear();
+    await put(56, 33);
+    await waitGame(0.6);
+    let v = await page.evaluate(() => { const V = window.__scene.vale; return { k: V.pres.k, blooms: V.blooms.length }; });
+    check(v.k === 0 && v.blooms >= 1, `fora do trecho o vale está inteiro (cinza ${v.k}, ${v.blooms} copa(s) no trecho)`);
+    await put(76, 33);
+    await waitGame(1.2);
+    v = await page.evaluate(() => { const V = window.__scene.vale; const f = window.__scene.xp && window.__scene.xp.feed; return { k: V.pres.k, r: V.pres.r, bloom: Math.min(...V.blooms.map((b) => b.gs[0].alpha)), feed: f ? f.pres[3] : null }; });
+    check(v.k > 0.95 && v.r > 150 && v.bloom < 0.3, `dentro do trecho o cinza abre em volta dele e a flor da árvore cai (cinza ${v.k.toFixed(2)}, raio ${v.r.toFixed(0)}, flor ${v.bloom.toFixed(2)})`);
+    if (v.feed !== null) check(v.feed > 0.95, `o filtro recebe o cinza (${v.feed.toFixed(2)})`);
+    await shot('v30-presente');
+    await put(120, 33);
+    await waitGame(2.0);
+    v = await page.evaluate(() => { const V = window.__scene.vale; return { k: V.pres.k, bloom: Math.min(...V.blooms.map((b) => b.gs[0].alpha)) }; });
+    check(v.k === 0 && v.bloom > 0.99, `longe do trecho o cinza fecha e a flor volta (cinza ${v.k.toFixed(2)}, flor ${v.bloom.toFixed(2)})`);
   }
 
   if (part('fotos')) {

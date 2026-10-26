@@ -2036,8 +2036,9 @@ def prainha():
 def rio():
     """O Rio: a correnteza leva os troncos rio abaixo, e eles servem de chão (afundam um pouco com o
     peso). Ilhas de areia no meio, trutas, garças. O aqueduto da Casa atravessa o rio no alto, em dois
-    pilares: sobe-se pelo pilar com as garras e anda-se por cima da calha. A ordem do aqueduto está
-    pregada no pilar da esquerda. No fim, a margem com a lanterna do cais (descanso)."""
+    pilares plantados nas ilhas (sobem da areia até a calha, que se apoia nos dois): sobe-se pelo pilar
+    com as garras e anda-se por cima da calha. A ordem do aqueduto está pregada no pé do pilar da
+    esquerda. No fim, a margem com a lanterna do cais (descanso)."""
     W, H = 200, 46
     g = Grid(W, H, '.')
     ground(g, 0, 12, 31)
@@ -2047,26 +2048,23 @@ def rio():
     # as ilhas de areia
     for (x0, x1, top) in ((40, 52, 33), (92, 104, 32), (140, 150, 33)):
         g.fill(x0, top, x1, 43, '#')
-    # o aqueduto: dois pilares, cada um com um arco no pé por onde o rio passa, e a calha por cima
-    g.fill(70, 8, 73, 43, '#')
-    g.fill(120, 8, 123, 43, '#')
-    g.fill(70, 25, 73, 33, '.')
-    g.fill(120, 25, 123, 33, '.')
-    g.fill(70, 34, 73, 43, '~')
-    g.fill(120, 34, 123, 43, '~')
-    g.fill(70, 6, 123, 7, '#')
+    # o aqueduto: dois pilares de pedra escura plantados nas ilhas do meio, do fundo do rio até a calha,
+    # e a calha por cima, apoiada nos dois
+    g.fill(96, 8, 99, 43, '#')
+    g.fill(143, 8, 146, 43, '#')
+    g.fill(96, 6, 146, 7, '#')
     g.put(1, 30, '1')
     g.put(198, 30, '2')
     g.put(194, 30, 'R')
-    g.put(69, 21, 'r')
+    g.put(94, 31, 'r')
     for x in (20, 60, 110, 160):
         g.put(x, 34, '[')
     g.put(30, 34, ')')
     g.put(84, 34, ')')
     g.put(165, 34, ')')
-    g.put(98, 31, '(')
-    g.put(96, 18, '?')
-    g.put(100, 5, '$')
+    g.put(102, 31, '(')
+    g.put(121, 18, '?')
+    g.put(121, 5, '$')
     return g.rows()
 
 

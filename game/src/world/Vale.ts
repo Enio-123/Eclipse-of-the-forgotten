@@ -65,12 +65,23 @@ export class Vale {
   private driftAcc = 0;
   // os troncos só seguram o cavaleiro depois que ele existe (o Vale nasce antes dele)
   private linked = false;
+  // o presente cinzento (lore/vale.md): os trechos onde a lembrança falha, o círculo cinza em volta dele
+  // (centro, raio e força; o filtro do EXTREME e do Alto pinta), as copas de flor desses trechos (caem
+  // quando o cinza chega) e a cinza seca no ar
+  private present: Phaser.Geom.Rectangle[] = [];
+  private pres = { x: 0, y: 0, r: 0, k: 0 };
+  private blooms: { x: number; y: number; gs: Phaser.GameObjects.Graphics[]; bare: number }[] = [];
+  private ash: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
+  private ashAcc = 0;
+  // sem o filtro do Alto e do EXTREME (Performance): a tela inteira desbota enquanto o cinza dura
+  private greyFx: Phaser.FX.ColorMatrix | null = null;
 
   constructor(private s: GameScene) {
+    const room = s.room;
+    for (const r of room.present ?? []) this.present.push(new Phaser.Geom.Rectangle(r.x0 * TILE, r.y0 * TILE, (r.x1 - r.x0 + 1) * TILE, (r.y1 - r.y0 + 1) * TILE));
     this.makeTextures();
     if (!s.textures.exists(`arvores-${s.room.id}`)) this.drawTrees();
     this.drawWater();
-    const room = s.room;
     // a espuma onde a queda bate, os respingos e a névoa que sobe do lado
     this.foam = s.add.particles(0, 0, 'glow', {
       lifespan: { min: 500, max: 1100 },
@@ -125,6 +136,20 @@ export class Vale {
     }
     const logs = s.level.spawns.filter((sp) => sp.kind === '[');
     logs.forEach((sp, i) => this.addLog(sp.x, sp.ty, room.logs?.[i] ?? null, i));
+    if (this.present.length) {
+      // flocos de cinza e pétala seca, caindo devagar e rodando no ar parado
+      this.ash = s.add.particles(0, 0, 'px', {
+        lifespan: { min: 1800, max: 3200 },
+        speedX: { min: -16, max: 16 },
+        speedY: { min: 14, max: 38 },
+        scaleX: { min: 1.2, max: 2.4 },
+        scaleY: { min: 0.8, max: 1.4 },
+        rotate: { min: 0, max: 360 },
+        alpha: { start: 0.85, end: 0 },
+        tint: [0x8d8a84, 0xa7a39b, 0x6f6c67, 0xb9b2a6, 0x9c8f86],
+        emitting: false,
+      }).setDepth(DEPTH.front + 0.3);
+    }
   }
 
   // ---------- texturas ----------
@@ -328,6 +353,7 @@ export class Vale {
     // a correnteza leva quem está na água (nadando ou andando no raso)
     p.current = p.swim || p.inWater ? this.flowAt(p.x, p.body.center.y) : 0;
     this.updateLogs(dt, p);
+    this.updatePresent(dt, p);
     for (const w of this.surfaces) w.sprite.tilePositionX -= (w.vx * 0.9 + 6) * dt;
     this.caustics.forEach((w, i) => {
       w.sprite.tilePositionX -= (w.vx * 0.6 + (i % 2 ? -7 : 5)) * dt;
@@ -434,8 +460,62 @@ export class Vale {
     }
   }
 
+  // O presente cinzento: dentro de um trecho onde a lembrança falha, o cinza abre em volta dele e o segue;
+  // fora, fecha devagar onde ele deixou. As copas de flor que o cinza alcança caem (a árvore fica seca) e
+  // a cinza fica no ar enquanto ele está lá dentro
+  private updatePresent(dt: number, p: Player) {
+    if (!this.present.length) return;
+    const P = this.pres;
+    const cy = p.body.center.y;
+    const inside = !p.dead && this.present.some((r) => r.contains(p.x, cy));
+    if (inside) {
+      if (P.k < 0.05) P.r = 50;
+      P.x = p.x;
+      P.y = cy;
+      P.k = Math.min(1, P.k + dt / 0.45);
+      P.r = Math.min(210, P.r + dt * 380);
+      this.s.thinkOnce('vale:presente', 'Por um instante o vale ficou cinza e seco. É assim que ele está agora, fora da lembrança.');
+    } else P.k = Math.max(0, P.k - dt / 1.3);
+    const f = this.s.xp?.feed;
+    if (f) {
+      f.pres[0] = P.x;
+      f.pres[1] = P.y;
+      f.pres[2] = P.r;
+      f.pres[3] = P.k;
+    } else if (this.s.game.renderer.type === Phaser.WEBGL) {
+      const cam = this.s.cameras.main;
+      if (P.k > 0 && !this.greyFx) this.greyFx = cam.postFX.addColorMatrix();
+      if (this.greyFx) {
+        this.greyFx.grayscale(0.92);
+        this.greyFx.alpha = P.k * 0.75;
+        if (P.k <= 0) {
+          cam.postFX.remove(this.greyFx as unknown as Phaser.FX.Controller);
+          this.greyFx = null;
+        }
+      }
+    }
+    for (const b of this.blooms) {
+      const d = Math.hypot(b.x - P.x, (b.y - P.y) * 0.7);
+      const a = P.k * (1 - Phaser.Math.Clamp((d - (P.r - 40)) / 80, 0, 1));
+      // a flor cai quando o cinza chega nela
+      if (a > b.bare + 0.12 && this.ash) this.ash.emitParticleAt(b.x + (Math.random() - 0.5) * 60, b.y + (Math.random() - 0.5) * 36, 4);
+      b.bare = a;
+      for (const g of b.gs) g.setAlpha(1 - a);
+    }
+    if (this.ash && P.k > 0.3) {
+      this.ashAcc += dt * 18 * P.k;
+      while (this.ashAcc >= 1) {
+        this.ashAcc -= 1;
+        const ang = Math.random() * Math.PI * 2;
+        const rr = Math.sqrt(Math.random()) * P.r * 0.9;
+        this.ash.emitParticleAt(P.x + Math.cos(ang) * rr, P.y + Math.sin(ang) * rr * 0.8 - 30);
+      }
+    }
+  }
+
   // cada árvore 'T': o tronco do pé até acima do galho mais alto, os galhos do mapa saindo dele (o pé de
-  // cada galho é grosso e afina para a ponta) e a copa de flor rosa em volta das pontas e no alto
+  // cada galho é grosso e afina para a ponta) e a copa de flor rosa em volta das pontas e no alto. As
+  // árvores dos trechos do presente têm a copa à parte, para cair quando o cinza chega
   private drawTrees() {
     const s = this.s;
     const L = s.level;
@@ -445,8 +525,8 @@ export class Vale {
     const branches: Span[] = L.spans((x, y) => L.ch(x, y) === '-');
     const wood = s.add.graphics().setDepth(DEPTH.prop);
     const limbs = s.add.graphics().setDepth(DEPTH.tiles + 0.2);
-    const bloomBack = s.add.graphics().setDepth(DEPTH.prop - 0.1);
-    const bloomFront = s.add.graphics().setDepth(DEPTH.front + 0.2);
+    const sharedBack = s.add.graphics().setDepth(DEPTH.prop - 0.1);
+    const sharedFront = s.add.graphics().setDepth(DEPTH.front + 0.2);
     const pinks = [0xf6b3cc, 0xf29bbb, 0xfbd0de, 0xe98aae, 0xffe3ec];
     const blossom = (g: Phaser.GameObjects.Graphics, cx: number, cy: number, r: number) => {
       for (let k = 0; k < 14; k++) {
@@ -463,6 +543,13 @@ export class Vale {
       const x = t.x;
       const base = t.y + 2;
       const yTop = top * TILE;
+      let bloomBack = sharedBack;
+      let bloomFront = sharedFront;
+      if (this.present.some((r) => r.contains(x, t.y - 8))) {
+        bloomBack = s.add.graphics().setDepth(DEPTH.prop - 0.1);
+        bloomFront = s.add.graphics().setDepth(DEPTH.front + 0.2);
+        this.blooms.push({ x, y: (yTop + base) / 2, gs: [bloomBack, bloomFront], bare: 0 });
+      }
       // o tronco afina para cima, com a casca escura e a luz do lado do sol
       const w0 = 18;
       const w1 = 9;
