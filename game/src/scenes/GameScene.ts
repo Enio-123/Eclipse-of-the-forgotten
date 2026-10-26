@@ -11,6 +11,11 @@ import { Arcebispo } from '../entities/Arcebispo';
 import { Jailer } from '../entities/Jailer';
 import { Carcereira } from '../entities/Carcereira';
 import { Sombra } from '../entities/Sombra';
+import { Miner } from '../entities/Miner';
+import { AmberBat } from '../entities/AmberBat';
+import { Reflexo } from '../entities/Reflexo';
+import { Capataz } from '../entities/Capataz';
+import { InkWisp } from '../entities/InkWisp';
 import { ABYSS, Echo } from '../entities/Echo';
 import { overlap, type BossFoe, type Enemy } from '../entities/Enemy';
 import { SmokeField } from '../entities/Smoke';
@@ -27,9 +32,10 @@ import { MAP_POS, ROOMS, type Ability, type BossId, type Exit, type RoomDef, typ
 import { Props, type MemoryOrb, type Relic, type Shrine } from '../world/Props';
 import { Fixtures, type Door, type Ring } from '../world/Fixtures';
 import { Npcs, type Npc } from '../world/Npcs';
+import { Mine } from '../world/Mine';
 import type { Breakable } from '../world/secrets';
 import { Loot } from '../world/Loot';
-import { ARENA_WAVES, BELLS, ELO, FORGE, LEVERS, MATERIALS, MEMORIES, MEMORY_ECHO, NUN, OFFERS, PAGES, PRISONER, RELICS, SMITH } from '../world/lore';
+import { ARENA_WAVES, BELLS, ELO, FORGE, LEVERS, MATERIALS, MEMORIES, MEMORY_ECHO, NUN, OFFERS, OLD_MINER, PAGES, PRISONER, RECORDS, RELICS, SMITH } from '../world/lore';
 import { TILE_ONEWAY, smoothGlow } from '../gfx/textures';
 import { ui } from '../ui/ui';
 import { pad } from '../systems/Pad';
@@ -178,6 +184,35 @@ const BOSSES: Record<BossId, BossInfo> = {
     after: ['A tinta voltou para dentro de mim. Pesa como pano molhado, e é minha.', 'Agora ela passa onde a pedra não deixa: grade de cela, pele de tinta.'],
     relic: 'veil',
   },
+  reflexo: {
+    make: (s, x, y) => new Reflexo(s, x, y),
+    sheet: 'knight-scythe',
+    name: 'O Reflexo',
+    title: 'Ele repete tudo o que você fez',
+    music: 'mirror',
+    memory: 'espelhos:boss',
+    // acorda depois que o cavaleiro passa na frente do espelho (antes disso a imagem fica na pedra)
+    wakeX: 36,
+    orb: 0,
+    drop: 0,
+    corpse: 'none',
+    corpseFacing: -1,
+    after: ['Era eu, do jeito que o Âmbar me guardou. Um instante atrasado, mas inteiro.', 'O espelho rachou de cima a baixo. Do outro lado da câmara, alguém ainda pica a pedra.'],
+  },
+  capataz: {
+    make: (s, x, y) => new Capataz(s, x, y),
+    sheet: 'capataz',
+    name: 'O Capataz de Âmbar',
+    title: 'O último turno nunca acabou',
+    music: 'boss4',
+    memory: 'capataz:boss',
+    wakeX: 12,
+    orb: -40,
+    drop: 60,
+    corpse: 'death',
+    corpseFacing: 1,
+    after: ['O apito caiu do pescoço dele. Pela primeira vez, ninguém chama o turno.', 'A picareta dele quebra o Âmbar. O bloco do túnel não vai segurar.'],
+  },
 };
 
 // fim de cada capítulo (a memória do chefe fecha o capítulo)
@@ -189,6 +224,10 @@ const CHAPTERS: Record<string, { title: string; text: string }> = {
   'altar:boss': {
     title: 'Fim do segundo capítulo',
     text: 'A conta do Arcebispo fechou. Ele cobrou a memória dela antes da cerimônia, e ela o esqueceu no caminho do altar. O que foi cobrado desceu para a prisão, embaixo da cidade.',
+  },
+  'capataz:boss': {
+    title: 'Fim do quarto capítulo',
+    text: 'As luzes douradas que ele junta desde a ponte são Âmbar: memória de gente, tirada nas minas e espremida nas prensas da Casa Vhalor. O que a Casa cobrava não era dízimo. Eram lembranças. E uma delas era dela, fugindo pelo túnel.',
   },
   'abismo:boss': {
     title: 'Fim do terceiro capítulo',
@@ -215,6 +254,10 @@ const SPAWNERS: Record<string, (s: GameScene, x: number, y: number) => Enemy> = 
   a: (s, x, y) => new Archer(s, x, y),
   i: (s, x, y) => new Censer(s, x, y),
   W: (s, x, y) => new Jailer(s, x, y),
+  u: (s, x, y) => new Miner(s, x, y),
+  z: (s, x, y) => new AmberBat(s, x, y - 10),
+  // fiapo de tinta da fragmentação (o Capataz chama na segunda fase)
+  k: (s, x, y) => new InkWisp(s, x, y),
 };
 
 export class GameScene extends Phaser.Scene {
@@ -228,6 +271,8 @@ export class GameScene extends Phaser.Scene {
   props!: Props;
   fixtures!: Fixtures;
   npcs!: Npcs;
+  // as Minas: cristais, escoras, trilhos e vagonete, prensas, registros e blocos de Âmbar
+  mine: Mine | null = null;
   loot!: Loot;
   boss: BossFoe | null = null;
   private bossFrac = -1;
@@ -288,6 +333,8 @@ export class GameScene extends Phaser.Scene {
   // inimigos já atravessados no dash atual (um sopro por inimigo) e os que já deixaram moedas
   private passed = new Set<Enemy>();
   private passDash = -1;
+  private cartHits = new Set<Enemy>();
+  private pressHits = new Set<Enemy>();
   private looted = new WeakSet<Enemy>();
   private tracks: Track[] = [];
   private quakes: Quake[] = [];
@@ -454,6 +501,7 @@ export class GameScene extends Phaser.Scene {
     this.props = new Props(this, room.id !== 'catacumbas' || (progress.seen.has('memory:vale') && !fresh));
     this.fixtures = new Fixtures(this);
     this.npcs = new Npcs(this);
+    this.mine = room.theme === 'mine' ? new Mine(this) : null;
 
     // as laterais com saída e o fundo do abismo (ou do buraco que leva para baixo) não seguram o jogador
     const W = this.level.widthPx;
@@ -882,6 +930,8 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     const p = this.player;
+    // o vagonete anda antes do cavaleiro (ele vai sentado no assento já no lugar novo)
+    this.mine?.update(time, dt);
     p.update(dt, this.controls);
     this.hookHits();
     if (p.canHook) this.fixtures.markRing(p.hook || p.dead ? null : this.hookTarget(p));
@@ -962,6 +1012,7 @@ export class GameScene extends Phaser.Scene {
         pad.rumble(0.2, 0.3, 60);
       }
       if (this.fixtures.strike(box, p)) hit = true;
+      if (this.mine?.strike(box, p)) hit = true;
       if (p.atkDir === 'down' && !p.hitSet.has('spikes') && this.level.touchesSpikes(box.x, box.y, box.width, box.height)) {
         p.hitSet.add('spikes');
         hit = true;
@@ -971,7 +1022,7 @@ export class GameScene extends Phaser.Scene {
       if (hit) {
         // quanto mais pesada a arma, mais o impacto segura e treme
         const w = p.weapon;
-        const heavy = w.quake ? 2 : w.id === 'scythe' ? 1 : 0;
+        const heavy = w.quake || w.pick ? 2 : w.id === 'scythe' ? 1 : 0;
         p.onAttackHit();
         this.hitstop([0.05, 0.07, 0.09][heavy]);
         this.cameras.main.shake([70, 70, 100][heavy], [0.003, 0.005, 0.007][heavy]);
@@ -1197,6 +1248,13 @@ export class GameScene extends Phaser.Scene {
 
   spawnArrow(x: number, y: number, dx: number, dy: number, dmg: number) {
     this.arrows.push(new Arrow(this, x, y, dx, dy, dmg * progress.dmgFor('bow')));
+    // o espelho guarda a flechada também
+    if (this.boss instanceof Reflexo && this.boss.alive) this.boss.noteShot(x, y, dx, dy);
+  }
+
+  // a fragmentação: a onda roxa passa pela sala inteira e a cor some por um instante
+  fragmentWave(x: number, y: number) {
+    this.memWave?.start(x, y, 'corrupt', { radius: 900, hold: 1.4 });
   }
 
   // flecha do arqueiro da sacada (machuca o cavaleiro até ser rebatida)
@@ -1398,7 +1456,7 @@ export class GameScene extends Phaser.Scene {
     if (!hint && !this.cinematic && !this.transitioning && !p.dead) {
       this.props.touch(p);
       this.fixtures.touch(p);
-      const near = this.props.nearby(p) ?? this.fixtures.nearby(p) ?? this.npcs.nearby(p);
+      const near = this.mine?.nearby(p) ?? this.props.nearby(p) ?? this.fixtures.nearby(p) ?? this.npcs.nearby(p);
       if (near) {
         hint = near.hint;
         if (this.controls.pressed.up) {
@@ -1877,10 +1935,74 @@ export class GameScene extends Phaser.Scene {
   }
 
   // ---------- gente da cidade ----------
+  // ---------- Minas ----------
+  // o que machuca sem ser inimigo nem espinho (a prensa, a viga baixa no vagonete)
+  hazardHit(fromX: number, crush = false) {
+    const p = this.player;
+    if (this.respawning || p.dead || this.transitioning) return;
+    if (p.hurt(fromX)) {
+      this.onHurt();
+      if (crush) {
+        this.dustBurst(p.x, p.body.bottom, 10);
+        this.cameras.main.shake(220, 0.01);
+      }
+    }
+  }
+
+  // o vagonete atropela (uma vez por passada; a Mine controla)
+  hitByCart(e: Enemy, fromX: number) {
+    if (this.cartHits.has(e)) return false;
+    this.cartHits.add(e);
+    const r = e.hit(fromX, 4, 'side');
+    if (r !== 'hit') return false;
+    this.sparks.explode(10, e.zone.x, e.zone.y);
+    this.sfx(e.alive ? 'hit' : 'kill');
+    if (!e.alive) this.onKill(e);
+    return true;
+  }
+
+  // a prensa esmaga quem estiver embaixo (uma vez por descida)
+  hitByPress(e: Enemy, x: number) {
+    if (this.pressHits.has(e)) return;
+    this.pressHits.add(e);
+    this.time.delayedCall(700, () => this.pressHits.delete(e));
+    const r = e.hit(x, 6, 'quake');
+    if (r !== 'hit') return;
+    this.sfx(e.alive ? 'hit' : 'kill');
+    if (!e.alive) this.onKill(e);
+  }
+
+  clearCartHits() {
+    this.cartHits.clear();
+  }
+
+  // pensamento que só aparece uma vez no jogo
+  thinkOnce(key: string, text: string) {
+    if (progress.seen.has(`thought:${key}`)) return;
+    progress.seen.add(`thought:${key}`);
+    progress.save();
+    ui.thought(text, 4200);
+  }
+
+  // os registros das Minas: o livro em cima do caixote (fica guardado no Diário, aba Registros)
+  readRecord(id: string) {
+    const r = RECORDS[id];
+    if (!r) return;
+    const first = !progress.seen.has(`record:${id}`);
+    this.talk(r.title, r.lines, null, () => {
+      if (!first) return;
+      progress.seen.add(`record:${id}`);
+      progress.save();
+      this.sfx('page');
+      ui.banner('Registro guardado no Diário', r.title, 3600);
+    });
+  }
+
   talkTo(n: Npc) {
     if (n.kind === 'smith') this.openForge(n);
     else if (n.kind === 'nun') this.talkNun(n);
     else if (n.kind === 'prisoner') this.talkPrisoner(n);
+    else if (n.kind === 'miner') this.talkMiner(n);
     else {
       const lines = this.room.npcs?.[n.i] ?? ['...'];
       const line = lines[n.line % lines.length];
@@ -1904,6 +2026,23 @@ export class GameScene extends Phaser.Scene {
         after?.();
       },
     });
+  }
+
+  // o mineiro que ficou: conta da mina na primeira vez, depois uma lembrança por conversa; com o
+  // Capataz vencido, fala do silêncio
+  private talkMiner(n: Npc) {
+    if (progress.seen.has('boss:capataz')) {
+      this.talk(OLD_MINER.name, [OLD_MINER.done[n.line++ % OLD_MINER.done.length]], n);
+      return;
+    }
+    if (!progress.seen.has('oldminer:met')) {
+      this.talk(OLD_MINER.name, OLD_MINER.first, n, () => {
+        progress.seen.add('oldminer:met');
+        progress.save();
+      });
+      return;
+    }
+    this.talk(OLD_MINER.name, [OLD_MINER.after[n.line++ % OLD_MINER.after.length]], n);
   }
 
   // a irmã Luzia: dá o diário, pede os três sinos e recompensa quando todos tocam
@@ -2195,8 +2334,12 @@ export class GameScene extends Phaser.Scene {
       this.enemies.push(b);
       return;
     }
-    // já vencido: o corpo continua caído onde ele lutava
+    // já vencido: o corpo continua caído onde ele lutava (o Reflexo não deixa corpo, só o espelho rachado)
     const f = info.corpseFacing;
+    if (info.corpse === 'none') {
+      if (!progress.memories.has(info.memory)) this.props.addMemory(info.memory, this.bossX(x + f * info.orb), y - 26);
+      return;
+    }
     const a = this.anims.get(`${info.sheet}-${info.corpse}`);
     const o = this.registry.get(`${info.sheet}-origin`) as { x: number; y: number };
     face(hd(this.add.image(x, y, info.sheet, a.frames[a.frames.length - 1].textureFrame)).setOrigin(o.x, o.y).setDepth(DEPTH.prop).setTint(0x9a948c), f < 0);

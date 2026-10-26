@@ -33,7 +33,7 @@ export interface DoorDef {
   bar?: boolean;
 }
 
-export type BossId = 'sineiro' | 'arcebispo' | 'carcereira' | 'sombra';
+export type BossId = 'sineiro' | 'arcebispo' | 'carcereira' | 'sombra' | 'reflexo' | 'capataz';
 
 // alçapão (cada grupo de '=' do mapa, de cima para baixo e da esquerda para a direita): sólido até a
 // marca existir. auto: com esta outra marca, ele cai sozinho quando o cavaleiro chega perto
@@ -96,6 +96,10 @@ export interface RoomDef {
   lanterns?: [number, number][];
   // quantos tufos de cogumelos que brilham, no máximo, no pé das paredes e embaixo das lajes
   fungus?: number;
+  // Minas: trilhos no chão (de x0 a x1, na linha do chão) além da linha do vagonete, e lamparinas
+  // penduradas (tile do gancho; a corrente ou o braço vêm do que estiver perto)
+  rails?: [number, number, number][];
+  lamps?: [number, number][];
 }
 
 // salas do prólogo
@@ -601,6 +605,8 @@ const CHAPTER4: Record<'boca' | 'trilhos' | 'prensas' | 'veio' | 'espelhos' | 'c
     drips: 16,
     music: 'mine',
     ambience: 'mine',
+    rails: [[56, 99, 30]],
+    lamps: [[31, 14], [95, 15], [50, 21]],
     hints: [],
     thoughts: [
       { x: 14, text: 'Trilhos. Escoras. Alguém cavava aqui embaixo, muito antes da prisão.' },
@@ -621,6 +627,8 @@ const CHAPTER4: Record<'boca' | 'trilhos' | 'prensas' | 'veio' | 'espelhos' | 'c
     drips: 20,
     music: 'mine',
     ambience: 'mine',
+    // embaixo de cada viga baixa, uma lamparina (quem vinha no vagonete via a viga a tempo)
+    lamps: [[61, 21], [99, 21], [133, 21]],
     hints: [],
     thoughts: [
       { x: 12, text: 'Um vagonete ainda nos trilhos. Carregado de pedra que brilha.' },
@@ -641,6 +649,7 @@ const CHAPTER4: Record<'boca' | 'trilhos' | 'prensas' | 'veio' | 'espelhos' | 'c
     drips: 14,
     music: 'mine',
     ambience: 'mine',
+    lamps: [[11, 12], [84, 12], [84, 31]],
     hints: [],
     thoughts: [
       { x: 20, text: 'Prensas do tamanho de uma casa. Para espremer pedra não precisava de tanto.' },
@@ -661,6 +670,7 @@ const CHAPTER4: Record<'boca' | 'trilhos' | 'prensas' | 'veio' | 'espelhos' | 'c
     drips: 30,
     music: 'mine',
     ambience: 'mine',
+    lamps: [[8, 22], [56, 26], [8, 38], [56, 50], [8, 58], [56, 70], [3, 41]],
     hints: [],
     thoughts: [
       { x: 30, y: 17, text: 'Quanto mais perto do veio, mais quieto fica dentro da cabeça.' },
@@ -677,6 +687,7 @@ const CHAPTER4: Record<'boca' | 'trilhos' | 'prensas' | 'veio' | 'espelhos' | 'c
       { side: 'left', to: 'veio', entry: '3', range: [20, 25] },
       { side: 'right', to: 'capataz', entry: '1', range: [20, 25] },
     ],
+    boss: 'reflexo',
     ...MINE,
     drips: 8,
     music: 'mine',
@@ -691,10 +702,12 @@ const CHAPTER4: Record<'boca' | 'trilhos' | 'prensas' | 'veio' | 'espelhos' | 'c
     title: 'Galeria do Capataz',
     subtitle: 'O último turno',
     exits: [{ side: 'left', to: 'espelhos', entry: '2', range: [24, 29] }],
+    boss: 'capataz',
     ...MINE,
     drips: 10,
     music: 'mine',
     ambience: 'mine',
+    lamps: [[4, 14], [61, 14], [68, 25]],
     hints: [],
     thoughts: [
       { x: 4, text: 'Um apito de turno, enferrujado, ainda pendurado na entrada.' },

@@ -26,7 +26,9 @@ interface SlashMeta {
 }
 
 // Folhas de personagens geradas pelas ferramentas de arte (arte/gerador)
-const SHEETS = ['knight-scythe', 'knight-sword', 'knight-daggers', 'knight-bow', 'knight-badalo', 'knight-incensario', 'knight-corrente', 'penitent', 'figure', 'guard', 'crow', 'cobrador', 'sineiro', 'archer', 'censer', 'nun', 'smith', 'folk', 'arcebispo', 'jailer', 'carcereira', 'prisoner', 'sombra'];
+const SHEETS = ['knight-scythe', 'knight-sword', 'knight-daggers', 'knight-bow', 'knight-badalo', 'knight-incensario', 'knight-corrente', 'penitent', 'figure', 'guard', 'crow', 'cobrador', 'sineiro', 'archer', 'censer', 'nun', 'smith', 'folk', 'arcebispo', 'jailer', 'carcereira', 'prisoner', 'sombra',
+  // Minas Abandonadas
+  'knight-picareta', 'miner', 'ambat', 'oldminer', 'capataz'];
 const IMAGES = [
   'title-sky', 'title-land', 'title-rim', 'clouds-far', 'clouds-near',
   'bridge-sky', 'bridge-far', 'bridge-far-rim', 'bridge-mid', 'bridge-mid-rim', 'bridge-fg', 'cat-far', 'cat-mid', 'mem-sky', 'mem-far', 'mem-mid',
@@ -53,6 +55,12 @@ const IMAGES = [
   'deco-soul-lantern', 'deco-fungus-0', 'deco-fungus-1', 'deco-fungus-2',
   // relevo das pinceladas da pintura a óleo do EXTREME (gfx/extreme.ts)
   'paint-strokes',
+  // as Minas Abandonadas: terreno, fundo e os objetos (art/mine_props.py)
+  'terrain-boca', 'terrain-trilhos', 'terrain-prensas', 'terrain-veio', 'terrain-espelhos', 'terrain-capataz', 'mine-far', 'mine-mid',
+  'deco-crystal-0', 'deco-crystal-1', 'deco-crystal-2', 'deco-mine-lamp', 'deco-cart', 'deco-cart-wheel', 'deco-rail',
+  'deco-press', 'deco-press-plate', 'deco-press-screw', 'deco-press-bar', 'deco-press-bed', 'deco-timber', 'deco-timber-knee',
+  'deco-ledger', 'deco-amber-block-0', 'deco-amber-block-1', 'deco-amber-block-2', 'deco-rubble', 'item-picareta',
+  'deco-amber-mirror', 'deco-amber-mirror-broken', 'deco-ceiling-beam', 'deco-trolley',
 ];
 // tiras de quadros pequenos: [largura, altura] de cada quadro
 const STRIPS: Record<string, [number, number]> = {

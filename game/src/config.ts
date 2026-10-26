@@ -57,8 +57,8 @@ export const PLAYER = {
   knockY: 230,
 };
 
-export type WeaponId = 'sword' | 'scythe' | 'daggers' | 'bow' | 'badalo' | 'incensario' | 'corrente';
-export const WEAPON_IDS: WeaponId[] = ['sword', 'scythe', 'daggers', 'bow', 'badalo', 'incensario', 'corrente'];
+export type WeaponId = 'sword' | 'scythe' | 'daggers' | 'bow' | 'badalo' | 'incensario' | 'corrente' | 'picareta';
+export const WEAPON_IDS: WeaponId[] = ['sword', 'scythe', 'daggers', 'bow', 'badalo', 'incensario', 'corrente', 'picareta'];
 
 export interface WeaponDef {
   id: WeaponId;
@@ -84,6 +84,8 @@ export interface WeaponDef {
   smoke?: boolean;
   // o gancho na ponta puxa os inimigos leves para perto (a corrente)
   pull?: boolean;
+  // a ponta feita para a pedra: quebra os blocos de Âmbar das minas (a picareta)
+  pick?: boolean;
   stats: { dano: number; velocidade: number; alcance: number; corrida: number };
 }
 
@@ -127,6 +129,13 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
     boss: { id: 'carcereira', name: 'Carcereira', art: 'a', found: 'Ainda balança. O gancho puxa quem é leve. Dá para usar em Trocar arma, no menu de pausa.' },
     pull: true,
     stats: { dano: 3, velocidade: 3, alcance: 5, corrida: 3 },
+  },
+  picareta: {
+    id: 'picareta', name: 'Picareta do Capataz', summary: 'Pesada e curta. A ponta quebra o Âmbar, que nenhuma outra arma racha.',
+    dmg: 2.6, cooldown: 0.62, windup: 0.15, active: 0.12, reach: 58, height: 46, recoil: 60, moveMul: 0.45, ranged: false, speed: 0.92,
+    boss: { id: 'capataz', name: 'Capataz', art: 'o', found: 'O cabo ainda está morno. Com ela, o Âmbar cede. Dá para usar em Trocar arma, no menu de pausa.' },
+    pick: true,
+    stats: { dano: 4, velocidade: 2, alcance: 2, corrida: 2 },
   },
 };
 
@@ -250,6 +259,97 @@ export const SOMBRA = {
   stagger: 1.7,
 };
 
+// Mineiro esquecido: vê o cavaleiro, agacha com os olhos acesos e pula com a picareta; crava a ponta
+// onde cai (saia de baixo ou apare no ar) e fica preso um instante tirando a ponta da pedra
+export const MINER = {
+  bodyW: 20,
+  bodyH: 44,
+  hp: 5,
+  walk: 44,
+  sight: 210,
+  windup: 0.5,
+  // altura máxima do pulo (menos em galeria baixa), distância máxima e velocidade máxima no ar
+  leapApex: 72,
+  leapMax: 170,
+  leapSpeed: 260,
+  strikeReach: 46,
+  strikeActive: 0.14,
+  recover: 0.85,
+  atkCd: 1.3,
+};
+
+// Morcego de Âmbar: dorme no teto, acorda com o cavaleiro embaixo, acende o Âmbar e mergulha em curva
+export const AMBAT = {
+  bodyW: 20,
+  bodyH: 14,
+  hp: 3,
+  sight: 200,
+  // distância (na horizontal) em que ele acorda
+  wake: 110,
+  windup: 0.45,
+  diveSpeed: 300,
+  diveTime: 1.0,
+  // quanto a curva do mergulho puxa para cima (px/s²)
+  turn: 760,
+  stunTime: 1.2,
+  cooldown: 1.6,
+};
+
+// O Reflexo (Câmara de Âmbar): o espelho de Âmbar devolve o cavaleiro com atraso. Ele repete tudo
+// o que o cavaleiro fez um instante antes, no mesmo lugar: encostar nele ou ficar onde o próprio
+// golpe vai cair machuca. Cada golpe nele trava a imagem um pouco (o atraso cresce e depois ele
+// corre para alcançar). Na metade, o atraso encurta.
+export const REFLEXO = {
+  hp: 30,
+  delay: 0.85,
+  delay2: 0.55,
+  // quanto cada golpe trava a imagem (s) e quão rápido ela volta ao atraso certo (s por s)
+  stutter: 0.22,
+  catchup: 0.4,
+  phase2: 0.5,
+  // tempo máximo esperando a imagem passar na frente do espelho antes de sair de qualquer jeito
+  emergeWait: 2.4,
+};
+
+// O Capataz de Âmbar: picareta no chão que abre uma fileira de cristais (pule), lascas de Âmbar
+// em arco (saia de baixo), investida de ombro até a parede (pule por cima; na parede ele fica tonto
+// e o teto solta pedras) e o apito do turno, que manda a chapa da prensa do teto correr até em cima
+// do cavaleiro e cair (a sombra avisa). Na metade, a fragmentação: a tela racha, a gravidade fica
+// leve por um tempo e sobem fiapos de tinta; os golpes emendam.
+export const CAPATAZ = {
+  bodyW: 40,
+  bodyH: 100,
+  hp: 70,
+  walk: 58,
+  phase2: 0.5,
+  think: 0.7,
+  slamWind: 0.72,
+  slamActive: 0.14,
+  slamRec: 0.85,
+  // a fileira de cristais: distância entre eles, até onde vai, tempo de aviso e quanto ficam de pé
+  eruptGap: 26,
+  eruptRange: 300,
+  eruptStep: 0.07,
+  eruptWarn: 0.16,
+  eruptUp: 0.22, eruptDown: 0.12,
+  throwWind: 0.6,
+  throwRec: 0.7,
+  shardSpeed: 300,
+  chargeWind: 0.7,
+  chargeSpeed: 400,
+  chargeRec: 0.6,
+  stun: 1.6,
+  whistleWind: 0.6,
+  pressMove: 0.75,
+  pressWarn: 0.5,
+  pressDown: 0.7,
+  pressCd: 7,
+  stagger: 1.6,
+  // fragmentação da segunda fase: gravidade do cavaleiro (multiplicador) e por quanto tempo
+  lowGrav: 0.6,
+  lowGravT: 7,
+};
+
 // Corvo do Dízimo: paira, avisa com o olho aceso e mergulha em linha reta
 export const CROW = {
   bodyW: 18,
@@ -344,6 +444,9 @@ export const LOOT = {
   archer: { coins: [3, 5], life: 0.5 },
   censer: { coins: [4, 7], life: 0.75 },
   jailer: { coins: [6, 9], life: 0.75 },
+  miner: { coins: [5, 8], life: 0.75 },
+  ambat: { coins: [3, 6], life: 0.5 },
+  wisp: { coins: [0, 1], life: 0.25 },
   boss: { coins: [40, 40], life: 2 },
   // a sombra devolve as moedas dela direto na bolsa
   echo: { coins: [0, 0], life: 0 },

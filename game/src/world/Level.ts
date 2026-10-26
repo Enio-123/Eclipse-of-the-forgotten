@@ -31,7 +31,8 @@ export const isGround = (i: number) => i >= TILE_SOLID || i === TILE_ONEWAY;
 // '#' pedra, '-' plataforma atravessável, '^' espinhos, '~' água, '|' grade, 'Y' grade com chave,
 // '%' parede falsa, 'V' vitral quebrável; na prisão: '+' ferro liso (as garras escorregam),
 // '=' alçapão, ':' grade de cela e '!' grade do alarme (aberta até cair); '&' membrana abissal (como a
-// grade de cela, só o Véu Abissal atravessa); letras e números são objetos
+// grade de cela, só o Véu Abissal atravessa); nas Minas, '@' bloco de Âmbar (só a Picareta quebra);
+// letras e números são objetos
 export class Level {
   readonly map: Phaser.Tilemaps.Tilemap;
   readonly layer: Phaser.Tilemaps.TilemapLayer;
@@ -42,6 +43,8 @@ export class Level {
   readonly bars: { x: number; y: number }[] = [];
   readonly membranes: { x: number; y: number }[] = [];
   readonly alarms: { x: number; y: number }[] = [];
+  // blocos de Âmbar ainda de pé (cada grupo encostado é um só; só a Picareta quebra)
+  readonly ambers: { id: string; cells: [number, number][] }[] = [];
   // paredes falsas e vitrais ainda de pé (os já quebrados viram vão no grid)
   readonly breakables: Breakable[] = [];
   readonly widthPx: number;
@@ -61,6 +64,31 @@ export class Level {
         continue;
       }
       for (const [x, y] of b.cells) grid[y] = grid[y].slice(0, x) + '.' + grid[y].slice(x + 1);
+    }
+    // Âmbar: cada grupo de '@' encostados tem uma marca; quebrado, vira vão desde o começo
+    const seenAmber = new Set<string>();
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (grid[y][x] !== '@' || seenAmber.has(`${x},${y}`)) continue;
+        const cells: [number, number][] = [];
+        const q: [number, number][] = [[x, y]];
+        seenAmber.add(`${x},${y}`);
+        while (q.length) {
+          const [cx, cy] = q.pop()!;
+          cells.push([cx, cy]);
+          for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const nx = cx + dx;
+            const ny = cy + dy;
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h || grid[ny][nx] !== '@' || seenAmber.has(`${nx},${ny}`)) continue;
+            seenAmber.add(`${nx},${ny}`);
+            q.push([nx, ny]);
+          }
+        }
+        cells.sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+        const id = `amber:${room}:${cells[0][0]}:${cells[0][1]}`;
+        if (broken(id)) for (const [cx, cy] of cells) grid[cy] = grid[cy].slice(0, cx) + '.' + grid[cy].slice(cx + 1);
+        else this.ambers.push({ id, cells });
+      }
     }
     this.grid = grid;
     this.w = w;
@@ -98,7 +126,7 @@ export class Level {
         } else if (c === '!') {
           row.push(-1);
           this.alarms.push({ x, y });
-        } else if (c === '%' || c === 'V') row.push(BLOCK);
+        } else if (c === '%' || c === 'V' || c === '@') row.push(BLOCK);
         else if (c === '-') row.push(TILE_ONEWAY);
         else if (c === '^') row.push(TILE_SPIKE);
         else {
@@ -226,6 +254,16 @@ export class Level {
     }
     const i = this.breakables.indexOf(b);
     if (i >= 0) this.breakables.splice(i, 1);
+  }
+
+  // o bloco de Âmbar quebrou: as células viram vão
+  openAmber(cells: [number, number][]) {
+    for (const [x, y] of cells) {
+      this.layer.removeTileAt(x, y);
+      this.grid[y] = this.grid[y].slice(0, x) + '.' + this.grid[y].slice(x + 1);
+    }
+    const i = this.ambers.findIndex((a) => a.cells[0][0] === cells[0][0] && a.cells[0][1] === cells[0][1]);
+    if (i >= 0) this.ambers.splice(i, 1);
   }
 
   // Trechos contínuos de um tipo de célula que obedecem a um teste

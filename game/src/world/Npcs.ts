@@ -5,7 +5,7 @@ import { DEPTH } from './Decor';
 import { face, hd, hdScale } from '../gfx/flip';
 import { progress } from '../systems/Save';
 
-export type NpcKind = 'nun' | 'smith' | 'folk' | 'prisoner';
+export type NpcKind = 'nun' | 'smith' | 'folk' | 'prisoner' | 'miner';
 
 export interface Npc {
   kind: NpcKind;
@@ -30,12 +30,13 @@ interface Walker {
   puffT: number;
 }
 
-const KEY: Record<NpcKind, string> = { nun: 'nun', smith: 'smith', folk: 'folk', prisoner: 'prisoner' };
+const KEY: Record<NpcKind, string> = { nun: 'nun', smith: 'smith', folk: 'folk', prisoner: 'prisoner', miner: 'oldminer' };
 const NAME: Record<NpcKind, (n: Npc) => string> = {
   nun: () => 'a irmã Luzia',
   smith: () => 'Brás',
   folk: (n) => (n.look === 'shawl' ? 'a esquecida' : 'o esquecido'),
   prisoner: () => 'Tomé',
+  miner: () => 'o mineiro que ficou',
 };
 
 // Gente da Cidade-Catedral: a freira cega (N), o ferreiro (B), os esquecidos que falam (E) e a
@@ -46,6 +47,8 @@ export class Npcs {
   private glow: Phaser.GameObjects.Image | null = null;
   // a grade da cela do Tomé (some quando ele sai)
   private cell: Phaser.GameObjects.TileSprite | null = null;
+  // a vela acesa no capacete do mineiro que ficou
+  private candle: { n: Npc; glow: Phaser.GameObjects.Image } | null = null;
 
   constructor(private s: GameScene) {
     let folk = 0;
@@ -54,6 +57,8 @@ export class Npcs {
     for (const sp of s.level.spawns) {
       if (sp.kind === 'N') this.add('nun', sp.x, sp.y, 0);
       else if (sp.kind === 'B') this.add('smith', sp.x, sp.y, 0);
+      // nas minas, o E é o mineiro que ficou, sentado no caixote com a vela do capacete acesa
+      else if (sp.kind === 'E' && s.room.theme === 'mine') this.add('miner', sp.x, sp.y, 0);
       else if (sp.kind === 'E') this.add('folk', sp.x, sp.y, folk++);
       else if (sp.kind === 'I') {
         // Tomé: preso na cela até ganhar as chaves; depois espera na porta das máscaras
@@ -85,6 +90,10 @@ export class Npcs {
       const bars = s.textures.exists('deco-cellbars') ? 'deco-cellbars' : 'deco-portcullis';
       const k = hdScale(s, bars);
       this.cell = s.add.tileSprite(x - 24, y - 56, 48, 56, bars).setOrigin(0).setTileScale(k, k).setDepth(DEPTH.enemy - 0.3);
+    }
+    if (kind === 'miner') {
+      // a vela do capacete: a única luz dele
+      this.candle = { n, glow: s.add.image(x, y - 50, 'glow').setTint(0xffb35a).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.enemy - 0.4).setScale(0.5).setAlpha(0.5) };
     }
     if (kind === 'smith') {
       // a forja: brilho da brasa na bigorna e faísca a cada martelada
@@ -122,6 +131,11 @@ export class Npcs {
       if (Math.abs(p.x - n.x) < 140) face(n.sprite, p.x < n.x);
     }
     if (this.glow) this.glow.setAlpha(0.32 + Math.random() * 0.12);
+    if (this.candle) {
+      const n = this.candle.n;
+      const f = n.sprite.flipX ? -1 : 1;
+      this.candle.glow.setPosition(n.x + f * 9, n.y - 51).setAlpha(0.42 + Math.random() * 0.1);
+    }
     for (const w of this.walkers) {
       w.x += w.dir * 16 * dt;
       if (w.x > w.x1) w.dir = -1;
@@ -141,6 +155,7 @@ export class Npcs {
       return `folk-${talk ? 'talk' : 'idle'}-hat`;
     }
     if (kind === 'folk') return `folk-${talk ? 'talk' : 'idle'}-${look}`;
+    if (kind === 'miner') return `oldminer-${talk ? 'talk' : 'idle'}`;
     if (kind === 'smith') return talk ? 'smith-talk' : 'smith-work';
     return `nun-${talk ? 'talk' : 'idle'}`;
   }

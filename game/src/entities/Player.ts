@@ -26,7 +26,7 @@ export interface HookState {
 const approach = (v: number, target: number, step: number) =>
   v < target ? Math.min(v + step, target) : Math.max(v - step, target);
 
-export const SLASH_KEY: Record<WeaponId, string | null> = { sword: 'slash', scythe: 'slash-big', daggers: 'slash-small', bow: null, badalo: 'slash-heavy', incensario: 'slash-censer', corrente: null };
+export const SLASH_KEY: Record<WeaponId, string | null> = { sword: 'slash', scythe: 'slash-big', daggers: 'slash-small', bow: null, badalo: 'slash-heavy', incensario: 'slash-censer', corrente: null, picareta: 'slash-heavy' };
 // velocidade em que a animação de corrida foi desenhada (acima disso as pernas aceleram junto)
 const RUN_ANIM_SPEED = 192;
 
@@ -67,6 +67,10 @@ export class Player {
   // Véu Abissal: o dash vira tinta viva e atravessa grades de cela e membranas abissais
   canVeil = false;
   hook: HookState | null = null;
+  // vagonete das Minas: sentado dentro, preso ao assento que a cena põe a cada quadro (pés em x, y)
+  ride: { x: number; y: number; vx: number; vy: number } | null = null;
+  // gravidade da sala (a fragmentação do Capataz deixa tudo leve por um tempo)
+  gravMul = 1;
   // Fôlego (troca com o Cobrador): o dash recarrega mais rápido
   dashCdMul = 1;
   // conta os dashes (a cena marca quais inimigos já foram atravessados em cada um)
@@ -232,7 +236,9 @@ export class Player {
     this.wallLock -= dt;
     this.buffer = input.pressed.jump ? C.jumpBuffer : this.buffer - dt;
 
-    if (this.frozen || this.dead) {
+    if (this.ride && !this.dead) {
+      this.rideUpdate(dt, input);
+    } else if (this.frozen || this.dead) {
       if (this.hook) this.dropHook();
       b.velocity.x = approach(b.velocity.x, 0, C.groundDecel * dt);
       this.buffer = 0;
@@ -286,13 +292,17 @@ export class Player {
     this.updateAttack(dt);
     this.updateHook(dt);
     this.updateLash(dt);
-    this.updateCrouchBody(onGround);
+    this.updateCrouchBody(onGround || !!this.ride);
 
     // gravidade: subida normal, um leve flutuar no topo do pulo e queda suave
     const vy = b.velocity.y;
     if (this.dashT > 0 || this.hook?.phase === 'pull') b.gravity.y = 0;
     else if (Math.abs(vy) < 70 && input.held.jump && !onGround && !this.frozen) b.gravity.y = -C.gravity * (1 - C.apexHang);
     else b.gravity.y = vy > 0 ? C.gravity * C.fallGravity : 0;
+    if (this.gravMul !== 1 && !(this.dashT > 0 || this.hook?.phase === 'pull')) b.gravity.y -= C.gravity * (1 - this.gravMul);
+    // na gravidade leve a queda também é mais lenta (o teto de velocidade vale para cima também, então
+    // só a descida é limitada aqui)
+    if (this.gravMul < 1 && b.velocity.y > C.maxFall * 0.7) b.velocity.y = C.maxFall * 0.7;
 
     this.trackSafeSpot(onGround);
     this.visuals(dt, onGround);
@@ -934,7 +944,76 @@ export class Player {
     return true;
   }
 
+  // ---------- vagonete ----------
+  // sobe no vagonete: o corpo para de cair e de bater no cenário (a cena move o assento)
+  board(x: number, feetY: number) {
+    if (this.dashT > 0) this.endDash();
+    this.dropHook();
+    this.slideT = 0;
+    this.cancelAttack();
+    this.moveTarget = null;
+    this.ride = { x, y: feetY, vx: 0, vy: 0 };
+    const b = this.body;
+    b.setAllowGravity(false);
+    b.checkCollision.up = b.checkCollision.down = b.checkCollision.left = b.checkCollision.right = false;
+    this.seat();
+  }
+
+  // põe o corpo no assento (o desenho lê a base do corpo já com o recorte de agachado)
+  private seat() {
+    const r = this.ride!;
+    this.updateCrouchBody(true);
+    this.body.reset(r.x, r.y - C.bodyH / 2);
+    this.body.updateFromGameObject();
+  }
+
+  // sai do vagonete (pulando, derrubado pela viga ou jogado no batente) com esta velocidade
+  leaveRide(vx: number, vy: number) {
+    if (!this.ride) return;
+    this.ride = null;
+    const b = this.body;
+    b.setAllowGravity(true);
+    b.checkCollision.up = b.checkCollision.down = b.checkCollision.left = b.checkCollision.right = true;
+    b.setVelocity(vx, vy);
+    this.airDash = true;
+    this.airJumps = this.canDouble ? 1 : 0;
+    this.coyote = 0;
+  }
+
+  // dentro do vagonete: baixo agacha (as vigas baixas passam por cima), o pulo salta para fora com o
+  // embalo dele, o golpe continua valendo e dá para virar para trás
+  private rideUpdate(dt: number, input: Controls) {
+    const r = this.ride!;
+    const b = this.body;
+    if (this.frozen) {
+      this.seat();
+      return;
+    }
+    this.crouched = input.held.down || input.held.crouch;
+    if (this.buffer > 0) {
+      this.buffer = 0;
+      this.crouched = false;
+      this.updateCrouchBody(true);
+      this.leaveRide(r.vx * 0.85, -C.jumpVel);
+      this.jumping = true;
+      this.scene.sfx('jump');
+      this.scene.onPlayerAction('jump');
+      return;
+    }
+    const dir = (input.held.right ? 1 : 0) - (input.held.left ? 1 : 0);
+    if (dir !== 0 && this.atkAnimT <= 0) this.facing = dir as 1 | -1;
+    this.seat();
+    void b;
+    if (input.pressed.attack) this.atkBuffer = C.attackBuffer;
+    else this.atkBuffer -= dt;
+    if (this.atkBuffer > 0 && this.atkCd <= 0 && this.canAttack) {
+      this.atkBuffer = 0;
+      this.startAttack(input, true);
+    }
+  }
+
   teleport(x: number, feetY: number) {
+    this.leaveRide(0, 0);
     if (this.dashT > 0) this.endDash();
     this.dropHook();
     this.graceT = 0;
@@ -973,6 +1052,7 @@ export class Player {
     else if (this.hook?.phase === 'pull') anim = 'dash';
     else if (this.atkAnimT > 0) anim = this.atkAnim;
     else if (this.wallDir !== 0) anim = 'fall';
+    else if (this.ride) anim = this.crouched ? 'crouch' : 'idle';
     else if (!onGround) anim = b.velocity.y < 0 ? 'jump' : 'fall';
     else if (this.crouched) anim = vx > 10 ? 'crouch_walk' : 'crouch';
     else if (this.landT > 0 && vx < 30) anim = 'land';

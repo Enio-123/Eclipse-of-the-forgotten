@@ -131,9 +131,11 @@ const THEMES: Record<Theme, Partial<Look>> = {
   },
   // minas: rocha quente de poeira, só a luz do Âmbar (cristais e veios) e dos lampiões dos mineiros
   mine: {
-    knight: 0.34,
+    // a luz em volta do cavaleiro um pouco maior que na prisão: a rocha é escura e o chão precisa ler
+    knight: 0.42,
     ao: 0.44,
     lightGain: 1.32,
+    lift: [0.016, 0.012, 0.008],
     bounce: 0.36,
     relief: 0.36,
     bloomThreshold: 0.55,

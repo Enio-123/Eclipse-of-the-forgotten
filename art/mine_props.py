@@ -28,6 +28,8 @@ puppet.RAMPS.setdefault('amber', [0x5a2a08, 0x9a4c12, 0xd27a26, 0xffa63c, 0xffe6
 puppet.RAMPS['minerock'] = [0x110d0b, 0x221b17, 0x372c25, 0x514338, 0x716050]
 puppet.RAMPS['oldwood'] = [0x1a110b, 0x2e1f14, 0x46301e, 0x634529, 0x84603a]
 puppet.RAMPS['paper'] = [0x3a3226, 0x6a5c46, 0x9c8b6c, 0xc9b892, 0xece0be]
+# o Âmbar polido do espelho: fundo e escuro, quase cor de chá
+puppet.RAMPS['amberglass'] = [0x170a04, 0x261107, 0x3a1b0a, 0x55290f, 0x7a3e17]
 puppet.RAMPS['lamp'] = [0x6a2e08, 0xb05a14, 0xf09a3a, 0xffd27a, 0xfff6dc]
 puppet.SHINY.setdefault('iron', (0.45, 12))
 puppet.SHINY.setdefault('amber', (0.7, 16))
@@ -484,6 +486,145 @@ def picareta():
     return P, [], W, H, []
 
 
+# ---------------------------------------------------------------- o espelho de Âmbar da Câmara
+def amber_mirror(broken=False):
+    """A laje de Âmbar polido da Câmara de Âmbar, encaixada na parede dos fundos: moldura de rocha
+    bruta com as marcas da talhadeira (alguém cortou a pedra em volta e poliu a face) e a face lisa,
+    escura e funda, que devolve quem passa na frente. Quebrada: racha de cima a baixo a partir do
+    ponto onde o reflexo caiu, com lascas faltando. A origem é o meio de baixo."""
+    rnd = random.Random(31)
+    W, H = 72, 150
+    P = []
+    # moldura de rocha: contorno irregular, mais larga embaixo
+    frame = []
+    n = 26
+    for i in range(n):
+        a = 2 * math.pi * i / n
+        rx = 35.0 + rnd.uniform(-1.5, 1.0)
+        ry = 74.0 + rnd.uniform(-1.5, 1.0)
+        x = W / 2 + math.cos(a) * rx
+        y = 76.0 + math.sin(a) * ry
+        frame.append((x, min(H - 0.5, y)))
+    P.append(Poly('mframe', 'minerock', 1.0, frame, nf=const((-0.2, -0.3, 0.9)), shade=1.05))
+
+    def chisel(x, y, cur):
+        # marcas da talhadeira: riscos curtos inclinados na moldura
+        t = (x * 0.7 + y * 0.35) % 5.0
+        if t < 0.5 and ((int(y / 6) + int(x / 9)) % 3 == 0):
+            return ('minerock', 0)
+        return None
+
+    # a face polida: um oval alto, um pouco abaulado
+    pane = []
+    for i in range(30):
+        a = 2 * math.pi * i / 30
+        pane.append((W / 2 + math.cos(a) * 27.0, 78.0 + math.sin(a) * 64.0))
+    sh = 0.85 if broken else 1.0
+
+    def pane_n(x, y):
+        X = (np.asarray(x, np.float32) - W / 2) / 27.0
+        Y = (np.asarray(y, np.float32) - 78.0) / 64.0
+        return (X * 0.35 - 0.1, Y * 0.25 - 0.2, 0.9 + 0 * X)
+
+    P.append(Poly('mpane', 'amberglass', 1.1, pane, nf=pane_n, shade=sh))
+    crack_from = (W / 2 + 3.0, 92.0)
+    cracks = []
+    if broken:
+        for k in range(7):
+            a = -math.pi / 2 + (k - 3) * 0.55 + rnd.uniform(-0.15, 0.15)
+            pts = [crack_from]
+            x, y = crack_from
+            for j in range(6):
+                L = rnd.uniform(6.0, 13.0)
+                a += rnd.uniform(-0.35, 0.35)
+                x, y = x + math.cos(a) * L, y + math.sin(a) * L
+                pts.append((x, y))
+            cracks.append(pts)
+    holes = []
+
+    def seg_d(px, py, a, b):
+        ax, ay = a
+        bx, by = b
+        dx, dy = bx - ax, by - ay
+        t = max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy + 1e-6)))
+        return math.hypot(px - ax - dx * t, py - ay - dy * t)
+
+    def pane_dec(x, y, cur):
+        for (hx, hy, r) in holes:
+            if (x - hx) ** 2 + (y - hy) ** 2 < r * r:
+                return ('minerock', 1 if (x - hx) + (y - hy) < 0 else 0)
+        for pts in cracks:
+            for i in range(1, len(pts)):
+                d = seg_d(x, y, pts[i - 1], pts[i])
+                if d < 0.45:
+                    return ('void', 0)
+                if d < 0.9 and not broken:
+                    return None
+                if d < 1.0:
+                    return ('amber', 2)
+        # o brilho do polimento: uma faixa clara na borda da esquerda e dois reflexos em diagonal
+        X = (x - W / 2) / 27.0
+        Y = (y - 78.0) / 64.0
+        r2 = X * X + Y * Y
+        if 0.80 < r2 < 0.9 and X < -0.35 and Y < 0.2:
+            return ('amber', 4 if not broken else 3)
+        for (c0, wdt) in ((-0.5, 0.028), (-0.36, 0.014)):
+            if abs((X + Y * 0.8) - c0) < wdt and -0.75 < Y < -0.05:
+                return ('amber', 3 if not broken else 2)
+        # o fundo do Âmbar: um brilho fundo no meio, como brasa atrás do vidro
+        if r2 < 0.05:
+            return ('amber', 1)
+        if r2 < 0.16:
+            return ('amberglass', 4)
+        if broken and math.hypot(x - crack_from[0], y - crack_from[1]) < 3.0:
+            return ('void', 0)
+        return None
+
+    # pedrinhas soltas na base e o pó de pedra polida no chão
+    for i in range(6):
+        x = W / 2 + (i / 5 - 0.5) * 60 + rnd.uniform(-2, 2)
+        r = rnd.uniform(2.4, 4.4)
+        P.append(Ellipse('mstone', 'minerock', 1.2 + i * 0.01, (x, H - 1.2), r, r * 0.55))
+    if broken:
+        for i in range(8):
+            x = W / 2 + rnd.uniform(-26, 26)
+            P.append(Poly('mshard', 'amber', 1.25 + i * 0.01, [(x - 2.0, H - 0.6), (x + rnd.uniform(-1.5, 1.5), H - rnd.uniform(3.0, 6.0)), (x + 2.2, H - 0.6)],
+                          nf=const((-0.4, -0.5, 0.75)), shade=0.7))
+    lights = [] if broken else [(W / 2, 78.0, AMBER)]
+    return P, [Decal('mframe', chisel), Decal('mpane', pane_dec)], W, H, lights
+
+
+# ---------------------------------------------------------------- a viga do teto e o carrinho da prensa
+def ceiling_beam():
+    """Um palmo da viga de ferro presa no teto da Galeria do Capataz (repete na horizontal): perfil
+    em I com as abas de cima e de baixo e os rebites."""
+    W, H = 16, 10
+    P = []
+    P.append(Poly('webb', 'iron', 1.0, [(-0.5, 2.6), (16.5, 2.6), (16.5, 7.4), (-0.5, 7.4)], nf=const((0.0, 0.0, 1.0)), shade=0.7))
+    pts, nf = rod(-0.5, 1.3, 16.5, 1.3, 1.3)
+    P.append(Poly('flangeT', 'iron', 1.1, pts, nf=nf))
+    pts, nf = rod(-0.5, 8.7, 16.5, 8.7, 1.3)
+    P.append(Poly('flangeB', 'iron', 1.1, pts, nf=nf, shade=1.1))
+    for x in (4.0, 12.0):
+        P.append(Ellipse('rivet', 'iron', 1.2, (x, 5.0), 0.9, 0.9))
+    return P, [], W, H, []
+
+
+def trolley():
+    """O carrinho que corre na aba de baixo da viga: duas rodas de ferro, a armação e a roldana de
+    onde desce a corrente da chapa. A origem é o meio de cima (no topo das rodas)."""
+    W, H = 28, 18
+    P = []
+    for x in (7.0, 21.0):
+        P.append(Ellipse('twheel', 'iron', 1.0, (x, 3.4), 3.2, 3.2))
+        P.append(Ellipse('thub', 'iron', 1.05, (x, 3.4), 1.1, 1.1, shade=0.7))
+    P.append(Poly('tframe', 'rust', 1.1, [(3.0, 5.0), (25.0, 5.0), (22.0, 10.0), (6.0, 10.0)], nf=const((0.0, -0.3, 0.95))))
+    P.append(Capsule('tarm', 'rust', 1.12, (14.0, 9.0), (14.0, 13.0), 1.6, 1.4))
+    P.append(Ellipse('pulley', 'iron', 1.2, (14.0, 14.4), 3.2, 3.2))
+    P.append(Ellipse('pulleyh', 'iron', 1.22, (14.0, 14.4), 1.1, 1.1, shade=0.6))
+    return P, [], W, H, []
+
+
 PROPS = {
     'deco-crystal-0': lambda: crystal(3, 30, 30, 5, 34, 26),
     'deco-crystal-1': lambda: crystal(7, 20, 22, 3, 30, 19),
@@ -505,6 +646,10 @@ PROPS = {
     'deco-amber-block-2': lambda: amber_block(2),
     'deco-rubble': rubble,
     'item-picareta': picareta,
+    'deco-amber-mirror': amber_mirror,
+    'deco-amber-mirror-broken': lambda: amber_mirror(True),
+    'deco-ceiling-beam': ceiling_beam,
+    'deco-trolley': trolley,
 }
 
 

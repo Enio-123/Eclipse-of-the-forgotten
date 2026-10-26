@@ -818,7 +818,7 @@ export class Fixtures {
   // pendura o que tem o gancho em (x, top): corrente até o teto (se ele estiver a até maxChain
   // tiles), braço de ferro numa parede a até 4 tiles, viga entre as paredes de um poço ou, sem nada
   // por perto, a corrente subindo até sumir no alto
-  private hang(x: number, top: number, maxChain: number) {
+  hang(x: number, top: number, maxChain: number) {
     const s = this.scene;
     const L = s.level;
     const tx = Math.floor(x / TILE);

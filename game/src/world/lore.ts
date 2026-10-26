@@ -16,6 +16,8 @@ export const MEMORIES: Record<string, { title: string; text: string }> = {
   'mascara:boss': { title: 'A máscara de ferro', text: 'Ela fechou o ferro no meu rosto e leu a sentença. Não ouvi o crime. Só lembro das minhas mãos: numa versão, limpas. Na outra, não.' },
   'fosso:0': { title: 'Os nomes no bolso', text: 'Me davam o nome de cada condenado num papel. Eu nunca lia. Guardava no bolso, e o bolso foi ficando pesado.' },
   'abismo:boss': { title: 'O machado', text: 'Ergui o machado sobre alguém ajoelhado no tablado. Numa versão, ele desceu. Na outra, caiu da minha mão, e a praça inteira ficou em silêncio.' },
+  'espelhos:boss': { title: 'O reflexo', text: 'No Âmbar polido eu me vi de capuz, com a foice na mão. Atrás de mim, alguém de capa vermelha chamava. Numa versão eu me virei para ver. Na outra, segui em frente.' },
+  'capataz:boss': { title: 'A fuga pelo túnel', text: 'Uma moça de capa vermelha correndo pelos túneis, com um caderno apertado no peito. Numa versão eu corria atrás dela com a ordem na mão. Na outra, eu segurava a grade para ela passar.' },
 };
 export const MEMORY_TOTAL = Object.keys(MEMORIES).length;
 
@@ -33,6 +35,85 @@ export const MEMORY_ECHO: Record<string, { kind: EchoKind; mode: WaveMode }> = {
   'mascara:boss': { kind: 'carrasco', mode: 'corrupt' },
   'fosso:0': { kind: 'povo', mode: 'restore' },
   'abismo:boss': { kind: 'carrasco', mode: 'corrupt' },
+  'espelhos:boss': { kind: 'carrasco', mode: 'corrupt' },
+  'capataz:boss': { kind: 'ela', mode: 'corrupt' },
+};
+
+// as provas que cada registro carrega (lore/continuidade.md, 6.1)
+export type Proof = 'vhalor' | 'inocentes' | 'ambar' | 'nucleo' | 'arielle';
+
+// Registros: documentos, livros e fichas espalhados pelas salas (sala:ordem no mapa). Ficam no Diário,
+// aba Registros. Por enquanto só nas Minas; as outras regiões entram com a integração da lore.
+export const RECORDS: Record<string, { title: string; region: string; lines: string[]; proofs: Proof[] }> = {
+  'boca:0': {
+    title: 'O livro da entrada',
+    region: 'Minas Abandonadas',
+    lines: [
+      'Turno da noite. Desceram vinte e dois. Subiram dezenove.',
+      'Os três que ficaram embaixo não fazem falta: ninguém lembra deles para perguntar.',
+    ],
+    proofs: ['inocentes', 'ambar'],
+  },
+  'prensas:0': {
+    title: 'A ordem da Casa para as prensas',
+    region: 'Minas Abandonadas',
+    lines: [
+      'O veio está secando. A partir desta lua, cada trabalhador senta na prensa ao fim do turno.',
+      'A Casa não quer mais o Âmbar da pedra. Quer o da cabeça, que vem mais limpo.',
+      'Com o selo da Casa Vhalor.',
+    ],
+    proofs: ['vhalor', 'ambar'],
+  },
+  'veio:0': {
+    title: 'O livro do Capataz',
+    region: 'Minas Abandonadas',
+    lines: [
+      'Pagamento do mês: duas lembranças a menos por cabeça, em vez de moedas.',
+      'Ninguém reclamou. Quem reclamaria de uma coisa que não lembra de ter tido?',
+    ],
+    proofs: ['ambar', 'inocentes'],
+  },
+  'veio:1': {
+    title: 'A ficha de A.',
+    region: 'Minas Abandonadas',
+    lines: [
+      'Ficha de visita. Motivo: inventário dos registros da mina. Uma flor seca prensada entre as folhas.',
+      'Anotei o nome de cada um que ficou aqui embaixo, para que alguém lembre deles.',
+      'O Âmbar não nasce sozinho na pedra: alguém espreme das pessoas. Vou mostrar isso a ele. Ele ainda pode escolher. A.',
+    ],
+    proofs: ['ambar', 'arielle'],
+  },
+  'capataz:0': {
+    title: 'A última página do Capataz',
+    region: 'Minas Abandonadas',
+    lines: [
+      'Mandaram aumentar as prensas. Eu mesmo sentei na última, para mostrar aos homens que não doía.',
+      'Não lembro se doeu. Não lembro do meu nome. Lembro do apito do turno.',
+    ],
+    proofs: ['ambar', 'vhalor'],
+  },
+};
+export const RECORD_IDS = Object.keys(RECORDS);
+
+// o mineiro que ficou (Veio de Âmbar, no alojamento): esqueceu o próprio nome na mina
+export const OLD_MINER = {
+  name: 'O mineiro que ficou',
+  first: [
+    'Uma luz descendo... Faz tempo que ninguém desce sem ser carregado.',
+    'Eu cavava aqui. Ou carregava. Uma das duas. O Âmbar bebe devagar: primeiro o nome, depois o caminho de volta.',
+    'Fiquei porque lá em cima ninguém ia lembrar de mim. Aqui pelo menos a pedra lembra.',
+    'Mais para baixo, depois da câmara dos espelhos, o Capataz ainda toca as prensas. Ele não para nem para morrer.',
+  ],
+  after: [
+    'Uma moça de capa vermelha passou por aqui antes do céu escurecer. Anotava os nossos nomes num caderno. Disse que alguém precisava lembrar.',
+    'Siga os cristais. Eles crescem onde alguém lembrou de alguma coisa com muita força.',
+    'O Capataz guarda a picareta grande. Com ela o Âmbar cede.',
+    'Não olhe muito para as paredes da câmara. Quem olha demais fica lá dentro, andando atrás de si mesmo.',
+  ],
+  done: [
+    'O apito parou. Faz tanto silêncio que eu quase lembro do meu nome.',
+    'Leve a picareta. Aqui embaixo ela já quebrou gente demais.',
+  ],
 };
 
 // Páginas do diário da irmã Luzia (sala:ordem no mapa). Ela é cega: a letra é torta.
@@ -186,6 +267,16 @@ export const BESTIARY: { kind: string; name: string; text: string; tip: string }
     kind: 'jailer', name: 'Carcereiro',
     text: 'Vigia as celas embaixo da cidade. Esqueceu por que prende, mas não esqueceu como.',
     tip: 'De longe a corrente vem na altura do peito: agache, deslize ou apare. De perto ele soca o chão: pule.',
+  },
+  {
+    kind: 'miner', name: 'Mineiro esquecido',
+    text: 'Cavou tanto tempo perto do Âmbar que a pedra cresceu nas costas dele. Ainda bate a picareta, mesmo sem lembrar por quê.',
+    tip: 'Os olhos acendem antes do pulo. Saia de baixo e bata enquanto a picareta está presa no chão.',
+  },
+  {
+    kind: 'ambat', name: 'Morcego de Âmbar',
+    text: 'Dorme grudado no veio e acorda com luz. O Âmbar das costas acende inteiro antes do mergulho.',
+    tip: 'Quando ele brilhar, saia da linha. Se ele bater na pedra, fica tonto no chão.',
   },
   {
     kind: 'boss:carcereira', name: 'A Carcereira',

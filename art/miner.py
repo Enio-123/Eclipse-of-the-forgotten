@@ -29,6 +29,9 @@ DEFAULT = dict(
     armF=(30.0, 50.0), armB=(-14.0, 40.0),
     # picareta: ângulo do cabo (0 = para baixo, 90 = para a frente, 180 = para cima)
     pick=40.0, glow=False, rot=0.0, pivot=None, off=(0.0, 0.0),
+    # o mineiro que ficou (NPC): sem o Âmbar nas costas (só uma lasquinha no ombro), a vela do
+    # capacete acesa, olhos de gente e o caixote onde ele senta
+    npc=False, seat=False,
 )
 
 
@@ -155,9 +158,26 @@ def build(pose):
     back = add(add(neck, f, -5.0), u, -6.0)
     # as lascas apontam para cima e para trás
     base_a = math.atan2(u[1] - f[1] * 0.7, u[0] - f[0] * 0.7)
-    for i, (dl, da, ln, wd) in enumerate(((0.0, 0.0, 11.0, 2.4), (-3.0, 0.38, 8.4, 2.0), (3.2, -0.32, 9.0, 2.0), (-6.0, 0.64, 6.0, 1.5))):
-        amber_shard(prims, add(back, u, dl), base_a + da, ln, wd, 2.6 + i * 0.01, p['glow'])
-    prims.append(Ellipse('amberbase', 'amber', 2.7, back, 3.6, 2.4, ang=lean, shade=0.7))
+    if p['npc']:
+        # nele o Âmbar só começou: uma lasquinha no ombro de trás
+        amber_shard(prims, add(shB, u, 1.0), base_a + 0.5, 3.6, 1.0, 2.6, False)
+    else:
+        for i, (dl, da, ln, wd) in enumerate(((0.0, 0.0, 11.0, 2.4), (-3.0, 0.38, 8.4, 2.0), (3.2, -0.32, 9.0, 2.0), (-6.0, 0.64, 6.0, 1.5))):
+            amber_shard(prims, add(back, u, dl), base_a + da, ln, wd, 2.6 + i * 0.01, p['glow'])
+        prims.append(Ellipse('amberbase', 'amber', 2.7, back, 3.6, 2.4, ang=lean, shade=0.7))
+    if p['seat']:
+        # o caixote virado onde ele senta (embaixo do quadril, nos pés da sala)
+        sx = hip[0] - 3.0
+        prims.append(Poly('crate', 'wood', 0.5, [(sx - 9.0, hip[1] + 1.0), (sx + 8.0, hip[1] + 1.0), (sx + 8.0, FEET[1] + 0.4), (sx - 9.0, FEET[1] + 0.4)],
+                          nf=lambda x, y: norm((0.0, -0.1, 1.0)), shade=0.8))
+        prims.append(Capsule('cratelid', 'wood', 0.52, (sx - 9.6, hip[1] + 1.2), (sx + 8.6, hip[1] + 1.2), 1.0, 1.0, shade=1.0))
+
+        def crate_dec(x, y, cur, sx=sx, top=hip[1] + 1.0):
+            if abs(((y - top) % 5.0) - 5.0) < 0.4 or ((y - top) % 5.0) < 0.3:
+                return ('wood', 0)
+            return None
+
+        decals.append(Decal('crate', crate_dec))
 
     # ---------- braço de trás ----------
     def arm(sh, elbow, hand, z, shade):
@@ -181,17 +201,25 @@ def build(pose):
     holder = add(add(cap_c, hd, 0.6), hf, 4.4)
     prims.append(Ellipse('holder', 'steel', 5.3, holder, 1.4, 1.2, shade=0.8))
     prims.append(Capsule('candle', 'bone', 5.32, add(holder, hd, 0.6), add(holder, hd, 2.6), 0.8, 0.7, shade=0.7))
+    if p['npc']:
+        # a vela do capacete acesa: é a única luz dele
+        fl = add(holder, hd, 4.2)
+        prims.append(Ellipse('flame', 'amber', 5.34, fl, 1.0, 1.7, ang=ha, flat=3))
+        prims.append(Ellipse('flamec', 'amber', 5.35, add(fl, hd, -0.4), 0.5, 0.8, ang=ha, flat=4))
 
     def face_dec(x, y, cur):
         lx, ly = face_e.local(x, y)
         # olho fundo: escuro, ou aceso cor de Âmbar quando ele prepara o pulo
         if (lx - 2.4) ** 2 / 1.5 + (ly + 0.4) ** 2 / 0.9 < 1.0:
+            if p['npc']:
+                # olho de gente: claro com a pupila escura
+                return ('void', 0) if (lx - 2.8) ** 2 + (ly + 0.4) ** 2 < 0.35 else ('bone', 3)
             return ('amber', 4) if p['glow'] else ('void', 0)
         # boca entreaberta e a barba rala
         if 2.4 < ly < 3.0 and 0.6 < lx < 3.4:
             return ('void', 0)
         if ly > 2.0 and lx < 1.5 and (int(lx * 3 + ly * 5) % 3 == 0):
-            return ('ashen', 1)
+            return ('bone', 2) if p['npc'] else ('ashen', 1)
         return None
 
     decals.append(Decal('face', face_dec))
@@ -265,6 +293,19 @@ def death():
         dict(rot=40, pivot=piv, off=(0, -6), hip=(0, 8), legF=(70, 110), legB=(-20, 100), lean=28, armF=(60, 10), armB=(50, 10), pick=100, tilt=14),
         dict(rot=82, pivot=piv, off=(-3, -11), hip=(0, 8), legF=(60, 100), legB=(-10, 90), lean=28, armF=(80, 0), armB=(70, 0), pick=120, tilt=16),
     ]
+
+
+def sit(b=0.0, talk=0.0):
+    # sentado no caixote, as duas mãos no cabo da picareta em pé entre os joelhos; falando, a mão de
+    # trás sobe um pouco
+    return dict(npc=True, seat=True, hip=(-2.0, 9.0 + b * 0.4), legF=(84, 92), legB=(78, 88), footF=4, footB=2,
+                lean=10 + b, tilt=-4 + talk * 6, armF=(64 - b * 2, 34), pick=176, armB=(36 + talk * 50, 60 - talk * 30))
+
+
+NPC_ANIMS = {
+    'idle': ([sit(b) for b in (0.0, 0.5, 1.0, 0.5)], 3, True),
+    'talk': ([sit(0.3, 0.5), sit(0.6, 1.0), sit(0.3, 0.7), sit(0.0, 1.0)], 5, True),
+}
 
 
 ANIMS = {

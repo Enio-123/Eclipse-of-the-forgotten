@@ -20,7 +20,7 @@ ICON_S = 4   # ícones do inventário: 24 -> 96 (a tela mostra com 48)
 
 def sheets():
     import anims, knight, guard, crow, archer, censer, sineiro, arcebispo, townsfolk, enemy, props, deco, jailer, carcereira, sombra
-    import miner, ambat
+    import miner, ambat, capataz
     out = {}
     for w in anims.WEAPONS:
         out[f'knight-{w}'] = dict(anims=anims.anims_for(w), mod='knight', W=knight.W, H=knight.H, feet=knight.FEET,
@@ -47,7 +47,12 @@ def sheets():
     # Mineiro esquecido: a ponta da picareta em cada quadro (onde o golpe acerta)
     out['miner'] = dict(anims=miner.ANIMS, mod='miner', W=miner.W, H=miner.H, feet=miner.FEET,
                         meta_extra={'points': {n: [miner.tip_point(p) for p in poses] for n, (poses, _, _) in miner.ANIMS.items()}})
+    # O Capataz de Âmbar: a ponta da picareta, a cabeça dela e a mão em cada quadro
+    out['capataz'] = dict(anims=capataz.ANIMS, mod='capataz', W=capataz.W, H=capataz.H, feet=capataz.FEET,
+                          meta_extra={'points': {n: [capataz.points(p) for p in poses] for n, (poses, _, _) in capataz.ANIMS.items()}})
     out['ambat'] = dict(anims=ambat.ANIMS, mod='ambat', W=ambat.W, H=ambat.H, feet=ambat.FEET)
+    # o mineiro que ficou (NPC do Veio de Âmbar): o mesmo boneco, sentado, com a vela acesa
+    out['oldminer'] = dict(anims=miner.NPC_ANIMS, mod='miner', W=miner.W, H=miner.H, feet=miner.FEET)
     out['nun'] = dict(anims=townsfolk.NUN_ANIMS, mod='townsfolk', W=townsfolk.NUN_W, H=townsfolk.NUN_H, feet=townsfolk.NUN_FEET, extra={'build': 'nun'})
     out['smith'] = dict(anims=townsfolk.SMITH_ANIMS, mod='townsfolk', W=townsfolk.SMITH_W, H=townsfolk.SMITH_H, feet=townsfolk.SMITH_FEET, extra={'build': 'smith'})
     out['folk'] = dict(anims=townsfolk.FOLK_ANIMS, mod='townsfolk', W=townsfolk.FOLK_W, H=townsfolk.FOLK_H, feet=townsfolk.FOLK_FEET, extra={'build': 'folk'})

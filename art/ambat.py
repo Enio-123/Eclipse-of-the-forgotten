@@ -116,6 +116,9 @@ ANIMS = {
     'windup': ([dict(near=-160, far=-20, glow=True, rot=-8), dict(near=-170, far=-10, glow=True, rot=-12, spread=1.15)], 8, False),
     'dive': ([dict(near=-110, far=-70, fold=0.7, spread=0.5, glow=True, legs=False),
               dict(near=-100, far=-80, fold=0.72, spread=0.45, glow=True, legs=False)], 14, True),
+    # dormindo pendurado no teto pelos pés, de cabeça para baixo, com as asas fechadas em volta do corpo
+    'roost': ([dict(near=-84, far=-96, fold=0.62, spread=0.3, rot=180, off=(0, 2)),
+               dict(near=-86, far=-94, fold=0.6, spread=0.3, rot=180, off=(0, 2.4))], 2, True),
     'stun': ([dict(near=160, far=20, rot=170, off=(0, 6), fold=0.9), dict(near=150, far=30, rot=176, off=(0, 6), fold=0.92)], 6, True),
     'hurt': ([dict(near=-130, far=-50, rot=-24, spread=1.3)], 10, False),
     'death': ([dict(near=-150, far=-30, rot=40, spread=1.4), dict(near=150, far=30, rot=120, spread=1.2, off=(0, 4)),

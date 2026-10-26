@@ -5,7 +5,7 @@ import { ACTIONS, ACTION_LABEL, PAD_ACTIONS, codeName, settings, type Action, ty
 import { audio } from '../systems/Audio';
 import { BRAND_LABEL, BTN, buttonGlyph, buttonName, pad, stickGlyph, type PadBrand } from '../systems/Pad';
 import { LEVEL_MUL, MAX_LEVEL, progress, type Upgrade } from '../systems/Save';
-import { BESTIARY, FORGE, MATERIALS, MEMORIES, MEMORY_TOTAL, OFFERS, PAGES, PAGE_IDS, RELICS } from '../world/lore';
+import { BESTIARY, FORGE, MATERIALS, MEMORIES, MEMORY_TOTAL, OFFERS, PAGES, PAGE_IDS, RECORDS, RECORD_IDS, RELICS } from '../world/lore';
 import { MAP_POS, ROOMS, type Ability, type RoomId } from '../world/rooms';
 import { drawMarker, renderMap, type MapHere } from './mapview';
 import { RES, applyRes, resFor } from '../gfx/view';
@@ -39,7 +39,7 @@ interface SheetMeta {
   scale?: number;
 }
 
-const WEAPON_ORDER: WeaponId[] = ['scythe', 'sword', 'daggers', 'bow', 'badalo', 'incensario', 'corrente'];
+const WEAPON_ORDER: WeaponId[] = ['scythe', 'sword', 'daggers', 'bow', 'badalo', 'incensario', 'corrente', 'picareta'];
 const TAGS: Partial<Record<WeaponId, string>> = { scythe: 'Arma do carrasco · recomendada' };
 const TOUCH_LABEL: Record<Action, string> = {
   left: 'Analógico', right: 'Analógico', up: 'Analógico para cima', down: 'Analógico para baixo',
@@ -1067,6 +1067,12 @@ class UI {
     $('.j-count', panel('places')).textContent = `Lugares: ${visited.length} de ${rooms.length}`;
     $('.j-list', panel('places')).replaceChildren(
       ...rooms.map((id) => (progress.visited.has(id) ? entry(ROOMS[id].title, ROOMS[id].subtitle) : entry('Lugar ainda não visitado', undefined, undefined, undefined, true))),
+    );
+    // registros: o que os livros e as fichas das minas contam (cada um com a região onde estava)
+    const recs = RECORD_IDS.filter((id) => progress.seen.has(`record:${id}`));
+    $('.j-count', panel('records')).textContent = `Registros: ${recs.length} de ${RECORD_IDS.length}`;
+    $('.j-list', panel('records')).replaceChildren(
+      ...RECORD_IDS.map((id) => (progress.seen.has(`record:${id}`) ? entry(RECORDS[id].title, RECORDS[id].lines.join(' '), undefined, RECORDS[id].region) : entry('Registro não encontrado', undefined, undefined, undefined, true))),
     );
     show('story');
     $<HTMLButtonElement>('[data-cmd="back"]', s).onclick = () => o.onBack();
