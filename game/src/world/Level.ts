@@ -3,7 +3,7 @@ import { TILE } from '../config';
 import { SOLID_VARIANTS, TILE_ONEWAY, TILE_SOLID, TILE_SPIKE } from '../gfx/textures';
 import { findBreakables, type Breakable } from './secrets';
 
-export type Theme = 'bridge' | 'catacomb' | 'memory' | 'city' | 'nave' | 'prison';
+export type Theme = 'bridge' | 'catacomb' | 'memory' | 'city' | 'nave' | 'prison' | 'mine';
 
 // bloco liso usado nas grades, nas paredes falsas e nos vitrais (sólidos enquanto fechados)
 export const BLOCK = TILE_SOLID + 15 * SOLID_VARIANTS;

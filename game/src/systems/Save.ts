@@ -78,6 +78,7 @@ const ROOM_IDS: RoomId[] = [
   'ponte', 'catacumbas', 'memoria', 'sinos', 'cripta',
   'escadaria', 'praca', 'rua', 'telhados', 'nave', 'claustro', 'galeria', 'altar',
   'poco', 'celas', 'correntes', 'guarita', 'fuga', 'arena', 'mascara', 'fosso', 'abismo',
+  'boca', 'trilhos', 'prensas', 'veio', 'espelhos', 'capataz',
 ];
 const ABILITIES: Ability[] = ['wall', 'double', 'hook', 'veil'];
 

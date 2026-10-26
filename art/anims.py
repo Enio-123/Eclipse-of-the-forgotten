@@ -2,7 +2,7 @@
 import math
 
 TAU = math.pi * 2
-WEAPONS = ['sword', 'scythe', 'daggers', 'bow', 'badalo', 'incensario', 'corrente']
+WEAPONS = ['sword', 'scythe', 'daggers', 'bow', 'badalo', 'incensario', 'corrente', 'picareta']
 
 
 def lerp(a, b, t):
@@ -190,8 +190,8 @@ def carry(w, name, i=0, n=1, ph=0.0, b=0.0):
         return {'idle': dict(bow=90), 'run': dict(bow=84 + 8 * s), 'jump': dict(bow=110), 'fall': dict(bow=124),
                 'land': dict(bow=80), 'dash': dict(bow=60), 'hurt': dict(bow=120), 'crouch': dict(bow=10),
                 'slide': dict(bow=150), 'kneel': dict(armF=(30, 40), bow=90)}[name]
-    if w == 'badalo':
-        # pesado: parado, com as duas mãos e a bola para cima na frente; andando, no ombro
+    if w in ('badalo', 'picareta'):
+        # pesado (o badalo e a picareta do Capataz): parado, com as duas mãos e a bola para cima na frente; andando, no ombro
         return {'idle': dict(armF=(22 + b * 2, 74 - b * 2), wpn=150 - b * 2, grip=6, ikB=('staff', -4.5), zB=4.9),
                 'run': dict(armF=(-34 - 8 * s, 70), wpn=-128 + 4 * s, grip=5),
                 'jump': dict(armF=(-44, 66), wpn=-140, grip=5),
@@ -364,7 +364,7 @@ def attacks(w):
             SC(lean=22, armF=(90, 0), bow=90, draw=0.0),
             lerp(CROUCH, dict(armF=(40, 30), bow=40, lean=26), 1),
         ], 20)
-    elif w == 'badalo':
+    elif w in ('badalo', 'picareta'):
         # a pancada sobe por trás da cabeça e desce até o chão na frente (lá nasce a onda)
         L = dict(legF=(34, 32), legB=(-30, 24), footF=-4, footB=-8)
         two = lambda s: ('staff', s)

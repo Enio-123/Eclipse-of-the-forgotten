@@ -938,10 +938,40 @@ def abismo():
 # r registro (documento da lore)  j vagonete  h prensa grande  @ bloco de âmbar (só a Picareta quebra)
 # y moldura de madeira dos túneis (escora)
 # ======================================================================================
+def snap_crystals(g):
+    """Todo cristal nasce da rocha: cada 'x' vai para a célula vazia mais perto que encosta na pedra
+    (chão, teto ou parede); o jogo vira o cristal para o lado da pedra."""
+    def touches(x, y):
+        return any(0 <= x + dx < g.w and 0 <= y + dy < g.h and g.g[y + dy][x + dx] == '#'
+                   for dx, dy in ((0, 1), (0, -1), (1, 0), (-1, 0)))
+    def solid(x, y):
+        return not (0 <= x < g.w and 0 <= y < g.h) or g.g[y][x] == '#'
+    pts = [(x, y) for y in range(g.h) for x in range(g.w) if g.g[y][x] == 'x']
+    for x, y in pts:
+        # caiu dentro da pedra (pedra dos dois lados): a pedra volta e o cristal vai para a borda
+        inside = (solid(x - 1, y) and solid(x + 1, y)) or (solid(x, y - 1) and solid(x, y + 1))
+        g.g[y][x] = '#' if inside else '.'
+        best = None
+        for r in range(0, 6):
+            for dy in range(-r, r + 1):
+                for dx in range(-r, r + 1):
+                    if max(abs(dx), abs(dy)) != r:
+                        continue
+                    nx, ny = x + dx, y + dy
+                    if 0 <= nx < g.w and 0 <= ny < g.h and g.g[ny][nx] == '.' and touches(nx, ny):
+                        d = abs(dx) + abs(dy) * 0.9
+                        if best is None or d < best[0]:
+                            best = (d, nx, ny)
+            if best:
+                break
+        if best:
+            g.g[best[2]][best[1]] = 'x'
+    return g
+
+
 def boca():
     """Boca da Mina: o túnel baixo que vem do abismo sobe para a caverna da entrada. A vela fica
-    logo no começo. Os trilhos seguem para a Galeria dos Trilhos, à direita; o poço do elevador (a
-    gaiola caiu faz tempo) desce para o Veio de Âmbar e é por ele que se volta, de parede em parede."""
+    logo no começo. Os trilhos seguem para a Galeria dos Trilhos, à direita."""
     W, H = 100, 36
     g = Grid(W, H, '#')
     g.fill(0, 23, 33, 29, '.')
@@ -951,15 +981,12 @@ def boca():
     g.fill(46, 19, 56, 20, '#')
     plank(g, 38, 43, 24)
     plank(g, 59, 64, 15)
-    # o poço do elevador
-    g.fill(72, 30, 77, 35, '.')
     # pontas de pedra no teto
     for x in range(34, 96, 6):
         g.fill(x, 7, x, 8 + (x % 3), '#')
     r = 29
     g.put(2, r, '1')
     g.put(98, r, '2')
-    g.put(80, r, '3')
     g.put(8, r, 'R')
     g.put(61, 14, '$')
     g.put(51, 18, 'r')
@@ -970,6 +997,7 @@ def boca():
         g.put(x, r, 'y')
     for (x, y) in ((31, 22), (45, 18), (57, 21), (70, 9), (95, 12)):
         g.put(x, y, 'x')
+    snap_crystals(g)
     return g.rows()
 
 
@@ -1004,6 +1032,7 @@ def trilhos():
         g.put(x, r, 'y')
     for (x, y) in ((34, 14), (68, 9), (108, 10), (126, 15)):
         g.put(x, y, 'x')
+    snap_crystals(g)
     return g.rows()
 
 
@@ -1037,19 +1066,19 @@ def prensas():
     g.put(50, 14, 'z')
     for (x, y) in ((22, 30), (42, 10), (66, 12), (84, 22)):
         g.put(x, y, 'x')
+    snap_crystals(g)
     return g.rows()
 
 
 def veio():
-    """Veio de Âmbar: o poço fundo onde o Âmbar nasce na pedra. Dois buracos no teto: o do
-    elevador (Boca da Mina) à esquerda e o das prensas à direita. Desce-se em zigue-zague entre
+    """Veio de Âmbar: o poço fundo onde o Âmbar nasce na pedra, embaixo da Casa das Prensas (o
+    buraco do teto é o do chão das prensas). Desce-se em zigue-zague entre
     cristais acesos; no meio, à esquerda, o alojamento dos mineiros (vela, o mineiro que ficou e o
     livro do Capataz). No fundo, à direita, a Câmara de Âmbar. Para subir: paredes, argolas e o
     pulo duplo."""
     W, H = 64, 84
     g = Grid(W, H, '#')
     g.fill(8, 0, 13, 9, '.')
-    g.fill(46, 0, 51, 9, '.')
     g.fill(6, 10, 58, 77, '.')
     # degraus e prateleiras
     g.fill(6, 18, 22, 19, '#')
@@ -1067,7 +1096,6 @@ def veio():
     # saída para a Câmara de Âmbar, no fundo à direita
     g.fill(59, 72, 63, 77, '.')
     g.put(10, 1, '1')
-    g.put(48, 1, '2')
     g.put(62, 77, '3')
     g.put(2, 47, 'R')
     g.put(9, 47, 'E')
@@ -1084,6 +1112,7 @@ def veio():
         g.put(x, y, 'o' if (x, y) in ((28, 22), (20, 43), (40, 57)) else 'x')
     for (x, y) in ((7, 14), (57, 12), (58, 34), (7, 56), (58, 66), (30, 76)):
         g.put(x, y, 'x')
+    snap_crystals(g)
     return g.rows()
 
 
@@ -1107,6 +1136,7 @@ def espelhos():
     g.put(32, r, 'X')
     for (x, y) in ((3, 8), (60, 8), (20, 6), (43, 6), (32, 4)):
         g.put(x, y, 'x')
+    snap_crystals(g)
     return g.rows()
 
 
@@ -1123,8 +1153,8 @@ def capataz():
     plank(g, 15, 21, 23)
     plank(g, 44, 50, 23)
     plank(g, 28, 37, 17)
-    # o túnel tapado pelo âmbar
-    g.fill(64, 24, 71, 29, '.')
+    # o túnel tapado pelo âmbar: segue para leste e desabou adiante (o vento frio passa pelas frestas)
+    g.fill(64, 24, 70, 29, '.')
     for y in range(24, 30):
         g.put(64, y, '@')
         g.put(65, y, '@')
@@ -1132,9 +1162,10 @@ def capataz():
     g.put(1, r, '1')
     g.put(46, r, 'X')
     g.put(56, r, 'h')
-    g.put(70, r, '2')
+    g.put(68, r, 'r')
     for (x, y) in ((10, 6), (24, 5), (40, 5), (58, 7), (33, 4)):
         g.put(x, y, 'x')
+    snap_crystals(g)
     return g.rows()
 
 

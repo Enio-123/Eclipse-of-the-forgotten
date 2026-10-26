@@ -129,6 +129,23 @@ const THEMES: Record<Theme, Partial<Look>> = {
     oil: 0.15,
     flicker: 0.12,
   },
+  // minas: rocha quente de poeira, só a luz do Âmbar (cristais e veios) e dos lampiões dos mineiros
+  mine: {
+    knight: 0.34,
+    ao: 0.44,
+    lightGain: 1.32,
+    bounce: 0.36,
+    relief: 0.36,
+    bloomThreshold: 0.55,
+    bloom: 0.6,
+    rays: 0.3,
+    mistColor: [0.56, 0.44, 0.32],
+    mist: 0.26,
+    shadowTint: [0.99, 0.98, 1.02],
+    highTint: [1.05, 1.0, 0.93],
+    oil: 0.2,
+    flicker: 0.1,
+  },
 };
 
 // salas com luz própria

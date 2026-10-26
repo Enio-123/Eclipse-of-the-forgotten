@@ -1,15 +1,16 @@
 import type { Theme } from './Level';
 import {
-  MAP_ABISMO, MAP_ALTAR, MAP_ARENA, MAP_CATACUMBAS, MAP_CELAS, MAP_CLAUSTRO, MAP_CORRENTES, MAP_CRIPTA, MAP_ESCADARIA, MAP_FOSSO,
-  MAP_FUGA, MAP_GALERIA, MAP_GUARITA, MAP_MASCARA, MAP_MEMORIA, MAP_NAVE, MAP_POCO, MAP_PONTE, MAP_PRACA, MAP_RUA, MAP_SINOS,
-  MAP_TELHADOS,
+  MAP_ABISMO, MAP_ALTAR, MAP_ARENA, MAP_BOCA, MAP_CAPATAZ, MAP_CATACUMBAS, MAP_CELAS, MAP_CLAUSTRO, MAP_CORRENTES, MAP_CRIPTA,
+  MAP_ESCADARIA, MAP_ESPELHOS, MAP_FOSSO, MAP_FUGA, MAP_GALERIA, MAP_GUARITA, MAP_MASCARA, MAP_MEMORIA, MAP_NAVE, MAP_POCO,
+  MAP_PONTE, MAP_PRACA, MAP_PRENSAS, MAP_RUA, MAP_SINOS, MAP_TELHADOS, MAP_TRILHOS, MAP_VEIO,
 } from './maps';
 import type { AmbienceId, TrackId } from '../systems/Audio';
 
 export type RoomId =
   | 'ponte' | 'catacumbas' | 'memoria' | 'sinos' | 'cripta'
   | 'escadaria' | 'praca' | 'rua' | 'telhados' | 'nave' | 'claustro' | 'galeria' | 'altar'
-  | 'poco' | 'celas' | 'correntes' | 'guarita' | 'fuga' | 'arena' | 'mascara' | 'fosso' | 'abismo';
+  | 'poco' | 'celas' | 'correntes' | 'guarita' | 'fuga' | 'arena' | 'mascara' | 'fosso' | 'abismo'
+  | 'boca' | 'trilhos' | 'prensas' | 'veio' | 'espelhos' | 'capataz';
 export type Ability = 'wall' | 'double' | 'hook' | 'veil';
 export type Side = 'left' | 'right' | 'up' | 'down';
 
@@ -564,7 +565,10 @@ const CHAPTER3: Record<'poco' | 'celas' | 'correntes' | 'guarita' | 'fuga' | 'ar
     theme: 'prison',
     title: 'Leito do Abismo',
     subtitle: 'O fundo de tudo o que ele esqueceu',
-    exits: [{ side: 'left', to: 'fosso', entry: '2', range: [23, 27] }],
+    exits: [
+      { side: 'left', to: 'fosso', entry: '2', range: [23, 27] },
+      { side: 'right', to: 'boca', entry: '1', range: [24, 27] },
+    ],
     boss: 'sombra',
     ...PRISON,
     drips: 12,
@@ -578,7 +582,128 @@ const CHAPTER3: Record<'poco' | 'celas' | 'correntes' | 'guarita' | 'fuga' | 'ar
   },
 };
 
-export const ROOMS: Record<RoomId, RoomDef> = { ...PROLOGUE, ...CHAPTER2, ...CHAPTER3 };
+const MINE: Pick<RoomDef, 'pit' | 'rain' | 'lightning' | 'petals' | 'motes'> = { pit: false, rain: false, lightning: false, petals: false, motes: true };
+
+// capítulo 4: as Minas Abandonadas, atrás da membrana do Leito do Abismo. Onde a Casa Vhalor tirava o
+// Âmbar Mnêmico (lore/continuidade.md, seção 8)
+const CHAPTER4: Record<'boca' | 'trilhos' | 'prensas' | 'veio' | 'espelhos' | 'capataz', RoomDef> = {
+  boca: {
+    id: 'boca',
+    map: MAP_BOCA,
+    theme: 'mine',
+    title: 'Boca da Mina',
+    subtitle: 'Minas Abandonadas',
+    exits: [
+      { side: 'left', to: 'abismo', entry: '2', range: [22, 29] },
+      { side: 'right', to: 'trilhos', entry: '1', range: [22, 29] },
+    ],
+    ...MINE,
+    drips: 16,
+    music: 'mine',
+    ambience: 'mine',
+    hints: [],
+    thoughts: [
+      { x: 14, text: 'Trilhos. Escoras. Alguém cavava aqui embaixo, muito antes da prisão.' },
+      { x: 52, y: 18, text: 'A pedra brilha por dentro, como brasa debaixo da cinza.' },
+    ],
+  },
+  trilhos: {
+    id: 'trilhos',
+    map: MAP_TRILHOS,
+    theme: 'mine',
+    title: 'Galeria dos Trilhos',
+    subtitle: 'Por onde o Âmbar subia',
+    exits: [
+      { side: 'left', to: 'boca', entry: '2', range: [14, 23] },
+      { side: 'right', to: 'prensas', entry: '1', range: [14, 23] },
+    ],
+    ...MINE,
+    drips: 20,
+    music: 'mine',
+    ambience: 'mine',
+    hints: [],
+    thoughts: [
+      { x: 12, text: 'Um vagonete ainda nos trilhos. Carregado de pedra que brilha.' },
+      { x: 62, text: 'As vigas descem baixo aqui. Quem empurrava os vagonetes andava curvado.' },
+    ],
+  },
+  prensas: {
+    id: 'prensas',
+    map: MAP_PRENSAS,
+    theme: 'mine',
+    title: 'Casa das Prensas',
+    subtitle: 'Onde espremiam o que as pessoas lembravam',
+    exits: [
+      { side: 'left', to: 'trilhos', entry: '2', range: [16, 23] },
+      { side: 'down', to: 'veio', entry: '1', range: [74, 79] },
+    ],
+    ...MINE,
+    drips: 14,
+    music: 'mine',
+    ambience: 'mine',
+    hints: [],
+    thoughts: [
+      { x: 20, text: 'Prensas do tamanho de uma casa. Para espremer pedra não precisava de tanto.' },
+      { x: 60, y: 39, text: 'Tem marca de mão no ferro. Muitas. Por dentro.' },
+    ],
+  },
+  veio: {
+    id: 'veio',
+    map: MAP_VEIO,
+    theme: 'mine',
+    title: 'Veio de Âmbar',
+    subtitle: 'A pedra que bebe lembranças',
+    exits: [
+      { side: 'up', to: 'prensas', entry: '2', range: [8, 13] },
+      { side: 'right', to: 'espelhos', entry: '1', range: [72, 77] },
+    ],
+    ...MINE,
+    drips: 30,
+    music: 'mine',
+    ambience: 'mine',
+    hints: [],
+    thoughts: [
+      { x: 30, y: 17, text: 'Quanto mais perto do veio, mais quieto fica dentro da cabeça.' },
+      { x: 48, y: 77, text: 'Lá adiante a pedra é lisa como um espelho. Tem alguém andando do outro lado.' },
+    ],
+  },
+  espelhos: {
+    id: 'espelhos',
+    map: MAP_ESPELHOS,
+    theme: 'mine',
+    title: 'Câmara de Âmbar',
+    subtitle: 'Quem olha demais fica',
+    exits: [
+      { side: 'left', to: 'veio', entry: '3', range: [20, 25] },
+      { side: 'right', to: 'capataz', entry: '1', range: [20, 25] },
+    ],
+    ...MINE,
+    drips: 8,
+    music: 'mine',
+    ambience: 'mine',
+    hints: [],
+    thoughts: [{ x: 4, text: 'As paredes me devolvem. Com um pouco de atraso.' }],
+  },
+  capataz: {
+    id: 'capataz',
+    map: MAP_CAPATAZ,
+    theme: 'mine',
+    title: 'Galeria do Capataz',
+    subtitle: 'O último turno',
+    exits: [{ side: 'left', to: 'espelhos', entry: '2', range: [24, 29] }],
+    ...MINE,
+    drips: 10,
+    music: 'mine',
+    ambience: 'mine',
+    hints: [],
+    thoughts: [
+      { x: 4, text: 'Um apito de turno, enferrujado, ainda pendurado na entrada.' },
+      { x: 62, y: 29, text: 'Um bloco de Âmbar tapa o túnel. Do outro lado passa um vento frio.' },
+    ],
+  },
+};
+
+export const ROOMS: Record<RoomId, RoomDef> = { ...PROLOGUE, ...CHAPTER2, ...CHAPTER3, ...CHAPTER4 };
 
 // Onde cada sala fica no mapa (em tiles). A memória do vale não aparece no mapa.
 export const MAP_POS: Partial<Record<RoomId, { x: number; y: number }>> = {
@@ -603,4 +728,10 @@ export const MAP_POS: Partial<Record<RoomId, { x: number; y: number }>> = {
   mascara: { x: 600, y: 61 },
   fosso: { x: 620, y: 93 },
   abismo: { x: 676, y: 143 },
+  boca: { x: 746, y: 141 },
+  trilhos: { x: 846, y: 147 },
+  prensas: { x: 996, y: 147 },
+  veio: { x: 1062, y: 191 },
+  espelhos: { x: 1126, y: 243 },
+  capataz: { x: 1190, y: 239 },
 };

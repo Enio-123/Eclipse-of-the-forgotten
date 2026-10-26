@@ -46,6 +46,26 @@ def iso_lines(H, W, rng, cell, warp, width):
     return sstep(width, width * 0.3, d)
 
 
+def joints(H, W, rng, cell, width, squash=1.7, show=(0.42, 0.62), amp=0.0):
+    """Juntas da rocha: as bordas das células de Voronoi (blocos angulosos, mais largos que altos,
+    como a pedra em camadas se parte), com a borda tremida e só em parte à mostra (cada fenda
+    começa e termina dentro da pedra). Devolve 0..1 (1 em cima da fenda)."""
+    from scipy.spatial import cKDTree
+    gx, gy = int(W / cell) + 3, int(H / cell * squash) + 3
+    g = np.stack(np.meshgrid(np.arange(gx), np.arange(gy)), -1).reshape(-1, 2).astype(np.float64)
+    pts = (g + rng.uniform(0.08, 0.92, g.shape) - 1) * cell
+    tree = cKDTree(pts)
+    yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
+    if amp:
+        xx = xx + (value_noise(H, W, cell * 0.35, rng, 2) - 0.5) * amp
+        yy = yy + (value_noise(H, W, cell * 0.35, rng, 2) - 0.5) * amp
+    q = np.stack([xx.ravel(), (yy * squash).ravel()], 1)
+    dd, _ = tree.query(q, k=2, workers=-1)
+    edge = ((dd[:, 1] - dd[:, 0]) * 0.5).reshape(H, W).astype(np.float32)
+    vis = sstep(show[0], show[1], value_noise(H, W, cell * 1.3, rng, 2))
+    return sstep(width, width * 0.3, edge) * vis
+
+
 def mine(room, veins=0.5):
     rng = room.rng
     H, W = room.H, room.W
@@ -74,9 +94,9 @@ def mine(room, veins=0.5):
     pits = value_noise(H, W, 3, rng, 1) > 0.8
     col *= (1 - 0.28 * pits)[..., None]
     # fendas grandes partindo a pedra em blocos, e as pequenas
-    big = iso_lines(H, W, rng, 70 * S, 0, 1.3 * S)
-    small = iso_lines(H, W, rng, 24 * S, 0, 0.8 * S) * sstep(0.45, 0.7, value_noise(H, W, 50 * S, rng, 2))
-    cracks = np.maximum(big, small * 0.8)
+    big = joints(H, W, rng, 56 * S, 1.2 * S, squash=1.8, show=(0.36, 0.56), amp=5 * S)
+    small = joints(H, W, rng, 22 * S, 0.6 * S, squash=1.4, show=(0.6, 0.76), amp=4 * S)
+    cracks = np.maximum(big, small * 0.55)
     # o lado de cima da fenda pega luz, o de baixo afunda
     lit_edge = np.roll(cracks, 2 * S, axis=0) * (1 - cracks)
     col = mix(col, col * 1.3, (lit_edge * 0.5)[..., None])

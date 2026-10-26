@@ -90,6 +90,13 @@ THEMES = {
                  hexc(0x050408)],
         colors=96,
     ),
+    # Minas Abandonadas: rocha em camadas e os veios de Âmbar (só o terreno sai em pixel)
+    'mine': dict(
+        layers={f'terreno-{n}': 'exact' for n in ['boca', 'trilhos', 'prensas', 'veio', 'espelhos', 'capataz']},
+        rename={f'terreno-{n}': f'terrain-{n}' for n in ['boca', 'trilhos', 'prensas', 'veio', 'espelhos', 'capataz']},
+        accents=[hexc(0xffa63c), hexc(0xffe6a6), hexc(0x8a4a12), hexc(0xd27a26), hexc(0x9a8064), hexc(0x4c5670), hexc(0x07060a)],
+        colors=96,
+    ),
     'forest': dict(
         layers={'intro-back': 'opaque', 'intro-near': 'soft', 'intro-fore': 'soft', 'intro-beams': 'soft'},
         accents=[hexc(0x2e0a0c), hexc(0x5e1517), hexc(0x8a231e), hexc(0xb2382b), hexc(0x3b2219), hexc(0x66412f), hexc(0xd9e4c8)],

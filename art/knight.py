@@ -10,6 +10,9 @@ from puppet import Ellipse, Capsule, Poly, Decal, norm, rot
 # bronze do sino (o mesmo do Sineiro), para o badalo
 puppet.RAMPS.setdefault('bronze', [0x2e1f10, 0x5a3a18, 0x8a5c26, 0xb98a3e, 0xe4bd72])
 puppet.SHINY.setdefault('bronze', (0.5, 9))
+# Âmbar Mnêmico grudado na picareta do Capataz (brilha sozinho no miolo)
+puppet.RAMPS.setdefault('amber', [0x5a2a08, 0x9a4c12, 0xd27a26, 0xffa63c, 0xffe6a6])
+puppet.SHINY.setdefault('amber', (0.7, 16))
 
 W, H = 144, 120
 BASE_HIP = (72.0, 87.0)
@@ -243,6 +246,32 @@ def build(pose, weapon='sword'):
             return None
 
         decals.append(Decal('ball', ball_decal))
+        if p['ikB'] and p['ikB'][0] == 'staff':
+            back_target = add(handF, sd, p['ikB'][1])
+
+    elif weapon == 'picareta':
+        # a picareta do Capataz: cabo de madeira com duas cintas de ferro e a cabeça de ferro de
+        # través, com a ponta fina curvada de um lado, a pá larga do outro e lascas de Âmbar grudadas
+        grip = p['grip'] if p['grip'] is not None else 7.0
+        LEN = 24.0
+        butt = add(handF, sd, -grip)
+        top = add(handF, sd, LEN - grip)
+        prims.append(Capsule('haft', 'wood', 6.4, butt, top, 1.15, 1.0, shade=0.95))
+        for t in (0.22, 0.72):
+            c = add(butt, sd, LEN * t)
+            prims.append(Capsule('band', 'steel', 6.42, add(c, sd, -0.7), add(c, sd, 0.7), 1.4, 1.4))
+        side = (sd[1], -sd[0])
+        hc = add(top, sd, -1.2)
+
+        def H(a, b):
+            return add(add(hc, side, a), sd, -b)
+
+        outline = [H(-5.8, -1.2), H(-6.0, 2.2), H(-4.6, 2.0), H(-1.6, 1.7), H(2.6, 1.6), H(6.4, 2.6), H(9.6, 4.6),
+                   H(10.4, 4.4), H(7.4, 1.4), H(3.0, -1.5), H(-1.6, -1.9)]
+        prims.append(Poly('phead', 'steel', 6.55, outline, nf=lambda x, y: norm((0.0, -0.6, 0.8)), shade=0.95))
+        prims.append(Capsule('peye', 'steel', 6.57, H(-0.9, -2.0), H(-0.9, 2.0), 1.6, 1.6, shade=0.8))
+        for (a, b, r) in ((-4.4, 0.6, 0.9), (4.6, 0.6, 0.8), (7.6, 2.4, 0.6)):
+            prims.append(Ellipse('pamber', 'amber', 6.6, H(a, b), r, r * 0.8, flat=3))
         if p['ikB'] and p['ikB'][0] == 'staff':
             back_target = add(handF, sd, p['ikB'][1])
 

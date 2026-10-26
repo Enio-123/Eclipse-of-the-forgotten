@@ -127,10 +127,10 @@ export class Life {
       if (this.flames.some((f) => Math.abs(f.x - o.x) < 12 && Math.abs(f.y - o.y) < 12)) continue;
       this.flames.push({ x: o.x, y: o.y });
     }
-    const warm = has(theme, ['catacomb', 'prison', 'nave', 'city', 'bridge']);
+    const warm = has(theme, ['catacomb', 'prison', 'nave', 'city', 'bridge', 'mine']);
     if (warm) this.makeMoths();
     if (warm && particles > 0) this.makeEmbers();
-    if (has(theme, ['catacomb', 'prison', 'nave'])) this.makeWebs();
+    if (has(theme, ['catacomb', 'prison', 'nave', 'mine'])) this.makeWebs();
     const L = level;
     this.floors = L.spans((x, y) => L.floorCell(x, y)).filter((s) => s.x1 - s.x0 >= 5).map((s) => ({ x0: s.x0 * TILE, x1: (s.x1 + 1) * TILE, y: s.y * TILE }));
     if (life >= 2 && has(theme, ['city', 'memory'])) this.spawnFlies();
@@ -282,11 +282,11 @@ export class Life {
 
     if (this.life >= 2 && player) {
       const pv = { x: player.x, y: player.body.bottom };
-      if (has(theme, ['catacomb', 'prison']) && (this.nextRat -= dt) <= 0) {
+      if (has(theme, ['catacomb', 'prison', 'mine']) && (this.nextRat -= dt) <= 0) {
         this.nextRat = 9 + Math.random() * 12;
         this.spawnRat(pv);
       }
-      if (has(theme, ['catacomb', 'prison', 'nave']) && (this.nextBat -= dt) <= 0) {
+      if (has(theme, ['catacomb', 'prison', 'nave', 'mine']) && (this.nextBat -= dt) <= 0) {
         this.nextBat = 14 + Math.random() * 16;
         this.spawnBat();
       }

@@ -9,8 +9,8 @@ export type SfxName =
   | 'ash' | 'quake' | 'equip' | 'erase'
   | 'parry' | 'break' | 'glass' | 'page' | 'anvil' | 'smoke' | 'coinrain' | 'door' | 'locked' | 'censer' | 'draw' | 'gate'
   | 'echo' | 'echo-die' | 'veil' | 'veil-form';
-export type TrackId = 'title' | 'bridge' | 'crypt' | 'memory' | 'boss' | 'city' | 'nave' | 'boss2' | 'boss3' | FileTrackId | 'none';
-export type AmbienceId = 'rain' | 'crypt' | 'wind' | 'city' | 'nave' | 'prison' | 'none';
+export type TrackId = 'title' | 'bridge' | 'crypt' | 'memory' | 'boss' | 'city' | 'nave' | 'boss2' | 'boss3' | 'mine' | 'mirror' | 'boss4' | FileTrackId | 'none';
+export type AmbienceId = 'rain' | 'crypt' | 'wind' | 'city' | 'nave' | 'prison' | 'mine' | 'none';
 // faixas gravadas, em arquivo (as trilhas que o Enio escolheu)
 type FileTrackId = 'prison' | 'fosso' | 'shadow';
 type SynthTrackId = Exclude<TrackId, FileTrackId | 'none'>;
@@ -44,6 +44,8 @@ const EM = [52, 55, 59], CMAJ = [48, 52, 55], AMIN = [45, 48, 52], BMAJ = [47, 5
 
 // capítulo 3 (a prisão): dó menor, com o sol maior que puxa de volta
 const CMIN = [48, 51, 55], AB = [44, 48, 51], FMIN = [41, 44, 48], GMAJ3 = [43, 47, 50];
+// capítulo 4 (as minas): lá menor frígio, com o si bemol que pesa e o mi maior que não resolve
+const AMIN4 = [45, 48, 52], BB4 = [46, 50, 53], EMAJ4 = [40, 44, 47], DMIN4 = [50, 53, 57];
 
 // Trilha gravada: o arquivo toca uma vez a partir de 'from' e depois repete o trecho [início, fim]
 // (em segundos), cruzando 'xf' segundos na emenda. Os dois pontos caem no mesmo tempo do compasso,
@@ -224,6 +226,67 @@ const TRACKS: Record<SynthTrackId, TrackDef> = {
       if ((i === 3 || i === 7) && chance(0.6)) e.chain(p.bus, t, 0.03);
       if (i === 0 && bar % 2 === 0) e.pad(p.bus, t, ch.map((n) => n + 12), d * 16, 0.028, 1100);
       if (i === 0 && bar % 8 === 6) e.choir(p.bus, t, ch[2] + 12, d * 14, 0.024);
+      if (i === 4 && bar % 8 === 7) e.choir(p.bus, t, ch[1] + 12, d * 10, 0.02);
+    },
+  },
+  // Minas: zumbido fundo, o piano grave de um canto de trabalho, picaretas ao longe sempre no mesmo
+  // lugar do compasso e, de vez em quando, o tilintar do Âmbar
+  mine: {
+    bpm: 58,
+    start(e, p) {
+      p.stop.push(e.drone(p.bus, 33, 0.04), e.drone(p.bus, 40, 0.018));
+    },
+    step(e, p, s, t, d) {
+      const prog = [AMIN4, AMIN4, BB4, EMAJ4];
+      const bar = Math.floor(s / 8);
+      const ch = prog[Math.floor(bar / 2) % 4];
+      const i = s % 8;
+      if (i === 0 && bar % 2 === 0) e.pad(p.bus, t, ch.map((n) => n + 12), d * 16, 0.03, 900);
+      if (i === 0) e.piano(p.bus, t, ch[0] - 12, 0.1, d * 8);
+      if ((i === 2 || i === 3) && bar % 2 === 1) e.metal(p.bus, t, i === 2 ? 79 : 80, 0.011, 0.22);
+      if (bar % 4 === 1 && (i === 0 || i === 3 || i === 6)) e.piano(p.bus, t, [ch[0], ch[1], ch[0] - 2][(i / 3) | 0], 0.07, d * 6);
+      if (bar % 4 === 3 && i === 0) e.piano(p.bus, t, ch[2] + 12, 0.06, d * 10);
+      if (chance(0.04)) e.musicbox(p.bus, t, pick([81, 84, 88, 93]), 0.018);
+      if (s % 64 === 48) e.choir(p.bus, t, ch[2] + 12, d * 20, 0.015);
+    },
+  },
+  // O Reflexo: o mesmo arpejo de ida e de volta na caixinha, como num espelho, sobre o piano grave
+  mirror: {
+    bpm: 92,
+    start(e, p) {
+      p.stop.push(e.drone(p.bus, 45, 0.035), e.drone(p.bus, 52, 0.016));
+    },
+    step(e, p, s, t, d) {
+      const bar = Math.floor(s / 8);
+      const i = s % 8;
+      const ch = [AMIN4, EMAJ4, AMIN4, BB4][bar % 4];
+      const up = [ch[0] + 24, ch[1] + 24, ch[2] + 24, ch[0] + 36];
+      e.musicbox(p.bus, t, [...up, ...up.slice().reverse()][i], 0.045);
+      if (i === 0) e.piano(p.bus, t, ch[0] - 12, 0.11, d * 8);
+      if (i === 4) e.piano(p.bus, t, ch[0] - 12, 0.06, d * 4);
+      if (i === 0 && bar % 2 === 0) e.pad(p.bus, t, ch.map((n) => n + 12), d * 16, 0.026, 1200);
+      if (i === 2 && bar % 4 === 3) e.choir(p.bus, t, ch[2] + 12, d * 8, 0.018);
+    },
+  },
+  // O Capataz de Âmbar: a prensa bate no um e no cinco, o piano grave em ostinato frígio, o vapor
+  // chiando no contratempo e o coro que só entra no fim de cada volta
+  boss4: {
+    bpm: 104,
+    start(e, p) {
+      p.stop.push(e.drone(p.bus, 33, 0.05), e.drone(p.bus, 40, 0.024));
+    },
+    step(e, p, s, t, d) {
+      const bar = Math.floor(s / 8);
+      const i = s % 8;
+      const ch = [AMIN4, AMIN4, BB4, EMAJ4, AMIN4, DMIN4, BB4, EMAJ4][bar % 8];
+      const r = ch[0] - 12;
+      const pat = [0, 0, 12, 0, 1, 0, 12, 7];
+      e.piano(p.bus, t, r + pat[i], i % 2 === 0 ? 0.12 : 0.07, d * 2);
+      if (i === 0) e.metal(p.bus, t, 45, 0.055, 1.2);
+      if (i === 4) e.metal(p.bus, t, 52, 0.03, 0.6);
+      if (i === 6 && chance(0.5)) e.metal(p.bus, t, pick([76, 79]), 0.014, 0.2);
+      if (i === 0 && bar % 2 === 0) e.pad(p.bus, t, ch.map((n) => n + 12), d * 16, 0.028, 1000);
+      if (i === 0 && bar % 8 === 4) e.choir(p.bus, t, ch[2] + 12, d * 14, 0.024);
       if (i === 4 && bar % 8 === 7) e.choir(p.bus, t, ch[1] + 12, d * 10, 0.02);
     },
   },
@@ -818,6 +881,37 @@ class AudioEngine {
       };
       window.setTimeout(rattle, 2500);
       window.setTimeout(door, 9000 + Math.random() * 8000);
+      stops.push(() => (alive = false));
+    }
+    if (id === 'mine') {
+      // a rocha por cima de tudo: um grave que nunca para, o ar parado com poeira, a madeira das
+      // escoras gemendo com o peso, pedrinhas que caem e, bem longe, uma picareta que ninguém segura
+      noise('lowpass', 90, 0.6, 0.22);
+      const air = noise('bandpass', 620, 0.7, 0.012);
+      lfo(air.g.gain, 0.06, 0.006);
+      let alive = true;
+      const creak = () => {
+        if (!alive) return;
+        const now = ctx.currentTime;
+        this.nz(bus, now, 0.5 + Math.random() * 0.4, 'bandpass', 320 + Math.random() * 120, 170, 0.035, 9);
+        window.setTimeout(creak, 7000 + Math.random() * 11000);
+      };
+      const pebbles = () => {
+        if (!alive) return;
+        const now = ctx.currentTime;
+        const n = 2 + Math.floor(Math.random() * 4);
+        for (let k = 0; k < n; k++) this.nz(bus, now + k * (0.05 + Math.random() * 0.07), 0.02, 'bandpass', 2400 + Math.random() * 1800, 1800, 0.02, 3);
+        window.setTimeout(pebbles, 5000 + Math.random() * 9000);
+      };
+      const strike = () => {
+        if (!alive) return;
+        const now = ctx.currentTime;
+        for (let k = 0; k < 3; k++) this.metal(bus, now + k * 0.62, 82, 0.007, 0.18);
+        window.setTimeout(strike, 16000 + Math.random() * 20000);
+      };
+      window.setTimeout(creak, 3000);
+      window.setTimeout(pebbles, 1800);
+      window.setTimeout(strike, 8000 + Math.random() * 6000);
       stops.push(() => (alive = false));
     }
     this.amb = { id, bus, stop: () => stops.forEach((f) => f()) };

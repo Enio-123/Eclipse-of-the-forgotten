@@ -42,8 +42,9 @@ export class Backdrop {
     else if (theme === 'city') this.city();
     else if (theme === 'nave') this.nave();
     else if (theme === 'prison') this.prison();
+    else if (theme === 'mine') this.mine();
     else this.memory();
-    this.bg = { bridge: 0x161a2b, catacomb: 0x07080d, city: 0x0b1020, nave: 0x07080d, memory: 0x5c9a3e, prison: 0x08070b }[theme];
+    this.bg = { bridge: 0x161a2b, catacomb: 0x07080d, city: 0x0b1020, nave: 0x07080d, memory: 0x5c9a3e, prison: 0x08070b, mine: 0x0a0807 }[theme];
   }
 
   private img(key: string, depth: number) {
@@ -321,6 +322,35 @@ export class Backdrop {
     const glow = this.scene.add.image(this.so.x + VIEW_W / 2, this.so.y + VIEW_H + 30, 'glow').setScale(14, 5).setTint(0x7029b8).setAlpha(0.1)
       .setBlendMode(add).setScrollFactor(0).setDepth(BG.fog);
     this.layers.push({ o: glow, update: (_sx, _sy, t) => void (glow.alpha = 0.08 + 0.03 * Math.sin(t * 0.0007)) });
+  }
+
+  // Minas Abandonadas: a parede do outro lado da caverna (rocha em camadas, torres de madeira e
+  // passarelas com lampiões) e, mais perto, as escoras do poço com a polia e os cristais acesos. As
+  // duas camadas repetem nas duas direções: o Veio é um poço fundo e as galerias são compridas
+  private mine() {
+    const far = this.hdTile('mine-far', BG.far, VIEW_H);
+    const mid = this.hdTile('mine-mid', BG.mid, VIEW_H);
+    this.layers.push(
+      {
+        o: far,
+        update: (sx, sy) => {
+          far.tilePositionX = (sx * 0.12) / far.tileScaleX;
+          far.tilePositionY = (sy * 0.1) / far.tileScaleY;
+        },
+      },
+      {
+        o: mid,
+        update: (sx, sy) => {
+          mid.tilePositionX = (sx * 0.34) / mid.tileScaleX;
+          mid.tilePositionY = (sy * 0.3) / mid.tileScaleY;
+        },
+      },
+    );
+    // a poeira quente no ar, acesa de baixo pelo Âmbar
+    const add = Phaser.BlendModes.ADD;
+    const glow = this.scene.add.image(this.so.x + VIEW_W / 2, this.so.y + VIEW_H + 40, 'glow').setScale(15, 5).setTint(0xb8641c).setAlpha(0.09)
+      .setBlendMode(add).setScrollFactor(0).setDepth(BG.fog);
+    this.layers.push({ o: glow, update: (_sx, _sy, t) => void (glow.alpha = 0.075 + 0.025 * Math.sin(t * 0.0005)) });
   }
 
   private memory() {

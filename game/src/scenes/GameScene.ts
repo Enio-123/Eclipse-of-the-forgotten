@@ -531,7 +531,7 @@ export class GameScene extends Phaser.Scene {
     });
     const so = screenOrigin(this.cameras.main);
     if (room.theme !== 'memory') {
-      const dark = { bridge: 0.5, catacomb: 0.9, city: 0.55, nave: 0.8, prison: 0.85 }[room.theme];
+      const dark = { bridge: 0.5, catacomb: 0.9, city: 0.55, nave: 0.8, prison: 0.85, mine: 0.85 }[room.theme];
       this.add.image(so.x, so.y, 'vignette').setOrigin(0).setScrollFactor(0).setDepth(29).setAlpha(dark);
     }
     if (room.theme === 'bridge') {
@@ -546,7 +546,7 @@ export class GameScene extends Phaser.Scene {
     this.camY = room.theme === 'memory' ? 72 : 26;
     document.body.classList.toggle('bright', room.theme === 'memory');
     // nos fundos lisos da Cidade-Catedral o grão é mais leve (o traço não some no ruído)
-    this.fx.setGrain({ bridge: 0.09, catacomb: 0.09, memory: 0.035, city: 0.07, nave: 0.07, prison: 0.08 }[room.theme]);
+    this.fx.setGrain({ bridge: 0.09, catacomb: 0.09, memory: 0.035, city: 0.07, nave: 0.07, prison: 0.08, mine: 0.08 }[room.theme]);
     cam.setFollowOffset(-this.lookX, this.camY);
     this.look = lookFor(room.theme, room.id, room.paint ?? PAINT[room.theme]);
     this.xp = null;
@@ -572,7 +572,7 @@ export class GameScene extends Phaser.Scene {
     audio.ambience(room.ambience);
     audio.stepKind = room.theme === 'bridge' ? 'wet' : room.theme === 'memory' ? 'grass' : 'stone';
     // a nave ecoa mais que tudo; a cidade aberta quase nada
-    audio.space = { bridge: 0.12, catacomb: 0.45, memory: 0.12, city: 0.16, nave: 0.62, prison: 0.5 }[room.theme];
+    audio.space = { bridge: 0.12, catacomb: 0.45, memory: 0.12, city: 0.16, nave: 0.62, prison: 0.5, mine: 0.55 }[room.theme];
 
     // o ponto de retorno é a última vela acesa (no começo, a ponte); da memória volta-se para a vela do espelho
     if (data.from === 'new') progress.checkpoint(room.id, data.entry, settings.data.weapon);
