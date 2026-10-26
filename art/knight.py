@@ -6,6 +6,10 @@ para segurar o cabo da foice ou puxar a corda do arco.
 import math
 import puppet
 from puppet import Ellipse, Capsule, Poly, Decal, norm, rot
+import staffs
+
+# o foco do cajado no último quadro desenhado (de onde sai a magia; os pontos da folha usam)
+LAST = {}
 
 # bronze do sino (o mesmo do Sineiro), para o badalo
 puppet.RAMPS.setdefault('bronze', [0x2e1f10, 0x5a3a18, 0x8a5c26, 0xb98a3e, 0xe4bd72])
@@ -304,6 +308,9 @@ def build(pose, weapon='sword'):
 
         decals.append(Decal('cball', holes))
 
+    elif weapon in staffs.STAFFS:
+        back_target, LAST['focus'] = staffs.draw(weapon, p, handF, sd, prims, decals)
+
     elif weapon == 'corrente':
         # a corrente da Carcereira: voltas enroladas no antebraço e um palmo pendurado com o gancho
         fx, fy = handF[0] - elbowF[0], handF[1] - elbowF[1]
@@ -457,3 +464,10 @@ def build(pose, weapon='sword'):
 
     decals.append(Decal('mask', mask_decal))
     return prims, decals
+
+
+def focus_point(pose, weapon):
+    """Onde fica o foco do cajado (de onde a magia sai) no quadro, em pixels do mundo a partir dos pés."""
+    build(pose, weapon)
+    fx, fy = LAST['focus']
+    return [round(fx - FEET[0], 1), round(fy - FEET[1], 1)]

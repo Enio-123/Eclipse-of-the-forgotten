@@ -3,6 +3,8 @@ import math
 
 TAU = math.pi * 2
 WEAPONS = ['sword', 'scythe', 'daggers', 'bow', 'badalo', 'incensario', 'corrente', 'picareta']
+# os cajados dos magos (staffs.py desenha)
+STAFFS = ['eclipse', 'necro', 'veu', 'espaco']
 
 
 def lerp(a, b, t):
@@ -226,7 +228,44 @@ def carry(w, name, i=0, n=1, ph=0.0, b=0.0):
                 'crouch': dict(armF=(40, 50), wpn=70),
                 'slide': dict(armF=(-70, 30), wpn=-110),
                 'kneel': dict(armF=(96, 34), wpn=0)}[name]
+    if w in STAFFS:
+        # o cajado: parado, em pé na frente do corpo com a cabeça acima do capuz; andando, levado
+        # inclinado para trás, como a foice
+        return {'idle': dict(armF=(34 + b * 2, 56 - b * 2), wpn=163 - b, grip=14),
+                'run': dict(armF=(-26 - 12 * s, 44), wpn=-116 + 5 * s, grip=10),
+                'jump': dict(armF=(-40, 50), wpn=-132, grip=11),
+                'fall': dict(armF=(-58, 48), wpn=-148, grip=11),
+                'land': dict(armF=(-12, 50), wpn=-90, grip=10),
+                'dash': dict(armF=(-80, 10), wpn=-96, grip=8),
+                'hurt': dict(armF=(40, 40), wpn=124, grip=12),
+                'crouch': dict(armF=(-10, 60), wpn=-104, grip=9),
+                'slide': dict(wpn=-132, grip=10),
+                'kneel': dict(armF=(100, 30), wpn=178, grip=20)}[name]
     raise ValueError(w)
+
+
+# ---------------- magias: mirar e lançar (iguais para os quatro cajados) ----------------
+def casts(w):
+    A = {}
+    L = dict(legF=(30, 26), legB=(-28, 22), footF=-2, footB=-8)
+    aim = []
+    for i in range(6):
+        ph = TAU * i / 6
+        b = (1 - math.cos(ph)) * 0.5
+        # o cajado erguido na frente, a outra mão aberta apontando para onde a magia vai cair
+        aim.append(dict(L, lean=4 + b, hip=(0, 0.5 * b), armF=(128 + b * 3, 22 - b * 2), wpn=166 + b * 2, grip=13,
+                        armB=(78 + b * 4, 4), zB=0.5, glow=True, head=(0, round(b * 0.6)),
+                        cape=dict(lift=16 + 6 * math.sin(ph), wave=6, phase=ph, flare=2), hoodtip=(-1, -1)))
+    A['cast_aim'] = (aim, 8, True)
+    two = lambda s: ('staff', s)
+    A['cast'] = ([
+        dict(L, lean=-4, armF=(150, 16), wpn=186, grip=12, ikB=two(-6), zB=4.9, glow=True, cape=dict(lift=14, wave=5, phase=0.4)),
+        dict(L, lean=-10, armF=(172, 6), wpn=192, grip=12, ikB=two(-6), zB=4.9, glow=True, head=(0, -1), tilt=-6, cape=dict(lift=22, wave=7, phase=1.0)),
+        dict(L, lean=16, hip=(0, 3), armF=(84, 22), wpn=172, grip=24, ikB=two(-5), zB=4.9, glow=True, cape=dict(lift=44, wave=9, phase=1.8, flare=3), hoodtip=(-3, -3)),
+        dict(L, lean=18, hip=(0, 3), armF=(82, 24), wpn=170, grip=24, ikB=two(-5), zB=4.9, glow=True, cape=dict(lift=36, wave=8, phase=2.5, flare=3), hoodtip=(-2, -2)),
+        dict(L, lean=8, armF=(40, 50), wpn=172, grip=18, cape=dict(lift=18, wave=5, phase=3.2), hoodtip=(-1, 0)),
+    ], 16, False)
+    return A
 
 
 # ---------------- golpes ----------------
@@ -480,6 +519,105 @@ def attacks(w):
             lerp(CROUCH, dict(armF=(86, 2), lean=36, lash=True), 1),
             lerp(CROUCH, dict(armF=(20, 30), wpn=10, lean=32), 1),
         ], 20)
+    elif w in STAFFS:
+        A.update(staff_attacks(w))
+    return A
+
+
+def staff_attacks(w):
+    """O golpe básico de cada mago: o Eclipse aponta e solta a bolinha; o Necromante bate com o
+    cajado; o Véu estala o chicote de tinta (o jogo desenha) e o Espaço empurra com as duas mãos."""
+    A = {}
+    L = dict(legF=(28, 26), legB=(-26, 22), footF=-4, footB=-6)
+    U = dict(legF=(18, 20), legB=(-18, 18))
+    D = dict(legF=(40, 70), legB=(-6, 50), footF=20)
+    two = lambda s: ('staff', s)
+    if w in ('eclipse', 'espaco'):
+        g = dict(grip=12, ikB=two(-6), zB=4.9)
+        A['attack'] = ([
+            dict(L, lean=-4, armF=(70, 40), wpn=118, grip=12, cape=dict(lift=10, wave=4, phase=0.5)),
+            dict(L, **g, lean=10, armF=(92, 2), wpn=94, glow=True, cape=dict(lift=24, wave=6, phase=1.3), hoodtip=(-2, -2)),
+            dict(L, **g, lean=12, armF=(90, 0), wpn=92, glow=True, cape=dict(lift=26, wave=6, phase=2.0), hoodtip=(-2, -1)),
+            dict(L, lean=4, armF=(30, 46), wpn=150, grip=13, cape=dict(lift=14, wave=4, phase=2.8)),
+        ], 22)
+        A['attack_up'] = ([
+            dict(U, lean=6, armF=(110, 30), wpn=150, grip=12, cape=dict(lift=10, wave=4, phase=0.4)),
+            dict(U, **g, lean=-6, armF=(168, 6), wpn=180, glow=True, head=(0, -1), tilt=-8, cape=dict(lift=16, wave=6, phase=1.2)),
+            dict(U, **g, lean=-8, armF=(174, 4), wpn=182, glow=True, head=(0, -1), tilt=-10, cape=dict(lift=18, wave=6, phase=2.0)),
+            dict(U, lean=-2, armF=(120, 20), wpn=170, grip=13, cape=dict(lift=12, wave=4, phase=2.8)),
+        ], 22)
+        A['attack_down'] = ([
+            dict(D, lean=0, armF=(60, 30), wpn=60, grip=12, cape=dict(lift=60, wave=8, phase=0.3), hoodtip=(2, -5)),
+            dict(D, **g, lean=8, armF=(16, -6), wpn=4, glow=True, cape=dict(lift=70, wave=10, phase=1.3), hoodtip=(2, -6)),
+            dict(D, **g, lean=6, armF=(10, -4), wpn=0, glow=True, cape=dict(lift=74, wave=10, phase=2.3), hoodtip=(3, -6)),
+        ], 20)
+        A['crouch_attack'] = ([
+            lerp(CROUCH, dict(armF=(40, 40), wpn=70, grip=12, lean=26), 1),
+            lerp(CROUCH, dict(armF=(90, 0), wpn=92, grip=12, ikB=two(-6), zB=4.9, glow=True, lean=34), 1),
+            lerp(CROUCH, dict(armF=(88, 0), wpn=90, grip=12, ikB=two(-6), zB=4.9, glow=True, lean=34), 1),
+            lerp(CROUCH, dict(armF=(20, 30), wpn=-100, grip=9, lean=32), 1),
+        ], 22)
+    elif w == 'necro':
+        # o cajado bate como um bordão: sobe por trás e desce na frente
+        g = dict(grip=11)
+        A['attack'] = ([
+            dict(L, **g, lean=-6, armF=(168, 10), armB=(30, 40), wpn=205, cape=dict(lift=10, wave=4, phase=0.5), hoodtip=(1, 1)),
+            dict(L, **g, lean=12, armF=(96, -2), armB=(-30, 40), wpn=96, cape=dict(lift=30, wave=6, phase=1.4), hoodtip=(-2, -2)),
+            dict(L, **g, lean=14, armF=(66, -12), armB=(-40, 30), wpn=58, cape=dict(lift=26, wave=6, phase=2.2), hoodtip=(-2, -1)),
+            dict(L, lean=6, armF=(24, 40), armB=(0, 30), wpn=150, grip=13, cape=dict(lift=14, wave=4, phase=3.0), hoodtip=(-1, 0)),
+        ], 22)
+        A['attack_up'] = ([
+            dict(U, **g, lean=8, armF=(30, 40), armB=(10, 30), wpn=72, cape=dict(lift=10, wave=4, phase=0.4)),
+            dict(U, **g, lean=-6, armF=(150, 12), armB=(-20, 30), wpn=168, head=(0, -1), tilt=-8, cape=dict(lift=16, wave=6, phase=1.2)),
+            dict(U, **g, lean=-10, armF=(176, 6), armB=(-30, 30), wpn=190, head=(0, -1), tilt=-10, cape=dict(lift=18, wave=6, phase=2.0)),
+            dict(U, lean=-2, armF=(120, 20), armB=(0, 30), wpn=170, grip=13, cape=dict(lift=12, wave=4, phase=2.8)),
+        ], 22)
+        A['attack_down'] = ([
+            dict(D, **g, lean=0, armF=(130, 20), armB=(30, 40), wpn=170, cape=dict(lift=60, wave=8, phase=0.3), hoodtip=(2, -5)),
+            dict(D, **g, lean=8, armF=(26, -10), armB=(-30, 30), wpn=4, cape=dict(lift=70, wave=10, phase=1.3), hoodtip=(2, -6)),
+            dict(D, **g, lean=6, armF=(10, -6), armB=(-20, 30), wpn=0, cape=dict(lift=74, wave=10, phase=2.3), hoodtip=(3, -6)),
+        ], 20)
+        A['crouch_attack'] = ([
+            lerp(CROUCH, dict(armF=(-60, 30), wpn=-110, grip=10, lean=24), 1),
+            lerp(CROUCH, dict(armF=(92, 0), wpn=94, grip=10, lean=34), 1),
+            lerp(CROUCH, dict(armF=(80, -6), wpn=88, grip=10, lean=36), 1),
+            lerp(CROUCH, dict(armF=(50, 20), wpn=-90, grip=9, lean=32), 1),
+        ], 22)
+    elif w == 'veu':
+        # o chicote de tinta sai da forquilha: o cajado vai para trás e estala para a frente
+        g = dict(grip=10)
+        A['attack'] = ([
+            dict(L, **g, lean=-6, armF=(150, 30), armB=(30, 40), wpn=214, cape=dict(lift=8, wave=4, phase=0.3), hoodtip=(1, 1)),
+            dict(L, **g, lean=6, armF=(118, 10), armB=(10, 40), wpn=140, cape=dict(lift=16, wave=5, phase=0.8)),
+            dict(L, **g, lean=12, armF=(94, -2), armB=(-30, 40), wpn=96, glow=True, cape=dict(lift=30, wave=7, phase=1.5), hoodtip=(-2, -2)),
+            dict(L, **g, lean=14, armF=(90, 0), armB=(-40, 30), wpn=92, glow=True, cape=dict(lift=32, wave=7, phase=2.2), hoodtip=(-3, -2)),
+            dict(L, **g, lean=10, armF=(84, 4), armB=(-30, 30), wpn=90, glow=True, cape=dict(lift=24, wave=6, phase=2.8), hoodtip=(-2, -1)),
+            dict(L, lean=4, armF=(36, 30), armB=(0, 30), wpn=150, grip=13, cape=dict(lift=14, wave=4, phase=3.4), hoodtip=(-1, 0)),
+        ], 20)
+        A['attack_up'] = ([
+            dict(U, **g, lean=10, armF=(50, 40), armB=(10, 30), wpn=60, cape=dict(lift=10, wave=4, phase=0.4)),
+            dict(U, **g, lean=4, armF=(110, 20), armB=(0, 30), wpn=120, cape=dict(lift=12, wave=4, phase=0.9)),
+            dict(U, **g, lean=-6, armF=(170, 4), armB=(-20, 30), wpn=180, glow=True, head=(0, -1), tilt=-8, cape=dict(lift=16, wave=6, phase=1.4)),
+            dict(U, **g, lean=-10, armF=(176, 0), armB=(-30, 30), wpn=182, glow=True, head=(0, -1), tilt=-10, cape=dict(lift=20, wave=6, phase=2.0)),
+            dict(U, **g, lean=-8, armF=(172, 4), armB=(-30, 30), wpn=180, glow=True, head=(0, -1), tilt=-8, cape=dict(lift=20, wave=6, phase=2.6)),
+            dict(U, lean=-2, armF=(130, 20), armB=(0, 30), wpn=170, grip=13, cape=dict(lift=12, wave=4, phase=3.2)),
+        ], 20)
+        A['attack_down'] = ([
+            dict(D, **g, lean=-4, armF=(150, 20), armB=(30, 40), wpn=196, cape=dict(lift=56, wave=8, phase=0.3), hoodtip=(2, -5)),
+            dict(D, **g, lean=2, armF=(90, 10), armB=(20, 40), wpn=100, cape=dict(lift=60, wave=8, phase=0.8), hoodtip=(2, -5)),
+            dict(D, **g, lean=8, armF=(12, 0), armB=(-20, 30), wpn=6, glow=True, cape=dict(lift=70, wave=10, phase=1.4), hoodtip=(2, -6)),
+            dict(D, **g, lean=10, armF=(4, 0), armB=(-20, 30), wpn=2, glow=True, cape=dict(lift=74, wave=10, phase=2.0), hoodtip=(3, -6)),
+            dict(D, **g, lean=8, armF=(6, 0), armB=(-10, 30), wpn=4, glow=True, cape=dict(lift=74, wave=10, phase=2.6), hoodtip=(3, -6)),
+            dict(D, lean=4, armF=(0, 20), armB=(0, 30), wpn=-40, grip=11, cape=dict(lift=70, wave=10, phase=3.2), hoodtip=(3, -6)),
+        ], 20)
+        A['crouch_attack'] = ([
+            lerp(CROUCH, dict(armF=(-40, 40), wpn=-100, grip=9, lean=26), 1),
+            lerp(CROUCH, dict(armF=(-10, 40), wpn=-40, grip=9, lean=24), 1),
+            lerp(CROUCH, dict(armF=(90, 0), wpn=92, grip=9, lean=36, glow=True), 1),
+            lerp(CROUCH, dict(armF=(88, 0), wpn=90, grip=9, lean=38, glow=True), 1),
+            lerp(CROUCH, dict(armF=(86, 2), wpn=90, grip=9, lean=36, glow=True), 1),
+            lerp(CROUCH, dict(armF=(20, 30), wpn=-100, grip=9, lean=32), 1),
+        ], 20)
     return A
 
 
@@ -510,4 +648,9 @@ def anims_for(w):
     for k, v in attacks(w).items():
         poses, fps = smooth(v[0], v[1])
         A[k] = (poses, fps, False)
+    if w in STAFFS:
+        for k, (poses, fps, loop) in casts(w).items():
+            if not loop:
+                poses, fps = smooth(poses, fps)
+            A[k] = (poses, fps, loop)
     return A

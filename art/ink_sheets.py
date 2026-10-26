@@ -25,6 +25,12 @@ def sheets():
     for w in anims.WEAPONS:
         out[f'knight-{w}'] = dict(anims=anims.anims_for(w), mod='knight', W=knight.W, H=knight.H, feet=knight.FEET,
                                   pixel=ink.KNIGHT_PIXEL, extra={'kw': {'weapon': w}})
+    # os cajados dos magos: o foco de cada quadro (de onde sai a magia e onde fica a luz dela)
+    for w in anims.STAFFS:
+        A = anims.anims_for(w)
+        out[f'knight-{w}'] = dict(anims=A, mod='knight', W=knight.W, H=knight.H, feet=knight.FEET,
+                                  pixel=ink.KNIGHT_PIXEL, extra={'kw': {'weapon': w}},
+                                  meta_extra={'points': {n: [knight.focus_point(p, w) for p in poses] for n, (poses, _, _) in A.items()}})
     out['penitent'] = dict(anims=enemy.ANIMS, mod='enemy', W=enemy.W, H=enemy.H, feet=enemy.FEET)
     out['guard'] = dict(anims=guard.ANIMS, mod='guard', W=guard.W, H=guard.H, feet=guard.FEET)
     out['crow'] = dict(anims=crow.ANIMS, mod='crow', W=crow.W, H=crow.H, feet=crow.FEET)
