@@ -120,9 +120,24 @@ const URL = process.argv[3] || 'http://localhost:8765/index.html';
     };
   });
   const miners = () => page.evaluate(() => window.__scene.enemies.filter((e) => e.kind === 'miner' && e.alive).map((e) => ({ x: e.zone.x / 16, y: e.body.bottom / 16, hp: e.hp })));
-  // segura um mineiro no lugar, sem pensar (para os golpes do teste caírem sempre)
+  // segura um mineiro no lugar, sem pensar (para os golpes do teste caírem sempre). Os outros mineiros
+  // ficam de fora: a foice alcança dois de uma vez e o teste conta as contas de um golpe só
   const pin = (i) => page.evaluate((i) => {
-    const e = window.__scene.enemies.filter((e) => e.kind === 'miner' && e.alive)[i];
+    const all = window.__scene.enemies.filter((e) => e.kind === 'miner' && e.alive);
+    const e = all[i];
+    for (const o of all) {
+      if (o === e || o.__park) continue;
+      o.__park = true;
+      o.update = () => {};
+      o.harms = () => false;
+      Object.defineProperty(o, 'rect', { configurable: true, get: () => ({ x: -9999, y: -9999, right: -9998, bottom: -9998, width: 1, height: 1 }) });
+      o.body.setVelocity(0, 0);
+    }
+    if (e.__park) {
+      delete e.__park;
+      delete e.harms;
+      delete e.rect;
+    }
     window.__pin = e;
     e.update = () => {};
     e.body.setVelocity(0, 0);
@@ -170,6 +185,9 @@ const URL = process.argv[3] || 'http://localhost:8765/index.html';
   await waitGame(0.15);
   st = await S();
   check(st.stop > 1.5 && st.amber === 1, `a Lembrança gasta duas contas e para o mundo (${st.stop}, contas ${st.amber})`);
+  // o navegador do teste é lento (cada foto leva segundos e o jogo anda nesse meio-tempo): a parada
+  // fica longa para conferir com calma; o tempo dela já foi conferido acima
+  await page.evaluate(() => { const s = window.__scene; s.stopT = 30; s.stopLen = 30; });
   const held = await page.evaluate(() => { const s = window.__scene; const e = window.__pin; return { held: s.held.has(e), moves: e.body.moves, x: e.zone.x, y: e.zone.y, anim: e.sprite.anims.isPaused }; });
   check(held.held && held.moves === false && held.anim, `o mineiro fica parado, corpo e animação (${JSON.stringify(held)})`);
   await shot('p02-lembranca');
@@ -195,7 +213,7 @@ const URL = process.argv[3] || 'http://localhost:8765/index.html';
   const hp1 = await page.evaluate(() => window.__scene.player.hp);
   check(hp1 === (await page.evaluate(() => window.__hp0)), `parado pela Lembrança, ele não machuca (${hp1} ${await page.evaluate(() => window.__why)})`);
   await page.evaluate(() => { const p = window.__scene.player; p.hurt = Object.getPrototypeOf(p).hurt.bind(p); });
-  await page.evaluate(() => { window.__scene.player.invuln = 99; });
+  await page.evaluate(() => { window.__scene.player.invuln = 99; window.__scene.stopT = 0.05; });
   await until(() => window.__scene.stopT <= 0, null, 20000);
   await waitGame(0.1);
   const free = await page.evaluate(() => ({ held: window.__scene.held.size, moves: window.__pin.body.moves, anim: window.__pin.sprite.anims.isPaused }));
@@ -239,7 +257,7 @@ const URL = process.argv[3] || 'http://localhost:8765/index.html';
     await waitGame(0.75);
   }
   st = await S();
-  check(!(await page.evaluate(() => window.__pin.alive)) && Math.abs(st.amber - 0.2 * Math.ceil(5 / 2.2) - 0.3) < 0.01, `derrubar enche mais um pouco (${st.amber})`);
+  check(!(await page.evaluate(() => window.__pin.alive)) && Math.abs(st.amber - 0.2 * Math.ceil(hpA / 2.2) - 0.3) < 0.01, `derrubar enche mais um pouco (${st.amber})`);
 
   // ---------- 5. o Eco ----------
   await page.evaluate(() => window.__scene.learnPower('eco'));
