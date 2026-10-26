@@ -716,6 +716,24 @@ def staff_attacks(w):
     return A
 
 
+# na água funda com a Concha, boiando: as pernas pedalam alternadas e devagar (a coxa vai e volta, o
+# joelho dobra na volta), os braços varrem a água na frente do peito, um indo enquanto o outro volta, e
+# a capa boia aberta em volta dele, ondulando devagar. O mesmo ciclo serve para nadar (o jogo deita o
+# corpo para o lado do embalo e acelera o ritmo com a velocidade)
+def swim_frames(n=10):
+    out = []
+    for i in range(n):
+        ph = TAU * i / n
+        s, c = math.sin(ph), math.cos(ph)
+        out.append(dict(hip=(0, round(0.7 * math.sin(2 * ph), 2)), lean=12, head=(0, round(-0.5 * math.cos(2 * ph))),
+                        legF=(30 + 18 * s, 44 + 34 * max(0.0, c)), legB=(8 - 18 * s, 44 + 34 * max(0.0, -c)),
+                        footF=36 - 8 * s, footB=36 + 8 * s,
+                        armF=(60 + 24 * s, 34 + 30 * c), armB=(38 - 24 * s, 46 - 30 * c),
+                        cape=dict(lift=58 + 10 * math.sin(ph + 1.0), wave=11, phase=ph, flare=3, length=1.02),
+                        hoodtip=(1, -3 + round(math.sin(ph)))))
+    return out
+
+
 def anims_for(w):
     A = {}
     # repouso e corrida com 12 quadros por ciclo (o mesmo tempo de antes, o dobro de suavidade quase)
@@ -741,6 +759,7 @@ def anims_for(w):
     A['land'] = (land, fps, False)
     A['dash'] = ([lerp(f, carry(w, 'dash'), 1) for f in DASH], 24, True)
     A['wall'] = ([lerp(f, cf, 1) for f in WALL], 5, True)
+    A['swim'] = ([lerp(f, cj, 1) for f in swim_frames()], 9, True)
     hurt, fps = smooth([lerp(f, carry(w, 'hurt'), 1) for f in HURT], 10, target=30)
     A['hurt'] = (hurt, fps, False)
     A['crouch'] = ([lerp(f, carry(w, 'crouch'), 1) for f in crouch_frames(6)], 7.5, True)
