@@ -1,0 +1,199 @@
+# Torres Rúnicas (capítulo 7, a área final)
+
+Plano da área, escrito antes de construir (27/10/2026). Segue a [lore oficial](lore-oficial.md) e o
+[registro de continuidade](continuidade.md). Quando algo mudar no jogo, atualize aqui e lá.
+
+## O que a área conta
+
+A lore pede: os mecanismos da Coroação do Silêncio, os registros das experiências que levaram ao
+Primeiro Eclipse, o núcleo, a noite e os três finais. É aqui que o jogo para de esconder: ele recebeu
+a ordem, ele subiu atrás dela, ele a atacou. Cada sala chega mais perto da noite, e a última é o
+lugar exato onde tudo aconteceu.
+
+- As Torres são da Casa Vhalor: pedra escura e reta, bronze nas juntas, runas gravadas que acendem
+  com Âmbar. É a mesma arquitetura do aqueduto do vale (quem jogou reconhece). O aqueduto chega aqui
+  em cima, vindo da cabeceira das cachoeiras, e a água dele desce pelas engrenagens para esfriar o
+  núcleo.
+- As Torres ficam acima das nuvens. Depois do Eclipse, o mar de nuvens embaixo delas guarda a luz de
+  todas as memórias que subiram para o núcleo: dourada, baixa, quente. É o visual do fim (a referência
+  de luz é o jogo Sky; arte original): nuvens luminosas, brilho suave, a pintura a óleo inteira.
+- O Arquivo Proibido era o lugar de trabalho dela: a arquivista dos registros que a Casa queria
+  enterrados. A mesa dela, as cópias, as flores prensadas entre as páginas (o herbário era daqui).
+- A Sala das Experiências mostra como a Coroação foi testada antes: gente sentada em cadeiras com
+  coroas de Âmbar, ligadas umas às outras, até que as memórias se misturaram. Prova `nucleo`.
+- O Senhor de Vhalor ficou preso ao próprio trono: o Eclipse fez o Âmbar dos cabos crescer nele.
+  Vencido, o trono fica vazio (é o trono do final II).
+- A noite, em ecos, pela escadaria: ela subindo na frente com as cópias, os guardas, a ordem na mão
+  dele. As memórias da noite são as essenciais; algumas têm duas versões, e as provas das Torres
+  decidem qual é a verdadeira.
+- O Coração do Eclipse: o núcleo, uma esfera de Âmbar presa por correntes no alto da torre maior,
+  sobre o mar de nuvens. Ali ele encontra a versão dele que acha que tudo foi necessário.
+
+## Como se chega
+
+O portão no alto da escada do Cais da Lua (o 'Y' da coluna 97) abre quando o Barqueiro cai: a água do
+aqueduto volta a correr e destrava a comporta. A escada segue junto do aqueduto, por cima dos arcos,
+até as nuvens.
+
+## Salas
+
+Nove salas, longas como as do vale (o pedido do Enio).
+
+| Sala | Título | Subtítulo | O que tem |
+|---|---|---|---|
+| escada | A Escada do Aqueduto | Acima da cachoeira | Sala vertical: a escada de pedra sobe o paredão junto dos arcos do aqueduto, a cachoeira grande ao lado; no alto, as primeiras nuvens. Vigias Rúnicas |
+| calha | A Calha sobre as Nuvens | Por onde a água subia | Sala comprida: anda-se dentro e em cima da calha do aqueduto, sobre arcos plantados no fundo das nuvens. Trechos quebrados, a primeira vista das Torres. A relíquia da área, a Capa de Luz |
+| patio | O Pátio das Runas | Onde a Casa esperava | A base das Torres. Pilares de runas que acendem com um golpe e abrem a grande porta; primeiros Guardas da Coroação. Descanso |
+| arquivo | O Arquivo Proibido | O lugar dela | Biblioteca alta de estantes cheias de frascos de Âmbar (memórias roubadas), escadas de correr, os Arquivados. A mesa dela, as flores prensadas, o lugar da flor do final I |
+| experiencias | A Sala das Experiências | Antes da Coroação | As cadeiras com coroas de Âmbar ligadas por cabos, os cadernos dos testes. Prova `nucleo` |
+| engrenagens | A Torre das Engrenagens | A água que esfria o núcleo | Sala vertical: rodas d'água e engrenagens enormes movidas pela água do aqueduto, plataformas que giram em eixos, vapor do núcleo |
+| trono | O Trono da Casa | O Senhor de Vhalor | Arena do chefe do meio. Depois, o trono vazio |
+| coroacao | A Escadaria da Coroação | A noite | A escada em espiral em volta do poço do núcleo. Os ecos da noite: ela subindo na frente, os guardas, a ordem |
+| nucleo | O Coração do Eclipse | Onde tudo aconteceu | Arena final no alto da torre maior, sobre o mar de nuvens, com o núcleo preso nas correntes. O Carrasco Coroado e os três finais |
+
+## Mecânicas novas
+
+1. **A Capa de Luz** (relíquia da área, na calha): o retalho vermelho bebe a luz dourada das nuvens.
+   No ar, segurar o pulo depois do pulo duplo faz ele subir voando um trecho curto. A luz da capa
+   tem três partes (mostradas no HUD, junto da máscara); cada voo gasta, e ela enche de novo no chão
+   firme ou ao passar por um lume (as luzes douradas paradas no ar perto das nuvens, que se apagam e
+   voltam). É o voo do fim do jogo, e muda a forma de atravessar as salas abertas.
+2. **Runas**: pedras gravadas que acendem com um golpe e ficam acesas por alguns segundos. Acender
+   todas as de um conjunto antes que a primeira apague abre a porta ou ergue a plataforma.
+3. **Engrenagens**: rodas que giram presas num eixo, movidas pela água; as pás e os dentes servem de
+   chão. Uma alavanca para a roda d'água e as engrenagens param juntas.
+4. **Mar de nuvens**: embaixo das salas abertas. Cair nele leva de volta ao último chão firme, com um
+   ponto de dano (como os espinhos).
+5. **Frascos de Âmbar**: nas estantes do Arquivo. A maior parte é cenário; os poucos que brilham mais
+   guardam um eco curto (uma frase de alguém cuja memória está ali), sem texto demais.
+
+## Inimigos
+
+- **Guarda da Coroação**: soldado da Casa de armadura de bronze e alabarda. Anda com o escudo alto,
+  estocada longa (aparável), giro da alabarda que se pula. Na noite eles subiram atrás dela.
+- **Vigia Rúnica**: um aro de bronze com uma runa no meio, parado no ar, preso a nada (é Âmbar
+  vivo). Mira, carrega e dispara um feixe reto; um golpe na runa enquanto carrega apaga o feixe e
+  derruba a vigia por um instante.
+- **Os Arquivados**: gente cuja memória está nos frascos, só o corpo, andando devagar entre as
+  estantes de braços estendidos. Encostar tira um pouco de Âmbar. Vencidos, soltam um fio de luz que
+  sobe para um frasco (ninguém morre de novo: eles voltam para a estante).
+
+## Chefe do meio: O Senhor de Vhalor
+
+- Quem é: o chefe da Casa Vhalor, que pediu a Coroação. Na noite ele estava no trono, esperando o
+  núcleo ligar. O Eclipse fez crescer nele o Âmbar dos cabos que ligavam o trono ao núcleo, e ele
+  ficou preso ali.
+- Aparência: um velho de roupa de cerimônia muito escura e bronze, a coroa de runas da Casa, metade
+  do corpo coberto de Âmbar cristalizado, os cabos saindo das costas para o chão e o teto. Não sai do
+  trono.
+- Fase 1: chicoteia com os cabos de Âmbar (de cima e varrendo o chão), acende runas no chão que
+  explodem depois do aviso, chama ecos de dois guardas.
+- Fase 2 (metade da vida): o trono sobe no mecanismo e cai, sacudindo a sala; os cabos do teto
+  descem como pilares que se movem.
+- Vencido: os cabos apagam. Fala (uma vez): "Eu só queria que ninguém mais chorasse. Para isso,
+  ninguém podia lembrar." Deixa o decreto da Coroação (registro), a memória da ordem e a arma Cetro
+  de Vhalor (no mago, vira Energia).
+
+## Arma: Cetro de Vhalor
+
+Maça pesada de bronze com uma runa na cabeça: o terceiro golpe seguido solta uma explosão de runa em
+volta. Corrida 0,9. Trancado em Trocar arma até vencer o Senhor de Vhalor.
+
+## Chefe final: O Carrasco Coroado
+
+- Quem é: a versão dele que continua achando que todos os crimes foram necessários, feita das
+  memórias que ele rejeitou. Usa a coroa da Coroação: é o carrasco que aceitou o trono.
+- Aparência (original, inspirada na referência que o Enio mandou, sem copiar a pintura): um colosso
+  dourado que sobe do mar de nuvens. Armadura de ouro, o capuz de carrasco feito de escamas de ouro,
+  uma máscara de porcelana dourada com bico, a coroa de espinhos de runa, anéis de ouro e fios de
+  contas de Âmbar (as memórias), manto escuro. Na frente dele, o cavaleiro do tamanho de um grão.
+- Fase 1 (o colosso): só o tronco, os braços e a cabeça aparecem acima da plataforma. A mão desce
+  com sombra de aviso; a foice gigante varre a arena (voar com a Capa de Luz ou agachar no ponto
+  certo); as contas de Âmbar caem como chuva (cada uma que acerta é uma acusação dita em voz baixa).
+- Fase 2 (o espelho): o colosso desmancha em pó de ouro e volta do tamanho dele, um carrasco dourado
+  com os mesmos movimentos do jogador (como o Reflexo e a Sombra), falando as justificativas: "Eles
+  sabiam demais." "Ela ia destruir o reino." "Você só cumpriu a ordem."
+- Fase 3 (a escolha): vencido, ele se ajoelha e oferece a coroa. Não é uma luta: é a escolha do final.
+
+## Os três finais
+
+Os requisitos são verificáveis no Diário (aba nova, A Noite): o jogador vê o que já sabe e o que
+falta, sem spoiler do que vem.
+
+- **Memórias essenciais**: as da noite (Torres), mais "O nome dela", "As duas passagens", "A trilha
+  na neve", "A fuga pelo túnel", "A máscara de ferro" e "O machado".
+- **Provas**: registros com `vhalor` (os planos da Casa), `inocentes`, `ambar`, `nucleo` (como o
+  núcleo foi feito; só nas Torres e na ordem do aqueduto) e `arielle`.
+- **Versões confirmadas**: cada memória de duas versões tem um registro que confirma a verdadeira (por
+  exemplo, a carta da cabana desmente "O dízimo do casamento"; o livro da caça confirma "A trilha na
+  neve"; o livro de bordo, "As duas passagens"). Com a prova lida, a versão falsa racha no Diário.
+- **Corrupção**: sobe ao trocar memórias com o Cobrador e ao escolher, nos momentos decisivos, lembrar
+  como dói menos; desce ao comprar uma memória de volta e ao confirmar uma versão. Aparece como
+  rachaduras na máscara do HUD.
+
+As escolhas no fim (o Carrasco Coroado oferece a coroa):
+
+- **Aceitar a verdade** (final I, A Aurora das Memórias): só aparece inteira com as memórias
+  essenciais, as provas `vhalor`, a noite confirmada e corrupção baixa. Sem isso, aparece apagada com
+  o que falta ("a noite ainda está na versão que dói menos").
+- **Absorver** (final II, O Rei do Eclipse): sempre aparece. É também o que acontece quando o jogador
+  não tem como recusar.
+- **Carregar os fragmentos** (final III, O Último Silêncio): só aparece com tudo do final I, todas as
+  memórias dele e dela e os registros `nucleo`.
+
+Cada final tem a sua cena e muda Vespera depois dos créditos: o céu da Ponte clareia nos finais I e
+III; no II, gente parada nas ruas da Cidade e o Eclipse maior no céu. O save guarda o final, e o menu
+mostra a mudança.
+
+O final III é tratado com sobriedade, como a lore manda: sem detalhe gráfico, sem glória. Ele reúne
+os fragmentos em si e corta a ligação do núcleo com o mundo; a máscara se parte, o núcleo apaga, as
+vozes param uma a uma. A cena fica nas pessoas que voltam a lembrar.
+
+## Lore da área
+
+- Registros:
+  - patio:0 "A ordem de subida": a lista de quem podia subir às Torres na noite da Coroação, com o
+    nome dele no fim, escrito por outra mão ("o carrasco, para a guarda do núcleo"). Provas: vhalor.
+  - arquivo:0 "O índice dela": o caderno de índice do Arquivo, na letra do herbário: onde estão os
+    registros de cada vítima, para devolver um dia. Provas: arielle, inocentes.
+  - arquivo:1 "A ficha do carrasco": a ficha dele no Arquivo, com a lista das execuções e, no verso,
+    a letra dela: "ele ainda pode escolher". Provas: inocentes, arielle.
+  - experiencias:0 "O caderno dos testes": as sessões com as coroas de Âmbar; na sétima, as memórias
+    se misturaram e ninguém soube mais de quem era cada uma. Provas: nucleo, ambar.
+  - experiencias:1 "A planta do núcleo": como o núcleo foi feito (a consciência de milhares, mantida
+    pela água do aqueduto) e, na margem, a conta dela de como desligá-lo sem espalhar os fragmentos.
+    Provas: nucleo, arielle.
+  - trono:0 "O decreto da Coroação": cai do Senhor de Vhalor. A Coroação contada pela Casa: decidir o
+    que o povo lembra, sente e acredita. Provas: vhalor, nucleo.
+- Memórias (as da noite, essenciais):
+  - arquivo:0 "As flores do arquivo": ela mostrando as flores prensadas entre os registros. Inteira.
+  - trono:boss "A ordem": o Senhor de Vhalor entregando a ordem. Numa versão ele hesita; na outra, ele
+    guarda a ordem no bolso sem ler. Roxa. A ficha do carrasco confirma a segunda.
+  - coroacao:0 "A escada": ela subindo na frente com as cópias. Numa versão ele sobe para salvá-la; na
+    outra, para cumprir a ordem. Roxa. A ordem de subida confirma a segunda.
+  - nucleo:boss "A noite": a memória definitiva, recuperada no fim (texto de cada final).
+- Pensamentos curtos ao entrar nas Torres, no Arquivo (a mesa dela), na escadaria e diante do núcleo.
+- Arielle: o nome só aparece com `progress.knowsHerName`; antes, "ela", "A.".
+
+## Arte
+
+- A pintura a óleo inteira: pinceladas grossas e coloridas em espiral nas nuvens, na luz e no ouro (o
+  Enio pediu que elas crescessem área por área até aqui). O filtro de óleo do EXTREME fica no máximo.
+- Luz do fim: mar de nuvens douradas embaixo, o céu do eclipse em cima, brilho suave em volta de tudo
+  que é Âmbar, poeira de luz no ar. As Torres em silhueta escura e reta contra o ouro.
+- Dentro: pedra escura, bronze, runas acesas; o Arquivo em âmbar quente (frascos), a Sala das
+  Experiências fria e azulada, as Engrenagens com vapor e reflexo da água.
+- Tudo apoiado: os arcos da calha descem até o fundo das nuvens, as estantes vão do chão ao teto, as
+  engrenagens giram em eixos presos na parede.
+
+## Marcos
+
+1. T1 salas: mapas em `tools/rooms.py`, portão do cais, região no mapa, agrimensor.
+2. T2 sistemas: Capa de Luz (voo, lumes, HUD), runas, engrenagens, mar de nuvens, frascos.
+3. T3 inimigos: Guarda da Coroação, Vigia Rúnica, Arquivados (arte no traço liso).
+4. T4 chefe do meio: o Senhor de Vhalor e o Cetro.
+5. T5 sistema da história: versões confirmadas por prova, corrupção na máscara, aba A Noite.
+6. T6 chefe final: o Carrasco Coroado (colosso e espelho) e a escolha.
+7. T7 finais: as três cenas, os créditos, Vespera depois do fim.
+8. T8 arte e áudio: terreno, fundos pintados, adereços, música do fim.
+9. T9 lore, testes, regressão e publicação (v20).

@@ -3,7 +3,13 @@ import type { Ability, RoomId } from './rooms';
 import type { EchoKind, WaveMode } from '../gfx/memoryWave';
 
 // Memórias espalhadas pelo mapa. O id é sala:ordem no mapa ("boss" é a do Sineiro).
-export const MEMORIES: Record<string, { title: string; text: string }> = {
+// named: como a memória fica depois que ele lembra o nome dela (ver NAME_MEMORY)
+export interface MemoryInfo {
+  title: string;
+  text: string;
+  named?: { title?: string; text: string };
+}
+export const MEMORIES: Record<string, MemoryInfo> = {
   'ponte:0': { title: 'A capa dividida', text: 'Uma risada na chuva. Alguém dividindo a capa comigo.' },
   'catacumbas:0': { title: 'Pão no forno', text: 'O cheiro de pão na vila. Minha mãe cantava errado de propósito.' },
   'sinos:0': { title: 'A primeira espada', text: 'A primeira vez que segurei uma espada. Pesava mais que eu.' },
@@ -26,10 +32,24 @@ export const MEMORIES: Record<string, { title: string; text: string }> = {
   // NAME_MEMORY: a primeira vez que o nome dela aparece no jogo
   'cabana:0': { title: 'O nome dela', text: 'Arielle. O nome volta inteiro, com a voz dela dizendo, rindo do nó torto da minha capa. Arielle.' },
   'clareira:boss': { title: 'A trilha na neve', text: 'As pegadas dela na neve e as minhas atrás. Numa versão eu mandei a matilha para o vale e fiquei olhando ela subir a serra. Na outra, eu mostrei o caminho aos cães.' },
+  // As Cachoeiras (v19): no alto da torre de pedra, entre as duas quedas
+  'cachoeiras:0': { title: 'A água fria', text: 'A água fria da cachoeira batendo nas costas. Eu nunca aprendi a nadar, e ela me segurava pela nuca: "solta o corpo, que a água sabe o caminho". Do outro lado do rio, ela disse, ninguém ia me chamar de carrasco.' },
+  // A Prainha (v19): o nome dela fica na areia só depois que ele lembra dele; o dele a água sempre leva
+  'prainha:0': {
+    title: 'O nome na areia',
+    text: 'Ela escreveu o nome dela na areia molhada, com um graveto. Eu leio letra por letra, e quando junto as letras a palavra escorrega, como na capa do herbário. Do lado, ela escreveu o meu. A água vem e apaga antes de eu conseguir ler.',
+    named: { text: 'Ela escreveu o nome dela na areia molhada, com um graveto: Arielle. As letras ficam paradas, mesmo com a água chegando perto. Do lado, ela escreveu o meu. A água vem e apaga, toda vez, antes de eu conseguir ler.' },
+  },
   // O Cais do Barqueiro (v19): a noite das duas passagens
   'cais:boss': { title: 'As duas passagens', text: 'O cais na lua cheia. Ela de pé no barco, a mão estendida para mim, a outra passagem paga. Numa versão eu dei um passo para trás porque ainda tinha nomes no bolso para devolver. Na outra, porque a ordem de levá-la de volta estava no outro bolso.' },
 };
 export const MEMORY_TOTAL = Object.keys(MEMORIES).length;
+
+export function memoryInfo(id: string, knowsName: boolean): MemoryInfo | undefined {
+  const m = MEMORIES[id];
+  if (!m) return undefined;
+  return knowsName && m.named ? { ...m, title: m.named.title ?? m.title, text: m.named.text } : m;
+}
 
 // O eco de cada memória (High e EXTREME): quem aparece em luz no chão e se a lembrança volta inteira
 // (dourada) ou com duas versões (roxa, corrompida). Ver lore/continuidade.md.
@@ -52,6 +72,8 @@ export const MEMORY_ECHO: Record<string, { kind: EchoKind; mode: WaveMode }> = {
   'mata:0': { kind: 'povo', mode: 'corrupt' },
   'cabana:0': { kind: 'ela', mode: 'restore' },
   'clareira:boss': { kind: 'ela', mode: 'corrupt' },
+  'cachoeiras:0': { kind: 'ela', mode: 'restore' },
+  'prainha:0': { kind: 'ela', mode: 'restore' },
   'cais:boss': { kind: 'ela', mode: 'corrupt' },
 };
 
@@ -274,6 +296,39 @@ export const RECORDS: Record<string, RecordInfo> = {
       'Avisar a Casa Vhalor: ele não serve para caçar.',
     ],
     proofs: ['vhalor', 'inocentes'],
+  },
+  // A Gruta Atrás da Água (v19): a caixa que ela escondeu para levar, na laje do bolsão de ar
+  'gruta:0': {
+    title: 'A lista do que levar',
+    region: 'Vale das Cachoeiras',
+    lines: [
+      'Uma caixa de lata embrulhada em pano encerado, seca por dentro. Em cima de tudo, uma lista dobrada em quatro, na letra miúda do herbário.',
+      '"Levar: as cópias dos registros (os da mina e os da prisão), o herbário, sementes do vale, a corda, a capa, pão para três dias, a concha."',
+      'No fim, uma palavra riscada e escrita de novo embaixo, com mais força: "ele".',
+    ],
+    proofs: ['arielle'],
+  },
+  // A Prainha (v19): na enseada do outro lado do paredão, as primeiras pedras da casa
+  'prainha:0': {
+    title: 'A planta da casa',
+    region: 'Vale das Cachoeiras',
+    lines: [
+      'Uma tábua lisa encostada nas pedras da soleira, com a planta de uma casa riscada a carvão: dois cômodos, a porta virada para o rio e uma janela para as cachoeiras.',
+      'Na parede do fundo, uma prateleira comprida, de ponta a ponta, e a letra dela ao lado: "para os nomes que ninguém mais vai pagar".',
+      'No canto, numa letra grossa e torta que não é a dela, a conta das tábuas e dos pregos, refeita três vezes até fechar.',
+    ],
+    proofs: ['arielle'],
+  },
+  // O Rio (v19): no poste de aviso ao pé do pilar do aqueduto, onde a lembrança falha
+  'rio:0': {
+    title: 'A ordem do aqueduto',
+    region: 'Vale das Cachoeiras',
+    lines: [
+      'Pregada no poste ao pé do pilar, com o selo de cera da Casa Vhalor: "Desviar as águas do vale pelo aqueduto até as Torres, de dia e de noite, para esfriar o núcleo da Coroação."',
+      '"O barqueiro e quem mora na margem saem até a lua nova. O rio de baixo pode secar: ninguém lá embaixo vai lembrar que ele existia."',
+      'Na margem do papel, a lápis, a letra miúda do herbário: "núcleo. Perguntar a ele o que a Casa guarda nas Torres."',
+    ],
+    proofs: ['vhalor', 'nucleo'],
   },
   // O Cais do Barqueiro (v19): o livro de bordo que ficou no banco do barco
   'cais:0': {

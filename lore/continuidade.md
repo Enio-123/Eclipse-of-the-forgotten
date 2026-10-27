@@ -87,7 +87,7 @@ O que o jogo só pode afirmar no fim: que ele matou Arielle, e por quê. Antes d
 4. Prisão: ela anotava os nomes dos condenados para que alguém lembrasse (registro assinado só "A.").
 5. Minas: ela investigava as minas; ficha assinada "A.", primeira prova do Âmbar.
 6. Floresta Nevada: o nome dela volta. A calma ao lado dela contra a violência dele. No jogo desde a v17: o bilhete das fitas, o herbário (o nome escorrega antes da memória e fica parado depois), a carta da cabana, o livro da caça, as memórias "O lago congelado", "O nome dela" (primeira vez que o nome aparece) e "A trilha na neve" (duas versões). Ver `floresta.md`. Na v18 entrou **A Mata Fechada**, entre o lago e a cabana: o caderno do mateiro (as covas de caça, a medida que não era de bicho), a lista do cercado (vinte e três traços e o nome raspado; o aviso de que os cães não descem mais do lago, que casa com o bilhete das fitas) e a memória "O cercado da espera", em duas versões — abrir o portão antes da corneta, ou contar até dez e soltar os cães. O nome dela continua sem aparecer antes de `cabana:0`.
-7. Vale das Cachoeiras: o plano de partir; o nome na areia termina de aparecer.
+7. Vale das Cachoeiras: o plano de partir; o nome na areia termina de aparecer. No jogo desde a v19: a lista do que levar (a caixa de lata na gruta, a palavra "ele" riscada e escrita de novo), a planta da casa (dois cômodos e a prateleira "para os nomes que ninguém mais vai pagar"; a conta das tábuas na letra dele), a ordem do aqueduto (a Casa desvia o rio para esfriar o núcleo da Coroação; a nota a lápis dela), o livro de bordo do Barqueiro e as memórias "A água fria" (ela ensinando ele a boiar), "O nome na areia" (o nome dela só fica parado depois de `cabana:0`; o dele a água sempre leva) e "As duas passagens" (duas versões). Ver `vale.md`.
 8. Torres Rúnicas: o que ela descobriu, o mecanismo, a noite.
 
 ## 8. Minas Abandonadas (pronta no jogo desde a v15, 26/10/2026)
@@ -115,7 +115,8 @@ O que o jogo só pode afirmar no fim: que ele matou Arielle, e por quê. Antes d
 - Pronto no jogo: 12 memórias, 14 páginas do diário, falas da irmã Luzia, do Brás, do Tomé e dos esquecidos, 3 fins de capítulo, a abertura, o bestiário.
 - Pronto também: as Minas Abandonadas (v15) e o caminho do Mago com os quatro magos (v16; ver `magos.md`). Nos dois caminhos ele segue sendo o último carrasco de Vespera.
 - Pronto também (v17): a Floresta Nevada com os registros dela (4), as memórias (3), o nome de Arielle (depois de "O nome dela") e a Casa Vhalor no texto (livro da caça, bestiário). Os registros das Minas e da Floresta ficam no Diário, aba Registros.
-- Não existe ainda: registros nas 22 salas da Cidade e da Prisão, memórias essenciais, versões com prova (a carta e o livro da caça já existem como prova, falta o Diário rachar a versão falsa), corrupção, momentos decisivos, os três finais, a Coroação no texto do jogo, e as duas áreas que faltam (Vale das Cachoeiras, Torres Rúnicas).
+- Pronto também (v19): o Vale das Cachoeiras com os registros dele (4: a lista do que levar, a planta da casa, a ordem do aqueduto e o livro de bordo), as memórias (3) e a primeira menção escrita ao núcleo da Coroação (prova `nucleo`).
+- Não existe ainda: registros nas 22 salas da Cidade e da Prisão, memórias essenciais, versões com prova (a carta, o livro da caça e o livro de bordo já existem como prova, falta o Diário rachar a versão falsa), corrupção, momentos decisivos, os três finais, a Coroação no texto do jogo além da ordem do aqueduto, e a área que falta (Torres Rúnicas).
 
 
 ## 11. Salas novas da v18 (26/10/2026)

@@ -57,7 +57,7 @@ const IMAGES = [
   // os achados das Minas (art/mine_items.py): os seis itens e os dois espaços do inventário
   'item-flower', 'item-helmet', 'item-rawamber', 'item-watch', 'item-whistle', 'item-mirror', 'item-bornal', 'item-cinto',
   // a Floresta Nevada: os objetos (art/forest_props.py)
-  'relic-cape', 'deco-palisade', 'deco-note-pinhal-0', 'deco-note-cabana-0', 'deco-note-cabana-1', 'deco-note-clareira-0', 'item-lanca', 'item-remo', 'deco-record-cais-0',
+  'relic-cape', 'deco-palisade', 'deco-note-pinhal-0', 'deco-note-cabana-0', 'deco-note-cabana-1', 'deco-note-clareira-0', 'item-lanca', 'item-remo', 'deco-record-cais-0', 'deco-record-gruta-0', 'deco-record-prainha-0', 'deco-record-rio-0',
   'deco-record-nichos-0', 'deco-record-nichos-1', 'deco-record-mercado-0', 'deco-record-mercado-1', 'deco-record-solitarias-0', 'deco-record-solitarias-1', 'deco-record-margem-0', 'deco-record-margem-1', 'deco-record-alagada-0', 'deco-record-alagada-1', 'deco-balanca', 'deco-toldo',
   // o Vale das Cachoeiras (art/vale_props.py); a vara solta do Barqueiro e a mão por cima dela
   'relic-swim', 'barqueiro-pole', 'barqueiro-fist',

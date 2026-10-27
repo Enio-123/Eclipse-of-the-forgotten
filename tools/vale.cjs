@@ -5,7 +5,7 @@
 const { chromium } = require('playwright');
 const OUT = process.argv[2] || '.';
 const URL = process.argv[3] || process.env.GAME && process.env.GAME + '/index.html' || 'http://localhost:8765/index.html';
-// ONLY=links,neve roda só essas partes (neve, links, agrimensor, agua, nado, quedas, rio, alagada, gruta, presente, truta, garca, vagalumes, barqueiro, fotos)
+// ONLY=links,neve roda só essas partes (neve, links, agrimensor, agua, nado, quedas, rio, alagada, gruta, presente, truta, garca, vagalumes, barqueiro, remo, lore, fotos)
 const ONLY = (process.env.ONLY || '').split(',').filter(Boolean);
 const part = (k) => !ONLY.length || ONLY.includes(k);
 (async () => {
@@ -1009,6 +1009,110 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
     await shot('r04-eco-barqueiro');
     check(eco && eco.pole && eco.a > 0.5 && /barqueiro-(slamwind|slam)/.test(eco.anim), `o eco do Barqueiro aparece com a vara (${JSON.stringify(eco)})`);
     await page.evaluate((w0) => { window.__progress.starter = null; window.__settings.data.weapon = w0; window.__settings.save(); window.__progress.save(); }, w0);
+  }
+
+  if (part('lore')) {
+    // ---------- 20. a lore do vale: os registros da gruta, da prainha e do rio (cada um no seu objeto), a
+    // memória das cachoeiras e o nome na areia da prainha, que só fica parado depois que ele lembra o nome ----------
+    await setProgress(['boss:cacador'], ['wall', 'double', 'hook', 'veil', 'cape', 'swim']);
+    const hook = () => page.evaluate(() => {
+      const ui = window.__ui;
+      window.__thoughts = [];
+      window.__banners = [];
+      window.__talks = [];
+      if (ui.__hookedVale) return;
+      ui.__hookedVale = true;
+      const th = ui.thought.bind(ui);
+      ui.thought = (text, ...rest) => { window.__thoughts.push(text); return th(text, ...rest); };
+      const ob = ui.banner.bind(ui);
+      ui.banner = (t, ...rest) => { window.__banners.push(t + ' | ' + (rest[0] || '')); return ob(t, ...rest); };
+      const ot = ui.talk.bind(ui);
+      ui.talk = (o) => { window.__talks.push({ name: o.name, lines: o.lines.slice() }); return ot(o); };
+    });
+    const top = () => page.evaluate(() => { const s = document.querySelector('.screen.show'); return s ? s.id.replace('screen-', '') : null; });
+    // fica na frente do registro, aperta para cima e fecha a conversa
+    const read = async (id) => {
+      const r = await page.evaluate((id) => { const k = window.__scene.records.list.find((q) => q.id === id); return k && { tx: (k.x - 8) / 16, fr: k.y / 16 }; }, id);
+      if (!r) return null;
+      await put(r.tx, r.fr);
+      await page.evaluate(() => { const s = window.__scene; s.cameras.main.centerOn(s.player.x, s.player.body.center.y - 20); });
+      await waitGame(0.5);
+      const hint = await page.evaluate(() => { const s = window.__scene; const h = s.records.nearby(s.player); return h && h.hint; });
+      await shot(`l-${id.replace(':', '-')}`);
+      await page.evaluate(() => { window.__talks = []; });
+      await page.keyboard.down('KeyW');
+      await page.waitForTimeout(160);
+      await page.keyboard.up('KeyW');
+      await page.waitForTimeout(400);
+      const t = await page.evaluate(() => window.__talks[0] || null);
+      for (let i = 0; i < 12 && (await top()) === 'talk'; i++) {
+        await page.keyboard.down('KeyJ');
+        await page.waitForTimeout(120);
+        await page.keyboard.up('KeyJ');
+        await page.waitForTimeout(140);
+      }
+      await page.waitForTimeout(300);
+      const seen = await page.evaluate((id) => window.__progress.seen.has('record:' + id), id);
+      return t && { ...t, hint, seen, text: t.lines.join(' ') };
+    };
+    const recs = [
+      ['gruta', 'gruta:0', 'A lista do que levar', /a concha\."/, /"ele"/],
+      ['prainha', 'prainha:0', 'A planta da casa', /dois cômodos/, /nomes que ninguém mais vai pagar/],
+      ['rio', 'rio:0', 'A ordem do aqueduto', /núcleo da Coroação/, /Casa Vhalor/],
+    ];
+    for (const [room, id, title, a, b] of recs) {
+      await start(room, '1');
+      await clear();
+      await hook();
+      const t = await read(id);
+      check(t && t.hint === '{up} ler' && t.name === title && a.test(t.text) && b.test(t.text) && !/Arielle/.test(t.text), `o registro ${id} "${t && t.name}" (dica ${t && t.hint})`);
+      check(t && t.seen && (await page.evaluate(() => window.__banners.some((x) => x.startsWith('Registro guardado no Diário')))), `${id} fica no Diário`);
+    }
+    // a ordem do aqueduto fica no trecho onde a lembrança falha: lendo, o vale em volta está cinza
+    const grey = await page.evaluate(() => window.__scene.vale.pres.k);
+    check(grey > 0.9, `a ordem do aqueduto está no presente cinzento (${grey.toFixed(2)})`);
+    // a água fria: a memória do alto da torre das cachoeiras
+    const take = (id) => page.evaluate((id) => {
+      const s = window.__scene;
+      const m = s.props.memories.find((k) => k.id === id);
+      if (!m) return null;
+      s.takeMemory(m);
+      return document.getElementById('banner').textContent;
+    }, id);
+    await start('cachoeiras', '1');
+    await clear();
+    await hook();
+    let bn = await take('cachoeiras:0');
+    check(bn && /A água fria/.test(bn) && /carrasco/.test(bn) && !/Arielle/.test(bn), `a memória das cachoeiras (${bn && bn.trim().slice(0, 60)})`);
+    // o nome na areia, antes de ele lembrar o nome dela: as letras escorregam
+    await start('prainha', '1');
+    await clear();
+    await hook();
+    bn = await take('prainha:0');
+    check(bn && /O nome na areia/.test(bn) && /escorrega/.test(bn) && !/Arielle/.test(bn), `antes do nome, as letras na areia escorregam (${bn && bn.trim().slice(0, 60)})`);
+    const memList = () => page.evaluate(() => [...document.querySelectorAll('#screen-map .map-memories li')].map((e) => e.textContent));
+    await page.evaluate(() => window.__scene.openMap(false));
+    await page.waitForTimeout(400);
+    let ml = await memList();
+    check(ml.some((x) => /O nome na areia/.test(x) && /escorrega/.test(x)) && ml.some((x) => /A água fria/.test(x)) && !ml.some((x) => /Arielle/.test(x)), `o Diário guarda as duas memórias do vale (${ml.length})`);
+    await shot('l-memorias');
+    await page.evaluate(() => window.__ui.closeAll());
+    await page.evaluate(() => window.__scene.resumeGame());
+    // ele lembra o nome dela (a memória da cabana): o nome que ela escreveu na areia fica parado
+    await start('cabana', '1');
+    await hook();
+    await page.evaluate(() => { const s = window.__scene; for (const e of s.enemies) if (e.vanish) e.vanish(); });
+    bn = await take('cabana:0');
+    check(bn && /O nome dela/.test(bn), `a memória do nome (${bn && bn.trim().slice(0, 40)})`);
+    await waitGame(5.6);
+    const th = await page.evaluate(() => window.__thoughts);
+    check(th.some((x) => /areia da prainha/.test(x) && /Arielle/.test(x)), `ele lembra do nome na areia (${th.join(' | ')})`);
+    await page.evaluate(() => window.__scene.openMap(false));
+    await page.waitForTimeout(400);
+    ml = await memList();
+    check(ml.some((x) => /O nome na areia/.test(x) && /Arielle/.test(x) && /ficam paradas/.test(x)), 'depois do nome, a memória da prainha mostra o nome dela parado na areia');
+    await page.evaluate(() => window.__ui.closeAll());
+    await page.evaluate(() => window.__scene.resumeGame());
   }
 
   if (part('fotos')) {

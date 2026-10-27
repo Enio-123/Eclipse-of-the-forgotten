@@ -199,10 +199,209 @@ def record_cais():
     return P, [Decal('pages', edges), Decal('top', sheen)], W, H, []
 
 
+# ---------------------------------------------------------------- os registros do vale
+# a lata, o pano encerado, o arenito da soleira, a tábua clara, as pedras de rio e o selo da Casa
+puppet.RAMPS.setdefault('tin', [0x1b1d20, 0x32363b, 0x4d535a, 0x6e757e, 0x959ca6])
+puppet.RAMPS.setdefault('tindark', [0x08090b, 0x111317, 0x1b1e23, 0x272b31, 0x353a42])
+puppet.RAMPS.setdefault('waxcloth', [0x33260f, 0x5e4a1f, 0x8c7232, 0xb3974c, 0xd6bd70])
+puppet.RAMPS.setdefault('burlap', [0x2a1f14, 0x4a3825, 0x6e5638, 0x917650, 0xb59a6c])
+puppet.RAMPS.setdefault('valestone', [0x3a2420, 0x6e4438, 0x9c6450, 0xc58a66, 0xe2b08a])
+puppet.RAMPS.setdefault('plank', [0x24221f, 0x423e38, 0x67615a, 0x8f887e, 0xb6aea2])
+puppet.RAMPS.setdefault('oldwood', [0x1a110b, 0x2e1f14, 0x46301e, 0x634529, 0x84603a])
+puppet.RAMPS.setdefault('iron', [0x101218, 0x1d2029, 0x30343f, 0x4b505e, 0x737a8b])
+puppet.RAMPS.setdefault('waxred', [0x330909, 0x5e1212, 0x8a1f1c, 0xb33a2c, 0xd8694f])
+puppet.RAMPS.setdefault('bronze', [0x2e1f10, 0x5a3a18, 0x8a5c26, 0xb98a3e, 0xe4bd72])
+puppet.RAMPS.setdefault('riverstone', [0x1d2022, 0x363b3d, 0x545a5b, 0x777e7d, 0x9ba29f])
+puppet.SHINY.setdefault('tin', (0.5, 12))
+puppet.SHINY.setdefault('iron', (0.45, 12))
+puppet.SHINY.setdefault('bronze', (0.5, 9))
+puppet.SHINY.setdefault('waxred', (0.35, 10))
+puppet.SHINY.setdefault('waxcloth', (0.3, 8))
+puppet.RIM_MATS |= {'oldwood', 'valestone', 'plank', 'tin'}
+
+
+def writing(x, y, x0, x1, y0, y1, step=1.6, ink=('iron', 1), skip=6):
+    """Linhas de letra miúda num retângulo: cada linha um traço com falhas entre as palavras."""
+    if not (x0 < x < x1 and y0 < y < y1):
+        return None
+    k = (y - y0) % step
+    if k < 0.55 and int(x * 2.1 + y * 1.3) % skip != 0:
+        return ink
+    return None
+
+
+def record_gruta():
+    """A lista do que levar (26x14): a caixa de lata aberta em cima do pano encerado desembrulhado, na
+    laje do bolsão de ar. Dentro, o maço das cópias dos registros amarrado em barbante e o saquinho
+    das sementes; por cima de tudo, a lista dobrada em quatro. A tampa está encostada no lado da caixa,
+    com o pé no pano; do outro lado, a corda enrolada."""
+    W, H = 26, 14
+    P = []
+    # o pano encerado aberto no chão, com as pontas dobradas
+    P.append(Poly('cloth', 'waxcloth', 0.7, [(0.4, 10.4), (12.0, 9.6), (25.6, 10.2), (25.9, 13.9), (0.1, 13.9)], nf=const((0.0, -0.7, 0.7)), shade=1.1))
+    P.append(Poly('clothfold', 'waxcloth', 0.72, [(21.6, 10.6), (25.4, 10.8), (24.2, 12.0)], nf=const((0.4, -0.6, 0.7)), shade=1.2))
+    # a corda enrolada à esquerda
+    P.append(Ellipse('coil', 'rope', 0.9, (3.8, 11.9), 3.0, 1.6, shade=0.95))
+    P.append(Ellipse('coilin', 'rope', 0.91, (3.8, 11.5), 1.9, 0.95, shade=0.7))
+    P.append(Capsule('coilend', 'rope', 0.92, (5.8, 12.4), (7.6, 13.4), 0.4, 0.35))
+    # a caixa: a frente, a boca aberta (o fundo escuro) e a borda dobrada da lata
+    P.append(Poly('box', 'tin', 1.0, [(7.0, 6.4), (18.2, 6.0), (18.4, 13.3), (7.2, 13.6)], nf=const((0.0, 0.05, 1.0))))
+    P.append(Poly('mouth', 'tindark', 1.01, [(7.2, 4.8), (18.0, 4.4), (18.2, 6.1), (7.0, 6.5)], nf=const((0.0, -0.9, 0.4))))
+    P.append(Capsule('rim', 'tin', 1.03, (7.0, 6.4), (18.2, 6.0), 0.45, 0.45, shade=1.2))
+    # o maço das cópias, amarrado em cruz, e o saquinho das sementes, saindo da boca da lata
+    P.append(Poly('stack', 'paper', 1.02, [(8.2, 3.6), (14.6, 3.2), (14.8, 6.0), (8.4, 6.2)], nf=const((0.0, -0.5, 0.85)), shade=0.9))
+    P.append(Capsule('string', 'rope', 1.025, (11.2, 3.4), (11.4, 6.0), 0.3, 0.3, shade=0.8))
+    P.append(Ellipse('seeds', 'burlap', 1.022, (16.4, 4.6), 1.7, 1.5, shade=0.95))
+    P.append(Capsule('seedtie', 'rope', 1.024, (15.6, 3.4), (17.0, 3.2), 0.3, 0.3))
+    # a lista dobrada em quatro, por cima do maço, um pouco aberta
+    P.append(Poly('list', 'paper', 1.04, [(9.0, 2.4), (14.0, 1.8), (14.4, 3.9), (9.2, 4.4)], nf=const((0.1, -0.6, 0.8)), shade=1.12))
+    # a tampa encostada no lado da caixa, o pé no pano
+    P.append(Poly('lid', 'tin', 1.05, [(18.3, 6.2), (20.4, 5.6), (24.6, 13.4), (22.4, 13.8)], nf=const((0.55, -0.2, 0.8)), shade=1.05))
+    P.append(Capsule('lidrim', 'tin', 1.06, (20.4, 5.6), (24.6, 13.4), 0.4, 0.4, shade=1.3))
+
+    def tin(x, y, cur):
+        # as amassadas e a ferrugem da lata
+        if math.hypot(x - 10.4, y - 10.2) < 1.1 or math.hypot(x - 15.8, y - 8.4) < 0.8:
+            return ('tin', 1)
+        if y > 12.4 and int(x * 1.7) % 3 == 0:
+            return ('rope', 1)
+        return None
+
+    def note(x, y, cur):
+        # a dobra no meio e a letra miúda dela
+        if abs(x - 11.6) < 0.25:
+            return ('paper', 2)
+        return writing(x, y, 9.6, 13.8, 2.6, 4.0, step=1.1, ink=('iron', 2), skip=5)
+
+    def folds(x, y, cur):
+        if abs((x - 1.0) * 0.08 + (y - 11.0) - 1.5) < 0.18 and x < 7.0:
+            return ('waxcloth', 1)
+        return None
+    return P, [Decal('box', tin), Decal('list', note), Decal('cloth', folds)], W, H, []
+
+
+def record_prainha():
+    """A planta da casa (28x24): a tábua lisa de pé na areia, encostada no bloco de canto da soleira
+    (as primeiras pedras da casa, arenito do vale, uma em cima da outra). Na tábua, a planta riscada a
+    carvão: dois cômodos, a porta para o rio, a janela para as cachoeiras e a prateleira comprida da
+    parede do fundo, com a letra dela; no canto, a conta torta dele. O toco de carvão ficou na
+    soleira."""
+    W, H = 28, 24
+    P = []
+    # a soleira comprida e o bloco de canto em cima dela, à direita (pedra lavrada, cantos gastos)
+    P.append(Poly('sill', 'valestone', 0.8, [(8.6, 20.0), (18.0, 19.7), (27.6, 19.9), (27.9, 23.9), (8.3, 23.9)], nf=const((0.0, -0.25, 0.97))))
+    P.append(Poly('sillcap', 'valestone', 0.81, [(8.8, 19.0), (27.2, 18.8), (27.6, 19.9), (8.6, 20.1)], nf=const((0.0, -0.9, 0.4)), shade=1.12))
+    P.append(Poly('block', 'valestone', 0.82, [(18.4, 10.6), (19.2, 9.9), (26.6, 9.7), (27.3, 10.5), (27.3, 18.9), (18.2, 19.1)], nf=const((0.2, -0.1, 0.97))))
+    P.append(Poly('blockcap', 'valestone', 0.83, [(18.6, 9.4), (26.4, 9.1), (27.1, 9.9), (18.8, 10.4)], nf=const((0.0, -0.9, 0.4)), shade=1.15))
+    # a tábua de pé, o topo encostado no bloco (um pouco tombada para ele)
+    TOP, BOT, LEAN = 4.8, 23.9, 1.4
+    P.append(Poly('plank', 'plank', 1.0, [(3.6 + LEAN, TOP), (16.8 + LEAN, TOP - 0.4), (17.2, BOT), (3.6, BOT)], nf=const((0.0, -0.3, 0.95))))
+    P.append(Capsule('plankedge', 'plank', 1.01, (3.6 + LEAN, TOP), (16.8 + LEAN, TOP - 0.4), 0.45, 0.45, shade=1.25))
+    # o toco de carvão em cima da soleira, ao pé do bloco
+    P.append(Capsule('charcoal', 'iron', 1.1, (19.6, 18.7), (21.4, 18.6), 0.42, 0.38, shade=0.7))
+
+    def plan(x, y, cur):
+        # a tábua tomba um pouco: o desenho anda junto
+        x = x - LEAN * (BOT - y) / (BOT - TOP)
+        ink = ('iron', 2)
+        x0, x1, y0, y1 = 5.4, 15.4, 7.4, 16.0
+        th = 0.28
+        wall = ((abs(x - x0) < th or abs(x - x1) < th) and y0 - th < y < y1 + th) or \
+               ((abs(y - y0) < th or abs(y - y1) < th) and x0 - th < x < x1 + th) or \
+               (abs(x - 10.6) < th and y0 < y < y1 and not 11.0 < y < 12.6)
+        # a porta para o rio (embaixo, à esquerda) e a janela das cachoeiras (à direita)
+        if abs(y - y1) < th and 7.0 < x < 8.8:
+            wall = False
+        if abs(x - x1) < th + 0.1 and 9.8 < y < 11.8:
+            return ('iron', 3)
+        if wall:
+            return ink
+        # a prateleira comprida da parede do fundo, com os riscos das divisões
+        if abs(y - 8.4) < 0.2 and x0 + 0.5 < x < x1 - 0.5:
+            return ('iron', 3)
+        if 8.4 < y < 9.2 and x0 + 0.5 < x < x1 - 0.5 and int(x * 1.25) % 3 == 0:
+            return ('iron', 3)
+        # a letra dela, miúda, embaixo da casa
+        w = writing(x, y, 5.2, 15.2, 17.4, 19.8, step=1.1, ink=('iron', 3), skip=5)
+        if w:
+            return w
+        # a conta dele no canto de cima, grossa e torta, riscada e refeita
+        if 5.6 < x < 9.4 and 5.4 < y < 6.9 and int(x * 1.2 + y * 0.7) % 3 != 0:
+            return ('iron', 1)
+        # os veios da tábua
+        if abs(math.sin(x * 0.35 + y * 0.12) * 3.0 - (y % 6.0)) < 0.12:
+            return ('plank', 2)
+        return None
+
+    def stone(x, y, cur):
+        # as marcas do cinzel no arenito e a junta entre as pedras da soleira
+        if abs(x - 22.6) < 0.25 and y > 20.0:
+            return ('valestone', 0)
+        if int(x * 0.9 + y * 2.3) % 7 == 0 and int(y * 1.5) % 2 == 0:
+            return ('valestone', 1)
+        return None
+    return P, [Decal('plank', plan), Decal('sill', stone), Decal('block', stone)], W, H, []
+
+
+def record_rio():
+    """A ordem do aqueduto (18x36): o poste de aviso da Casa cravado na areia da ilha, ao pé do pilar,
+    calçado com pedras de rio; a cinta de bronze em cima, como as juntas do aqueduto. A ordem pregada
+    com quatro cravos, o cabeçalho grosso e o selo de cera vermelha embaixo; na margem, a lápis, a letra
+    miúda dela."""
+    W, H = 18, 36
+    P = []
+
+    def post_n(x, y):
+        t = np.clip((np.asarray(x, np.float32) - 9.2) / 1.9, -1, 1)
+        return (t * 0.8, -0.05 + 0 * t, np.sqrt(np.maximum(0.1, 1 - (t * 0.8) ** 2)))
+    P.append(Poly('post', 'oldwood', 1.0, [(7.4, 35.9), (7.7, 3.4), (10.9, 2.6), (11.1, 35.9)], nf=post_n))
+    # a cinta de bronze perto do topo
+    P.append(Poly('band', 'bronze', 1.02, [(7.5, 5.0), (11.0, 4.6), (11.0, 6.4), (7.5, 6.8)], nf=post_n))
+    for bx in (8.2, 10.3):
+        P.append(Ellipse('rivet', 'bronze', 1.03, (bx, 5.7), 0.45, 0.45, shade=1.2))
+    # as pedras de rio calçando o pé do poste
+    for (sx, sy, rx, ry, k) in ((5.0, 34.4, 2.6, 1.7, 0.9), (13.4, 34.6, 2.9, 1.5, 0.95), (9.4, 35.0, 1.8, 1.1, 1.05), (2.2, 35.2, 1.6, 0.9, 0.85)):
+        P.append(Ellipse('stone', 'riverstone', 1.06, (sx, sy), rx, ry, shade=k))
+    # a ordem: papel grosso, ondulado de umidade, os cantos de baixo enrolando
+    def paper_n(x, y):
+        w = np.sin((np.asarray(y, np.float32) - 9.0) * 0.6) * 0.12
+        return (w, -0.12 + 0 * w, 0.98 + 0 * w)
+    P.append(Poly('order', 'paper', 1.2, [(2.0, 8.6), (16.0, 8.2), (16.3, 25.8), (14.8, 27.0), (3.2, 27.2), (1.8, 26.0)], nf=paper_n))
+
+    def text(x, y, cur):
+        # cabeçalho grosso, as linhas miúdas, o vão do selo e a nota a lápis na margem direita
+        if 9.8 < y < 11.6 and 3.6 < x < 14.4 and int(x * 1.6) % 4 != 3:
+            return ('paper', 0)
+        if 12.6 < y < 20.8 and 3.4 < x < 12.6:
+            k = (y - 12.6) % 1.6
+            if k < 0.6 and int(x * 2.1 + y) % 6 != 0:
+                return ('paper', 1)
+        if 13.0 < x < 15.4 and 12.8 < y < 21.4 and int(y * 1.7) % 2 == 0 and int(x * 3.0 + y) % 4 != 0:
+            return ('iron', 3)
+        return None
+    P.append(Capsule('ribbon', 'waxred', 1.25, (8.0, 24.4), (7.0, 29.2), 0.5, 0.42, shade=0.85))
+    P.append(Capsule('ribbon', 'waxred', 1.25, (10.0, 24.4), (11.2, 28.8), 0.5, 0.42, shade=0.85))
+    P.append(Ellipse('seal', 'waxred', 1.3, (9.0, 24.0), 2.2, 2.1))
+
+    def seal(x, y, cur):
+        r = math.hypot(x - 9.0, y - 24.0)
+        if 1.35 < r < 1.7:
+            return ('waxred', 1)
+        if r < 0.8 and abs(x - 9.0) < 0.32:
+            return ('waxred', 4)
+        return None
+    for (nx, ny) in ((3.0, 9.6), (15.0, 9.2), (3.8, 26.2), (15.0, 25.6)):
+        P.append(Ellipse('nail', 'iron', 1.35, (nx, ny), 0.6, 0.6))
+    return P, [Decal('order', text), Decal('seal', seal)], W, H, []
+
+
 PROPS = {
     'relic-swim': shell,
     'item-remo': remo_item,
     'deco-record-cais-0': record_cais,
+    'deco-record-gruta-0': record_gruta,
+    'deco-record-prainha-0': record_prainha,
+    'deco-record-rio-0': record_rio,
 }
 
 

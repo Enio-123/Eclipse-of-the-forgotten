@@ -2040,8 +2040,8 @@ def rio():
     """O Rio: a correnteza leva os troncos rio abaixo, e eles servem de chão (afundam um pouco com o
     peso). Ilhas de areia no meio, trutas, garças. O aqueduto da Casa atravessa o rio no alto, em dois
     pilares plantados nas ilhas (sobem da areia até a calha, que se apoia nos dois): sobe-se pelo pilar
-    com as garras e anda-se por cima da calha. A ordem do aqueduto está pregada no pé do pilar da
-    esquerda. No fim, a margem com a lanterna do cais (descanso)."""
+    com as garras e anda-se por cima da calha. A ordem do aqueduto está pregada no poste de aviso cravado
+    na areia, ao pé do pilar da esquerda. No fim, a margem com a lanterna do cais (descanso)."""
     W, H = 200, 46
     g = Grid(W, H, '.')
     ground(g, 0, 12, 31)

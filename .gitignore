@@ -20,3 +20,8 @@ art/out/abyss_test/
 anim_test/
 maps-f.ts
 wt18/
+
+# scratch from local test runs
+dbg/
+prev_vale/
+regdist-v17/

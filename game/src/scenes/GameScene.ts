@@ -49,7 +49,7 @@ import { Mine } from '../world/Mine';
 import { Finds, hasFind, isSlotFind, type FindId } from '../world/Finds';
 import type { Breakable } from '../world/secrets';
 import { Loot } from '../world/Loot';
-import { ARENA_WAVES, BELLS, ELO, FORGE, FOUND_THOUGHTS, LEVERS, MATERIALS, MEMORIES, MEMORY_ECHO, NAME_MEMORY, NUN, OFFERS, OLD_MINER, PAGES, PRISONER, RECORDS, SLOT_FINDS, SMITH, SURVEYOR, recordInfo, relicInfo } from '../world/lore';
+import { ARENA_WAVES, BELLS, ELO, FORGE, FOUND_THOUGHTS, LEVERS, MATERIALS, MEMORIES, MEMORY_ECHO, NAME_MEMORY, NUN, OFFERS, OLD_MINER, PAGES, PRISONER, RECORDS, SLOT_FINDS, SMITH, SURVEYOR, memoryInfo, recordInfo, relicInfo } from '../world/lore';
 import { REGION_BY_ID, sheetsFor, surveyorRegion } from '../world/regions';
 import { TILE_ONEWAY, smoothGlow } from '../gfx/textures';
 import { ui } from '../ui/ui';
@@ -3075,7 +3075,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   takeMemory(m: MemoryOrb) {
-    const info = MEMORIES[m.id];
+    const info = memoryInfo(m.id, progress.knowsHerName);
     progress.memories.add(m.id);
     progress.save();
     this.props.consumeMemory(m);
@@ -3095,6 +3095,9 @@ export class GameScene extends Phaser.Scene {
     // o nome que escorregava na capa do herbário agora fica parado
     if (m.id === NAME_MEMORY && progress.seen.has('record:cabana:0')) {
       this.time.delayedCall(5000, () => ui.thought('O nome bordado na capa do herbário. Agora as letras ficam paradas: Arielle.', 4600));
+    } else if (m.id === NAME_MEMORY && progress.memories.has('prainha:0')) {
+      // o nome que ela escreveu na areia da prainha (a memória já guardada muda junto, no Diário)
+      this.time.delayedCall(5000, () => ui.thought('O nome que ela escreveu na areia da prainha. Agora as letras ficam paradas: Arielle.', 4600));
     }
   }
 

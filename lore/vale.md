@@ -99,6 +99,8 @@ incenso. Corrida 0,96. Trancado em Trocar arma até vencer o Barqueiro.
 
 ## Lore da área
 
+No jogo desde a v19 (27/10/2026), com estes textos. A ordem do aqueduto fica num poste de aviso cravado na areia ao pé do pilar (não no pilar: papel não se prega em pedra), e ganhou uma nota a lápis dela na margem. A planta da casa ganhou a conta das tábuas na letra dele.
+
 - Registros:
   - gruta:0 "A lista do que levar": a letra dela. As cópias dos registros, o herbário, sementes do
     vale, a corda, a capa; no fim, riscado e escrito de novo: "ele". Prova: arielle.

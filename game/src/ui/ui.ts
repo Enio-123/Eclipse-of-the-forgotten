@@ -5,7 +5,7 @@ import { ACTIONS, ACTION_LABEL, PAD_ACTIONS, codeName, settings, type Action, ty
 import { audio } from '../systems/Audio';
 import { BRAND_LABEL, BTN, buttonGlyph, buttonName, pad, stickGlyph, type PadBrand } from '../systems/Pad';
 import { ABILITIES, LEVEL_MUL, MAX_LEVEL, SLOT_IDS, progress, type SlotFind, type Upgrade } from '../systems/Save';
-import { BESTIARY, ELO, FORGE, MATERIALS, MEMORIES, MEMORY_TOTAL, OFFERS, PAGES, PAGE_IDS, RECORD_IDS, SLOT_FINDS, recordInfo, relicInfo } from '../world/lore';
+import { BESTIARY, ELO, FORGE, MATERIALS, MEMORY_TOTAL, OFFERS, PAGES, PAGE_IDS, RECORD_IDS, SLOT_FINDS, memoryInfo, recordInfo, relicInfo } from '../world/lore';
 import { MAP_POS, ROOMS, type RoomId } from '../world/rooms';
 import { MapView, regionThumb, type MapHere } from './mapview';
 import type { RegionDef, RegionId } from '../world/regions';
@@ -961,7 +961,7 @@ class UI {
     const mem = $('.map-memories', s);
     mem.replaceChildren();
     for (const id of progress.memories) {
-      const info = MEMORIES[id];
+      const info = memoryInfo(id, progress.knowsHerName);
       if (!info) continue;
       const li = el('li', progress.traded.has(id) ? 'forgotten' : '');
       if (progress.traded.has(id)) li.append(el('b', '', info.title), el('span', 'how', 'Trocada com o Cobrador. Esquecida.'));
