@@ -2310,15 +2310,17 @@ def arquivo():
     g.put(62, 77, '$')
     for (x, y) in ((16, 23), (44, 29), (63, 65), (14, 71)):
         g.put(x, y, ',')
-    for (x, y) in ((40, 89), (45, 53), (68, 35), (30, 17)):
+    # os Arquivados, cada um andando perto do frasco dele (vencido, a luz volta para lá)
+    for (x, y), jar in (((40, 89), (47, 89)), ((45, 53), (40, 53)), ((68, 35), (73, 35)), ((30, 17), (36, 17))):
         g.put(x, y, 'u')
+        g.put(jar[0], jar[1], ',')
     return g.rows()
 
 
 def experiencias():
     """A Sala das Experiências: a torre da direita por dentro, fria. Três andares: embaixo, as cadeiras
-    com as coroas de Âmbar, ligadas por cabos ao tanque do meio (quem estava sentado ainda está lá, e
-    levanta quando alguém chega perto); no do meio, o caderno dos testes; no de cima, a planta do núcleo.
+    com as coroas de Âmbar, ligadas por cabos ao tanque do fim da fila (quem estava sentado ainda está lá,
+    e levanta quando alguém chega perto); no do meio, o caderno dos testes; no de cima, a planta do núcleo.
     Os andares se ligam pelos vãos da escada, alternando os lados. No alto, a porta do lado de fora dá na
     ponte coberta que atravessa o vazio até a torre do meio (saída à esquerda). Entra-se embaixo, pela
     porta do terraço do pátio."""

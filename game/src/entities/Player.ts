@@ -60,6 +60,8 @@ export class Player {
   frozen = false;
   canAttack = true;
   invuln = 0;
+  // depois do toque de um Arquivado, o mesmo toque não tira outra conta de Âmbar por um instante
+  sapT = 0;
   dropT = 0;
   atkDir: AttackDir = 'side';
   crouched = false;
@@ -341,6 +343,7 @@ export class Player {
     this.graceT -= dt;
     this.atkCd -= dt;
     this.invuln -= dt;
+    this.sapT -= dt;
     this.dropT -= dt;
     this.hookCd -= dt;
     this.lastRingT -= dt;
@@ -1326,6 +1329,22 @@ export class Player {
       this.hp = 0;
       this.dead = true;
     }
+    return true;
+  }
+
+  // o toque dos Arquivados: leva uma conta de Âmbar em vez de abrir uma rachadura. Ele recua um passo,
+  // sem piscar (nada se abriu nele)
+  sap(fromX: number, grace: number) {
+    if (this.dead || this.invuln > 0 || this.sapT > 0 || this.veiling || this.dive) return false;
+    this.sapT = grace;
+    this.hurtT = C.hurtLock * 0.7;
+    this.aiming = false;
+    this.castT = 0;
+    if (this.dashT > 0) this.endDash();
+    this.cancelAttack();
+    const dir = Math.sign(this.zone.x - fromX) || -this.facing;
+    this.body.setVelocity(dir * C.knockX * 0.75, -C.knockY * 0.4);
+    this.jumping = false;
     return true;
   }
 

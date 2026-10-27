@@ -157,6 +157,9 @@ export interface RoomDef {
   gears?: { x: number; y: number; teeth: number[] };
   buckets?: { x0: number; x1: number; y0: number; y1: number };
   vents?: { x: number; y: number; dir: 1 | -1 }[];
+  // a Sala das Experiências: os Arquivados 'u' estão sentados em cadeiras viradas para facing, cada uma com
+  // a coroa de Âmbar presa no braço do encosto e o cabo correndo pelo chão até o tanque (no tile x tank)
+  seated?: { facing: 1 | -1; tank: number };
 }
 
 export interface Rect {
@@ -1416,6 +1419,7 @@ const CHAPTER7: Record<'escada' | 'calha' | 'patio' | 'arquivo' | 'experiencias'
     doors: [{ to: 'patio', entry: 'O0' }],
     ...TORRES,
     pit: true,
+    seated: { facing: -1, tank: 66 },
     music: 'nave',
     ambience: 'nave',
     hints: [],

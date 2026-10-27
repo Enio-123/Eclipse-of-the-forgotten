@@ -267,6 +267,14 @@ export class HudScene extends Phaser.Scene {
     const denyAmber = () => {
       for (const b of beads) this.tweens.add({ targets: [b.bg, b.fill, b.glow], x: { from: b.x - 2.5, to: b.x }, duration: 260, ease: 'Bounce.easeOut' });
     };
+    // um Arquivado levou uma conta: o ouro sai de onde o Âmbar acaba agora e as contas tremem para baixo
+    const sapAmber = () => {
+      const a = (this.registry.get('amber') as number | undefined) ?? 0;
+      const b = beads[Math.min(2, Math.floor(a + 1e-6))];
+      sparks.explode(6, b.x, b.y - 2);
+      for (const q of beads) this.tweens.add({ targets: [q.bg, q.fill, q.glow], y: { from: q.y + 2, to: q.y }, duration: 320, ease: 'Bounce.easeOut' });
+      this.tweens.add({ targets: b.fill, alpha: { from: 0.3, to: 1 }, duration: 420 });
+    };
     const syncVis = () => {
       this.root.setAlpha(this.registry.get('hud-hidden') ? 0 : 1);
       syncCoinVis();
@@ -283,6 +291,7 @@ export class HudScene extends Phaser.Scene {
       ['changedata-amber', syncAmber], ['setdata-amber', syncAmber],
       ['changedata-power', syncAmber], ['setdata-power', syncAmber],
       ['changedata-amber-deny', denyAmber], ['setdata-amber-deny', denyAmber],
+      ['changedata-amber-sap', sapAmber], ['setdata-amber-sap', sapAmber],
       ['changedata-skill', syncSkill], ['setdata-skill', syncSkill],
       ['changedata-power', syncSkill], ['setdata-power', syncSkill],
       ['changedata-skill-deny', denySkill], ['setdata-skill-deny', denySkill],

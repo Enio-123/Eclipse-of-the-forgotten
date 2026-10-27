@@ -20,7 +20,8 @@ lugar exato onde tudo aconteceu.
 - O Arquivo Proibido era o lugar de trabalho dela: a arquivista dos registros que a Casa queria
   enterrados. A mesa dela, as cópias, as flores prensadas entre as páginas (o herbário era daqui).
 - A Sala das Experiências mostra como a Coroação foi testada antes: gente sentada em cadeiras com
-  coroas de Âmbar, ligadas umas às outras, até que as memórias se misturaram. Prova `nucleo`.
+  coroas de Âmbar, ligadas por cabos a um tanque, até que as memórias se misturaram no tanque. Os que
+  estavam sentados ainda estão lá. Prova `nucleo`.
 - O Senhor de Vhalor ficou preso ao próprio trono: o Eclipse fez o Âmbar dos cabos crescer nele.
   Vencido, o trono fica vazio (é o trono do final II).
 - A noite, em ecos, pela escadaria: ela subindo na frente com as cópias, os guardas, a ordem na mão
@@ -45,7 +46,7 @@ Nove salas, longas como as do vale (o pedido do Enio).
 | calha | A Calha sobre as Nuvens | Por onde a água chegava | Sala comprida sobre o mar de nuvens: anda-se dentro do conduto, com a água na canela. Dois vãos onde os arcos caíram: a Casa fechou as pontas com pedra e passou a água por canos de bronze que descem para dentro das nuvens (as faces de bronze não deixam as garras subir). A torre da comporta fica em pé no conduto: sobe-se pela sacada de um lado e desce-se do outro. No vão grande, o pilar mais baixo com a Capa de Luz: chega-se planando, sai-se voando |
 | patio | O Pátio das Runas | Onde a Casa esperava | A esplanada no pé das três torres, a cisterna onde a calha despeja, a vela de descanso. Três portas: a do Arquivo (aberta), a grande porta da torre do meio (trancada por dentro: a tranca sai lá da Torre das Engrenagens e a porta vira atalho) e a da torre das Experiências, no terraço, sem fechadura: abre quando as quatro runas estão acesas juntas (uma no chão, uma no pedestal baixo, uma no terraço e uma no alto da coluna, onde se sobe pelos degraus de ferro presos entre a coluna e a parede da torre). Guardas da Coroação |
 | arquivo | O Arquivo Proibido | O lugar dela | Opcional, fora do caminho. Três pilhas de galerias entre as estantes, com o vão da subida trocando de lado a cada andar e passagens nas estantes embaixo, no meio e mais alto. A mesa dela (a memória e um registro), os frascos que brilham, os Arquivados, a sala de leitura no alto e, atrás da estante falsa, a ficha dele. O lugar da flor do final I |
-| experiencias | A Sala das Experiências | Antes da Coroação | As cadeiras com coroas de Âmbar ligadas por cabos, os cadernos dos testes, em três andares. Do último sai a ponte coberta até a torre do meio. Prova `nucleo` |
+| experiencias | A Sala das Experiências | Antes da Coroação | Embaixo, as quatro cadeiras em fila, viradas para a porta, com um Arquivado sentado em cada uma, de coroa; os cabos saem das costas das cadeiras, correm pelo chão e sobem no tanque do fim da fila, onde as memórias se misturaram (o cano dele sobe até o teto). Os cadernos dos testes no andar do meio, a planta do núcleo no de cima. Do último sai a ponte coberta até a torre do meio. Prova `nucleo` |
 | engrenagens | A Torre das Engrenagens | A água que esfria o núcleo | Sala vertical: a torre do meio é oca. O vapor do núcleo desce pelos canos e move as rodas; as rodas giram as engrenagens e a corrente dos baldes, que tira a água do poço do fundo (a da calha) e leva até o alto, para esfriar o núcleo. O eixo grande divide a torre em duas metades; atrás dele, o trem de engrenagens desce do alto até o mancal. Em cada metade sobe-se por saliências que trocam de lado a cada seis linhas. A ponte das Experiências chega no meio da altura; embaixo, o lado de dentro da grande porta |
 | trono | O Trono da Casa | O Senhor de Vhalor | Arena do chefe do meio: a antessala baixa com a grade, o salão, o estrado e o encosto alto do trono. Depois da luta, o alçapão do teto abre; sobe-se pelo degrau do estrado, pelos degraus de ferro presos no encosto e pelo lustre do meio do salão |
 | coroacao | A Escadaria da Coroação | A noite | A escada em caracol em volta do poço do núcleo: lanços de uma parede à outra e, em cada volta, um trecho de parede até o patamar de cima. Os ecos da noite: ela subindo na frente, os guardas, a ordem |
@@ -88,23 +89,39 @@ as portas como objetivos). A única passagem que pede a Capa de Luz é o vão gr
    de nuvem que correm devagar, uma atrás dos pilares e outra na frente, no pé da sala; os pilares
    afundam nelas. Cair nele: um sopro de nuvem, um ponto de dano (como os espinhos) e a volta ao último
    chão firme, com o escuro dourado das nuvens no lugar do preto.
-5. **Frascos de Âmbar** (',' no mapa): a maior parte das estantes é cenário; os quatro que brilham
+5. **Frascos de Âmbar** (',' no mapa): a maior parte das estantes é cenário; os oito que brilham
    guardam um eco curto, uma frase de alguém cuja memória está ali (`JAR_ECHOES` em lore.ts), e
-   {up} escuta de perto. Depois do primeiro, o cavaleiro entende que a Casa não guardava papéis no
-   Arquivo: guardava as pessoas.
+   {up} escuta de perto. Quatro deles ficam ao lado de cada Arquivado (o 0, o 3, o 4 e o 7, na ordem
+   do mapa): é a memória daquele corpo, e é para ele que a luz volta quando o Arquivado é vencido.
+   Depois do primeiro eco, o cavaleiro entende que a Casa não guardava papéis no Arquivo: guardava as
+   pessoas.
 6. **A água das Torres**: a do Vale, que o aqueduto traz (calha, cisterna do pátio, poço das
    Engrenagens), pintada pela profundidade com a linha d'água dourada.
 
 ## Inimigos
 
-- **Guarda da Coroação**: soldado da Casa de armadura de bronze e alabarda. Anda com o escudo alto,
-  estocada longa (aparável), giro da alabarda que se pula. Na noite eles subiram atrás dela.
-- **Vigia Rúnica**: um aro de bronze com uma runa no meio, parado no ar, preso a nada (é Âmbar
-  vivo). Mira, carrega e dispara um feixe reto; um golpe na runa enquanto carrega apaga o feixe e
-  derruba a vigia por um instante.
-- **Os Arquivados**: gente cuja memória está nos frascos, só o corpo, andando devagar entre as
-  estantes de braços estendidos. Encostar tira um pouco de Âmbar. Vencidos, soltam um fio de luz que
-  sobe para um frasco (ninguém morre de novo: eles voltam para a estante).
+- **Guarda da Coroação** (`CrownGuard`, 9 de vida): soldado da Casa de armadura de bronze, escudo e
+  alabarda. Anda com o escudo alto: de frente, o escudo para o golpe e a flecha; o golpe de cima, o
+  rasteiro e o das costas entram. De longe ele mira (o aviso: recua a alabarda, e a viseira e a runa do
+  escudo acendem) e estica a alabarda numa estocada longa na altura do peito: agachado, a ponta passa
+  por cima; aparada no fim do aviso, ele fica tonto e apanha uma vez e meia. Com o cavaleiro perto ou
+  nas costas, gira a alabarda rente ao chão dos dois lados (pulando, passa por baixo). Na noite eles
+  subiram atrás dela. Escada, calha, pátio, experiências, engrenagens e coroação.
+- **Vigia Rúnica** (`RuneWatcher`, 4 de vida, a arte é desenhada pelo jogo): um aro de bronze com uma
+  runa no meio, parado no ar, preso a nada (é Âmbar vivo), subindo e descendo devagar. Vendo o
+  cavaleiro, mira (um fio fino mostra a linha), trava a linha e dispara um feixe reto e curto. Um golpe
+  enquanto ela mira ou trava apaga a runa: o aro cai, quica uma vez, deita no chão sem machucar (apanha
+  uma vez e meia ali) e depois sobe de volta para o lugar dele.
+- **Os Arquivados** (`Archived`, 4 de vida, dois corpos: cabelo curto e comprido): gente cuja memória
+  está nos frascos, só o corpo, de olhos fechados, andando devagar perto do próprio frasco e indo atrás
+  do calor de quem passa perto, de braços estendidos. O toque não abre rachadura: leva uma conta de
+  Âmbar (um fio de luz sai do peito do cavaleiro para a rachadura da têmpora dele, e a conta pula no
+  HUD); sem uma conta inteira, o toque machuca. Deslizando, passa-se por baixo dos braços. Vencidos,
+  deitam, a luz deles volta para o frasco (ou, nas Experiências, para o tanque, que clareia) e o corpo
+  some: ninguém morre de novo, eles voltam para a estante. Nas Experiências eles estão sentados nas
+  cadeiras, de coroa, e levantam quando alguém chega perto; a coroa fica pendurada na haste do braço da
+  cadeira, balança até parar e apaga. Vencido de longe, ainda sentado, ele afunda na cadeira e a luz sai
+  dali mesmo.
 
 ## Chefe do meio: O Senhor de Vhalor
 

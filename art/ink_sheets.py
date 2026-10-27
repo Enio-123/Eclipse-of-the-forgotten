@@ -20,7 +20,7 @@ ICON_S = 4   # ícones do inventário: 24 -> 96 (a tela mostra com 48)
 
 def sheets():
     import anims, knight, guard, crow, archer, censer, sineiro, arcebispo, townsfolk, enemy, props, deco, jailer, carcereira, sombra
-    import miner, ambat, capataz, wolf, owl, cacador, trout, heron, barqueiro
+    import miner, ambat, capataz, wolf, owl, cacador, trout, heron, barqueiro, coroa, arquivado
     out = {}
     for w in anims.WEAPONS:
         out[f'knight-{w}'] = dict(anims=anims.anims_for(w), mod='knight', W=knight.W, H=knight.H, feet=knight.FEET,
@@ -85,6 +85,10 @@ def sheets():
     # O Barqueiro: a mão da frente, a vara (o jogo desenha a vara solta), a mão da corda, a cabeça, o chapéu
     # e a lanterna da proa em cada quadro
     add('barqueiro', barqueiro, barqueiro.ANIMS, points=barqueiro.points, cap=3)
+    # Torres Rúnicas: o Guarda da Coroação (a ponta da alabarda e o meio da lâmina em cada quadro)
+    add('crownguard', coroa, coroa.ANIMS, points=coroa.points, cap=3)
+    # e os Arquivados (dois corpos na mesma folha)
+    add('archived', arquivado, arquivado.ANIMS, points=arquivado.points, which=lambda n: n.startswith(('sit', 'getup')))
     # o mineiro que ficou (NPC do Veio de Âmbar): o mesmo boneco, sentado, com a vela acesa
     A, holds = fluid.densify(miner.NPC_ANIMS, miner)
     out['oldminer'] = dict(anims=A, mod='miner', W=miner.W, H=miner.H, feet=miner.FEET, meta_extra={'holds': holds} if holds else None)

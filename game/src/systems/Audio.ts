@@ -10,7 +10,8 @@ export type SfxName =
   | 'parry' | 'break' | 'glass' | 'page' | 'anvil' | 'smoke' | 'coinrain' | 'door' | 'locked' | 'censer' | 'draw' | 'gate'
   | 'echo' | 'echo-die' | 'veil' | 'veil-form'
   | 'howl' | 'hoot' | 'horn' | 'gust' | 'flap' | 'crunch' | 'ice-crack' | 'ice-break' | 'freeze' | 'growl' | 'yelp' | 'lantern'
-  | 'plop' | 'leap' | 'flop' | 'heron' | 'buzz' | 'gurgle' | 'creak' | 'rope';
+  | 'plop' | 'leap' | 'flop' | 'heron' | 'buzz' | 'gurgle' | 'creak' | 'rope'
+  | 'beam' | 'sap';
 export type TrackId = 'title' | 'bridge' | 'crypt' | 'memory' | 'boss' | 'city' | 'nave' | 'boss2' | 'boss3' | 'mine' | 'mirror' | 'boss4' | 'forest' | 'cabin' | 'boss5' | 'boss6' | 'vale' | 'cais' | FileTrackId | 'none';
 export type AmbienceId = 'rain' | 'crypt' | 'wind' | 'city' | 'nave' | 'prison' | 'mine' | 'snow' | 'hearth' | 'river' | 'falls' | 'night' | 'none';
 // faixas gravadas, em arquivo (as trilhas que o Enio escolheu)
@@ -1641,6 +1642,19 @@ class AudioEngine {
         this.nz(out, t, 0.05, 'bandpass', 1800 * r, 1200 * r, 0.25, 3);
         this.tone(out, t, 0.25, 'triangle', 190 * r, 150 * r, 0.08);
         this.nz(out, t + 0.03, 0.2, 'bandpass', 600 * r, 400 * r, 0.06, 4);
+        break;
+      case 'beam':
+        // o feixe da Vigia Rúnica: o estalo claro de quando solta e o zumbido quente que corta o ar e some
+        this.nz(out, t, 0.05, 'highpass', 5200 * r, 3000 * r, 0.16, 1);
+        this.tone(out, t, 0.34, 'sawtooth', 880 * r, 800 * r, 0.035);
+        this.tone(out, t, 0.36, 'sine', 1760 * r, 1600 * r, 0.06);
+        this.nz(out, t + 0.01, 0.32, 'bandpass', 3200 * r, 2000 * r, 0.06, 6);
+        break;
+      case 'sap':
+        // o Âmbar saindo do peito para a mão de um Arquivado: um brilho que desce e some, com um sopro frio
+        this.tone(out, t, 0.55, 'sine', 1760 * r, 420 * r, 0.06);
+        this.tone(out, t + 0.04, 0.5, 'triangle', 1318 * r, 310 * r, 0.025);
+        this.nz(out, t, 0.5, 'bandpass', 2600 * r, 700 * r, 0.05, 3);
         break;
       case 'lantern':
         // a lanterna do caçador balançando na ponta da lança: o rangido da alça e o vidro tocando

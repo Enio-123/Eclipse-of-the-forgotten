@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { AMBER_BAR, ARCHER, FRAGMENT, INCENSE, MAGES, MAGIC, MINE_ITEMS, PAL, PARRY, PLAYER, POWERS, QUAKE, TILE, VIEW_H, VIEW_W, WEAPONS, WEAPON_IDS, type PowerId, type WeaponId } from '../config';
+import { AMBER_BAR, ARCHER, ARCHIVED, FRAGMENT, INCENSE, MAGES, MAGIC, MINE_ITEMS, PAL, PARRY, PLAYER, POWERS, QUAKE, TILE, VIEW_H, VIEW_W, WEAPONS, WEAPON_IDS, type PowerId, type WeaponId } from '../config';
 import { Player, type AttackDir, type PlayerAction } from '../entities/Player';
 import { MemoryEcho } from '../entities/MemoryEcho';
 import { Crawler } from '../entities/Crawler';
@@ -24,6 +24,9 @@ import { Trout } from '../entities/Trout';
 import { Heron } from '../entities/Heron';
 import { Motes } from '../entities/Motes';
 import { InkWisp } from '../entities/InkWisp';
+import { CrownGuard } from '../entities/CrownGuard';
+import { RuneWatcher } from '../entities/RuneWatcher';
+import { Archived } from '../entities/Archived';
 import { ABYSS, Echo } from '../entities/Echo';
 import { overlap, type BossFoe, type Enemy } from '../entities/Enemy';
 import { SmokeField } from '../entities/Smoke';
@@ -120,7 +123,7 @@ const PASSED = 15;
 const ALARM_AT = [3.5, 6.5, 10, 13.5, 17, 21];
 const ALARM_END = 40;
 // a corrente puxa só os leves
-const LIGHT = new Set(['crawler', 'crow', 'archer', 'censer']);
+const LIGHT = new Set(['crawler', 'crow', 'archer', 'censer', 'archived']);
 
 // cada chefe: a luta, a memória que deixa, onde caem a memória e a arma (pela frente dele, a partir
 // dos pés) e o que o cavaleiro pensa quando acaba
@@ -341,10 +344,14 @@ const SPAWNERS: Record<string, (s: GameScene, x: number, y: number) => Enemy> = 
   wisp: (s, x, y) => new InkWisp(s, x, y),
 };
 
-// As letras que mudam de sentido nas Torres Rúnicas, e quem nasce delas (ainda ninguém: os inimigos das
-// Torres chegam com a T3)
+// As letras que mudam de sentido nas Torres Rúnicas, e quem nasce delas: o Guarda da Coroação, a Vigia
+// Rúnica (no ar, meio bloco acima da letra) e os Arquivados
 const TORRES_LETTERS: Record<string, 'guarda' | 'vigia' | 'arquivado'> = { g: 'guarda', v: 'vigia', u: 'arquivado' };
-const TORRES_SPAWNERS: Partial<Record<'guarda' | 'vigia' | 'arquivado', (s: GameScene, x: number, y: number) => Enemy>> = {};
+const TORRES_SPAWNERS: Record<'guarda' | 'vigia' | 'arquivado', (s: GameScene, x: number, y: number) => Enemy> = {
+  guarda: (s, x, y) => new CrownGuard(s, x, y),
+  vigia: (s, x, y) => new RuneWatcher(s, x, y - 8),
+  arquivado: (s, x, y) => new Archived(s, x, y),
+};
 
 export class GameScene extends Phaser.Scene {
   controls!: Controls;
@@ -1323,6 +1330,48 @@ export class GameScene extends Phaser.Scene {
 
   sparkAt(x: number, y: number, n: number) {
     this.sparks.explode(n, x, y);
+  }
+
+  // o toque de um Arquivado leva uma conta de Âmbar em vez da vida: o fio de ouro sai do peito do
+  // cavaleiro e entra na rachadura da têmpora dele (x, y). 'took': levou agora; 'held': o toque não faz
+  // nada (ele acabou de levar ou o cavaleiro está piscando); 'none': não há Âmbar para levar (aí o toque
+  // machuca como os outros)
+  sapAmber(fromX: number, x: number, y: number): 'took' | 'held' | 'none' {
+    const p = this.player;
+    if (p.dead || p.invuln > 0 || p.sapT > 0) return 'held';
+    if (progress.amber + 1e-6 < ARCHIVED.drain) return 'none';
+    if (!p.sap(fromX, ARCHIVED.grace)) return 'held';
+    progress.spendAmber(ARCHIVED.drain);
+    this.registry.set('amber', progress.amber);
+    this.registry.set('amber-sap', ((this.registry.get('amber-sap') as number | undefined) ?? 0) + 1);
+    const cx = p.x;
+    const cy = p.body.center.y - 4;
+    this.lightThread(cx, cy, x, y, 7, 320, PAL.gold, () => this.glowBurst(x, y, PAL.gold, 0.9));
+    this.gold.explode(6, cx, cy);
+    this.sfx('sap', 0.8, 1);
+    this.thinkOnce('sap', 'Não abriu nada em mim. Levou um pouco do Âmbar.');
+    return 'took';
+  }
+
+  // um fio de luz: contas pequenas que vão uma atrás da outra de (x0, y0) até (x1, y1), numa curva para
+  // cima. onArrive quando a primeira chega
+  lightThread(x0: number, y0: number, x1: number, y1: number, n: number, dur: number, tint: number, onArrive?: () => void) {
+    const path = new Phaser.Curves.QuadraticBezier(new Phaser.Math.Vector2(x0, y0),
+      new Phaser.Math.Vector2((x0 + x1) / 2 + (Math.random() - 0.5) * 16, Math.min(y0, y1) - 12 - Math.abs(x1 - x0) * 0.15),
+      new Phaser.Math.Vector2(x1, y1));
+    for (let i = 0; i < n; i++) {
+      const g = this.add.image(x0, y0, 'glow').setTint(tint).setBlendMode(Phaser.BlendModes.ADD).setScale(0.14).setDepth(DEPTH.enemy + 1);
+      const k = { t: 0 };
+      this.tweens.add({ targets: k, t: 1, delay: i * (dur / n) * 0.5, duration: dur, ease: 'Sine.easeInOut',
+        onUpdate: () => {
+          const q = path.getPoint(k.t);
+          g.setPosition(q.x, q.y).setAlpha(0.95 - k.t * 0.55).setScale(0.14 - k.t * 0.07);
+        },
+        onComplete: () => {
+          g.destroy();
+          if (i === 0) onArrive?.();
+        } });
+    }
   }
 
   clang(x: number, y: number) {

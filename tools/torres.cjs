@@ -2,13 +2,14 @@
 // entre as nove salas nos dois sentidos (lados, de cima e de baixo, e as portas do pátio), as portas
 // trancadas (runas e tranca por dentro), o Agrimensor na escada, uma foto de cada sala (T1) e a Capa de
 // Luz: a relíquia no pilar, os três voos, os lumes que recarregam e as luzes no HUD, as runas do pátio e
-// o mar de nuvens, os frascos do Arquivo e a máquina da Torre das Engrenagens (T2).
+// o mar de nuvens, os frascos do Arquivo e a máquina da Torre das Engrenagens (T2); o Guarda da Coroação,
+// a Vigia Rúnica e os Arquivados (T3).
 // uso: node torres.cjs <pasta-saida> [url]
 const { chromium } = require('playwright');
 const OUT = process.argv[2] || '.';
 const URL = process.argv[3] || 'http://localhost:8780/index.html';
 // ONLY=links,portao roda só essas partes (portao, links, portas, agrimensor, fotos, voo, runas, nuvens,
-// frascos, maquina)
+// frascos, maquina, inimigos, cadeiras)
 const ONLY = (process.env.ONLY || '').split(',').filter(Boolean);
 const part = (k) => !ONLY.length || ONLY.includes(k);
 (async () => {
@@ -416,7 +417,7 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
     await start('arquivo', 'O0');
     await clear();
     const jars = await page.evaluate(() => window.__scene.torres.jars.map((j) => ({ x: j.x / 16, y: j.y / 16 })));
-    check(jars.length === 4, `quatro frascos que brilham no Arquivo (${JSON.stringify(jars)})`);
+    check(jars.length === 8, `oito frascos que brilham no Arquivo, quatro deles ao lado de um Arquivado (${JSON.stringify(jars)})`);
     await page.evaluate(() => { window.__said = []; const o = window.__ui.say; window.__ui.say = (n, t, ms) => { window.__said.push([n, t]); return o.call(window.__ui, n, t, ms); }; });
     for (let i = 0; i < jars.length; i++) {
       await page.evaluate((j) => { const p = window.__scene.player; p.teleport(j.x * 16 + 10, j.y * 16); p.body.setVelocity(0, 0); }, jars[i]);
@@ -427,9 +428,9 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
       await waitGame(0.3);
     }
     const said = await page.evaluate(() => window.__said.slice());
-    const seen = await page.evaluate(() => [0, 1, 2, 3].map((i) => window.__progress.seen.has(`jar:arquivo:${i}`)));
-    check(said.length === 4 && said.every(([n]) => n === 'Uma voz no frasco') && new Set(said.map(([, t]) => t)).size === 4 && seen.every(Boolean), `cada frasco toca o seu eco (${said.map(([, t]) => t.slice(0, 24)).join(' | ')})`);
-    await page.evaluate((j) => { const s = window.__scene; const p = s.player; p.teleport(j.x * 16 - 20, j.y * 16); p.invuln = 0; s.cameras.main.centerOn(j.x * 16, j.y * 16 - 30); }, jars[2]);
+    const seen = await page.evaluate((n) => [...Array(n).keys()].map((i) => window.__progress.seen.has(`jar:arquivo:${i}`)), jars.length);
+    check(said.length === 8 && said.every(([n]) => n === 'Uma voz no frasco') && new Set(said.map(([, t]) => t)).size === 8 && seen.every(Boolean), `cada frasco toca o seu eco (${said.map(([, t]) => t.slice(0, 24)).join(' | ')})`);
+    await page.evaluate((j) => { const s = window.__scene; const p = s.player; p.teleport(j.x * 16 - 20, j.y * 16); p.invuln = 0; s.cameras.main.centerOn(j.x * 16, j.y * 16 - 30); }, jars[1]);
     await waitGame(0.6);
     await shot('t2-frasco');
   }
@@ -471,6 +472,235 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
     await page.evaluate(() => { const s = window.__scene; const p = s.player; p.teleport(44 * 16, 88 * 16); p.invuln = 0; });
     await waitGame(1.4);
     await shot('t2-maquina');
+  }
+
+  // a entrada usada em cada sala nas partes dos inimigos
+  const ENTRY = { escada: '1', calha: '1', patio: '1', arquivo: 'O0', experiencias: 'O0', engrenagens: '1', coroacao: '1', trono: '1' };
+  // Os estados curtos (a trava da vigia, o feixe, a estocada) duram poucos quadros, e cada ida e volta até
+  // a página demora: então o jogo fica parado enquanto o teste arma a cena, e freeze(condição) solta o jogo e
+  // para de novo no quadro em que a condição (sobre a cena s e o inimigo e) passa a valer
+  const pause = () => page.evaluate(() => window.__scene.sys.pause());
+  const freeze = async (src, timeout = 12000) => {
+    await page.evaluate((src) => {
+      const s = window.__scene;
+      const f = new Function('s', 'e', `return (${src});`);
+      window.__frozen = false;
+      const h = () => {
+        if (!f(s, window.__foe)) return;
+        s.events.off('postupdate', h);
+        window.__frozen = true;
+        s.sys.pause();
+      };
+      s.events.on('postupdate', h);
+      s.sys.resume();
+    }, src);
+    return until(() => window.__frozen, null, timeout).then(() => true).catch(() => false);
+  };
+  const begin = async (room, kind, idx) => {
+    await start(room, ENTRY[room]);
+    await pause();
+    return page.evaluate(([kind, idx]) => {
+      const s = window.__scene;
+      const keep = s.enemies.filter((e) => e.kind === kind)[idx];
+      for (const e of s.enemies) if (e !== keep && e.alive && e.vanish) { const sp = e.vanish(); if (sp) sp.setVisible(false); }
+      window.__foe = keep;
+      window.__hurts = [];
+      const proto = Object.getPrototypeOf(s.player);
+      if (!proto.__logged) {
+        proto.__logged = true;
+        const orig = proto.hurt;
+        proto.hurt = function (fx) { const r = orig.call(this, fx); if (r) (window.__hurts = window.__hurts || []).push([window.__scene.clock.toFixed(2), Math.round(fx), this.hp, window.__foe && window.__foe.state]); return r; };
+      }
+      return { x: keep.zone.x, y: keep.body.bottom };
+    }, [kind, idx]);
+  };
+  const foe = () => page.evaluate(() => { const e = window.__foe; const p = window.__scene.player; return { st: e.state, x: e.zone.x, y: e.body.bottom, alive: e.alive, hp: p.hp, amber: window.__progress.amber, crouched: p.crouched, py: p.body.bottom, hurts: (window.__hurts || []).length }; });
+
+  if (part('inimigos')) {
+    // ---------- 11. os inimigos das Torres (T3) ----------
+    await setProgress(VALE);
+    const want = { escada: [1, 2, 0], calha: [1, 2, 0], patio: [2, 0, 0], arquivo: [0, 0, 4], experiencias: [1, 2, 4], engrenagens: [1, 2, 0], trono: [0, 0, 0], coroacao: [2, 0, 0] };
+    const got = {};
+    for (const room of Object.keys(want)) {
+      await start(room, ENTRY[room]);
+      got[room] = await page.evaluate(() => ['crownguard', 'watcher', 'archived'].map((k) => window.__scene.enemies.filter((e) => e.kind === k && e.alive).length));
+    }
+    check(Object.keys(want).every((r) => got[r].join() === want[r].join()), `cada sala com os seus (guardas, vigias, arquivados): ${JSON.stringify(got)}`);
+    // --- o Guarda da Coroação (no pátio, no chão largo) ---
+    await begin('patio', 'crownguard', 0);
+    // de frente o escudo para; de cima, por baixo e pelas costas entra
+    const blocks = await page.evaluate(() => {
+      const e = window.__foe;
+      e.facing = -1;
+      const f = e.zone.x - 40;
+      const b = e.zone.x + 40;
+      const r = [e.hit(f, 0.01, 'side'), e.hit(f, 0.01, 'arrow')];
+      e.state = 'guard';
+      r.push(e.hit(f, 0.01, 'down'), e.hit(f, 0.01, 'low'));
+      e.state = 'guard';
+      r.push(e.hit(b, 0.01, 'side'));
+      e.state = 'guard';
+      return r;
+    });
+    check(blocks.join() === 'blocked,blocked,hit,hit,hit', `o escudo para o golpe e a flecha de frente; o de cima, o rasteiro e o das costas entram (${blocks.join(', ')})`);
+    // a estocada: em pé ele é acertado; agachado, a ponta passa por cima
+    const thrustAt = async (crouch) => {
+      await begin('patio', 'crownguard', 0);
+      await page.evaluate(() => { const s = window.__scene; const e = window.__foe; const p = s.player; p.teleport(e.zone.x - 84, e.body.bottom); p.body.setVelocity(0, 0); p.invuln = 0; p.hp = 5; e.facing = -1; e.state = 'guard'; e.atkCd = 0.3; });
+      if (crouch) {
+        await page.keyboard.down('KeyS');
+        await freeze('s.player.crouched');
+      }
+      await freeze("e.state === 'thrust'");
+      const a = await foe();
+      await freeze("e.state === 'thrustrec'");
+      const b = await foe();
+      if (crouch) await page.keyboard.up('KeyS');
+      return { a, b };
+    };
+    const stand = await thrustAt(false);
+    check(stand.a.st === 'thrust' && stand.b.hp === 4, `de longe ele mira e estica a alabarda: em pé, acerta (${stand.a.st}, vida 5 -> ${stand.b.hp})`);
+    const low = await thrustAt(true);
+    check(low.a.st === 'thrust' && low.a.crouched && low.b.hp === 5, `agachado, a ponta passa por cima (${low.a.st}, agachado ${low.a.crouched}, vida ${low.b.hp})`);
+    // o giro rente ao chão: em pé perto dele machuca; um pouco acima do chão (pulando), não
+    await begin('patio', 'crownguard', 0);
+    await page.evaluate(() => { const s = window.__scene; const e = window.__foe; const p = s.player; p.teleport(e.zone.x + 30, e.body.bottom); p.invuln = 99; e.facing = -1; e.state = 'guard'; e.atkCd = 0; e.behindT = 0; });
+    await freeze("e.state === 'spin' && e.t > 0.12");
+    const spin = await page.evaluate(() => {
+      const e = window.__foe;
+      const R = (dx, lift) => new Phaser.Geom.Rectangle(e.zone.x + dx - 7, e.body.bottom - 42 - lift, 14, 42);
+      return { st: e.state, standL: e.harms(R(-46, 0), false), standR: e.harms(R(46, 0), false), jump: e.harms(R(46, 22), false), far: e.harms(R(80, 0), false) };
+    });
+    check(spin.st === 'spin' && spin.standL && spin.standR && !spin.jump && !spin.far, `pelas costas e perto, o giro pega dos dois lados rente ao chão; pulando passa por cima (${JSON.stringify(spin)})`);
+    await page.evaluate(() => { const c = window.__scene.cameras.main; c.stopFollow(); c.centerOn(window.__foe.zone.x, window.__foe.body.bottom - 30); });
+    await shot('t3-guarda-giro');
+    // aparar a estocada no fim do aviso: ele fica tonto e o golpe entra mais forte
+    await begin('patio', 'crownguard', 0);
+    await page.evaluate(() => { const s = window.__scene; const e = window.__foe; const p = s.player; p.teleport(e.zone.x - 84, e.body.bottom); p.invuln = 99; e.facing = -1; e.state = 'guard'; e.atkCd = 0; });
+    await freeze("e.state === 'aim' && e.t > 0.45");
+    await page.evaluate(() => { const c = window.__scene.cameras.main; c.stopFollow(); c.centerOn(window.__foe.zone.x - 30, window.__foe.body.bottom - 30); });
+    await shot('t3-guarda-mira');
+    const parry = await page.evaluate(() => {
+      const e = window.__foe;
+      const box = new Phaser.Geom.Rectangle(e.zone.x - 40, e.body.bottom - 40, 30, 20);
+      const ok = e.parry(box, e.zone.x - 60);
+      const hp0 = e.hp;
+      e.hit(e.zone.x - 60, 1, 'side');
+      return { ok, st: e.state, dmg: +(hp0 - e.hp).toFixed(2) };
+    });
+    check(parry.ok && parry.st === 'stagger' && parry.dmg === 1.5, `aparar no fim do aviso deixa ele tonto, aberto e apanhando mais (${JSON.stringify(parry)})`);
+    // vencido: conta no bestiário
+    const gk = await page.evaluate(() => { const s = window.__scene; const e = window.__foe; e.hit(e.zone.x - 60, 99, 'side'); s.killed(e); return { alive: e.alive, kills: window.__progress.kills.get('crownguard') }; });
+    check(!gk.alive && gk.kills === 1, `vencido, o guarda entra no bestiário (${JSON.stringify(gk)})`);
+
+    // --- a Vigia Rúnica (na escada) ---
+    const w = await begin('escada', 'watcher', 1);
+    const spot = await page.evaluate(() => {
+      const e = window.__foe;
+      // um lugar no chão embaixo dela, de onde ela vê o cavaleiro
+      for (const dx of [-60, 60, -90, 90, -30, 30]) {
+        const x = e.pos.x + dx;
+        const y = e.floorBelow(x, e.pos.y);
+        if (y - e.pos.y < 220 && e.sees(x, y - 21)) return { x, y };
+      }
+      return null;
+    });
+    check(!!spot, `há um lugar no chão de onde a vigia vê o cavaleiro (${JSON.stringify(spot)} vigia ${JSON.stringify(w)})`);
+    if (spot) {
+      await page.evaluate((sp) => { const s = window.__scene; const p = s.player; p.teleport(sp.x, sp.y); p.body.setVelocity(0, 0); p.invuln = 0; p.hp = 5; window.__foe.cd = 0.2; }, spot);
+      await freeze("e.state === 'fire' && e.t > 0.06");
+      await page.evaluate(() => { const s = window.__scene; const c = s.cameras.main; const e = window.__foe; c.stopFollow(); c.centerOn((e.pos.x + s.player.x) / 2, (e.pos.y + s.player.body.bottom) / 2); });
+      await shot('t3-vigia-feixe');
+      // o feixe acerta no primeiro quadro: a vida já caiu
+      const beam = await foe();
+      check(beam.hp === 4 && beam.hurts === 1, `ela mira, trava e o feixe vai até ele parado (vida 5 -> ${beam.hp})`);
+      // um golpe enquanto ela mira: a runa apaga, ela cai no chão, deita e depois sobe de volta
+      await page.evaluate(() => { window.__scene.player.invuln = 99; });
+      await freeze("e.state === 'aim' && e.t > 0.2");
+      const fell = await page.evaluate(() => { const e = window.__foe; const y0 = e.pos.y; e.hit(window.__scene.player.x, 0.5, 'side'); return { st: e.state, y0, floor: e.floor }; });
+      await freeze("e.state === 'down' && e.t > 0.4");
+      const lying = await page.evaluate(() => { const e = window.__foe; return { st: e.state, y: e.pos.y, sq: +e.sprite.scaleY.toFixed(2), harms: e.harms(e.rect, false) }; });
+      await page.evaluate(() => { const c = window.__scene.cameras.main; const e = window.__foe; c.stopFollow(); c.centerOn(e.pos.x, e.pos.y - 40); });
+      await shot('t3-vigia-caida');
+      check(fell.st === 'fall' && lying.st === 'down' && Math.abs(lying.y - (fell.floor - 4)) < 1 && lying.sq < 0.4 && !lying.harms, `golpeada enquanto mira, ela cai, deita no chão e não machuca (${JSON.stringify({ fell, lying })})`);
+      await freeze("e.state === 'idle'");
+      const back = await page.evaluate(() => { const e = window.__foe; return { st: e.state, dy: +Math.abs(e.pos.y - e.home.y).toFixed(1), sq: e.sprite.scaleY }; });
+      check(back.st === 'idle' && back.dy < 4 && back.sq > 0.95, `depois ela sobe de volta para o lugar (${JSON.stringify(back)})`);
+    }
+
+    // --- os Arquivados (no Arquivo) ---
+    await setProgress(VALE);
+    await page.evaluate(() => { const p = window.__progress; p.powers = new Set(['lembranca']); p.power = 'lembranca'; p.amber = 3; p.save(); });
+    await begin('arquivo', 'archived', 2);
+    await page.evaluate(() => { const s = window.__scene; const e = window.__foe; const p = s.player; p.teleport(e.zone.x + 60, e.body.bottom); p.body.setVelocity(0, 0); p.invuln = 0; p.hp = 5; });
+    // ele sente o cavaleiro perto e vem de braços estendidos; o toque leva uma conta e não a vida
+    await freeze('window.__progress.amber < 2.5 && e.t > 0.1', 16000);
+    const t1 = await foe();
+    await page.evaluate(() => { const c = window.__scene.cameras.main; c.stopFollow(); c.centerOn(window.__foe.zone.x, window.__foe.body.bottom - 30); });
+    await shot('t3-arquivado-toque');
+    check(Math.abs(t1.amber - 2) < 0.01 && t1.hp === 5 && t1.st === 'drain', `o toque de um Arquivado leva uma conta de Âmbar e não abre rachadura (Âmbar 3 -> ${t1.amber.toFixed(2)}, vida ${t1.hp}, ${t1.st})`);
+    // sem uma conta inteira, o toque machuca
+    await page.evaluate(() => { const p = window.__progress; p.amber = 0.4; window.__scene.registry.set('amber', 0.4); const pl = window.__scene.player; pl.sapT = 0; pl.invuln = 0; pl.hp = 5; const e = window.__foe; pl.teleport(e.zone.x + 12, e.body.bottom); });
+    await freeze('s.player.hp < 5');
+    const t2 = await foe();
+    check(t2.hp === 4 && Math.abs(t2.amber - 0.4) < 0.01, `sem uma conta inteira, o toque machuca (vida 5 -> ${t2.hp}, Âmbar ${t2.amber.toFixed(2)})`);
+    // deslizando, ele passa por baixo dos braços
+    const slide = await page.evaluate(() => { const e = window.__foe; const R = new Phaser.Geom.Rectangle(e.zone.x - 7, e.body.bottom - 26, 14, 26); return e.harms(R, true); });
+    check(!slide, 'deslizando, o cavaleiro passa por baixo dos braços');
+    // vencido: deita, a luz volta para o frasco mais perto e o corpo some
+    await page.evaluate(() => { const s = window.__scene; s.player.invuln = 99; s.player.teleport(window.__foe.zone.x + 40, window.__foe.body.bottom); const e = window.__foe; e.hit(e.zone.x + 30, 99, 'side'); s.killed(e); });
+    await freeze('s.torres.jars.some((j) => j.flare > 0.5)', 8000);
+    const jar = await page.evaluate(() => ({ flare: +Math.max(...window.__scene.torres.jars.map((j) => j.flare)).toFixed(2), kills: window.__progress.kills.get('archived'), alive: window.__foe.alive }));
+    check(!jar.alive && jar.flare > 0.5 && jar.kills === 1, `vencido, a luz dele sobe para um frasco, que acende (${JSON.stringify(jar)})`);
+    await freeze('!e.sprite.active || e.sprite.alpha < 0.05', 8000);
+    const gone = await page.evaluate(() => !window.__foe.sprite.active || window.__foe.sprite.alpha < 0.05);
+    check(gone, 'e o corpo some (volta para a estante)');
+    await page.evaluate(() => window.__scene.sys.resume());
+  }
+
+  if (part('cadeiras')) {
+    // ---------- 12. a Sala das Experiências: as cadeiras, as coroas e o tanque ----------
+    await setProgress(VALE);
+    await start('experiencias', ENTRY.experiencias);
+    await pause();
+    const row = await page.evaluate(() => {
+      const s = window.__scene;
+      const t = s.torres;
+      const arch = s.enemies.filter((e) => e.kind === 'archived');
+      return { arch: arch.map((e) => [Math.round(e.zone.x), e.state, e.facing, e.chair, e.v, e.harms(e.rect, false)]), chairs: t.chairs.length, free: t.chairs.filter((c) => c.free).length, tank: !!t.tank, cables: s.textures.exists('exp-cables-experiencias'), jars: t.jars.length };
+    });
+    check(row.arch.length === 4 && row.arch.every((a, i) => a[1] === 'seated' && a[2] === -1 && a[3] === i && !a[5]) && row.chairs === 4 && row.free === 0 && row.tank && row.cables, `quatro Arquivados sentados nas cadeiras, de coroa, virados para a porta, sem machucar; os cabos e o tanque desenhados (${JSON.stringify(row)})`);
+    check(new Set(row.arch.map((a) => a[4])).size === 2, `os dois corpos aparecem misturados na fila (${row.arch.map((a) => a[4]).join(', ')})`);
+    // chegando perto do primeiro, só ele levanta: a coroa fica na haste, atrás do corpo
+    const p0 = row.arch[0];
+    await page.evaluate((x) => { const s = window.__scene; const p = s.player; p.teleport(x - 60, p.body.bottom); p.body.setVelocity(0, 0); p.invuln = 99; window.__foe = s.enemies.filter((e) => e.kind === 'archived')[0]; }, p0[0]);
+    await freeze("e.state === 'getup' && e.t > 0.25");
+    await page.evaluate(() => { const c = window.__scene.cameras.main; c.stopFollow(); c.centerOn(window.__foe.zone.x + 40, window.__foe.body.bottom - 40); });
+    await shot('t3-cadeiras');
+    const up = await page.evaluate(() => {
+      const s = window.__scene;
+      const c = s.torres.chairs[0];
+      return { st: s.enemies.filter((e) => e.kind === 'archived').map((e) => e.state), free: s.torres.chairs.map((q) => q.free), behind: c.crown.depth < window.__foe.sprite.depth, depth: [c.crown.depth, window.__foe.sprite.depth] };
+    });
+    check(up.st[0] === 'getup' && up.st.slice(1).every((x) => x === 'seated') && up.free.join() === 'true,false,false,false' && up.behind, `chegando perto, só o primeiro levanta e a coroa dele fica na cadeira, atrás do corpo (${JSON.stringify(up)})`);
+    await freeze("e.state === 'chase' || e.state === 'reach'");
+    const after = await foe();
+    check(after.st === 'chase' || after.st === 'reach', `de pé, ele vem atrás do cavaleiro (${after.st})`);
+    // a coroa pendurada balança até parar na vertical e vai apagando
+    await freeze('s.torres.chairs[0].swing > 2.6');
+    const hang = await page.evaluate(() => { const c = window.__scene.torres.chairs[0]; return { rot: +c.crown.rotation.toFixed(3), dim: +c.dim.toFixed(2) }; });
+    check(Math.abs(hang.rot) < 0.03 && hang.dim > 0.9, `a coroa solta balança até parar de pé na haste e apaga (${JSON.stringify(hang)})`);
+    // vencido, a luz dele vai pelo ar até o tanque, que clareia
+    await page.evaluate(() => { const s = window.__scene; const e = window.__foe; e.hit(e.zone.x + 30, 99, 'side'); s.killed(e); });
+    await freeze('s.torres.tank.flare > 0.5', 8000);
+    const tank = await page.evaluate(() => ({ flare: +window.__scene.torres.tank.flare.toFixed(2), alive: window.__foe.alive }));
+    check(!tank.alive && tank.flare > 0.5, `vencido, a luz dele volta para o tanque (${JSON.stringify(tank)})`);
+    // de longe, sem levantar: o último afunda na cadeira, a coroa solta e a luz também vai para o tanque
+    await page.evaluate(() => { const s = window.__scene; s.torres.tank.flare = 0; const e = s.enemies.filter((q) => q.kind === 'archived')[3]; window.__foe = e; e.hit(e.zone.x - 200, 99, 'side'); s.killed(e); });
+    await freeze('s.torres.tank.flare > 0.5', 8000);
+    const far = await page.evaluate(() => { const s = window.__scene; return { flare: +s.torres.tank.flare.toFixed(2), alive: window.__foe.alive, free: s.torres.chairs[3].free, seated: s.enemies.filter((q) => q.kind === 'archived').slice(1, 3).map((q) => q.state) }; });
+    check(!far.alive && far.free && far.flare > 0.5 && far.seated.join() === 'seated,seated', `vencido ainda sentado, a coroa solta e a luz vai para o tanque; os outros continuam sentados (${JSON.stringify(far)})`);
+    await page.evaluate(() => window.__scene.sys.resume());
   }
 
   console.log(errs.join('\n') || 'sem erros');

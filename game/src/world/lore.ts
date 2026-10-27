@@ -723,6 +723,21 @@ export const BESTIARY: { kind: string; name: string; text: string; tip: string }
     tip: 'Um golpe espalha o enxame. Não deixe o miolo encostar; no escuro, siga a borda roxa dos pontos.',
   },
   {
+    kind: 'crownguard', name: 'Guarda da Coroação',
+    text: 'Soldado da Casa Vhalor, de bronze e alabarda. Na noite da Coroação subiu as torres atrás dela. Ainda guarda as portas, de escudo alto, para uma festa que acabou.',
+    tip: 'O escudo para o que vem pela frente: bata de cima, pelas costas ou logo depois de um golpe dele. A estocada vem na altura do peito (agache, pule ou apare a ponta). Perto demais, o giro passa rente ao chão: pule.',
+  },
+  {
+    kind: 'watcher', name: 'Vigia Rúnica',
+    text: 'Um aro de bronze com uma runa no meio, parado no ar e preso a nada: é Âmbar vivo, posto pela Casa para olhar os corredores. O que ela vê, ela marca com luz.',
+    tip: 'Quando o fio de luz começa a seguir você, saia da linha: depois que ele pisca, o feixe vai reto até a primeira pedra. Um golpe enquanto ela mira derruba a vigia, e caída ela apanha mais.',
+  },
+  {
+    kind: 'archived', name: 'Os Arquivados',
+    text: 'Gente cuja memória a Casa guardou nos frascos do Arquivo. Ficou só o corpo, de olhos fechados, andando entre as estantes atrás de um calor que não lembra de quem era.',
+    tip: 'O toque não abre rachadura: leva uma conta de Âmbar (sem Âmbar, aí machuca). Deslize por baixo dos braços. Vencidos, não morrem: a luz deles volta para um frasco.',
+  },
+  {
     kind: 'boss:cacador', name: 'O Mestre da Caça',
     text: 'Caçador-mor da Casa Vhalor. Trazia os fugitivos de volta pela neve e entregava ao carrasco no fim da trilha. Congelou esperando uma presa que passou a serra.',
     tip: 'Agache na estocada alta, pule a baixa e saia de baixo do salto. Na nevasca, olhe a lanterna: ela pisca antes do golpe.',
@@ -743,11 +758,16 @@ export const LEVERS: Record<string, string> = {
 // os frascos de Âmbar que brilham nas estantes do Arquivo (',' no mapa, na ordem do mapa): cada um guarda
 // a memória de alguém, e o eco é uma frase só, na voz de quem ela era
 export const JAR_ECHOES: Record<string, string[]> = {
+  // na ordem do mapa, de cima para baixo; os de número 0, 3, 4 e 7 ficam ao lado de um Arquivado (o dono)
   arquivo: [
+    'Eu cuidava destes livros. Sabia onde estava cada um. Agora quem está numa prateleira sou eu.',
     'Minha mãe cantava para o pão crescer. Eu não lembro a letra. Eu lembrava.',
     'Pediram só o dia do incêndio. Levaram o ano inteiro junto.',
+    'Trabalhei nas engrenagens a vida inteira. A mão ainda sabe apertar. Eu é que não sei mais o quê.',
+    'Assinei o papel para salvar a casa da minha família. Não lembro da casa. Não lembro da família.',
     'Eu tinha um irmão. Disso eu tenho certeza. O rosto dele ficou aqui.',
     'Se alguém abrir isto: o nome da minha filha é Lis. Diga a ela que eu tentei.',
+    'Fui o primeiro a entrar aqui. Disseram que doía menos que lembrar. Mentiram nas duas coisas.',
   ],
 };
 

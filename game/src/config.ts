@@ -724,6 +724,68 @@ export const CAPATAZ = {
   fragEvery: 9,
 };
 
+// Guarda da Coroação (Torres Rúnicas): escudo alto pela frente, estocada longa na altura do peito
+// (agache, pule ou apare) e, perto demais ou pelas costas, o giro rente ao chão (pule)
+export const CROWN_GUARD = {
+  bodyW: 22,
+  bodyH: 56,
+  hp: 9,
+  walk: 40,
+  sight: 240,
+  // a distância que ele procura (a da alabarda), até onde a estocada alcança e o perto demais
+  keep: 70,
+  reach: 92,
+  close: 44,
+  turnDelay: 0.6,
+  aim: 0.62,
+  lunge: 150,
+  thrust: 0.26,
+  thrustActive: 0.2,
+  thrustRec: 0.62,
+  spinWind: 0.5,
+  spin: 0.5,
+  spinRec: 0.55,
+  // o giro: até onde vai de cada lado e a altura (abaixo do joelho de quem pula)
+  spinReach: 62,
+  spinH: 18,
+  atkCd: 1.1,
+};
+
+// Vigia Rúnica: mira (o fio segue o cavaleiro devagar), trava (o fio pisca e para) e dispara o feixe
+// até a primeira pedra. Um golpe enquanto mira ou trava derruba ela no chão
+export const WATCHER = {
+  r: 9,
+  hp: 4,
+  sight: 260,
+  aim: 1.1,
+  lock: 0.38,
+  fire: 0.32,
+  // meia largura do feixe (px)
+  half: 4,
+  cooldown: 1.6,
+  down: 2.2,
+  bob: 3,
+  range: 360,
+};
+
+// Os Arquivados: andam devagar de braços estendidos; encostar tira uma conta de Âmbar em vez de abrir
+// uma rachadura (sem Âmbar, machuca). Deslizando, ele passa por baixo dos braços
+export const ARCHIVED = {
+  bodyW: 14,
+  bodyH: 40,
+  hp: 4,
+  walk: 20,
+  chase: 34,
+  sight: 150,
+  // de perto ele estica os braços; sentado na cadeira das Experiências, levanta quando alguém chega a esta
+  // distância
+  reach: 30,
+  wake: 84,
+  drain: 1,
+  // quanto tempo o mesmo toque não tira outra conta
+  grace: 0.9,
+};
+
 // Corvo do Dízimo: paira, avisa com o olho aceso e mergulha em linha reta
 export const CROW = {
   bodyW: 18,
@@ -873,6 +935,9 @@ export const LOOT = {
   trout: { coins: [3, 5], life: 0.5 },
   heron: { coins: [4, 7], life: 0.5 },
   motes: { coins: [1, 3], life: 0.25 },
+  crownguard: { coins: [8, 12], life: 1 },
+  watcher: { coins: [4, 7], life: 0.5 },
+  archived: { coins: [2, 4], life: 0.5 },
   boss: { coins: [40, 40], life: 2 },
   // a sombra devolve as moedas dela direto na bolsa
   echo: { coins: [0, 0], life: 0 },

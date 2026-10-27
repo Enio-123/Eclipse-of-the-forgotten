@@ -8,8 +8,12 @@ import { ui } from '../ui/ui';
 import { JAR_ECHOES } from './lore';
 import { BG } from './Backdrop';
 import { DEPTH } from './Decor';
+import { isSolid } from './Level';
 import { canvasRaster, mix, rng } from '../gfx/raster';
 
+// o bronze das luvas dos cabos da Sala das Experiências
+const BRZ_MID = 0x7a5a2e;
+const BRZ_HI = 0xe4bd72;
 // quanto tempo o lume fica apagado depois de dar a luz dele (s), o raio em que ele encosta no cavaleiro
 // (px) e a cor da luz das nuvens
 const RELIGHT = 3.5;
@@ -55,6 +59,20 @@ interface Lume {
   ph: number;
 }
 
+// uma cadeira da Sala das Experiências: onde fica, para que lado está virada, a coroa e a luz dela, se quem
+// estava sentado já levantou e há quanto tempo (a coroa balança no braço até parar)
+interface Chair {
+  x: number;
+  y: number;
+  facing: 1 | -1;
+  crown: Phaser.GameObjects.Image;
+  glow: Phaser.GameObjects.Image;
+  free: boolean;
+  dim: number;
+  ph: number;
+  swing: number;
+}
+
 interface Jar {
   x: number;
   y: number;
@@ -98,6 +116,9 @@ export class Torres {
   private lumes: Lume[] = [];
   private runes: Rune[] = [];
   private jars: Jar[] = [];
+  private chairs: Chair[] = [];
+  // o tanque do fim da fila: onde fica, a luz do Âmbar dele (e o clarão de quando uma luz volta) e as bolhas
+  private tank: { x: number; y: number; glow: Phaser.GameObjects.Image; flare: number; bub: number } | null = null;
   // as runas gravadas no batente da porta que o conjunto abre (acendem junto)
   private doorGlyphs: Phaser.GameObjects.Image[] = [];
   private clouds: { sprite: Phaser.GameObjects.TileSprite; vx: number; x0: number }[] = [];
@@ -167,6 +188,7 @@ export class Torres {
     if (s.room.pit) this.addCloudSea();
     let ji = 0;
     for (const sp of s.level.spawns) if (sp.kind === ',') this.addJar(sp.x, sp.y, ji++);
+    this.addExperiment();
     this.addMachine();
   }
 
@@ -215,6 +237,7 @@ export class Torres {
       commit();
       T.addCanvas('amber-jar', canvas);
     }
+    this.makeExperimentTextures();
     // os elos da corrente, de frente e de lado (repete na vertical)
     if (!T.exists('chain-v')) {
       const { canvas, r, commit } = canvasRaster(6, 16);
@@ -681,6 +704,287 @@ export class Torres {
     }
   }
 
+  // para onde volta a luz de um Arquivado vencido: o frasco mais perto à vista (até max px, sem pedra no
+  // meio) ou, nas Experiências, o tanque. flare acende ele quando a luz chega
+  lightHome(x: number, y: number, max = 420) {
+    const L = this.s.level;
+    const clear = (tx: number, ty: number) => {
+      const dx = tx - x;
+      const dy = ty - y;
+      const n = Math.ceil(Math.hypot(dx, dy) / 6);
+      for (let i = 1; i < n; i++) if (isSolid(L.tileAt(x + (dx * i) / n, y + (dy * i) / n))) return false;
+      return true;
+    };
+    const j = this.jars
+      .map((q) => ({ q, d: Math.hypot(q.x - x, q.y - 6 - y) }))
+      .filter((o) => o.d < max)
+      .sort((a, b) => a.d - b.d)
+      .find((o) => clear(o.q.x, o.q.y - 6))?.q;
+    if (j) {
+      return { x: j.x, y: j.y - 6, flare: () => {
+        j.flare = 1;
+        this.s.sfx('glass', 0.25, 1.6);
+      } };
+    }
+    const t = this.tank;
+    if (t && Math.abs(t.x - x) < max * 1.5 && clear(t.x, t.y - 30)) {
+      return { x: t.x, y: t.y - 30, flare: () => {
+        t.flare = 1;
+        this.s.sfx('glass', 0.3, 1.2);
+        this.s.sfx('gurgle', 0.25, 1.3);
+      } };
+    }
+    return null;
+  }
+
+  // ---------- a Sala das Experiências ----------
+  // O encosto alto de madeira escura com os aros de bronze, o assento, as pernas e a travessa, o braço com a
+  // correia de couro e, saindo do alto do encosto, o braço de bronze que vem por cima e segura a coroa em cima
+  // da cabeça de quem está sentado (desenhada virada para a direita; os pés de quem senta ficam na coluna 19)
+  private makeExperimentTextures() {
+    const T = this.s.textures;
+    const WOOD = [0x1c130c, 0x34241a, 0x4e3826, 0x6e5034];
+    const BRZ = [0x4a3015, 0x7a5a2e, 0xb98a3e, 0xe4bd72];
+    if (!T.exists('exp-chair')) {
+      const { canvas, r, commit } = canvasRaster(24, 46);
+      const X = (rx: number) => rx + 19;
+      const Y = (ry: number) => ry + 46;
+      const px = (rx: number, ry: number, c: number) => r.set(X(rx), Y(ry), c);
+      const run = (x0: number, x1: number, y0: number, y1: number, c: number) => {
+        for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) px(x, y, c);
+      };
+      // as pernas (a de trás e a da frente), com o pé de bronze, e a travessa
+      run(-16, -15, -7, -1, WOOD[2]);
+      px(-16, -4, WOOD[3]);
+      run(0, 1, -7, -1, WOOD[1]);
+      run(-16, -15, -1, -1, BRZ[1]);
+      run(0, 1, -1, -1, BRZ[1]);
+      run(-14, -1, -4, -4, WOOD[0]);
+      // o assento: a borda de cima pegando luz, a de baixo na sombra
+      run(-17, 2, -9, -9, WOOD[3]);
+      run(-17, 2, -8, -8, WOOD[2]);
+      run(-16, 1, -7, -7, WOOD[0]);
+      // o encosto alto: três tons, os dois aros de bronze e o pomo em cima
+      run(-18, -18, -31, -10, WOOD[3]);
+      run(-17, -17, -31, -10, WOOD[2]);
+      run(-16, -16, -31, -10, WOOD[1]);
+      for (const y of [-28, -14]) {
+        run(-18, -16, y, y, BRZ[2]);
+        px(-18, y, BRZ[3]);
+      }
+      run(-18, -16, -32, -32, BRZ[1]);
+      px(-17, -33, BRZ[2]);
+      // a tomada do cabo, nas costas do encosto
+      run(-19, -19, -23, -21, BRZ[1]);
+      px(-19, -22, BRZ[3]);
+      // o braço da cadeira, o pé dele e a correia de couro com a fivela
+      run(-15, -3, -17, -17, WOOD[3]);
+      run(-15, -3, -16, -16, WOOD[1]);
+      run(-4, -4, -15, -10, WOOD[1]);
+      px(-3, -17, BRZ[2]);
+      px(-3, -16, BRZ[1]);
+      run(-9, -8, -18, -15, 0x2a1a14);
+      px(-8, -17, BRZ[2]);
+      // o braço de bronze da coroa: sobe do pomo, faz a curva por cima e desce até o alto da coroa
+      run(-17, -17, -39, -34, BRZ[1]);
+      run(-18, -16, -36, -36, BRZ[2]);
+      const arm: [number, number][] = [[-16, -40], [-15, -41], [-14, -42], [-13, -42], [-12, -43], [-11, -43], [-10, -43], [-9, -43], [-8, -43],
+        [-7, -43], [-6, -43], [-5, -43], [-4, -42], [-3, -42], [-2, -42], [-1, -41], [0, -40]];
+      for (const [x, y] of arm) {
+        px(x, y, BRZ[1]);
+        if (y <= -42) px(x, y - 1, BRZ[3]);
+      }
+      run(0, 0, -39, -35, BRZ[1]);
+      px(-1, -36, BRZ[2]);
+      px(1, -36, BRZ[0]);
+      r.outline(0x120c08);
+      commit();
+      T.addCanvas('exp-chair', canvas);
+    }
+    // a coroa: o aro de bronze com três pontas, o encaixe do braço no alto e as pedras de Âmbar (o meio do aro
+    // na linha 5, coluna 6)
+    if (!T.exists('exp-crown')) {
+      const { canvas, r, commit } = canvasRaster(12, 8);
+      r.rect(1, 4, 10, 1, BRZ[3]);
+      r.rect(1, 5, 10, 1, BRZ[1]);
+      r.set(1, 4, BRZ[1]);
+      r.set(10, 5, BRZ[0]);
+      for (const x of [2, 9]) r.rect(x, 2, 1, 2, BRZ[2]);
+      r.rect(5, 1, 2, 3, BRZ[2]);
+      r.rect(5, 0, 2, 1, BRZ[1]);
+      r.set(2, 2, 0xffa63c);
+      r.set(9, 2, 0xffa63c);
+      r.rect(5, 2, 2, 1, 0xffd27a);
+      r.set(3, 5, 0xc27a22);
+      r.set(8, 5, 0xc27a22);
+      r.outline(0x1a1109);
+      commit();
+      T.addCanvas('exp-crown', canvas);
+    }
+    // o tanque: o pé de bronze, o vidro com o Âmbar quase cheio (mais claro no meio, com os fios escuros das
+    // memórias misturadas boiando), os aros, a tampa em cúpula, o cano em cima e as tomadas dos cabos embaixo
+    if (!T.exists('exp-tank')) {
+      const { canvas, r, commit } = canvasRaster(34, 64);
+      r.rect(1, 56, 32, 1, BRZ[3]);
+      r.rect(1, 57, 32, 4, BRZ[1]);
+      r.rect(1, 61, 32, 1, BRZ[0]);
+      r.rect(2, 62, 4, 2, BRZ[0]);
+      r.rect(28, 62, 4, 2, BRZ[0]);
+      for (const y of [57, 59]) r.rect(0, y, 2, 1, BRZ[2]);
+      r.rect(4, 12, 26, 44, 0x161d24, 230);
+      for (let y = 20; y < 56; y++) {
+        const k = (y - 20) / 36;
+        r.rect(6, y, 22, 1, mix(0xe39a34, 0x8a4210, k));
+        r.rect(11, y, 12, 1, mix(0xffbe54, 0xb0581a, k));
+      }
+      r.rect(6, 20, 22, 1, 0xffd27a);
+      for (const [x, y] of [[13, 30], [14, 31], [15, 31], [16, 32], [19, 40], [20, 41], [20, 42], [19, 43], [10, 46], [11, 47], [12, 47], [22, 50], [23, 49]] as [number, number][]) r.set(x, y, 0x7a3410);
+      r.rect(4, 12, 2, 44, 0x2e3a46);
+      r.rect(28, 12, 2, 44, 0x24303a);
+      r.rect(7, 14, 1, 40, 0xd8e4ec, 120);
+      r.rect(8, 16, 1, 14, 0xd8e4ec, 70);
+      for (const y of [22, 40]) {
+        r.rect(3, y, 28, 1, BRZ[2]);
+        r.rect(3, y + 1, 28, 1, BRZ[1]);
+      }
+      r.rect(2, 6, 30, 1, BRZ[3]);
+      r.rect(2, 7, 30, 3, BRZ[1]);
+      r.rect(2, 10, 30, 2, BRZ[0]);
+      r.rect(8, 3, 18, 3, BRZ[1]);
+      r.rect(9, 3, 16, 1, BRZ[2]);
+      r.rect(14, 0, 6, 3, BRZ[1]);
+      r.rect(15, 0, 1, 3, BRZ[3]);
+      r.outline(0x0f0c0a);
+      commit();
+      T.addCanvas('exp-tank', canvas);
+    }
+    // o cano de bronze que sobe do tanque até o teto (repete na vertical), com uma junta a cada 16 px
+    if (!T.exists('exp-pipe')) {
+      const { canvas, r, commit } = canvasRaster(8, 16);
+      r.rect(1, 0, 6, 16, BRZ[1]);
+      r.rect(2, 0, 1, 16, BRZ[3]);
+      r.rect(5, 0, 1, 16, BRZ[0]);
+      r.rect(0, 0, 8, 2, BRZ[2]);
+      r.rect(0, 1, 8, 1, BRZ[0]);
+      commit();
+      T.addCanvas('exp-pipe', canvas);
+    }
+  }
+
+  // as cadeiras em fila, a coroa de cada uma (na frente de quem senta) e os cabos que saem das costas e correm
+  // pelo chão até o tanque
+  private addExperiment() {
+    const s = this.s;
+    const st = s.room.seated;
+    if (!st) return;
+    const seats = s.level.spawns.filter((sp) => sp.kind === 'u');
+    if (!seats.length) return;
+    const floor = seats[0].y;
+    const tx = st.tank * TILE + TILE / 2;
+    // o tanque e o cano até o teto
+    s.add.image(tx, floor, 'exp-tank').setOrigin(0.5, 1).setDepth(DEPTH.prop + 0.6);
+    const L = s.level;
+    let top = floor - 64;
+    while (top > 0 && !isSolid(L.tileAt(tx, top - 1))) top -= 1;
+    if (floor - 64 - top > 4) s.add.tileSprite(tx, top, 8, floor - 64 - top, 'exp-pipe').setOrigin(0.5, 0).setDepth(DEPTH.prop + 0.55);
+    const glow = s.add.image(tx, floor - 30, 'glow').setTint(0xffa63c).setBlendMode(Phaser.BlendModes.ADD).setScale(1.1).setAlpha(0.4).setDepth(DEPTH.enemy - 0.5);
+    this.tank = { x: tx, y: floor, glow, flare: 0, bub: 0 };
+    // os cabos: das costas de cada cadeira, descendo em curva até o chão e correndo até as tomadas do tanque
+    const f = st.facing;
+    const plugs = seats.map((sp) => ({ x: sp.x - f * 19, y: sp.y - 22 }));
+    const x0 = Math.floor(Math.min(tx - 18, ...plugs.map((q) => q.x)) - 4);
+    const x1 = Math.ceil(Math.max(tx + 18, ...plugs.map((q) => q.x)) + 4);
+    const y0 = floor - 26;
+    const { canvas, r, commit } = canvasRaster(x1 - x0, floor - y0);
+    const side = Math.sign(tx - plugs[0].x) || 1;
+    plugs.forEach((q, i) => {
+      const fy = floor - 2 - i;
+      const end = { x: tx - side * 16, y: floor - 7 + (i % 4) };
+      const drop = { x: q.x + side * 9, y: fy };
+      const pts: [number, number][] = [];
+      // a curva da tomada até o chão, o trecho no chão e a subida até a tomada do tanque
+      for (let k = 0; k <= 1; k += 0.02) {
+        const a = (1 - k) * (1 - k);
+        const b = 2 * (1 - k) * k;
+        const c = k * k;
+        pts.push([a * q.x + b * (q.x + side * 4) + c * drop.x, a * q.y + b * fy + c * drop.y]);
+      }
+      for (let x = drop.x; side > 0 ? x < end.x - 6 : x > end.x + 6; x += side) pts.push([x, fy]);
+      for (let k = 0; k <= 1; k += 0.1) pts.push([end.x - side * 6 * (1 - k), fy + (end.y - fy) * k * k]);
+      for (const [x, y] of pts) {
+        const ix = Math.round(x - x0);
+        const iy = Math.round(y - y0);
+        r.set(ix, iy - 1, 0x3a2c24);
+        r.set(ix, iy, 0x1c1512);
+        r.set(ix, iy + 1, 0x120d0b);
+      }
+      // as luvas de bronze do cabo, de tanto em tanto
+      for (let x = drop.x + side * 14; side > 0 ? x < end.x - 10 : x > end.x + 10; x += side * 26) {
+        const ix = Math.round(x - x0);
+        const iy = Math.round(fy - y0);
+        r.rect(ix, iy - 2, 2, 4, BRZ_MID);
+        r.set(ix, iy - 2, BRZ_HI);
+      }
+    });
+    commit();
+    const key = `exp-cables-${s.room.id}`;
+    if (s.textures.exists(key)) s.textures.remove(key);
+    s.textures.addCanvas(key, canvas);
+    s.add.image(x0, y0, key).setOrigin(0, 0).setDepth(DEPTH.prop + 0.4);
+    // as cadeiras e as coroas: a coroa vai na frente da cabeça de quem senta, inclinada com ela, presa pelo
+    // encaixe do alto na ponta da haste do braço (é em volta desse encaixe que ela gira)
+    seats.forEach((sp, i) => {
+      s.add.image(sp.x, sp.y, 'exp-chair').setOrigin((f > 0 ? 19 : 5) / 24, 1).setFlipX(f < 0).setDepth(DEPTH.prop + 0.5);
+      const crown = s.add.image(sp.x + f * 0.76, sp.y - 35.75, 'exp-crown').setOrigin(6 / 12, 0.5 / 8).setFlipX(f < 0).setRotation(f * 0.45).setDepth(DEPTH.enemy + 0.3);
+      const cg = s.add.image(sp.x + f * 0.2, sp.y - 33.6, 'glow').setTint(0xffa63c).setBlendMode(Phaser.BlendModes.ADD).setScale(0.24).setAlpha(0.5).setDepth(DEPTH.enemy + 0.25);
+      this.chairs.push({ x: sp.x, y: sp.y, facing: f, crown, glow: cg, free: false, dim: 0, ph: i * 1.7, swing: 0 });
+    });
+  }
+
+  // a cadeira embaixo de quem nasce em (x, pés y), se houver: o número dela e para que lado ela está virada
+  chairAt(x: number, y: number) {
+    const i = this.chairs.findIndex((c) => Math.abs(c.x - x) < 2 && Math.abs(c.y - y) < 2);
+    return i < 0 ? null : { i, facing: this.chairs[i].facing };
+  }
+
+  // quem estava sentado levantou: a cabeça sai da coroa (que passa para trás do corpo), ela fica pendurada na
+  // haste do braço, balança até parar de pé e vai apagando
+  chairFree(i: number) {
+    const c = this.chairs[i];
+    if (!c || c.free) return;
+    c.free = true;
+    c.crown.setDepth(DEPTH.enemy - 0.3);
+    c.glow.setDepth(DEPTH.enemy - 0.35);
+    this.s.sfx('creak', 0.35, 1.4);
+    this.s.sfx('tink', 0.3, 0.8);
+  }
+
+  private updateExperiment(dt: number) {
+    for (const c of this.chairs) {
+      if (c.free) {
+        c.dim = Math.min(1, c.dim + dt * 0.6);
+        // solta da cabeça inclinada, ela pende para a vertical como um pêndulo que vai perdendo o balanço
+        c.swing += dt;
+        c.crown.setRotation(c.facing * 0.45 * Math.exp(-c.swing * 1.8) * Math.cos(c.swing * 7.5));
+      }
+      const pulse = 0.5 + 0.5 * Math.sin(this.time * 1.6 + c.ph);
+      c.glow.setAlpha((0.32 + pulse * 0.25) * (1 - c.dim * 0.85));
+      if (c.dim > 0) c.crown.setTint(mix(0xffffff, 0x7a6a58, c.dim * 0.7));
+    }
+    const t = this.tank;
+    if (!t) return;
+    t.flare = Math.max(0, t.flare - dt * 0.5);
+    const pulse = 0.5 + 0.5 * Math.sin(this.time * 0.9);
+    t.glow.setAlpha(0.34 + pulse * 0.1 + t.flare * 0.4).setScale(1.1 + t.flare * 0.5);
+    // as bolhas subindo no Âmbar
+    t.bub -= dt;
+    if (t.bub <= 0) {
+      t.bub = 0.25 + Math.random() * 0.35 - t.flare * 0.2;
+      const b = this.s.add.image(t.x - 10 + Math.random() * 20, t.y - 10, 'px').setTint(0xffe6a6).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.8).setDepth(DEPTH.prop + 0.7);
+      this.s.tweens.add({ targets: b, y: t.y - 43 - Math.random() * 1, x: b.x + (Math.random() - 0.5) * 4, alpha: 0.2, duration: 1800 + Math.random() * 900, ease: 'Sine.easeIn', onComplete: () => b.destroy() });
+    }
+  }
+
   // de pé perto de um frasco: {up} escuta o eco
   nearby(p: Player): { hint: string; act: () => void } | null {
     if (!p.onGround) return null;
@@ -753,6 +1057,7 @@ export class Torres {
     this.updateLumes(dt, p, puff);
     this.updateRunes(dt);
     this.updateJars(dt);
+    this.updateExperiment(dt);
     this.updateMachine(dt);
     // as nuvens andam devagar (a de trás mais devagar), na posição certa de cada trecho
     for (const c of this.clouds) c.sprite.tilePositionX = c.x0 + this.time * c.vx;
