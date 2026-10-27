@@ -17,6 +17,7 @@ ASSETS = os.path.join(HERE, '..', 'game', 'public', 'assets')
 GOLD = [hexc(0xb4702e), hexc(0xe7ad55), hexc(0xfff0c8)]
 WIN = [hexc(0xd9772e), hexc(0xffc46e)]
 FOREST = ['encosta', 'pinhal', 'lago', 'mata', 'cabana', 'serra', 'clareira']
+VALE = ['descida', 'prado', 'riacho', 'cachoeiras', 'gruta', 'prainha', 'rio', 'cais']
 
 # tipo de cada camada: 'opaque' (sem transparência), 'soft' (alfa suave em 16 níveis), 'exact'
 # (já está em 1x com o alfa certo, como o terreno, que segue a física) ou 'veil' (já em 1x, alfa
@@ -107,6 +108,13 @@ THEMES = {
         accents=[hexc(0xf6faff), hexc(0xdfeaf6), hexc(0x9fd0f2), hexc(0x5a92c4), hexc(0xffa63c), hexc(0xffd27a), hexc(0xb4222b),
                  hexc(0x2f4a46), hexc(0x05070c)],
         colors=128,
+    ),
+    'vale': dict(
+        layers={**{f'terreno-{n}': 'exact' for n in VALE}, **{f'pinhos-{n}': 'soft1x' for n in VALE}},
+        rename={f'terreno-{n}': f'terrain-{n}' for n in VALE},
+        accents=[hexc(0xffe6ef), hexc(0xf6b6cd), hexc(0xe48aac), hexc(0xd9e07c), hexc(0x79b04e), hexc(0xe9c99c), hexc(0xd8ecf2),
+                 hexc(0xf6f9fd), hexc(0x24161a)],
+        colors=160,
     ),
     'forest': dict(
         layers={'intro-back': 'opaque', 'intro-near': 'soft', 'intro-fore': 'soft', 'intro-beams': 'soft'},

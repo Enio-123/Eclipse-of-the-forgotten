@@ -1107,7 +1107,7 @@ const CHAPTER6: Record<'descida' | 'prado' | 'riacho' | 'cachoeiras' | 'gruta' |
       { side: 'right', to: 'prado', entry: '1', range: [35, 39] },
     ],
     ...VALE,
-    music: 'memory',
+    music: 'vale',
     ambience: 'wind',
     hints: [],
     // o córrego do terraço despenca da beirada até o poço (atrás dela, o nicho do baú)
@@ -1129,7 +1129,7 @@ const CHAPTER6: Record<'descida' | 'prado' | 'riacho' | 'cachoeiras' | 'gruta' |
       { side: 'right', to: 'riacho', entry: '1', range: [31, 35] },
     ],
     ...VALE,
-    music: 'memory',
+    music: 'vale',
     ambience: 'wind',
     hints: [],
     // o primeiro trecho onde a lembrança falha: o meio do campo, com duas árvores
@@ -1152,8 +1152,8 @@ const CHAPTER6: Record<'descida' | 'prado' | 'riacho' | 'cachoeiras' | 'gruta' |
       { side: 'right', to: 'cachoeiras', entry: '1', range: [3, 8] },
     ],
     ...VALE,
-    music: 'memory',
-    ambience: 'wind',
+    music: 'vale',
+    ambience: 'river',
     hints: [],
     thoughts: [
       { x: 8, text: 'O riacho. A ponte de madeira. Eu já estive aqui, na Lembrança.' },
@@ -1172,8 +1172,8 @@ const CHAPTER6: Record<'descida' | 'prado' | 'riacho' | 'cachoeiras' | 'gruta' |
       { side: 'right', to: 'gruta', entry: '1', range: [4, 8] },
     ],
     ...VALE,
-    music: 'memory',
-    ambience: 'rain',
+    music: 'vale',
+    ambience: 'falls',
     hints: [],
     // as duas quedas grandes (do alto da sala até o poço) e a pequena que cobre a boca da gruta; do lado
     // de cada uma, a névoa sobe em corrente de ar (a capa pega nela)
@@ -1202,7 +1202,7 @@ const CHAPTER6: Record<'descida' | 'prado' | 'riacho' | 'cachoeiras' | 'gruta' |
     ...VALE,
     petals: false,
     drips: 14,
-    music: 'memory',
+    music: 'vale',
     ambience: 'crypt',
     hints: [],
     thoughts: [
@@ -1221,8 +1221,8 @@ const CHAPTER6: Record<'descida' | 'prado' | 'riacho' | 'cachoeiras' | 'gruta' |
       { side: 'right', to: 'rio', entry: '1', range: [26, 30] },
     ],
     ...VALE,
-    music: 'memory',
-    ambience: 'wind',
+    music: 'vale',
+    ambience: 'river',
     hints: [],
     // o rio corre devagar para a direita e puxa mais forte por baixo do paredão
     currents: [
@@ -1246,8 +1246,8 @@ const CHAPTER6: Record<'descida' | 'prado' | 'riacho' | 'cachoeiras' | 'gruta' |
       { side: 'right', to: 'cais', entry: '1', range: [26, 30] },
     ],
     ...VALE,
-    music: 'memory',
-    ambience: 'wind',
+    music: 'vale',
+    ambience: 'river',
     hints: [],
     // a correnteza aperta rio abaixo, a caminho da cachoeira do cais; cada tronco desce o trecho entre
     // duas ilhas
@@ -1273,8 +1273,8 @@ const CHAPTER6: Record<'descida' | 'prado' | 'riacho' | 'cachoeiras' | 'gruta' |
     subtitle: 'O barco que não partiu',
     exits: [{ side: 'left', to: 'rio', entry: '2', range: [27, 30] }],
     ...VALE,
-    music: 'memory',
-    ambience: 'wind',
+    music: 'cais',
+    ambience: 'night',
     boss: 'barqueiro',
     // a cachoeira grande, no fundo do lago (a lua passa por trás dela)
     backFall: { x0: 43, x1: 48 },

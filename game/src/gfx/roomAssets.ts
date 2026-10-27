@@ -19,6 +19,9 @@ const ROOM_IMAGES = new Set([
   'terrain-boca', 'terrain-trilhos', 'terrain-alagada', 'terrain-prensas', 'terrain-veio', 'terrain-espelhos', 'terrain-capataz',
   'terrain-encosta', 'terrain-pinhal', 'terrain-lago', 'terrain-mata', 'terrain-cabana', 'terrain-serra', 'terrain-clareira',
   'pinhos-encosta', 'pinhos-pinhal', 'pinhos-lago', 'pinhos-mata', 'pinhos-cabana', 'pinhos-serra', 'pinhos-clareira',
+  'terrain-descida', 'terrain-prado', 'terrain-riacho', 'terrain-cachoeiras', 'terrain-gruta', 'terrain-prainha', 'terrain-rio', 'terrain-cais',
+  'pinhos-descida', 'pinhos-prado', 'pinhos-riacho', 'pinhos-cachoeiras', 'pinhos-gruta', 'pinhos-prainha', 'pinhos-rio', 'pinhos-cais',
+  'flores-prado-0', 'flores-prado-1',
   'bridge-sky', 'bridge-far', 'bridge-far-rim', 'bridge-mid', 'bridge-mid-rim', 'bridge-fg', 'cat-far', 'cat-mid', 'mem-sky', 'mem-far', 'mem-mid',
   'city-sky', 'city-far', 'city-mid', 'claustro-mid', 'nave-far', 'nave-mid', 'prison-far', 'prison-mid', 'fosso-far', 'fosso-mid',
   'mine-far', 'mine-mid', 'snow-sky', 'snow-far', 'snow-mid', 'mata-far', 'mata-mid', 'serra-far', 'serra-mid',
@@ -29,7 +32,7 @@ const ROOM_IMAGES = new Set([
 export const ROOM_SHEETS = new Set(['sineiro', 'arcebispo', 'carcereira', 'sombra', 'capataz', 'cacador', 'barqueiro']);
 
 export function roomImages(room: RoomDef) {
-  const keys = [`terrain-${room.id}`, `terrain-${room.id}-secret`, `pinhos-${room.id}`, ...backdropKeys(room.theme, room.id)];
+  const keys = [`terrain-${room.id}`, `terrain-${room.id}-secret`, `pinhos-${room.id}`, `flores-${room.id}-0`, `flores-${room.id}-1`, ...backdropKeys(room.theme, room.id)];
   return keys.filter((k) => ROOM_IMAGES.has(k));
 }
 

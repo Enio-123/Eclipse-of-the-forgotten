@@ -1011,6 +1011,380 @@
      "h": 704.0
     }
    ]
+  },
+  "descida": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-descida-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 896.0,
+     "h": 768.0
+    },
+    {
+     "file": "t-descida-1.webp",
+     "x": 896.0,
+     "y": 0.0,
+     "w": 896.0,
+     "h": 768.0
+    }
+   ]
+  },
+  "descida-pinhos": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-descida-pinhos-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 896.0,
+     "h": 768.0
+    },
+    {
+     "file": "t-descida-pinhos-1.webp",
+     "x": 896.0,
+     "y": 0.0,
+     "w": 896.0,
+     "h": 768.0
+    }
+   ]
+  },
+  "prado": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-prado-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 944.0,
+     "h": 672.0
+    },
+    {
+     "file": "t-prado-1.webp",
+     "x": 944.0,
+     "y": 0.0,
+     "w": 944.0,
+     "h": 672.0
+    },
+    {
+     "file": "t-prado-2.webp",
+     "x": 1888.0,
+     "y": 0.0,
+     "w": 928.0,
+     "h": 672.0
+    }
+   ]
+  },
+  "prado-pinhos": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-prado-pinhos-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 944.0,
+     "h": 672.0
+    },
+    {
+     "file": "t-prado-pinhos-1.webp",
+     "x": 944.0,
+     "y": 0.0,
+     "w": 944.0,
+     "h": 672.0
+    },
+    {
+     "file": "t-prado-pinhos-2.webp",
+     "x": 1888.0,
+     "y": 0.0,
+     "w": 928.0,
+     "h": 672.0
+    }
+   ]
+  },
+  "riacho": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-riacho-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 832.0,
+     "h": 928.0
+    },
+    {
+     "file": "t-riacho-1.webp",
+     "x": 832.0,
+     "y": 0.0,
+     "w": 832.0,
+     "h": 928.0
+    },
+    {
+     "file": "t-riacho-2.webp",
+     "x": 1664.0,
+     "y": 0.0,
+     "w": 832.0,
+     "h": 928.0
+    }
+   ]
+  },
+  "riacho-pinhos": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-riacho-pinhos-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 832.0,
+     "h": 928.0
+    },
+    {
+     "file": "t-riacho-pinhos-1.webp",
+     "x": 832.0,
+     "y": 0.0,
+     "w": 832.0,
+     "h": 928.0
+    },
+    {
+     "file": "t-riacho-pinhos-2.webp",
+     "x": 1664.0,
+     "y": 0.0,
+     "w": 832.0,
+     "h": 928.0
+    }
+   ]
+  },
+  "cachoeiras": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-cachoeiras-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 896.0,
+     "h": 880.0
+    },
+    {
+     "file": "t-cachoeiras-1.webp",
+     "x": 0.0,
+     "y": 880.0,
+     "w": 896.0,
+     "h": 880.0
+    }
+   ]
+  },
+  "cachoeiras-pinhos": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-cachoeiras-pinhos-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 896.0,
+     "h": 880.0
+    },
+    {
+     "file": "t-cachoeiras-pinhos-1.webp",
+     "x": 0.0,
+     "y": 880.0,
+     "w": 896.0,
+     "h": 880.0
+    }
+   ]
+  },
+  "gruta": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-gruta-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 768.0,
+     "h": 640.0
+    },
+    {
+     "file": "t-gruta-1.webp",
+     "x": 768.0,
+     "y": 0.0,
+     "w": 768.0,
+     "h": 640.0
+    }
+   ]
+  },
+  "gruta-pinhos": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-gruta-pinhos-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 768.0,
+     "h": 640.0
+    },
+    {
+     "file": "t-gruta-pinhos-1.webp",
+     "x": 768.0,
+     "y": 0.0,
+     "w": 768.0,
+     "h": 640.0
+    }
+   ]
+  },
+  "prainha": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-prainha-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 752.0,
+     "h": 736.0
+    },
+    {
+     "file": "t-prainha-1.webp",
+     "x": 752.0,
+     "y": 0.0,
+     "w": 752.0,
+     "h": 736.0
+    },
+    {
+     "file": "t-prainha-2.webp",
+     "x": 1504.0,
+     "y": 0.0,
+     "w": 736.0,
+     "h": 736.0
+    }
+   ]
+  },
+  "prainha-pinhos": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-prainha-pinhos-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 752.0,
+     "h": 736.0
+    },
+    {
+     "file": "t-prainha-pinhos-1.webp",
+     "x": 752.0,
+     "y": 0.0,
+     "w": 752.0,
+     "h": 736.0
+    },
+    {
+     "file": "t-prainha-pinhos-2.webp",
+     "x": 1504.0,
+     "y": 0.0,
+     "w": 736.0,
+     "h": 736.0
+    }
+   ]
+  },
+  "rio": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-rio-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 800.0,
+     "h": 736.0
+    },
+    {
+     "file": "t-rio-1.webp",
+     "x": 800.0,
+     "y": 0.0,
+     "w": 800.0,
+     "h": 736.0
+    },
+    {
+     "file": "t-rio-2.webp",
+     "x": 1600.0,
+     "y": 0.0,
+     "w": 800.0,
+     "h": 736.0
+    },
+    {
+     "file": "t-rio-3.webp",
+     "x": 2400.0,
+     "y": 0.0,
+     "w": 800.0,
+     "h": 736.0
+    }
+   ]
+  },
+  "rio-pinhos": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-rio-pinhos-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 800.0,
+     "h": 736.0
+    },
+    {
+     "file": "t-rio-pinhos-1.webp",
+     "x": 800.0,
+     "y": 0.0,
+     "w": 800.0,
+     "h": 736.0
+    },
+    {
+     "file": "t-rio-pinhos-2.webp",
+     "x": 1600.0,
+     "y": 0.0,
+     "w": 800.0,
+     "h": 736.0
+    },
+    {
+     "file": "t-rio-pinhos-3.webp",
+     "x": 2400.0,
+     "y": 0.0,
+     "w": 800.0,
+     "h": 736.0
+    }
+   ]
+  },
+  "cais": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-cais-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 800.0,
+     "h": 800.0
+    },
+    {
+     "file": "t-cais-1.webp",
+     "x": 800.0,
+     "y": 0.0,
+     "w": 800.0,
+     "h": 800.0
+    }
+   ]
+  },
+  "cais-pinhos": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-cais-pinhos-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 800.0,
+     "h": 800.0
+    },
+    {
+     "file": "t-cais-pinhos-1.webp",
+     "x": 800.0,
+     "y": 0.0,
+     "w": 800.0,
+     "h": 800.0
+    }
+   ]
   }
  },
  "backdrop": {

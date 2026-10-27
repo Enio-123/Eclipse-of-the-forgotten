@@ -70,6 +70,8 @@ interface BackFall {
 }
 
 // a cor da cortina do fundo: verde-água de longe e, puxando a correnteza, o Âmbar
+// o canto (pixels do jogo) das copas à parte de cada sala, na ordem das árvores do presente no mapa
+const FLORES: Record<string, [number, number][]> = { prado: [[1274, 101], [939, 281]] };
 const BACK_TINT = 0xd8f0ea;
 const AMBER_TINT = 0xffb35a;
 
@@ -98,7 +100,7 @@ export class Vale {
   // quando o cinza chega) e a cinza seca no ar
   private present: Phaser.Geom.Rectangle[] = [];
   private pres = { x: 0, y: 0, r: 0, k: 0 };
-  private blooms: { x: number; y: number; gs: Phaser.GameObjects.Graphics[]; bare: number }[] = [];
+  private blooms: { x: number; y: number; gs: { setAlpha(a: number): unknown }[]; bare: number }[] = [];
   private ash: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
   private ashAcc = 0;
   // sem o filtro do Alto e do EXTREME (Performance): a tela inteira desbota enquanto o cinza dura
@@ -117,7 +119,8 @@ export class Vale {
     const room = s.room;
     for (const r of room.present ?? []) this.present.push(new Phaser.Geom.Rectangle(r.x0 * TILE, r.y0 * TILE, (r.x1 - r.x0 + 1) * TILE, (r.y1 - r.y0 + 1) * TILE));
     this.makeTextures();
-    if (!s.textures.exists(`arvores-${s.room.id}`)) this.drawTrees();
+    if (s.textures.exists(`pinhos-${s.room.id}`)) this.paintedBlooms();
+    else this.drawTrees();
     this.drawWater();
     // a espuma onde a queda bate, os respingos e a névoa que sobe do lado
     this.foam = s.add.particles(0, 0, 'glow', {
@@ -759,6 +762,20 @@ export class Vale {
         this.ash.emitParticleAt(P.x + Math.cos(ang) * rr, P.y + Math.sin(ang) * rr * 0.8 - 30);
       }
     }
+  }
+
+  // com a vegetação pintada (pinhos-<sala>, art2/vale.py), as copas das árvores dos trechos do presente
+  // vêm à parte (flores-<sala>-<n>, em 2x, no canto que o pintor imprime) para cair quando o cinza chega
+  private paintedBlooms() {
+    const s = this.s;
+    const corners = FLORES[s.room.id] ?? [];
+    const trunks = s.level.spawns.filter((sp) => sp.kind === 'T' && this.present.some((r) => r.contains(sp.x, sp.y - 8)));
+    trunks.forEach((t, i) => {
+      const key = `flores-${s.room.id}-${i}`;
+      if (!corners[i] || !s.textures.exists(key)) return;
+      const img = s.add.image(corners[i][0], corners[i][1], key).setOrigin(0).setScale(0.5).setDepth(DEPTH.prop - 0.4);
+      this.blooms.push({ x: t.x, y: t.y - 5 * TILE, gs: [img], bare: 0 });
+    });
   }
 
   // cada árvore 'T': o tronco do pé até acima do galho mais alto, os galhos do mapa saindo dele (o pé de

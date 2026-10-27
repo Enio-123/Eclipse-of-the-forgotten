@@ -11,8 +11,8 @@ export type SfxName =
   | 'echo' | 'echo-die' | 'veil' | 'veil-form'
   | 'howl' | 'hoot' | 'horn' | 'gust' | 'flap' | 'crunch' | 'ice-crack' | 'ice-break' | 'freeze' | 'growl' | 'yelp' | 'lantern'
   | 'plop' | 'leap' | 'flop' | 'heron' | 'buzz' | 'gurgle' | 'creak' | 'rope';
-export type TrackId = 'title' | 'bridge' | 'crypt' | 'memory' | 'boss' | 'city' | 'nave' | 'boss2' | 'boss3' | 'mine' | 'mirror' | 'boss4' | 'forest' | 'cabin' | 'boss5' | 'boss6' | FileTrackId | 'none';
-export type AmbienceId = 'rain' | 'crypt' | 'wind' | 'city' | 'nave' | 'prison' | 'mine' | 'snow' | 'hearth' | 'none';
+export type TrackId = 'title' | 'bridge' | 'crypt' | 'memory' | 'boss' | 'city' | 'nave' | 'boss2' | 'boss3' | 'mine' | 'mirror' | 'boss4' | 'forest' | 'cabin' | 'boss5' | 'boss6' | 'vale' | 'cais' | FileTrackId | 'none';
+export type AmbienceId = 'rain' | 'crypt' | 'wind' | 'city' | 'nave' | 'prison' | 'mine' | 'snow' | 'hearth' | 'river' | 'falls' | 'night' | 'none';
 // faixas gravadas, em arquivo (as trilhas que o Enio escolheu)
 type FileTrackId = 'prison' | 'fosso' | 'shadow';
 type SynthTrackId = Exclude<TrackId, FileTrackId | 'none'>;
@@ -51,6 +51,8 @@ const AMIN4 = [45, 48, 52], BB4 = [46, 50, 53], EMAJ4 = [40, 44, 47], DMIN4 = [5
 // capítulo 5 (a floresta): si menor aberto; o chefe em mi menor, com o si maior da caçada
 const BMIN5 = [47, 50, 54], GMAJ5 = [43, 47, 50], DMAJ5 = [50, 54, 57], FSM5 = [42, 45, 49];
 const EMIN5 = [40, 43, 47], CMAJ5 = [48, 52, 55], AMIN5 = [45, 48, 52], BMAJ5 = [47, 51, 54];
+// Vale das Cachoeiras: fá maior, a luz dourada (o si bemol vira si natural de vez em quando, lídio)
+const FMAJ6 = [41, 45, 48], AMIN6 = [45, 48, 52], BBMAJ6 = [46, 50, 53], CMAJ6 = [48, 52, 55], DMIN6 = [50, 53, 57];
 // a travessia do Barqueiro (seis colcheias por compasso; 0 é pausa), em ré menor
 const BARCAROLA = [
   [69, 0, 0, 67, 0, 65], [64, 0, 0, 65, 0, 0], [70, 0, 0, 69, 0, 67], [65, 0, 0, 0, 0, 0],
@@ -326,6 +328,58 @@ const TRACKS: Record<SynthTrackId, TrackDef> = {
       if (bar % 8 === 4 && (i === 0 || i === 3 || i === 6)) e.flute(p.bus, t, [ch[2] + 24, ch[1] + 24, ch[0] + 24][(i / 3) | 0], d * 3.5, 0.028);
       if (bar % 8 === 5 && i === 0) e.flute(p.bus, t, ch[1] + 24, d * 7, 0.026);
       if (s % 64 === 32) e.choir(p.bus, t, ch[2] + 12, d * 16, 0.011);
+    },
+  },
+  // Vale das Cachoeiras: fá maior a 72, quente e aberto. O piano corre em arpejo como a água (sobe e
+  // desce os acordes, macio), a flauta canta uma frase pentatônica de quatro em quatro compassos, a
+  // caixinha brilha às vezes e o coro abre a cada dezesseis; no compasso 7 de cada volta o si natural
+  // (o lídio) dá a luz de fim de tarde
+  vale: {
+    bpm: 72,
+    start(e, p) {
+      p.stop.push(e.drone(p.bus, 29, 0.026), e.drone(p.bus, 41, 0.01));
+    },
+    step(e, p, s, t, d) {
+      const prog = [FMAJ6, AMIN6, BBMAJ6, CMAJ6, FMAJ6, DMIN6, BBMAJ6, CMAJ6];
+      const bar = Math.floor(s / 8);
+      const ch = prog[bar % 8];
+      const i = s % 8;
+      if (i === 0 && bar % 2 === 0) e.pad(p.bus, t, ch.map((n) => n + 12), d * 16, 0.024, 1100);
+      if (i === 0) e.piano(p.bus, t, ch[0] - 12, 0.075, d * 8);
+      // o arpejo: 1-3-5-8-10-8-5-3, com uma nota pulada de vez em quando
+      const arp = [ch[0] + 12, ch[1] + 12, ch[2] + 12, ch[0] + 24, ch[1] + 24, ch[0] + 24, ch[2] + 12, ch[1] + 12];
+      let n = arp[i];
+      if (bar % 8 === 6 && n % 12 === 10) n += 1;
+      if (chance(0.86)) e.piano(p.bus, t, n, 0.022 + (i === 0 ? 0.012 : 0) + Math.random() * 0.01, d * 3);
+      const phrase = [[72, 0, 69, 0, 67, 0, 65, 0], [67, 0, 69, 72, 0, 0, 74, 0], [72, 0, 0, 69, 0, 67, 0, 0], [65, 0, 0, 0, 0, 0, 0, 0]];
+      if (bar % 8 >= 4) {
+        const m = phrase[bar % 4][i];
+        if (m && Math.floor(bar / 8) % 2 === 1) e.flute(p.bus, t, m, d * 2.2, 0.024);
+      }
+      if (chance(0.04)) e.musicbox(p.bus, t, pick([ch[0] + 36, ch[2] + 36, ch[1] + 36]), 0.012);
+      if (s % 128 === 64) e.choir(p.bus, t, ch[2] + 12, d * 16, 0.012);
+    },
+  },
+  // O Cais da Lua: ré menor a 56, noite. Só o piano grave, a caixinha como a lua na água (notas soltas e
+  // espaçadas) e o pad bem baixo; a barcarola do Barqueiro aparece de longe, na flauta, de vez em quando
+  cais: {
+    bpm: 56,
+    start(e, p) {
+      p.stop.push(e.drone(p.bus, 38, 0.028), e.drone(p.bus, 45, 0.01));
+    },
+    step(e, p, s, t, d) {
+      const prog = [DMIN6, BBMAJ6, FMAJ6, CMAJ6];
+      const bar = Math.floor(s / 6);
+      const ch = prog[Math.floor(bar / 2) % 4];
+      const i = s % 6;
+      if (i === 0 && bar % 2 === 0) e.pad(p.bus, t, ch.map((n) => n + 12), d * 12, 0.02, 700);
+      if (i === 0) e.piano(p.bus, t, ch[0] - 12, 0.07, d * 6);
+      if (i === 3 && chance(0.5)) e.piano(p.bus, t, ch[2], 0.03, d * 3);
+      if (chance([0.18, 0.04, 0.1, 0.04, 0.12, 0.04][i])) e.musicbox(p.bus, t, pick([ch[0] + 36, ch[1] + 36, ch[2] + 36, ch[0] + 24]), 0.016);
+      if (Math.floor(bar / 8) % 3 === 2) {
+        const m = BARCAROLA[bar % 8][i];
+        if (m) e.flute(p.bus, t, m, d * 2.5, 0.016);
+      }
     },
   },
   // A Cabana: ré maior, a cantiga que ela cantarolava, na caixinha de música, com o piano baixo e
@@ -930,11 +984,55 @@ class AudioEngine {
       const moan = noise('bandpass', 420, 7, 0.05);
       lfo(moan.bf.frequency, 0.045, 160);
       lfo(moan.g.gain, 0.08, 0.03);
-    } else if (id === 'wind') {
-      const w = noise('bandpass', 750, 0.8, 0.05);
-      lfo(w.bf.frequency, 0.07, 260);
-      lfo(w.g.gain, 0.11, 0.025);
-      noise('bandpass', 2100, 1.2, 0.008);
+    } else if (id === 'falls') {
+      // a queda d'água perto: o ronco grave, o chiado da espuma e o vento que ela empurra
+      const roar = noise('lowpass', 900, 0.4, 0.28);
+      lfo(roar.g.gain, 0.07, 0.05);
+      const hiss = noise('bandpass', 2600, 0.5, 0.05);
+      lfo(hiss.g.gain, 0.19, 0.015);
+      noise('lowpass', 160, 0.6, 0.12);
+    } else if (id === 'night') {
+      // a noite no cais: a água correndo baixo e os grilos (pulsos agudos em grupos)
+      const body = noise('lowpass', 520, 0.5, 0.09);
+      lfo(body.g.gain, 0.06, 0.025);
+      const lap = noise('bandpass', 1100, 1.4, 0.02);
+      lfo(lap.g.gain, 0.4, 0.012);
+      let alive = true;
+      const cricket = () => {
+        if (!alive) return;
+        const now = ctx.currentTime;
+        const f = 4200 + Math.random() * 900;
+        for (let k = 0; k < 3 + Math.floor(Math.random() * 3); k++) {
+          const tt = now + k * 0.09;
+          const o = ctx.createOscillator();
+          o.frequency.value = f;
+          const g = ctx.createGain();
+          g.gain.setValueAtTime(0, tt);
+          g.gain.linearRampToValueAtTime(0.006, tt + 0.01);
+          g.gain.exponentialRampToValueAtTime(0.0003, tt + 0.05);
+          o.connect(g).connect(bus);
+          o.start(tt);
+          o.stop(tt + 0.06);
+        }
+        window.setTimeout(cricket, 700 + Math.random() * 1800);
+      };
+      window.setTimeout(cricket, 900);
+      stops.push(() => (alive = false));
+    } else if (id === 'wind' || id === 'river') {
+      if (id === 'wind') {
+        const w = noise('bandpass', 750, 0.8, 0.05);
+        lfo(w.bf.frequency, 0.07, 260);
+        lfo(w.g.gain, 0.11, 0.025);
+        noise('bandpass', 2100, 1.2, 0.008);
+      } else {
+        // o rio correndo: o corpo grave, o borbulhar no meio (que muda de altura) e o chiado fino
+        const body = noise('lowpass', 650, 0.5, 0.11);
+        lfo(body.g.gain, 0.05, 0.03);
+        const babble = noise('bandpass', 1300, 1.6, 0.045);
+        lfo(babble.bf.frequency, 0.37, 380);
+        lfo(babble.g.gain, 0.53, 0.018);
+        noise('highpass', 3800, 0.7, 0.008);
+      }
       // passarinhos de vez em quando
       let alive = true;
       const chirp = () => {
