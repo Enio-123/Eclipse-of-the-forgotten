@@ -3,7 +3,7 @@ import type { RoomId } from './rooms';
 // As regiões de Vespera, como o Agrimensor vende os mapas: cada uma é uma folha. Sem a folha, a região
 // não aparece no mapa (nem a sala onde o cavaleiro está). Com ela, as salas aparecem a lápis e o que ele
 // já pisou fica passado a tinta.
-export type RegionId = 'vespera' | 'cidade' | 'prisao' | 'fosso' | 'minas' | 'floresta' | 'vale';
+export type RegionId = 'vespera' | 'cidade' | 'prisao' | 'fosso' | 'minas' | 'floresta' | 'vale' | 'torres';
 
 export interface RegionDef {
   id: RegionId;
@@ -47,6 +47,10 @@ export const REGIONS: RegionDef[] = [
   {
     id: 'vale', name: 'Vale das Cachoeiras', rooms: ['descida', 'prado', 'riacho', 'cachoeiras', 'gruta', 'prainha', 'rio', 'cais'], wash: '#7fb07a', price: 45, surveyor: { room: 'descida', x: 16, y: 13 },
     blurb: 'Do pé da serra até o lago da lua. A água muda de lugar, então as margens eu deixei a lápis.',
+  },
+  {
+    id: 'torres', name: 'Torres Rúnicas', rooms: ['escada', 'calha', 'patio', 'arquivo', 'experiencias', 'engrenagens', 'trono', 'coroacao', 'nucleo'], wash: '#b9925a', price: 50, surveyor: { room: 'escada', x: 58, y: 53 },
+    blurb: 'A escada, a calha e o pátio eu medi com os pés. As torres, de fora: lá dentro ninguém me deixou entrar, e o alto delas some nas nuvens.',
   },
 ];
 

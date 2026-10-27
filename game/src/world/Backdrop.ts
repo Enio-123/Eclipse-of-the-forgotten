@@ -18,6 +18,9 @@ export const HD_LAYERS: Record<string, string[]> = {
   memory: ['mem-sky', 'mem-far', 'mem-mid'],
 };
 
+// as salas das Torres que ficam dentro de uma torre (sem céu)
+export const TORRES_INSIDE = new Set(['arquivo', 'experiencias', 'engrenagens', 'trono', 'coroacao']);
+
 // as imagens de fundo que a sala usa (vêm quando ela abre: gfx/roomAssets.ts); as nuvens ficam sempre,
 // a tela de título usa também
 export function backdropKeys(theme: string, room: string): string[] {
@@ -45,6 +48,9 @@ export function backdropKeys(theme: string, room: string): string[] {
       if (room === 'gruta') return ['gruta-far', 'gruta-mid'];
       if (room === 'cais') return ['cais-sky', 'cais-far', 'cais-mid'];
       return ['vale-sky', 'vale-far', 'vale-mid'];
+    case 'torres':
+      // ao ar livre, o céu do eclipse por cima do mar de nuvens; por dentro das torres, só a pedra
+      return TORRES_INSIDE.has(room) ? [] : ['vale-sky'];
     default:
       return ['mem-sky', 'mem-far', 'mem-mid'];
   }
@@ -77,9 +83,11 @@ export class Backdrop {
     else if (theme === 'mine') this.mine();
     else if (theme === 'snow') this.snow();
     else if (theme === 'vale') this.vale();
+    else if (theme === 'torres') this.torres();
     else this.memory();
     const valeBg = room === 'gruta' ? 0x070b0d : room === 'cais' ? 0x0f1a36 : 0x8a7f9c;
-    this.bg = { bridge: 0x161a2b, catacomb: 0x07080d, city: 0x0b1020, nave: 0x07080d, memory: 0x5c9a3e, prison: 0x08070b, mine: 0x0a0807, snow: 0x9fb3c8, vale: valeBg }[theme];
+    const torresBg = TORRES_INSIDE.has(room) ? 0x0b0908 : 0x6b4a32;
+    this.bg = { bridge: 0x161a2b, catacomb: 0x07080d, city: 0x0b1020, nave: 0x07080d, memory: 0x5c9a3e, prison: 0x08070b, mine: 0x0a0807, snow: 0x9fb3c8, vale: valeBg, torres: torresBg }[theme];
   }
 
   private img(key: string, depth: number) {
@@ -504,6 +512,30 @@ export class Backdrop {
       this.layers.push({ o: beam, update: (_sx, _sy, t) => void (beam.alpha = a * (0.7 + 0.3 * Math.sin(t * 0.0004 + x))) });
     }
   }
+  // Torres Rúnicas (provisório até a pintura das Torres): o céu do eclipse e o brilho dourado do mar de
+  // nuvens subindo de baixo; por dentro das torres, só a escuridão da pedra
+  private torres() {
+    const room = this.room;
+    if (TORRES_INSIDE.has(room)) return;
+    const has = (k: string) => this.scene.textures.exists(k);
+    if (has('vale-sky')) hd(this.img('vale-sky', BG.sky)).setTint(0xd8b48a);
+    const add = Phaser.BlendModes.ADD;
+    const glow = this.scene.add.image(this.so.x + VIEW_W / 2, this.so.y + VIEW_H + 40, 'glow').setScale(26, 6).setTint(0xffc46a).setAlpha(0.22)
+      .setBlendMode(add).setScrollFactor(0).setDepth(BG.fog);
+    this.layers.push({ o: glow, update: (_sx, sy, t) => {
+      glow.alpha = 0.2 + 0.03 * Math.sin(t * 0.0008);
+      glow.y = this.so.y + VIEW_H + 40 + Math.round(this.lift(sy) * 0.3);
+    } });
+    const fog = this.tile('fog', BG.fog, 160, 220).setAlpha(0.3).setTint(0xffd9a0);
+    this.layers.push({
+      o: fog,
+      update: (sx, sy, t) => {
+        fog.tilePositionX = sx * 0.5 + t * 0.004;
+        fog.y = this.so.y + 220 + Math.round(this.lift(sy) * 0.4);
+      },
+    });
+  }
+
 
   // enquanto a pintura dos fundos da floresta não chega: o céu em degradê e troncos lisos em duas
   // distâncias (os de longe claros, quase sumindo; os de perto mais escuros)

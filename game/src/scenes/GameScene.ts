@@ -317,7 +317,7 @@ export interface Rose {
 }
 
 // pintura a óleo de cada tema quando a sala não diz (depois do Arcebispo ela vai crescendo)
-const PAINT: Partial<Record<Theme, number>> = { prison: 0.15, snow: 0.12, vale: 0.16 };
+const PAINT: Partial<Record<Theme, number>> = { prison: 0.15, snow: 0.12, vale: 0.16, torres: 0.2 };
 
 // quem nasce de cada letra do mapa
 const SPAWNERS: Record<string, (s: GameScene, x: number, y: number) => Enemy> = {
@@ -339,6 +339,11 @@ const SPAWNERS: Record<string, (s: GameScene, x: number, y: number) => Enemy> = 
   // nenhuma letra do mapa cai aqui; o 'k' é das chaves da guarita)
   wisp: (s, x, y) => new InkWisp(s, x, y),
 };
+
+// As letras que mudam de sentido nas Torres Rúnicas, e quem nasce delas (ainda ninguém: os inimigos das
+// Torres chegam com a T3)
+const TORRES_LETTERS: Record<string, 'guarda' | 'vigia' | 'arquivado'> = { g: 'guarda', v: 'vigia', u: 'arquivado' };
+const TORRES_SPAWNERS: Partial<Record<'guarda' | 'vigia' | 'arquivado', (s: GameScene, x: number, y: number) => Enemy>> = {};
 
 export class GameScene extends Phaser.Scene {
   controls!: Controls;
@@ -692,7 +697,8 @@ export class GameScene extends Phaser.Scene {
         if (room.boss) this.placeBoss(room.boss, s.x, s.y);
         continue;
       }
-      const make = SPAWNERS[s.kind];
+      // nas Torres, 'g', 'v' e 'u' são o Guarda da Coroação, a Vigia Rúnica e os Arquivados (TORRES_SPAWNERS)
+      const make = room.theme === 'torres' && s.kind in TORRES_LETTERS ? TORRES_SPAWNERS[TORRES_LETTERS[s.kind]] : SPAWNERS[s.kind];
       if (!make) continue;
       // trecho vencido e já descansado: as criaturas dali viraram cinza
       const key = `${room.id}:${s.tx}:${s.ty}`;
@@ -736,8 +742,8 @@ export class GameScene extends Phaser.Scene {
     if (room.theme !== 'memory') {
       // a vinheta do tema, mais fechada nas salas que são um lugar fechado dentro da área
       // (a gruta atrás da cachoeira: só a luz que atravessa a água entra)
-      const DARK_ROOM: Partial<Record<RoomId, number>> = { mata: 0.82, gruta: 0.86, cais: 0.62 };
-      const dark = DARK_ROOM[room.id] ?? { bridge: 0.5, catacomb: 0.9, city: 0.55, nave: 0.8, prison: 0.85, mine: 0.85, snow: 0.45, vale: 0.32 }[room.theme];
+      const DARK_ROOM: Partial<Record<RoomId, number>> = { mata: 0.82, gruta: 0.86, cais: 0.62, arquivo: 0.84, experiencias: 0.84, engrenagens: 0.82, trono: 0.84, coroacao: 0.86 };
+      const dark = DARK_ROOM[room.id] ?? { bridge: 0.5, catacomb: 0.9, city: 0.55, nave: 0.8, prison: 0.85, mine: 0.85, snow: 0.45, vale: 0.32, torres: 0.4 }[room.theme];
       this.add.image(so.x, so.y, 'vignette').setOrigin(0).setScrollFactor(0).setDepth(29).setAlpha(dark);
     }
     if (room.theme === 'bridge') {
@@ -752,7 +758,7 @@ export class GameScene extends Phaser.Scene {
     this.camY = room.theme === 'memory' ? 72 : 26;
     document.body.classList.toggle('bright', this.bright());
     // nos fundos lisos da Cidade-Catedral o grão é mais leve (o traço não some no ruído)
-    this.fx.setGrain({ bridge: 0.09, catacomb: 0.09, memory: 0.035, city: 0.07, nave: 0.07, prison: 0.08, mine: 0.08, snow: 0.05, vale: 0.04 }[room.theme]);
+    this.fx.setGrain({ bridge: 0.09, catacomb: 0.09, memory: 0.035, city: 0.07, nave: 0.07, prison: 0.08, mine: 0.08, snow: 0.05, vale: 0.04, torres: 0.05 }[room.theme]);
     cam.setFollowOffset(-this.lookX, this.camY);
     this.look = lookFor(room.theme, room.id, room.paint ?? PAINT[room.theme]);
     this.xp = null;
@@ -777,8 +783,10 @@ export class GameScene extends Phaser.Scene {
     audio.music(room.music);
     audio.ambience(room.ambience);
     audio.stepKind = room.theme === 'bridge' ? 'wet' : room.theme === 'memory' || (room.theme === 'vale' && room.id !== 'gruta') ? 'grass' : room.theme === 'snow' ? 'snow' : 'stone';
-    // a nave ecoa mais que tudo; a cidade aberta quase nada (a neve abafa); a gruta atrás da água ecoa
-    audio.space = room.id === 'gruta' ? 0.5 : { bridge: 0.12, catacomb: 0.45, memory: 0.12, city: 0.16, nave: 0.62, prison: 0.5, mine: 0.55, snow: 0.1, vale: 0.14 }[room.theme];
+    // a nave ecoa mais que tudo; a cidade aberta quase nada (a neve abafa); a gruta atrás da água ecoa, e
+    // as torres por dentro ecoam como a nave
+    const ECHO: Partial<Record<RoomId, number>> = { gruta: 0.5, arquivo: 0.5, experiencias: 0.45, engrenagens: 0.6, trono: 0.58, coroacao: 0.66 };
+    audio.space = ECHO[room.id] ?? { bridge: 0.12, catacomb: 0.45, memory: 0.12, city: 0.16, nave: 0.62, prison: 0.5, mine: 0.55, snow: 0.1, vale: 0.14, torres: 0.2 }[room.theme];
 
     // o ponto de retorno é a última vela acesa (no começo, a ponte); da memória volta-se para a vela do espelho
     if (data.from === 'new') progress.checkpoint(room.id, data.entry, settings.data.weapon);
@@ -2576,7 +2584,7 @@ export class GameScene extends Phaser.Scene {
     this.sfx('locked', 0.7);
     this.time.delayedCall(240, () => this.sfx('door', 0.8, 1.1));
     this.cameras.main.shake(120, 0.003);
-    ui.thought('A tranca cedeu. A porta da praça fica aberta daqui para frente.', 4200);
+    ui.thought(d.def.to === 'patio' ? 'A tranca cedeu. A grande porta do pátio fica aberta daqui para frente.' : 'A tranca cedeu. A porta da praça fica aberta daqui para frente.', 4200);
   }
 
   debris(x: number, y: number, kind: 'rock' | 'glass', n: number) {
@@ -3333,6 +3341,8 @@ export class GameScene extends Phaser.Scene {
     this.fixtures.openLocks(`boss:${id}`, true);
     this.time.delayedCall(thoughtDelay, () => ui.thought(info.after[0], 4600));
     this.time.delayedCall(thoughtDelay + 5200, () => ui.thought(info.after[1], 4600));
+    // no cais, o portão de bronze lá em cima da escada sobe junto (as Torres Rúnicas)
+    if (id === 'barqueiro') this.time.delayedCall(thoughtDelay + 10400, () => ui.thought('Lá em cima da escada, o portão de bronze subiu sozinho. Como se as Torres estivessem esperando por mim.', 4800));
   }
 
   // a Sombra vencida: a tinta da poça salta num fio até o cavaleiro e entra nele (vira o Véu)

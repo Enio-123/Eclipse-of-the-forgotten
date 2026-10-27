@@ -3,7 +3,7 @@ import { TILE } from '../config';
 import { SOLID_VARIANTS, TILE_ONEWAY, TILE_SOLID, TILE_SPIKE } from '../gfx/textures';
 import { findBreakables, type Breakable } from './secrets';
 
-export type Theme = 'bridge' | 'catacomb' | 'memory' | 'city' | 'nave' | 'prison' | 'mine' | 'snow' | 'vale';
+export type Theme = 'bridge' | 'catacomb' | 'memory' | 'city' | 'nave' | 'prison' | 'mine' | 'snow' | 'vale' | 'torres';
 
 // o que conta como rocha no grid: pedra, ferro liso (na neve, parede de gelo) e o chão de gelo do lago
 const ROCK = '#+_';

@@ -32,6 +32,11 @@ for (const [d, n] of [[L, 'esq'], [R, 'dir']]) {
   macros.push({ name: `pulo-duplo-${n}`, keys: [[J, 0, 22], [d, 0, 90], [J, 30, 52]] });
   macros.push({ name: `pulo-duplo-tarde-${n}`, keys: [[J, 0, 22], [d, 0, 90], [J, 46, 68]] });
   macros.push({ name: `pulo-parede-${n}`, keys: [[d, 0, 90], [J, 0, 22], [J, 34, 56]] });
+  // capa (planar): o pulo duplo segurado abre o retalho; ou o terceiro toque, depois do duplo
+  macros.push({ name: `planar-${n}`, keys: [[J, 0, 22], [d, 0, 240], [J, 30, 240]] });
+  macros.push({ name: `planar-tarde-${n}`, keys: [[J, 0, 22], [J, 30, 52], [d, 0, 240], [J, 70, 240]] });
+  macros.push({ name: `planar-dash-${n}`, keys: [[J, 0, 22], [d, 0, 240], [J, 30, 52], [F, 54, 56], [J, 70, 240]] });
+  macros.push({ name: `cair-planando-${n}`, keys: [[d, 0, 240], [J, 20, 22], [J, 40, 240]] });
 }
 macros.push({ name: 'pulo-reto', keys: [[J, 0, 40]] });
 macros.push({ name: 'pulo-duplo-reto', keys: [[J, 0, 22], [J, 30, 52]] });
@@ -48,22 +53,24 @@ macros.push({ name: 'descer', keys: [[DN, 0, 10], [J, 2, 4]] });
 
   for (const job of JOBS) {
     const t0 = Date.now();
-    await page.evaluate(([room, entry, ab]) => {
+    await page.evaluate(([room, entry, ab, seen]) => {
       const g = window.__game;
       if (window.__ex) window.__ex.stop();
       window.__ui.closeAll();
       // EXPLORE_AB=wall,double: explora com essas habilidades
       if (ab) window.__progress.abilities = new Set(ab.split(','));
+      // EXPLORE_SEEN=boss:vhalor,runas:patio: o progresso já tem essas marcas (portões, alçapões)
+      for (const k of seen ? seen.split(',') : []) window.__progress.seen.add(k);
       const t = g.scene.getScene('title');
       if (t && t.scene.isActive()) t.scene.stop();
       g.loop.wake();
       g.scene.start('game', { room, entry, from: 'continue' });
-    }, [job.room, job.entry, process.env.EXPLORE_AB || '']);
+    }, [job.room, job.entry, process.env.EXPLORE_AB || '', process.env.EXPLORE_SEEN || '']);
     await page.waitForFunction((room) => { const s = window.__scene; return s && s.player && s.room.id === room && s.scene.isActive() && !s.cinematic; }, job.room, { timeout: 20000 });
     await page.waitForTimeout(300);
 
     // prepara a sala para o teste: sem inimigos, sem dano, passo a passo
-    const info = await page.evaluate(() => {
+    const info = await page.evaluate((open) => {
       const g = window.__game;
       const s = window.__scene;
       g.loop.sleep();
@@ -87,6 +94,12 @@ macros.push({ name: 'descer', keys: [[DN, 0, 10], [J, 2, 4]] });
       const lv = s.level;
       const W = lv.widthPx;
       const exits = s.room.exits.map((e) => e.side);
+      const ups = s.room.exits.filter((e) => e.side === 'up');
+      const downs = s.room.exits.filter((e) => e.side === 'down');
+      const inRange = (list, cx) => list.some((e) => !e.range || (cx / 16 >= e.range[0] && cx / 16 < e.range[1] + 1));
+      // EXPLORE_OPEN=1: as paredes falsas já caíram (o explorador não bate em parede)
+      if (open) for (const w of [...s.fixtures.walls]) s.fixtures.breakWall(w, false);
+      const doors = s.fixtures.doors.map((d) => ({ x: d.x, y: d.y }));
       const fig = s.figure;
       const mirror = s.decor.mirror;
       // os registros da sala (objetivo r0, r1...: chegar em pé na frente do registro n)
@@ -118,11 +131,14 @@ macros.push({ name: 'descer', keys: [[DN, 0, 10], [J, 2, 4]] });
           }
           step();
           if (lv.touchesSpikes(b.x + 1, b.y, b.width - 2, b.height)) { fail = 'espinho'; break; }
+          if (downs.length && b.center.y > lv.heightPx + 2 && inRange(downs, b.center.x)) { goals.add('exit-down'); break; }
+          if (ups.length && b.top < -6 && inRange(ups, b.center.x)) { goals.add('exit-up'); break; }
           if (s.room.pit && b.top > lv.heightPx + 8) { fail = 'abismo'; break; }
           if (exits.includes('right') && b.center.x > W + 2) { goals.add('exit-right'); break; }
           if (exits.includes('left') && b.center.x < -2) { goals.add('exit-left'); break; }
           if (fig && Math.abs(fig.x - p.x) < 46) goals.add('figure');
           if (mirror && Math.abs(p.x - mirror.x) < 30 && Math.abs(b.bottom - mirror.y) < 10 && b.blocked.down) goals.add('mirror');
+          doors.forEach((d, i) => { if (b.blocked.down && Math.abs(p.x - d.x) < 14 && Math.abs(b.bottom - d.y) < 6) goals.add('d' + i); });
           recs.forEach((r, i) => { if (b.blocked.down && Math.abs(p.x - r.x) < 20 && Math.abs(b.bottom - r.y) < 6) goals.add('r' + i); });
           if (!b.blocked.down || Math.abs(b.bottom - startFeet) > 0.5) left = true;
           const lastKey = Math.max(...m.keys.map((k) => k[2]));
@@ -134,7 +150,7 @@ macros.push({ name: 'descer', keys: [[DN, 0, 10], [J, 2, 4]] });
       const spawn = { x: p.x, feet: p.body.bottom };
       window.__ex = { run, reset, stop: () => { releaseAll(); g.loop.wake(); }, step };
       return { spawn, W, H: lv.heightPx, w: lv.w, h: lv.h, exits, rows: lv.grid, mirror: mirror ? { x: mirror.x, y: mirror.y } : null, figure: fig ? { x: fig.x } : null };
-    });
+    }, !!process.env.EXPLORE_OPEN);
 
     // BFS sobre os pontos de apoio (quantizados por tile)
     const key = (r) => `${Math.floor(r.x / 16)}:${Math.round(r.feet / 16)}:${r.crouched ? 1 : 0}`;

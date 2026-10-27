@@ -211,6 +211,28 @@ const THEMES: Record<Theme, Partial<Look>> = {
     sat: 1.06,
     oil: 0.24,
   },
+  // Torres Rúnicas: acima das nuvens. A luz vem de baixo, dourada, do mar de nuvens, e o céu do eclipse
+  // fica em cima; sombras puxando para o violeta, o ouro e o Âmbar brilhando; a pintura no máximo
+  torres: {
+    sky: [0.08, 0.06, 0.05],
+    knight: 0.1,
+    ao: 0.3,
+    lightGain: 1.05,
+    bounce: 0.34,
+    relief: 0.3,
+    bloomThreshold: 0.66,
+    bloom: 0.62,
+    rays: 0.6,
+    mistColor: [1.0, 0.86, 0.6],
+    mist: 0.4,
+    mistFront: 0.08,
+    water: 0.55,
+    reflTint: [1.04, 0.96, 0.86],
+    shadowTint: [0.98, 0.95, 1.06],
+    highTint: [1.06, 1.0, 0.9],
+    sat: 1.04,
+    oil: 0.3,
+  },
 };
 
 // salas com luz própria
@@ -267,6 +289,14 @@ const ROOMS: Partial<Record<RoomId, Partial<Look>>> = {
   },
   // as cachoeiras: a névoa das quedas fica no ar o tempo todo
   cachoeiras: { mist: 0.56, mistFront: 0.16, wet: 0.18 },
+  // as Torres por dentro: escuras, só as runas, o Âmbar e as janelas acendem. O Arquivo em âmbar quente
+  // (os frascos), as Experiências frias e azuladas, as Engrenagens no vapor, o trono e a escadaria no
+  // escuro com a luz do núcleo subindo pelo meio
+  arquivo: { ambient: [0.46, 0.4, 0.34], sky: [0.2, 0.16, 0.12], knight: 0.4, knightR: 118, ao: 0.44, lightGain: 1.6, reach: 1.2, rays: 0.4, mistColor: [0.7, 0.52, 0.3], mist: 0.28, flicker: 0.06 },
+  experiencias: { ambient: [0.36, 0.42, 0.5], sky: [0.16, 0.2, 0.26], knight: 0.42, knightR: 118, ao: 0.46, lightGain: 1.6, reach: 1.2, rays: 0.3, mistColor: [0.5, 0.6, 0.72], mist: 0.3, shadowTint: [0.95, 0.99, 1.08], highTint: [1.0, 1.0, 1.02], oil: 0.26 },
+  engrenagens: { ambient: [0.44, 0.4, 0.38], sky: [0.2, 0.17, 0.15], knight: 0.4, knightR: 118, ao: 0.46, lightGain: 1.6, reach: 1.2, rays: 0.5, mistColor: [0.8, 0.74, 0.66], mist: 0.42 },
+  trono: { ambient: [0.4, 0.36, 0.34], sky: [0.16, 0.13, 0.12], knight: 0.4, knightR: 118, ao: 0.46, lightGain: 1.7, reach: 1.25, rays: 0.45, mistColor: [0.8, 0.6, 0.34], mist: 0.3 },
+  coroacao: { ambient: [0.38, 0.34, 0.34], sky: [0.16, 0.12, 0.1], knight: 0.42, knightR: 118, ao: 0.46, lightGain: 1.7, reach: 1.25, rays: 0.7, mistColor: [0.9, 0.66, 0.36], mist: 0.34 },
   // o Cais da Lua: a noite da lembrança. O luar frio vem de cima e da esquerda, a água devolve a lua, a
   // névoa prateada fica no lago; o lampião do barco e o Âmbar da cachoeira são as únicas luzes quentes
   cais: {

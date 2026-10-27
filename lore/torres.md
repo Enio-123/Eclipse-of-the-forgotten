@@ -41,15 +41,26 @@ Nove salas, longas como as do vale (o pedido do Enio).
 
 | Sala | Título | Subtítulo | O que tem |
 |---|---|---|---|
-| escada | A Escada do Aqueduto | Acima da cachoeira | Sala vertical: a escada de pedra sobe o paredão junto dos arcos do aqueduto, a cachoeira grande ao lado; no alto, as primeiras nuvens. Vigias Rúnicas |
-| calha | A Calha sobre as Nuvens | Por onde a água subia | Sala comprida: anda-se dentro e em cima da calha do aqueduto, sobre arcos plantados no fundo das nuvens. Trechos quebrados, a primeira vista das Torres. A relíquia da área, a Capa de Luz |
-| patio | O Pátio das Runas | Onde a Casa esperava | A base das Torres. Pilares de runas que acendem com um golpe e abrem a grande porta; primeiros Guardas da Coroação. Descanso |
-| arquivo | O Arquivo Proibido | O lugar dela | Biblioteca alta de estantes cheias de frascos de Âmbar (memórias roubadas), escadas de correr, os Arquivados. A mesa dela, as flores prensadas, o lugar da flor do final I |
-| experiencias | A Sala das Experiências | Antes da Coroação | As cadeiras com coroas de Âmbar ligadas por cabos, os cadernos dos testes. Prova `nucleo` |
-| engrenagens | A Torre das Engrenagens | A água que esfria o núcleo | Sala vertical: rodas d'água e engrenagens enormes movidas pela água do aqueduto, plataformas que giram em eixos, vapor do núcleo |
-| trono | O Trono da Casa | O Senhor de Vhalor | Arena do chefe do meio. Depois, o trono vazio |
-| coroacao | A Escadaria da Coroação | A noite | A escada em espiral em volta do poço do núcleo. Os ecos da noite: ela subindo na frente, os guardas, a ordem |
+| escada | A Escada do Aqueduto | Acima da cachoeira | Sala vertical: a escada de pedra sobe o paredão em três lanços sobre pilares, junto dos canos de bronze por onde a água do vale sobe sozinha (sifão: a que desce da cabeceira empurra a que sobe). O lanço do meio caiu e só o pilar do meio ficou de pé. No alto, o tanque e as primeiras nuvens. Vigias Rúnicas e um Guarda. O Agrimensor no primeiro patamar |
+| calha | A Calha sobre as Nuvens | Por onde a água chegava | Sala comprida sobre o mar de nuvens: anda-se dentro do conduto, com a água na canela. Dois vãos onde os arcos caíram: a Casa fechou as pontas com pedra e passou a água por canos de bronze que descem para dentro das nuvens (as faces de bronze não deixam as garras subir). A torre da comporta fica em pé no conduto: sobe-se pela sacada de um lado e desce-se do outro. No vão grande, o pilar mais baixo com a Capa de Luz: chega-se planando, sai-se voando |
+| patio | O Pátio das Runas | Onde a Casa esperava | A esplanada no pé das três torres, a cisterna onde a calha despeja, a vela de descanso. Três portas: a do Arquivo (aberta), a grande porta da torre do meio (trancada por dentro: a tranca sai lá da Torre das Engrenagens e a porta vira atalho) e a da torre das Experiências, no terraço, sem fechadura: abre quando as quatro runas estão acesas juntas (uma no chão, uma no pedestal baixo, uma no terraço e uma no alto da coluna, onde se sobe pelos degraus de ferro presos entre a coluna e a parede da torre). Guardas da Coroação |
+| arquivo | O Arquivo Proibido | O lugar dela | Opcional, fora do caminho. Três pilhas de galerias entre as estantes, com o vão da subida trocando de lado a cada andar e passagens nas estantes embaixo, no meio e mais alto. A mesa dela (a memória e um registro), os frascos que brilham, os Arquivados, a sala de leitura no alto e, atrás da estante falsa, a ficha dele. O lugar da flor do final I |
+| experiencias | A Sala das Experiências | Antes da Coroação | As cadeiras com coroas de Âmbar ligadas por cabos, os cadernos dos testes, em três andares. Do último sai a ponte coberta até a torre do meio. Prova `nucleo` |
+| engrenagens | A Torre das Engrenagens | A água que esfria o núcleo | Sala vertical: a torre do meio é oca. O vapor do núcleo desce pelos canos e move as rodas; as rodas giram as engrenagens e a corrente dos baldes, que tira a água do poço do fundo (a da calha) e leva até o alto, para esfriar o núcleo. O eixo grande divide a torre em duas metades; em cada uma sobe-se por saliências que trocam de lado a cada seis linhas. A ponte das Experiências chega no meio da altura; embaixo, o lado de dentro da grande porta |
+| trono | O Trono da Casa | O Senhor de Vhalor | Arena do chefe do meio: a antessala baixa com a grade, o salão, o estrado e o encosto alto do trono. Depois da luta, o alçapão do teto abre; sobe-se pelo degrau do estrado, pelos degraus de ferro presos no encosto e pelo lustre do meio do salão |
+| coroacao | A Escadaria da Coroação | A noite | A escada em caracol em volta do poço do núcleo: lanços de uma parede à outra e, em cada volta, um trecho de parede até o patamar de cima. Os ecos da noite: ela subindo na frente, os guardas, a ordem |
 | nucleo | O Coração do Eclipse | Onde tudo aconteceu | Arena final no alto da torre maior, sobre o mar de nuvens, com o núcleo preso nas correntes. O Carrasco Coroado e os três finais |
+
+### Caminhos
+
+O caminho principal: o portão do cais, a escada, a calha (a Capa de Luz), o pátio, as runas, as
+Experiências, a ponte coberta, a Torre das Engrenagens, o Trono (Vhalor), o alçapão, a Coroação e o
+Núcleo. O Arquivo é opcional (a porta está aberta desde o começo). A grande porta do pátio é atalho:
+abre por dentro, da Torre das Engrenagens.
+
+Todas as salas sobem com o que o cavaleiro já tem ao chegar (pulo duplo, parede, dash, capa de planar),
+conferidas com a física do jogo pelo explorador (tools/explore.cjs, com as saídas de cima e de baixo e
+as portas como objetivos). A única passagem que pede a Capa de Luz é o vão grande da calha.
 
 ## Mecânicas novas
 

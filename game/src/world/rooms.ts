@@ -5,6 +5,7 @@ import {
   MAP_ALAGADA, MAP_MARGEM, MAP_MASCARA, MAP_MATA, MAP_MEMORIA, MAP_MERCADO, MAP_NAVE, MAP_NICHOS, MAP_PINHAL, MAP_POCO, MAP_PONTE, MAP_PRACA, MAP_PRENSAS, MAP_RUA, MAP_SERRA, MAP_SINOS, MAP_SOLITARIAS,
   MAP_TELHADOS, MAP_TRILHOS, MAP_VEIO,
   MAP_DESCIDA, MAP_PRADO, MAP_RIACHO, MAP_CACHOEIRAS, MAP_GRUTA, MAP_PRAINHA, MAP_RIO, MAP_CAIS,
+  MAP_ESCADA, MAP_CALHA, MAP_PATIO, MAP_ARQUIVO, MAP_EXPERIENCIAS, MAP_ENGRENAGENS, MAP_TRONO, MAP_COROACAO, MAP_NUCLEO,
 } from './maps';
 import type { AmbienceId, TrackId } from '../systems/Audio';
 import type { Upgrade } from '../systems/Save';
@@ -16,7 +17,8 @@ export type RoomId =
   | 'poco' | 'solitarias' | 'celas' | 'correntes' | 'guarita' | 'fuga' | 'arena' | 'mascara' | 'fosso' | 'margem' | 'abismo'
   | 'boca' | 'trilhos' | 'alagada' | 'prensas' | 'veio' | 'espelhos' | 'capataz'
   | 'encosta' | 'pinhal' | 'lago' | 'mata' | 'cabana' | 'serra' | 'clareira'
-  | 'descida' | 'prado' | 'riacho' | 'cachoeiras' | 'gruta' | 'prainha' | 'rio' | 'cais';
+  | 'descida' | 'prado' | 'riacho' | 'cachoeiras' | 'gruta' | 'prainha' | 'rio' | 'cais'
+  | 'escada' | 'calha' | 'patio' | 'arquivo' | 'experiencias' | 'engrenagens' | 'trono' | 'coroacao' | 'nucleo';
 // 'cape': a Capa de Arielle (segurando o pulo no ar, plana; nas correntes de ar, sobe)
 // 'swim': a Concha do Rio (na água funda, nada para todos os lados e não perde o fôlego)
 export type Ability = 'dash' | 'wall' | 'double' | 'hook' | 'veil' | 'cape' | 'swim';
@@ -1271,26 +1273,219 @@ const CHAPTER6: Record<'descida' | 'prado' | 'riacho' | 'cachoeiras' | 'gruta' |
     theme: 'vale',
     title: 'O Cais da Lua',
     subtitle: 'O barco que não partiu',
-    exits: [{ side: 'left', to: 'rio', entry: '2', range: [27, 30] }],
+    exits: [
+      { side: 'left', to: 'rio', entry: '2', range: [27, 30] },
+      { side: 'right', to: 'escada', entry: '1', range: [17, 21] },
+    ],
     ...VALE,
     music: 'cais',
     ambience: 'night',
     boss: 'barqueiro',
     // a cachoeira grande, no fundo do lago (a lua passa por trás dela)
     backFall: { x0: 43, x1: 48 },
-    // o portão do aqueduto, lá em cima da escada: as Torres Rúnicas ainda não existem
-    locks: ['torres'],
+    // o portão do aqueduto, lá em cima da escada: sobe quando o Barqueiro cai (e as Torres esperam)
+    locks: ['boss:barqueiro'],
     // os troncos do lago ficam boiando no lugar
     logs: [null, null, null],
     hints: [],
     thoughts: [
       { x: 4, text: 'Um cais de madeira. No meio do lago, um barco rodando devagar, e alguém de pé nele, parado.' },
-      { x: 90, y: 27, text: 'A escada sobe junto do aqueduto. O portão lá em cima está fechado.' },
+      { x: 90, y: 27, text: 'A escada sobe junto do aqueduto, até um portão de bronze lá em cima.' },
     ],
   },
 };
 
-export const ROOMS: Record<RoomId, RoomDef> = { ...PROLOGUE, ...CHAPTER2, ...CHAPTER3, ...CHAPTER4, ...CHAPTER5, ...CHAPTER6 };
+const TORRES: Pick<RoomDef, 'rain' | 'lightning' | 'petals' | 'motes' | 'drips'> = { rain: false, lightning: false, petals: false, motes: true, drips: 0 };
+
+// capítulo 7: as Torres Rúnicas, da Casa Vhalor, acima das nuvens. A escada do aqueduto sobe do cais, a
+// calha atravessa o mar de nuvens até o pátio, e das três torres saem o Arquivo, as Experiências e a torre
+// do meio, que leva ao trono, à escadaria da Coroação e ao núcleo (lore/torres.md). Nas salas abertas o
+// fundo é o mar de nuvens (pit): quem cai volta ao último chão firme
+const CHAPTER7: Record<'escada' | 'calha' | 'patio' | 'arquivo' | 'experiencias' | 'engrenagens' | 'trono' | 'coroacao' | 'nucleo', RoomDef> = {
+  escada: {
+    id: 'escada',
+    map: MAP_ESCADA,
+    theme: 'torres',
+    title: 'A Escada do Aqueduto',
+    subtitle: 'Acima da cachoeira',
+    exits: [
+      { side: 'left', to: 'cais', entry: '2', range: [73, 77] },
+      { side: 'right', to: 'calha', entry: '1', range: [3, 8] },
+    ],
+    ...TORRES,
+    pit: true,
+    music: 'nave',
+    ambience: 'falls',
+    hints: [],
+    // a calha começa na caixa d'água do alto do paredão e corre para a direita
+    currents: [{ x0: 163, x1: 175, y0: 8, y1: 8, vx: 40 }],
+    thoughts: [
+      { x: 6, text: 'A escada da Casa sobe junto dos canos de bronze. Dentro deles a água do vale sobe sozinha, empurrada pela que desce lá da cabeceira.' },
+      { x: 80, y: 46, text: 'O meio da escada caiu. Só o pilar ficou de pé.' },
+      { x: 112, y: 29, text: 'As nuvens passam por baixo dos degraus. Daqui para cima a Casa não precisava de chão.' },
+      { x: 158, y: 8, text: 'As Torres. Saem das nuvens retas e escuras, como se ninguém tivesse construído.' },
+    ],
+  },
+  calha: {
+    id: 'calha',
+    map: MAP_CALHA,
+    theme: 'torres',
+    title: 'A Calha sobre as Nuvens',
+    subtitle: 'Por onde a água chegava',
+    exits: [
+      { side: 'left', to: 'escada', entry: '2', range: [16, 21] },
+      { side: 'right', to: 'patio', entry: '1', range: [16, 21] },
+    ],
+    ...TORRES,
+    pit: true,
+    music: 'nave',
+    ambience: 'wind',
+    hints: [],
+    currents: [
+      { x0: 0, x1: 57, y0: 21, y1: 21, vx: 40 },
+      { x0: 78, x1: 128, y0: 21, y1: 21, vx: 40 },
+      { x0: 187, x1: 239, y0: 21, y1: 21, vx: 40 },
+    ],
+    thoughts: [
+      { x: 6, text: 'A calha da Casa, por cima das nuvens. A água corre sem barulho, na direção das Torres.' },
+      { x: 54, y: 21, text: 'Os arcos caíram. A Casa fechou a calha com pedra e passou a água por um cano que desce para dentro das nuvens.' },
+      { x: 124, y: 21, text: 'Daqui para a frente, só um pilar no meio do vazio. Em volta dele a luz das nuvens sobe como fumaça.' },
+    ],
+  },
+  patio: {
+    id: 'patio',
+    map: MAP_PATIO,
+    theme: 'torres',
+    title: 'O Pátio das Runas',
+    subtitle: 'Onde a Casa esperava',
+    exits: [{ side: 'left', to: 'calha', entry: '2', range: [44, 49] }],
+    // as portas na ordem do mapa, linha a linha: a do terraço (torre da direita), a do Arquivo, a grande porta
+    doors: [
+      { to: 'experiencias', entry: 'O0', key: 'runas:patio', locked: 'A porta da torre da direita não tem fechadura. Só runas gravadas no batente, apagadas.' },
+      { to: 'arquivo', entry: 'O0' },
+      { to: 'engrenagens', entry: 'O0', key: 'short:torre', locked: 'A grande porta da torre do meio. Não tem fechadura deste lado.' },
+    ],
+    ...TORRES,
+    pit: false,
+    music: 'nave',
+    ambience: 'wind',
+    hints: [],
+    thoughts: [
+      { x: 6, text: 'O pátio da Casa. Três torres, e nenhuma janela acesa.' },
+      { x: 46, text: 'Uma pedra gravada no chão. A runa está apagada, mas ainda quente.' },
+    ],
+  },
+  arquivo: {
+    id: 'arquivo',
+    map: MAP_ARQUIVO,
+    theme: 'torres',
+    title: 'O Arquivo Proibido',
+    subtitle: 'O lugar dela',
+    exits: [],
+    doors: [{ to: 'patio', entry: 'O1' }],
+    ...TORRES,
+    pit: false,
+    drips: 6,
+    music: 'nave',
+    ambience: 'nave',
+    hints: [],
+    thoughts: [
+      { x: 10, text: 'Estantes até o teto, e em cada prateleira um frasco de Âmbar. Cada frasco é alguém.' },
+      { x: 32, y: 47, text: 'Uma mesa de trabalho. Flores prensadas entre as fichas. Eu conheço essa letra.' },
+    ],
+  },
+  experiencias: {
+    id: 'experiencias',
+    map: MAP_EXPERIENCIAS,
+    theme: 'torres',
+    title: 'A Sala das Experiências',
+    subtitle: 'Antes da Coroação',
+    exits: [{ side: 'left', to: 'engrenagens', entry: '1', range: [18, 23] }],
+    doors: [{ to: 'patio', entry: 'O0' }],
+    ...TORRES,
+    pit: true,
+    music: 'nave',
+    ambience: 'nave',
+    hints: [],
+    thoughts: [
+      { x: 28, text: 'Cadeiras em fila, cada uma com uma coroa de Âmbar presa por cabos. Ainda tem gente sentada.' },
+      { x: 12, y: 23, text: 'A ponte coberta até a torre do meio. Lá embaixo, só nuvem.' },
+    ],
+  },
+  engrenagens: {
+    id: 'engrenagens',
+    map: MAP_ENGRENAGENS,
+    theme: 'torres',
+    title: 'A Torre das Engrenagens',
+    subtitle: 'A água que esfria o núcleo',
+    exits: [
+      { side: 'right', to: 'experiencias', entry: '1', range: [96, 101] },
+      { side: 'up', to: 'trono', entry: '1', range: [30, 41] },
+    ],
+    doors: [{ to: 'patio', entry: 'O2', key: 'short:torre', bar: true }],
+    ...TORRES,
+    pit: false,
+    drips: 10,
+    music: 'nave',
+    ambience: 'nave',
+    hints: [],
+    thoughts: [
+      { x: 64, y: 101, text: 'A torre do meio é oca. Rodas, correntes e baldes, e o barulho de tudo girando ao mesmo tempo.' },
+      { x: 16, y: 143, text: 'A grande porta, por dentro. A tranca é uma barra de bronze do tamanho de um homem.' },
+    ],
+  },
+  trono: {
+    id: 'trono',
+    map: MAP_TRONO,
+    theme: 'torres',
+    title: 'O Trono da Casa',
+    subtitle: 'O Senhor de Vhalor',
+    exits: [
+      { side: 'down', to: 'engrenagens', entry: '2', range: [4, 15] },
+      { side: 'up', to: 'coroacao', entry: '1', range: [84, 89] },
+    ],
+    trapdoors: [{ key: 'boss:vhalor' }],
+    ...TORRES,
+    pit: false,
+    music: 'nave',
+    ambience: 'nave',
+    hints: [],
+    thoughts: [{ x: 8, y: 43, text: 'Um salão. No fundo, um trono, e alguém sentado nele que não se mexe.' }],
+  },
+  coroacao: {
+    id: 'coroacao',
+    map: MAP_COROACAO,
+    theme: 'torres',
+    title: 'A Escadaria da Coroação',
+    subtitle: 'A noite',
+    exits: [
+      { side: 'down', to: 'trono', entry: '2', range: [44, 49] },
+      { side: 'up', to: 'nucleo', entry: '1', range: [26, 37] },
+    ],
+    ...TORRES,
+    pit: false,
+    music: 'nave',
+    ambience: 'nave',
+    hints: [],
+    thoughts: [{ x: 54, y: 111, text: 'A escada da Coroação. Eu já subi por aqui. Ela ia na frente.' }],
+  },
+  nucleo: {
+    id: 'nucleo',
+    map: MAP_NUCLEO,
+    theme: 'torres',
+    title: 'O Coração do Eclipse',
+    subtitle: 'Onde tudo aconteceu',
+    exits: [{ side: 'down', to: 'coroacao', entry: '2', range: [58, 69] }],
+    ...TORRES,
+    pit: true,
+    music: 'nave',
+    ambience: 'wind',
+    hints: [],
+    thoughts: [{ x: 50, y: 43, text: 'O núcleo. Era aqui. Foi aqui.' }],
+  },
+};
+
+export const ROOMS: Record<RoomId, RoomDef> = { ...PROLOGUE, ...CHAPTER2, ...CHAPTER3, ...CHAPTER4, ...CHAPTER5, ...CHAPTER6, ...CHAPTER7 };
 
 // Onde cada sala fica no mapa (em tiles). A memória do vale não aparece no mapa.
 export const MAP_POS: Partial<Record<RoomId, { x: number; y: number }>> = {
@@ -1341,4 +1536,13 @@ export const MAP_POS: Partial<Record<RoomId, { x: number; y: number }>> = {
   prainha: { x: 2924, y: 175 },
   rio: { x: 3064, y: 175 },
   cais: { x: 3264, y: 175 },
+  escada: { x: 3364, y: 119 },
+  calha: { x: 3540, y: 106 },
+  patio: { x: 3780, y: 78 },
+  arquivo: { x: 3746, y: -18 },
+  engrenagens: { x: 3828, y: -72 },
+  experiencias: { x: 3900, y: 6 },
+  trono: { x: 3854, y: -120 },
+  coroacao: { x: 3894, y: -244 },
+  nucleo: { x: 3862, y: -308 },
 };

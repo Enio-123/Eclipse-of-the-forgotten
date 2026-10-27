@@ -2075,8 +2075,8 @@ def cais():
     """O Cais da Lua: o lago embaixo da cachoeira grande (ela cai no fundo, atrás do lago: RoomDef
     backFall), onde o barqueiro esperava os passageiros. Entra-se pela passagem embaixo do paredão da
     esquerda; a grade desce atrás dele. A margem de cá é curta; o cais de madeira entra no lago pela
-    direita, em postes; troncos boiam no meio. Arena do Barqueiro. Depois da luta, a escada do aqueduto
-    sobe para as Torres Rúnicas (fechada até a área existir)."""
+    direita, em postes; troncos boiam no meio. Arena do Barqueiro. Depois da luta, o portão no alto da
+    escada do aqueduto sobe e a passagem segue para as Torres Rúnicas."""
     W, H = 100, 50
     g = Grid(W, H, '.')
     ground(g, 0, 14, 31)
@@ -2090,7 +2090,7 @@ def cais():
     # o cais, em postes
     plank(g, 62, 79, 31)
     # a escada do aqueduto: três degraus de pedra até o patamar, e lá em cima o portão das Torres
-    # Rúnicas, fechado até a área existir (coluna 'Y' na x 97, trancada por 'torres')
+    # Rúnicas (coluna 'Y' na x 97, abre com o Barqueiro vencido)
     g.fill(86, 28, 99, 30, '#')
     g.fill(89, 25, 99, 27, '#')
     g.fill(92, 22, 99, 24, '#')
@@ -2098,11 +2098,437 @@ def cais():
     for y in range(17, 22):
         g.put(97, y, 'Y')
     g.put(1, 30, '1')
+    g.put(98, 21, '2')
     g.put(30, 32, 'X')
     # o terceiro tronco fica longe do cais (o barco atracado não fica por cima dele)
     for x in (24, 38, 50):
         g.put(x, 33, '[')
     return g.rows(), {(62, 79, 31)}
+
+
+
+# ======================================================================================
+# Torres Rúnicas (capítulo 7). A Casa Vhalor acima das nuvens: a escada do aqueduto, a calha, o pátio das
+# runas e as três torres. Ver lore/torres.md. Caracteres novos:
+# ] runa (pedra gravada: um golpe acende por alguns segundos)  0 lume (luz dourada parada no ar: enche a
+# Capa de Luz)  , frasco de Âmbar que brilha (guarda um eco curto)  / a Capa de Luz (relíquia: voa)
+# Nas Torres, 'g' é o Guarda da Coroação, 'v' a Vigia Rúnica e 'u' um Arquivado.
+# Nas salas abertas o fundo é o mar de nuvens: quem cai volta ao último chão firme com um ponto de dano
+# (RoomDef.pit). Os pilares descem até a borda de baixo da sala (seguem nuvem abaixo).
+# ======================================================================================
+def flight(g, x0, top, n, w=5, rise=3, thick=4):
+    """Um lanço da escada da Casa, subindo para a direita: n degraus altos (rise linhas cada, w colunas),
+    cada um um bloco de pedra de thick linhas; os blocos se encostam e fazem a laje do lanço. Devolve a
+    coluna logo depois do último degrau e a linha dele."""
+    for i in range(n):
+        g.fill(x0 + i * w, top - i * rise, x0 + i * w + w - 1, top - i * rise + thick - 1, '#')
+    return x0 + n * w, top - (n - 1) * rise
+
+
+def pier(g, x0, x1, top):
+    """Pilar de pedra do alto (linha top) até a borda de baixo da sala."""
+    g.fill(x0, top, x1, g.h - 1, '#')
+
+
+def escada():
+    """A Escada do Aqueduto: a escada da Casa sobe o paredão em três lanços de degraus altos, apoiados em
+    arcos sobre o desfiladeiro da cachoeira grande (lá embaixo, o vazio e a névoa: quem cai volta ao último
+    chão firme). Ao lado dela sobem os canos de bronze do aqueduto: a água do vale entra embaixo e sobe
+    sozinha por dentro deles, empurrada pela que desce lá da cabeceira. Entra-se embaixo, à esquerda, pelo
+    túnel do portão do cais. No primeiro patamar o Agrimensor desenha as Torres. No meio do segundo lanço
+    os degraus caíram e só o pilar ficou de pé. No alto do paredão, a caixa d'água onde os canos despejam,
+    e dali a água segue pela calha (saída à direita). As primeiras nuvens passam no meio da subida."""
+    W, H = 176, 84
+    g = Grid(W, H, '.')
+    # a rocha do pé do paredão, com o túnel do portão do cais (linhas 73 a 77)
+    g.fill(0, 52, 9, 72, '#')
+    g.fill(0, 78, 27, H - 1, '#')
+    # primeiro lanço, do chão do túnel até o primeiro patamar (o Agrimensor)
+    x, top = flight(g, 20, 75, 7)
+    g.fill(x, 54, x + 15, 58, '#')
+    pier(g, 36, 38, 70)
+    pier(g, 60, 64, 59)
+    # segundo lanço: os dois degraus do meio caíram; o pilar deles ficou de pé
+    x, top = flight(g, 71, 51, 2)
+    pier(g, 76, 78, 52)
+    pier(g, 83, 85, 46)
+    x, top = flight(g, 91, 39, 3)
+    pier(g, 92, 94, 43)
+    g.fill(106, 30, 123, 34, '#')
+    pier(g, 112, 115, 35)
+    # terceiro lanço, até o alto do paredão
+    x, top = flight(g, 124, 27, 6)
+    pier(g, 130, 132, 28)
+    pier(g, 145, 147, 19)
+    # o alto do paredão e o paredão até lá embaixo
+    g.fill(154, 9, W - 1, 13, '#')
+    g.fill(156, 14, W - 1, H - 1, '#')
+    # a caixa d'água dos canos e o começo da calha (a água corre para a direita)
+    g.fill(158, 6, 162, 8, '#')
+    g.fill(163, 8, W - 1, 8, '~')
+    g.put(1, 77, '1')
+    g.put(W - 2, 8, '2')
+    g.put(84, 45, '$')
+    g.put(116, 29, 'g')
+    g.put(98, 24, 'v')
+    g.put(140, 6, 'v')
+    return g.rows()
+
+
+def calha():
+    """A Calha sobre as Nuvens: o aqueduto atravessa o mar de nuvens sobre arcos plantados lá embaixo.
+    Anda-se dentro do conduto, com a água na canela. Em dois lugares os arcos caíram; a Casa fechou as
+    pontas do conduto com pedra e passou a água por canos de bronze que descem para dentro das nuvens e
+    sobem do outro lado (as faces das pontas são o bronze liso: as garras escorregam). A torre da comporta
+    fica em pé no conduto (a água passa pela comporta, por baixo dela): sobe-se pela sacada de um lado e
+    desce-se do outro. No vão grande, só um pilar ficou de pé, mais
+    baixo que a calha: lá em cima dele a luz das nuvens sobe em volta do que sobrou, e é ali que o retalho
+    vermelho aprende a voar (a Capa de Luz)."""
+    W, H = 240, 48
+    g = Grid(W, H, '.')
+    # o paredão (continua o da escada)
+    g.fill(0, 22, 12, H - 1, '#')
+    # o corpo do conduto (o chão dele é a linha 22) e os arcos, trecho por trecho
+    for x0, x1, piers in ((13, 58, (24, 38, 52)), (77, 129, (77, 91, 119, 126)), (186, W - 1, (186, 200, 214, 228))):
+        g.fill(x0, 22, x1, 28, '#')
+        for px in piers:
+            pier(g, px, px + 3, 29)
+    # a torre da comporta em pé no conduto, com uma sacada de cada lado (presas na torre), e o pilar
+    # mais grosso embaixo dela
+    g.fill(101, 10, 110, 21, '#')
+    g.fill(97, 17, 100, 17, '-')
+    g.fill(111, 17, 114, 17, '-')
+    pier(g, 102, 109, 29)
+    # a água no conduto (a da torre entra pela comporta); as pontas quebradas fechadas com pedra
+    for x0, x1 in ((0, 57), (78, 100), (111, 128), (187, W - 1)):
+        g.fill(x0, 21, x1, 21, '~')
+    for x in (58, 77, 129, 186):
+        g.put(x, 21, '#')
+    # as faces de bronze das pontas quebradas (os canos descem por elas)
+    for x in (58, 77, 129, 186):
+        g.fill(x, 22, x, H - 1, '+')
+    # o pilar que ficou de pé no vão grande, com a Capa de Luz em cima
+    pier(g, 155, 158, 34)
+    g.put(156, 33, '/')
+    for (x, y) in ((166, 27), (175, 20)):
+        g.put(x, y, '0')
+    g.put(1, 21, '1')
+    g.put(W - 2, 21, '2')
+    g.put(105, 9, '$')
+    g.put(90, 9, 'v')
+    g.put(205, 6, 'v')
+    g.put(200, 21, 'g')
+    return g.rows()
+
+
+def patio():
+    """O Pátio das Runas: a esplanada de pedra no pé das três torres da Casa (elas sobem no fundo, até
+    sumir no céu do eclipse). A calha chega pela esquerda e despeja na cisterna; ao lado, a vela de
+    descanso. No fundo, as portas das torres: a do Arquivo (esquerda, aberta), a grande porta da torre do
+    meio (fechada por dentro) e a da torre das Experiências, no terraço da direita, trancada pelas runas:
+    quatro pedras gravadas, uma no chão da esplanada, uma em cima do pedestal baixo, uma no terraço e uma
+    no alto da coluna do terraço (sobe-se pelos degraus de ferro presos entre a coluna e a parede da
+    torre); acesas juntas, a porta abre. O registro da ordem de subida fica no pé da grande porta."""
+    W, H = 150, 64
+    g = Grid(W, H, '.')
+    g.fill(0, 50, W - 1, H - 1, '#')
+    # a cisterna (a água da calha chega na linha 49) e a mureta dela
+    g.fill(0, 49, 12, 51, '~')
+    g.put(13, 49, '#')
+    # o terraço da direita, com os degraus da esplanada até ele
+    g.fill(100, 40, W - 1, 49, '#')
+    g.fill(94, 47, 99, 49, '#')
+    g.fill(97, 44, 99, 46, '#')
+    # o pedestal baixo da segunda runa (pula-se por cima) e a coluna alta do terraço
+    g.fill(58, 45, 62, 49, '#')
+    g.fill(136, 16, 139, 39, '#')
+    # a parede do fundo da direita (a torre das Experiências encosta na borda) e os degraus de ferro
+    # entre ela e a coluna, um de cada lado, até o alto da coluna
+    g.fill(146, 0, W - 1, 39, '#')
+    for (x0, x1, y) in ((143, 145, 35), (140, 142, 30), (143, 145, 25), (140, 142, 20)):
+        g.fill(x0, y, x1, y, '-')
+    g.put(1, 49, '1')
+    g.put(20, 49, 'R')
+    g.put(36, 49, 'O')
+    g.put(75, 49, 'O')
+    g.put(125, 39, 'O')
+    g.put(48, 49, ']')
+    g.put(60, 44, ']')
+    g.put(110, 39, ']')
+    g.put(137, 15, ']')
+    g.put(68, 49, 'r')
+    g.put(55, 49, 'g')
+    g.put(130, 39, 'g')
+    return g.rows()
+
+
+
+def arquivo():
+    """O Arquivo Proibido: a torre da esquerda por dentro. Estantes de pedra do chão até a sala de leitura,
+    cheias de frascos de Âmbar (as memórias que a Casa tirou), e três pilhas de galerias entre elas, presas
+    nas paredes e nas estantes; em cada pilha o vão da subida troca de lado a cada andar (seis linhas de um
+    andar ao outro: o pulo duplo alcança). Passa-se de uma pilha para a outra pelas passagens das estantes:
+    embaixo, no meio (da esquerda para a do meio) e mais alto (da do meio para a da direita). Os Arquivados
+    andam devagar entre elas. A mesa dela fica numa galeria da pilha do meio, com o índice e as flores
+    prensadas; lá em cima, na sala de leitura, a ficha dele está guardada atrás de uma estante falsa.
+    Entra-se embaixo, pela porta do pátio."""
+    W, H = 80, 96
+    g = Grid(W, H, '#')
+    g.fill(4, 10, 75, 89, '.')
+    # as duas estantes altas, do chão até o piso da sala de leitura, e as passagens
+    g.fill(24, 18, 27, 89, '#')
+    g.fill(52, 18, 55, 89, '#')
+    for x0 in (24, 52):
+        g.fill(x0, 86, x0 + 3, 89, '.')
+    g.fill(24, 56, 27, 59, '.')
+    g.fill(52, 38, 55, 41, '.')
+    # o piso da sala de leitura, com os dois vãos por onde se chega nela (em cima das pilhas do meio e da
+    # direita)
+    g.fill(4, 18, 75, 18, '#')
+    g.fill(47, 18, 51, 18, '.')
+    g.fill(56, 18, 60, 18, '.')
+
+    # as galerias: em cada andar, presas de um lado da pilha, com o vão de cinco colunas do outro
+    def stack(x0, x1, first):
+        side = first
+        for y in range(84, 23, -6):
+            if side == 'L':
+                g.fill(x0, y, x1 - 5, y, '#')
+            else:
+                g.fill(x0 + 5, y, x1, y, '#')
+            side = 'R' if side == 'L' else 'L'
+
+    stack(4, 23, 'R')
+    stack(28, 51, 'L')
+    stack(56, 75, 'R')
+    # a estante falsa da sala de leitura (a ficha dele) e o nicho atrás dela
+    g.fill(68, 10, 69, 17, '%')
+    g.put(6, 89, 'O')
+    g.put(31, 47, 'm')
+    g.put(35, 47, 'r')
+    g.put(73, 17, 'r')
+    g.put(62, 77, '$')
+    for (x, y) in ((16, 23), (44, 29), (63, 65), (14, 71)):
+        g.put(x, y, ',')
+    for (x, y) in ((40, 89), (45, 53), (68, 35), (30, 17)):
+        g.put(x, y, 'u')
+    return g.rows()
+
+
+def experiencias():
+    """A Sala das Experiências: a torre da direita por dentro, fria. Três andares: embaixo, as cadeiras
+    com as coroas de Âmbar, ligadas por cabos ao tanque do meio (quem estava sentado ainda está lá, e
+    levanta quando alguém chega perto); no do meio, o caderno dos testes; no de cima, a planta do núcleo.
+    Os andares se ligam pelos vãos da escada, alternando os lados. No alto, a porta do lado de fora dá na
+    ponte coberta que atravessa o vazio até a torre do meio (saída à esquerda). Entra-se embaixo, pela
+    porta do terraço do pátio."""
+    W, H = 90, 72
+    g = Grid(W, H, '.')
+    # a torre: paredes, teto e chão; do lado de fora, à esquerda, o vazio
+    g.fill(22, 0, W - 1, 2, '#')
+    g.fill(22, 0, 25, 65, '#')
+    g.fill(86, 0, W - 1, H - 1, '#')
+    g.fill(22, 66, W - 1, H - 1, '#')
+    # os andares, com os vãos da escada
+    g.fill(26, 52, 69, 54, '#')
+    g.fill(42, 38, 85, 40, '#')
+    g.fill(26, 24, 69, 26, '#')
+    # o que segura a subida nos vãos: saliências presas nas paredes
+    g.fill(80, 59, 85, 59, '#')
+    g.fill(26, 45, 31, 45, '#')
+    g.fill(80, 31, 85, 31, '#')
+    # a ponte coberta (o piso na linha 24, o telhado na 16) e a porta na parede da torre
+    g.fill(0, 24, 21, 25, '#')
+    g.fill(0, 15, 21, 16, '#')
+    g.fill(22, 17, 25, 23, '.')
+    for px in (6, 14):
+        pier(g, px, px + 1, 26)
+    g.put(30, 65, 'O')
+    g.put(1, 23, '1')
+    g.put(56, 51, 'r')
+    g.put(60, 23, 'r')
+    g.put(74, 37, '$')
+    for x in (36, 44, 52, 60):
+        g.put(x, 65, 'u')
+    g.put(70, 46, 'v')
+    g.put(48, 32, 'g')
+    g.put(40, 9, 'v')
+    return g.rows()
+
+
+def engrenagens():
+    """A Torre das Engrenagens: a torre do meio por dentro, oca do chão ao teto. O calor do núcleo, lá em
+    cima, desce em vapor pelos canos e move as rodas; as rodas giram as engrenagens e a corrente dos
+    baldes, que tira a água do poço do fundo (a da calha, que chega por baixo do pátio) e leva até o alto,
+    para esfriar o núcleo. O eixo grande sobe pelo meio, do mancal de pedra do fundo até o patamar de
+    cima, e divide a torre em duas metades. Em cada metade sobe-se pelas saliências presas na parede e no
+    eixo, trocando de lado a cada seis linhas (o pulo duplo alcança). A ponte da torre das Experiências
+    chega pela direita, no meio da altura; embaixo, à esquerda do mancal, fica o lado de dentro da grande
+    porta do pátio (a tranca abre por aqui); a saída de cima leva ao trono."""
+    W, H = 72, 150
+    g = Grid(W, H, '#')
+    g.fill(4, 3, 67, 143, '.')
+    # a saída de cima (para o trono) e a passagem da ponte (direita)
+    g.fill(30, 0, 41, 2, '.')
+    g.fill(68, 96, W - 1, 101, '.')
+    # o fundo: o mancal de pedra com o eixo em cima e o poço d'água dos baldes (à direita)
+    g.fill(30, 128, 41, 143, '#')
+    g.fill(33, 12, 38, 127, '#')
+    g.fill(42, 136, 67, 143, '~')
+    # o patamar de cima (em cima do eixo) e o da ponte
+    g.fill(24, 10, 47, 11, '#')
+    g.fill(50, 102, 67, 103, '#')
+
+    def ledge(x0, x1, y):
+        g.fill(x0, y, x1, y + 1, '#')
+
+    # a metade da esquerda: do chão da porta até o patamar de cima (no eixo, ou no mancal lá embaixo)
+    for i, y in enumerate(list(range(138, 23, -6)) + [17]):
+        if i % 2:
+            ledge(4, 14, y)
+        else:
+            ledge(19, 29, y) if y >= 128 else ledge(22, 32, y)
+    # a metade da direita: do patamar da ponte até o de cima
+    for i, y in enumerate(list(range(95, 22, -6)) + [17]):
+        if i % 2:
+            ledge(39, 49, y)
+        else:
+            ledge(57, 67, y)
+    # embaixo da ponte: do poço dos baldes de volta ao patamar dela
+    for i, y in enumerate(range(132, 106, -5)):
+        if i % 2:
+            ledge(39, 49, y)
+        else:
+            ledge(57, 67, y)
+    g.put(12, 143, 'O')
+    g.put(W - 2, 101, '1')
+    g.put(36, 9, '2')
+    g.put(62, 131, '$')
+    g.put(17, 100, 'v')
+    g.put(53, 62, 'v')
+    g.put(8, 71, 'g')
+    return g.rows()
+
+
+def trono():
+    """O Trono da Casa: o salão no alto da torre do meio, onde o Senhor de Vhalor esperava o núcleo ligar.
+    Ele ficou preso ao trono pelos cabos de Âmbar que subiam do chão e desciam do teto. Sobe-se da torre
+    das engrenagens pela antessala baixa da esquerda; a grade fecha atrás. Depois da luta, o alçapão do
+    teto, em cima do trono, abre para a escadaria da Coroação: sobe-se pelo degrau do estrado (em postes),
+    pelos dois degraus de ferro presos no encosto alto e pelo lustre pendurado no meio do salão."""
+    W, H = 100, 48
+    g = Grid(W, H, '#')
+    g.fill(4, 5, 95, 39, '.')
+    # a antessala baixa: a boca no chão (a escada que sobe das engrenagens), os degraus e a parede com a grade
+    g.fill(4, 5, 15, 29, '#')
+    g.fill(4, 40, 15, H - 1, '.')
+    g.fill(4, 44, 8, 45, '#')
+    g.fill(11, 40, 15, 41, '#')
+    g.fill(16, 5, 18, 33, '#')
+    for y in range(34, 40):
+        g.put(17, y, '|')
+    # o estrado do trono e o encosto alto, até perto do teto
+    g.fill(76, 34, 95, 39, '#')
+    g.fill(90, 8, 95, 33, '#')
+    # a subida até o alçapão (nenhuma corrente cruza outro degrau)
+    g.fill(80, 29, 86, 29, '-')
+    g.fill(86, 22, 89, 22, '-')
+    g.fill(74, 15, 79, 15, '-')
+    g.fill(86, 8, 89, 8, '-')
+    # o alçapão do teto, em cima do trono (abre quando ele cai)
+    g.fill(84, 0, 89, 4, '.')
+    for x in range(84, 90):
+        g.put(x, 4, '=')
+    g.put(6, 43, '1')
+    g.put(86, 3, '2')
+    g.put(86, 33, 'X')
+    return g.rows()
+
+
+def switchback(g, r, x0=4, x1=59, land=14, step=4, rise=2, climb=6):
+    """Um lance de volta da escadaria (dois lanços e duas subidas de parede): do patamar da direita (linha
+    r) o lanço vai para a esquerda em degraus (rise linhas cada, step colunas), até o patamar da esquerda;
+    dali se sobe climb linhas pela parede até o patamar de cima, de onde o lanço volta para a direita.
+    Devolve a linha do novo patamar da direita (de onde começa o lance seguinte). O patamar da direita é
+    mais curto que o de baixo dele: o vão que sobra (quatro colunas) é por onde se sobe a parede."""
+    n = (x1 - x0 + 1 - 2 * land) // step
+    # patamar da direita (curto, com o vão da subida do lado do lanço) e o lanço para a esquerda
+    g.fill(x1 - land + 5, r, x1, r + 1, '#')
+    y = r
+    for i in range(n):
+        y -= rise
+        xa = x1 - land - (i + 1) * step + 1
+        g.fill(xa, y, xa + step - 1, y + 1, '#')
+    # o patamar da esquerda, a subida pela parede e o de cima
+    y -= rise
+    g.fill(x0, y, x0 + land - 1, y + 1, '#')
+    y -= climb
+    g.fill(x0, y, x0 + land - 5, y + 1, '#')
+    for i in range(n):
+        y -= rise
+        xa = x0 + land + i * step
+        g.fill(xa, y, xa + step - 1, y + 1, '#')
+    y -= rise
+    # o patamar da direita de cima (o lance seguinte começa nele, depois da subida pela parede)
+    g.fill(x1 - land + 1, y, x1, y + 1, '#')
+    return y - climb
+
+
+def coroacao():
+    """A Escadaria da Coroação: a escada em caracol em volta do poço do núcleo, a luz do Âmbar subindo
+    pelo meio (o poço fica atrás da escada). Os lanços atravessam a torre de uma parede à outra em
+    degraus altos; em cada volta, sobe-se um trecho pela parede até o patamar de onde sai o lanço
+    seguinte. Na noite, ela subiu por aqui na frente, com as cópias; os guardas vinham atrás; ele vinha
+    com a ordem. Os ecos dessa noite passam na escada. A memória da escada fica no patamar de cima.
+    Entra-se embaixo, pelo alçapão do trono; a saída de cima leva ao coração do eclipse."""
+    W, H = 64, 124
+    g = Grid(W, H, '#')
+    g.fill(4, 3, 59, 119, '.')
+    # a boca de baixo (do alçapão do trono) e a de cima
+    g.fill(44, 120, 49, H - 1, '.')
+    g.fill(26, 0, 37, 2, '.')
+    r = 112
+    while r > 40:
+        r = switchback(g, r)
+    # o último lanço, da parede da direita até o patamar de cima, embaixo da saída
+    g.fill(50, r, 59, r + 1, '#')
+    y = r
+    for i in range(7):
+        y -= 2
+        g.fill(42 - i * 4, y, 45 - i * 4, y + 1, '#')
+    g.fill(4, y - 2, 17, y - 1, '#')
+    g.put(54, 111, '1')
+    g.put(10, y - 3, '2')
+    g.put(7, y - 3, 'm')
+    g.put(8, 95, 'g')
+    g.put(52, 67, 'g')
+    return g.rows()
+
+
+def nucleo():
+    """O Coração do Eclipse: o alto da torre maior, sobre o mar de nuvens. O núcleo, uma esfera de Âmbar,
+    fica preso no meio por correntes amarradas nas quatro agulhas de pedra do alto. A escadaria chega
+    pela boca do chão. A beirada do alto tem a mureta quebrada; em volta, os lumes da luz das nuvens.
+    Arena do Carrasco Coroado (o colosso sobe das nuvens pela frente da torre)."""
+    W, H = 128, 64
+    g = Grid(W, H, '.')
+    # o corpo da torre até lá embaixo, com o poço da escada no meio, e o alto dela
+    g.fill(30, 44, 97, H - 1, '#')
+    g.fill(58, 47, 69, H - 1, '.')
+    g.fill(58, 44, 69, 46, '.')
+    # as quatro agulhas: duas nas beiradas e duas mais para dentro (as correntes do núcleo saem delas)
+    g.fill(30, 8, 33, 43, '#')
+    g.fill(94, 8, 97, 43, '#')
+    g.fill(44, 22, 46, 43, '#')
+    g.fill(81, 22, 83, 43, '#')
+    # os restos da mureta
+    for x0, x1 in ((34, 36), (52, 55), (72, 75), (90, 93)):
+        g.fill(x0, 42, x1, 43, '#')
+    for (x, y) in ((18, 30), (110, 30), (24, 14), (104, 14), (64, 30)):
+        g.put(x, y, '0')
+    g.put(56, 43, '1')
+    g.put(64, 20, 'X')
+    return g.rows()
 
 
 if __name__ == '__main__':
@@ -2146,6 +2572,11 @@ if __name__ == '__main__':
             check_forest(k, rows, vstands)
             vale[k] = rows
         maps.update(vale)
+    # as Torres Rúnicas (--torres)
+    if '--torres' in sys.argv:
+        maps.update({'escada': escada(), 'calha': calha(), 'patio': patio(), 'arquivo': arquivo(),
+                     'experiencias': experiencias(), 'engrenagens': engrenagens(), 'trono': trono(),
+                     'coroacao': coroacao(), 'nucleo': nucleo()})
     lines = ['// Gerado por ferramentas/rooms.py: não edite à mão', '']
     for k, rows in maps.items():
         lines.append(f'export const MAP_{k.upper()} = [')
