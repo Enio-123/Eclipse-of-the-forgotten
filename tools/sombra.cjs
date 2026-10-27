@@ -423,6 +423,11 @@ const FLOOR = 27; // linha do chão do Leito do Abismo (os pés ficam em 28 * 16
   const banner = await page.evaluate(() => document.querySelector('#banner') && document.querySelector('#banner').textContent);
   check(/machado/i.test(banner || ''), `a memória do machado (${(banner || '').slice(0, 60)})`);
   await shot('s19-memoria');
+  // memória decisiva: a onda passa e ele escolhe como guardar (como foi: as duas versões ficam)
+  await until(() => document.querySelector('#screen-choice.show'), null, 20000);
+  const ask = await page.evaluate(() => document.querySelector('#screen-choice .choice-title').textContent);
+  check(ask === 'O machado', `a memória decisiva pede a escolha (${ask})`);
+  await page.click('#screen-choice [data-cmd="truth"]');
   await until(() => document.querySelector('#screen-end.show'), null, 30000);
   const end = await page.evaluate(() => document.querySelector('#screen-end').textContent);
   check(/terceiro capítulo/.test(end), `fim do terceiro capítulo (${end.replace(/\s+/g, ' ').slice(0, 70)})`);

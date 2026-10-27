@@ -614,6 +614,11 @@ let r;
   check(true, 'pegou a Picareta do Capataz');
   await page.evaluate(() => { const s = window.__scene; const m = s.props.memories.find((m) => m.id === 'capataz:boss'); s.player.teleport(m.x, m.y + 26); });
   await until(() => window.__progress.memories.has('capataz:boss'), null, 20000);
+  // memória decisiva: a onda passa e ele escolhe como guardar (como foi: as duas versões ficam)
+  await until(() => document.querySelector('#screen-choice.show'), null, 20000);
+  const ask = await page.evaluate(() => document.querySelector('#screen-choice .choice-title').textContent);
+  check(ask === 'A fuga pelo túnel', `a memória decisiva pede a escolha (${ask})`);
+  await page.click('#screen-choice [data-cmd="truth"]');
   await until(() => document.querySelector('#screen-end.show'), null, 40000);
   const end = await page.evaluate(() => document.querySelector('#screen-end').textContent);
   check(/quarto capítulo/.test(end), `fim do quarto capítulo (${end.replace(/\s+/g, ' ').slice(0, 80)})`);

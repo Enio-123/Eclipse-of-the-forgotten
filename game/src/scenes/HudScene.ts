@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { MAGIC, PAL, PLAYER } from '../config';
-import { progress } from '../systems/Save';
+import { CORRUPTION_CRACKS, progress } from '../systems/Save';
 import { fixedCamera } from '../gfx/view';
 
 // Interface do jogo: a máscara (memórias seladas com ouro), os fragmentos de vida e, ao lado deles, as
@@ -10,6 +10,8 @@ export class HudScene extends Phaser.Scene {
   private shards: Phaser.GameObjects.Image[] = [];
   private mems: Phaser.GameObjects.Image[] = [];
   private mask!: Phaser.GameObjects.Image;
+  // as rachaduras roxas da corrupção, por cima da máscara
+  private rot!: Phaser.GameObjects.Image;
   private root!: Phaser.GameObjects.Container;
   private skGlow: Phaser.GameObjects.Image | null = null;
   private skAiming = false;
@@ -23,8 +25,11 @@ export class HudScene extends Phaser.Scene {
     this.shards = [];
     this.mems = [];
     this.root = this.add.container(0, 0);
+    // a corrupção alta deixa um brilho roxo fraco atrás da máscara
+    const rotGlow = this.add.image(24, 24, 'glow').setTint(0x8a4cff).setBlendMode(Phaser.BlendModes.ADD).setScale(0.55).setAlpha(0);
     this.mask = this.add.image(24, 24, 'mask-icon-0').setOrigin(0.5);
-    this.root.add(this.mask);
+    this.rot = this.add.image(24, 24, 'mask-rot-0').setOrigin(0.5);
+    this.root.add([rotGlow, this.mask, this.rot]);
     const sparks = this.add.particles(0, 0, 'px', {
       lifespan: { min: 300, max: 700 },
       speed: { min: 20, max: 70 },
@@ -170,6 +175,37 @@ export class HudScene extends Phaser.Scene {
         this.tweens.add({ targets: this.mask, scale: { from: 1.5, to: 1 }, duration: 700, ease: 'Back.easeOut' });
       }
     };
+    // a corrupção: rachaduras roxas sobem uma a uma (a máscara treme e escurece); uma prova que confirma
+    // uma versão, ou uma memória comprada de volta, fecha a última com ouro
+    const shards = this.add.particles(0, 0, 'px', {
+      lifespan: { min: 300, max: 650 },
+      speed: { min: 18, max: 60 },
+      scale: { start: 0.8, end: 0 },
+      tint: [0x8a4cff, 0x3a1450, 0xd9c8ff],
+      emitting: false,
+    });
+    this.root.add(shards);
+    let rotShown = -1;
+    const syncRot = () => {
+      const c = (this.registry.get('corruption') as number | undefined) ?? 0;
+      const k = Math.max(0, Math.min(CORRUPTION_CRACKS, c));
+      rotGlow.setAlpha(c >= 5 ? 0.18 + Math.min(0.2, (c - 5) * 0.05) : 0);
+      if (k === rotShown) return;
+      const before = rotShown;
+      rotShown = k;
+      this.rot.setTexture(`mask-rot-${k}`);
+      if (before < 0) return;
+      if (k > before) {
+        shards.explode(14, this.mask.x, this.mask.y);
+        this.tweens.add({ targets: [this.mask, this.rot], x: { from: this.mask.x - 2, to: this.mask.x }, duration: 260, ease: 'Bounce.easeOut' });
+        this.mask.setTint(0xb49ad0);
+        this.time.delayedCall(520, () => this.mask.clearTint());
+      } else {
+        sparks.explode(16, this.mask.x, this.mask.y);
+        this.tweens.add({ targets: [this.mask, this.rot], scale: { from: 1.35, to: 1 }, duration: 600, ease: 'Back.easeOut' });
+      }
+    };
+    syncRot();
     // contas de Âmbar dos poderes de memória: três, penduradas embaixo da máscara, só depois do
     // primeiro poder. Cada uma enche de baixo para cima; as que o poder escolhido gasta brilham
     // quando dá para usar
@@ -284,6 +320,7 @@ export class HudScene extends Phaser.Scene {
       ['changedata-maxhp', syncMax], ['setdata-maxhp', syncMax],
       ['changedata-memories', syncMems], ['setdata-memories', syncMems],
       ['changedata-kintsugi', syncMask], ['setdata-kintsugi', syncMask],
+      ['changedata-corruption', syncRot], ['setdata-corruption', syncRot],
       ['changedata-hud-hidden', syncVis], ['setdata-hud-hidden', syncVis],
       ['changedata-coins', syncCoins], ['setdata-coins', syncCoins],
       ['changedata-light', syncLight], ['setdata-light', syncLight],

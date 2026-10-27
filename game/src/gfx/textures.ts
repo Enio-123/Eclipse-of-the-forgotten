@@ -33,6 +33,7 @@ export function buildTextures(scene: Phaser.Scene) {
   add(tex, 'shaft', makeShaft());
   add(tex, 'water', makeWater());
   for (let n = 0; n <= 3; n++) add(tex, `mask-icon-${n}`, makeMaskIcon(n));
+  for (let n = 0; n <= ROT.length; n++) add(tex, `mask-rot-${n}`, makeMaskRot(n));
   add(tex, 'amber-bead', makeBead(false));
   add(tex, 'amber-bead-empty', makeBead(true));
   add(tex, 'light-pip', makeLightPip(false));
@@ -490,6 +491,28 @@ function line(r: Raster, pts: [number, number][], c: number) {
     const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
     for (let k = 0; k <= n; k++) r.set(Math.round(x0 + ((x1 - x0) * k) / n), Math.round(y0 + ((y1 - y0) * k) / n), c);
   }
+}
+
+// as rachaduras da corrupção (roxas, por cima da máscara), na ordem em que aparecem: longe das três do
+// ouro e dos olhos, todas dentro do rosto
+const ROT: [number, number][][] = [
+  [[12, 1], [11, 4], [13, 6], [12, 9]],
+  [[2, 8], [4, 10], [3, 13]],
+  [[17, 11], [15, 13], [16, 16]],
+  [[8, 15], [9, 18], [8, 21]],
+  [[5, 2], [6, 5], [4, 7]],
+  [[10, 20], [11, 23], [10, 25]],
+];
+
+function makeMaskRot(n: number) {
+  const { canvas, r, commit } = canvasRaster(20, 27);
+  ROT.slice(0, n).forEach((pts) => {
+    line(r, pts, 0x3a1450);
+    // o fundo da rachadura brilha de leve na ponta onde ela começou
+    r.set(pts[0][0], pts[0][1], 0xa66cff);
+  });
+  commit();
+  return canvas;
 }
 
 function makeMaskIcon(n: number) {

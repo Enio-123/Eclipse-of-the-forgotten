@@ -44,6 +44,10 @@ export const MEMORIES: Record<string, MemoryInfo> = {
   'cais:boss': { title: 'As duas passagens', text: 'O cais na lua cheia. Ela de pé no barco, a mão estendida para mim, a outra passagem paga. Numa versão eu dei um passo para trás porque ainda tinha nomes no bolso para devolver. Na outra, porque a ordem de levá-la de volta estava no outro bolso.' },
   // O Trono da Casa (Torres): a ordem que o Senhor de Vhalor entregou na noite da Coroação
   'trono:boss': { title: 'A ordem', text: 'O salão aceso, na noite da Coroação. Do trono, o Senhor de Vhalor me estende uma ordem dobrada, com o selo da Casa ainda mole. Numa versão eu fico parado com o papel na mão e pergunto de quem é o nome. Na outra, eu dobro mais uma vez e guardo no bolso sem ler, junto com os outros.' },
+  // O Arquivo Proibido (Torres): na mesa dela, entre as fichas
+  'arquivo:0': { title: 'As flores do arquivo', text: 'Ela abre um registro na mesa e me mostra as flores prensadas entre as folhas, uma para cada nome. "Para alguém lembrar deles com carinho, e não só pela sentença." Eu fico olhando as mãos dela, e não as flores.' },
+  // A Escadaria da Coroação (Torres): a noite, ela subindo na frente
+  'coroacao:0': { title: 'A escada', text: 'A escada da Coroação, de noite. Ela sobe na frente, com as cópias dos registros apertadas no peito, e não olha para trás. Numa versão eu subo atrás dela para salvá-la. Na outra, para cumprir a ordem.' },
 };
 export const MEMORY_TOTAL = Object.keys(MEMORIES).length;
 
@@ -78,7 +82,89 @@ export const MEMORY_ECHO: Record<string, { kind: EchoKind; mode: WaveMode }> = {
   'prainha:0': { kind: 'ela', mode: 'restore' },
   'cais:boss': { kind: 'ela', mode: 'corrupt' },
   'trono:boss': { kind: 'carrasco', mode: 'corrupt' },
+  'arquivo:0': { kind: 'ela', mode: 'restore' },
+  'coroacao:0': { kind: 'ela', mode: 'corrupt' },
 };
+
+// As memórias de duas versões (as roxas). lead é o que as duas contam igual; v, as duas versões na ordem
+// do texto; soft, a que dói menos; truth, a que aconteceu; proof, o registro que prova (lore/continuidade.md,
+// 6.3). Com a memória guardada e a prova lida, a versão falsa racha no Diário (aba A Noite) e a máscara
+// fecha uma rachadura. hidden: ele só lembra de uma versão, e a outra só aparece com a prova
+export interface Versions {
+  lead: string;
+  v: [string, string];
+  soft: 0 | 1;
+  truth: 0 | 1;
+  proof: string;
+  hidden?: boolean;
+}
+export const VERSIONS: Record<string, Versions> = {
+  'altar:boss': {
+    lead: 'O dia do casamento. O sino tocou, e ela não chegou ao altar.',
+    v: ['O Arcebispo cobrou a memória dela antes da cerimônia, e ela me esqueceu no caminho.', 'Ninguém cobrou nada dela. Naquela manhã ela descobriu para onde a Casa levava o Âmbar e foi atrás, lembrando de mim inteiro.'],
+    soft: 0, truth: 1, proof: 'cabana:1', hidden: true,
+  },
+  'mascara:boss': {
+    lead: 'Ela fechou o ferro no meu rosto e leu a sentença. Não ouvi o crime.',
+    v: ['As minhas mãos estavam limpas.', 'As minhas mãos não estavam limpas.'],
+    soft: 0, truth: 1, proof: 'arquivo:1',
+  },
+  'margem:0': {
+    lead: 'Eu lavava as mãos nesta calha depois de cada cumprimento.',
+    v: ['A tinta saía toda, e eu subia limpo.', 'A tinta não saiu nunca, e eu assinei a ordem seguinte com a mão manchada.'],
+    soft: 0, truth: 1, proof: 'arquivo:1',
+  },
+  'abismo:boss': {
+    lead: 'Ergui o machado sobre alguém ajoelhado no tablado.',
+    v: ['O machado desceu.', 'O machado caiu da minha mão, e a praça inteira ficou em silêncio.'],
+    soft: 1, truth: 0, proof: 'arquivo:1',
+  },
+  'espelhos:boss': {
+    lead: 'No Âmbar polido eu me vi de capuz, com a foice na mão. Atrás de mim, alguém de capa vermelha chamava.',
+    v: ['Eu me virei para ver.', 'Eu segui em frente.'],
+    soft: 0, truth: 1, proof: 'arquivo:0',
+  },
+  'capataz:boss': {
+    lead: 'Uma moça de capa vermelha correndo pelos túneis, com um caderno apertado no peito.',
+    v: ['Eu corria atrás dela com a ordem na mão.', 'Eu segurava a grade para ela passar.'],
+    soft: 1, truth: 0, proof: 'arquivo:0',
+  },
+  'mata:0': {
+    lead: 'Eu li a lista em pé neste cercado, com a mão no portão.',
+    v: ['Abri o portão antes da corneta e fiquei de costas, para não ver para onde eles corriam.', 'Esperei a corneta tocar e contei até dez antes de soltar os cães.'],
+    soft: 0, truth: 1, proof: 'mata:1',
+  },
+  'clareira:boss': {
+    lead: 'As pegadas dela na neve e as minhas atrás.',
+    v: ['Mandei a matilha para o vale e fiquei olhando ela subir a serra.', 'Mostrei o caminho aos cães.'],
+    soft: 0, truth: 0, proof: 'clareira:0',
+  },
+  'cais:boss': {
+    lead: 'O cais na lua cheia. Ela de pé no barco, a mão estendida para mim, a outra passagem paga.',
+    v: ['Dei um passo para trás porque ainda tinha nomes no bolso para devolver.', 'Dei um passo para trás porque a ordem de levá-la de volta estava no outro bolso.'],
+    soft: 0, truth: 1, proof: 'patio:0',
+  },
+  'trono:boss': {
+    lead: 'O salão aceso, na noite da Coroação. Do trono, o Senhor de Vhalor me estende uma ordem dobrada, com o selo da Casa ainda mole.',
+    v: ['Fico parado com o papel na mão e pergunto de quem é o nome.', 'Dobro mais uma vez e guardo no bolso sem ler, junto com os outros.'],
+    soft: 0, truth: 1, proof: 'arquivo:1',
+  },
+  'coroacao:0': {
+    lead: 'A escada da Coroação, de noite. Ela sobe na frente, com as cópias dos registros apertadas no peito, e não olha para trás.',
+    v: ['Eu subo atrás dela para salvá-la.', 'Eu subo atrás dela para cumprir a ordem.'],
+    soft: 0, truth: 1, proof: 'patio:0',
+  },
+};
+
+// As memórias essenciais: as que contam a noite e o caminho até ela, na ordem do caminho (A Noite)
+export const ESSENTIAL = ['mascara:boss', 'abismo:boss', 'capataz:boss', 'cabana:0', 'clareira:boss', 'cais:boss', 'arquivo:0', 'trono:boss', 'coroacao:0'];
+// As decisivas: as essenciais de duas versões. Na primeira vez que ele acha uma, escolhe como guardar:
+// como foi (as duas ficam até a prova) ou como dói menos (fica a mais leve, e a máscara racha)
+export const DECISIVE = ESSENTIAL.filter((id) => VERSIONS[id]);
+// Os planos da Casa (prova vhalor): os registros que contam a Coroação do começo ao fim
+export const PLAN_RECORDS = ['mercado:0', 'prensas:0', 'rio:0', 'trono:0', 'patio:0'];
+// a máscara: rachaduras de corrupção que ainda contam como pouca (A Noite e os finais)
+export const CORRUPTION_LOW = 2;
 
 // as provas que cada registro carrega (lore/continuidade.md, 6.1)
 export type Proof = 'vhalor' | 'inocentes' | 'ambar' | 'nucleo' | 'arielle';
@@ -361,6 +447,59 @@ export const RECORDS: Record<string, RecordInfo> = {
       '"O que doer será guardado no Arquivo. O que restar será coroado." Embaixo, a assinatura do Senhor de Vhalor e, do lado, o espaço de mais uma, que ninguém assinou.',
     ],
     proofs: ['vhalor', 'nucleo'],
+  },
+  // O Pátio das Runas (Torres): a lista pregada no quadro da guarda, na frente da grande porta
+  'patio:0': {
+    title: 'A ordem de subida',
+    region: 'Torres Rúnicas',
+    lines: [
+      'A lista de quem podia subir às Torres na noite da Coroação, pregada no quadro da guarda: o Senhor de Vhalor, quatro escrivães, a guarda da Coroação e os dois do núcleo.',
+      'No fim, em outra letra, mais apressada: "o carrasco, para a guarda do núcleo. Voltou do cais sem a arquivista e com a ordem de trazê-la ainda no bolso. Que suba por último e cumpra lá em cima."',
+      'Ao lado, o sinal que ele fazia em toda ordem que ia cumprir.',
+    ],
+    proofs: ['vhalor'],
+  },
+  // O Arquivo Proibido (Torres): o caderno na mesa dela e a ficha atrás da estante falsa
+  'arquivo:0': {
+    title: 'O índice dela',
+    region: 'Torres Rúnicas',
+    lines: [
+      'O caderno de índice do Arquivo, aberto na mesa, na letra miúda do herbário: a estante e o frasco de cada um que a Casa apagou, e ao lado de cada nome a mesma palavra, "devolver".',
+      'Na última folha, as minas: "Ele veio atrás de mim pelo túnel inteiro, com a ordem na mão. No salão dos espelhos eu chamei por ele, e ele não se virou."',
+      'Embaixo, mais apertado: "A ficha dele está atrás da estante falsa. Ainda não tive coragem de ler."',
+    ],
+    proofs: ['arielle', 'inocentes'],
+  },
+  'arquivo:1': {
+    title: 'A ficha do carrasco',
+    region: 'Torres Rúnicas',
+    lines: [
+      'Uma ficha grossa com o selo da Casa, amarrada com fita. Cumprimentos: trezentos e doze, um por linha, cada um com a assinatura dele e a mesma mancha de tinta no canto, onde a mão encostava.',
+      'Observação da Casa, em letra de escrivão: "Não lê as ordens: dobra, guarda no bolso e cumpre. O machado nunca falhou no tablado."',
+      'No verso, na letra miúda do herbário: "ele ainda pode escolher".',
+    ],
+    proofs: ['inocentes', 'arielle'],
+  },
+  // A Sala das Experiências (Torres): o caderno no andar do meio e a planta no de cima
+  'experiencias:0': {
+    title: 'O caderno dos testes',
+    region: 'Torres Rúnicas',
+    lines: [
+      'O caderno de quem tocava as sessões, aberto na bancada. Quatro cadeiras ligadas ao mesmo tanque, uma coroa de Âmbar em cada cabeça. Nas primeiras sessões, cada um lembrava só do que era seu.',
+      '"Sétima sessão: as lembranças se misturaram no tanque. O da cadeira dois chorou pela mãe do da cadeira três. Ninguém soube mais de quem era cada uma."',
+      '"A Casa achou o resultado excelente. Mandou fazer o tanque do tamanho de uma torre."',
+    ],
+    proofs: ['nucleo', 'ambar'],
+  },
+  'experiencias:1': {
+    title: 'A planta do núcleo',
+    region: 'Torres Rúnicas',
+    lines: [
+      'A planta do núcleo, presa na prancheta: uma esfera de Âmbar pendurada por correntes no alto da torre maior. Guarda a consciência de milhares e esfria com a água do aqueduto.',
+      'Na margem, a lápis, a letra miúda do herbário, numa conta refeita muitas vezes: "Quebrar espalha os pedaços. Se alguém carregar os fragmentos e cortar a ligação por dentro, ninguém mais perde nada."',
+      '"Preciso de uma noite com o núcleo ligado. Só uma."',
+    ],
+    proofs: ['nucleo', 'arielle'],
   },
 };
 export const RECORD_IDS = Object.keys(RECORDS);

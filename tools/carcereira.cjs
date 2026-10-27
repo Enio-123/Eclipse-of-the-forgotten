@@ -342,6 +342,12 @@ const FLOOR = 27; // linha do chão da sala (os pés ficam em 28 * 16)
   await waitGame(1.0);
   const after2 = await page.evaluate(() => window.__thoughts.join(' | '));
   check(/bigorna, a pedra rachou/.test(after2), `o eco lá de baixo (${after2.slice(-60)})`);
+  // memória decisiva: a onda passa e ele escolhe como guardar (como foi: as duas versões ficam)
+  await until(() => document.querySelector('#screen-choice.show'), null, 20000);
+  const ask = await page.evaluate(() => document.querySelector('#screen-choice .choice-title').textContent);
+  check(ask === 'A máscara de ferro', `a memória decisiva pede a escolha (${ask})`);
+  await page.click('#screen-choice [data-cmd="truth"]');
+  await until(() => !document.querySelector('.screen.show') && !window.__scene.cinematic, null, 20000);
 
   // ---------- 10. a Corrente nas mãos do cavaleiro ----------
   const wid = await page.evaluate(() => { const s = window.__scene; s.player.setWeapon('corrente'); return s.player.weapon.id; });

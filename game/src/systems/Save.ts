@@ -39,6 +39,8 @@ export interface SaveData {
   amber: number;
   // as folhas do mapa compradas do Agrimensor (null num save de antes delas: ganha as das regiões já visitadas)
   maps: RegionId[] | null;
+  // as rachaduras de corrupção na máscara (null num save de antes delas: uma por memória trocada)
+  corruption: number | null;
 }
 
 export interface Echo {
@@ -51,6 +53,13 @@ export interface Echo {
 
 // ao morrer, 70% das moedas ficam com a sombra
 export const ECHO_SHARE = 0.7;
+
+// a corrupção: sobe ao trocar memória com o Cobrador e ao lembrar como dói menos; desce ao comprar uma
+// memória de volta e quando uma prova confirma uma versão. A máscara mostra até CRACKS rachaduras
+export const CORRUPTION_MAX = 12;
+export const CORRUPTION_CRACKS = 6;
+// quanto o Cobrador cobra para devolver uma memória trocada
+export const BUYBACK_COST = 45;
 
 // dano de cada nível do ferreiro (0 = como veio): +10% por nível, no máximo +30%
 export const LEVEL_MUL = [1, 1.1, 1.2, 1.3];
@@ -123,6 +132,7 @@ export function loadSave(): SaveData | null {
       power: POWER_IDS.includes(d.power as PowerId) ? (d.power as PowerId) : null,
       amber: num(d.amber) ? Math.max(0, Math.min(AMBER_BAR.max, d.amber!)) : 0,
       maps: Array.isArray(d.maps) ? (strs(d.maps).filter((m) => REGIONS.some((r) => r.id === m)) as RegionId[]) : null,
+      corruption: num(d.corruption) ? Math.max(0, Math.min(CORRUPTION_MAX, Math.floor(d.corruption!))) : null,
     };
   } catch {
     return null;
@@ -174,6 +184,8 @@ export const progress = {
   amber: 0,
   // folhas do mapa (uma por região): sem a folha, a região não aparece no mapa
   maps: new Set<RegionId>(),
+  // rachaduras de corrupção na máscara (ver CORRUPTION_MAX)
+  corruption: 0,
 
   reset() {
     this.kintsugi = 0;
@@ -197,6 +209,7 @@ export const progress = {
     this.power = null;
     this.amber = 0;
     this.maps = new Set();
+    this.corruption = 0;
     clearSave();
   },
 
@@ -235,6 +248,25 @@ export const progress = {
     this.amber = this.powers.size ? d.amber : 0;
     // num save de antes das folhas, o mapa era de graça: ficam as das regiões que ele já pisou
     this.maps = new Set(d.maps ?? REGIONS.filter((r) => r.rooms.some((id) => this.visited.get(id)?.size)).map((r) => r.id));
+    // num save de antes da corrupção, cada memória trocada já rachou a máscara (as provas lidas fecham
+    // as delas quando o jogo confere as versões, ao entrar)
+    this.corruption = d.corruption ?? Math.min(CORRUPTION_MAX, d.traded.length);
+  },
+
+  // ---------- a história ----------
+  // a máscara racha (n > 0) ou fecha rachaduras (n < 0)
+  corrupt(n: number) {
+    this.corruption = Math.max(0, Math.min(CORRUPTION_MAX, this.corruption + n));
+  },
+
+  // o Cobrador devolve uma memória trocada, por moedas (false: não foi trocada ou não tem moeda)
+  buyBack(id: string) {
+    if (!this.traded.has(id) || this.coins < BUYBACK_COST) return false;
+    this.coins -= BUYBACK_COST;
+    this.traded.delete(id);
+    this.corrupt(-1);
+    this.save();
+    return true;
   },
 
   // ---------- poderes de memória ----------
@@ -397,6 +429,7 @@ export const progress = {
       upgrades: [...this.upgrades], visited, coins: this.coins, equipped: [...this.equipped],
       kills: Object.fromEntries(this.kills), levels: Object.fromEntries(this.levels), echo: this.echo,
       powers: [...this.powers], power: this.power, amber: Math.round(this.amber * 100) / 100, maps: [...this.maps],
+      corruption: this.corruption,
     });
   },
 

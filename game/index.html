@@ -326,15 +326,31 @@
           <button role="tab" data-tab="beasts" aria-selected="false">Bestiário</button>
           <button role="tab" data-tab="places" aria-selected="false">Lugares</button>
           <button role="tab" data-tab="records" aria-selected="false">Registros</button>
+          <button role="tab" data-tab="night" aria-selected="false">A Noite</button>
         </div>
         <div class="tab-panel" data-panel="story"><p class="j-count"></p><div class="j-list"></div></div>
         <div class="tab-panel" data-panel="beasts" hidden><p class="j-count"></p><div class="j-list"></div></div>
         <div class="tab-panel" data-panel="places" hidden><p class="j-count"></p><div class="j-list"></div></div>
         <div class="tab-panel" data-panel="records" hidden><p class="j-count"></p><div class="j-list"></div></div>
+        <div class="tab-panel" data-panel="night" hidden><p class="j-count"></p><div class="j-list night-list"></div></div>
         <div class="row">
           <span class="keys-note kbd-only">Q e E trocam a aba</span>
           <button data-cmd="back" class="primary">Voltar</button>
         </div>
+      </div>
+    </section>
+
+    <section id="screen-choice" class="screen dim">
+      <div class="panel small choice-panel">
+        <h2 class="choice-title"></h2>
+        <span class="rule"></span>
+        <p class="choice-lead"></p>
+        <ul class="choice-versions"></ul>
+        <p class="sub choice-ask">Duas versões da mesma lembrança. Como ele vai guardar esta?</p>
+        <nav class="choice-opts">
+          <button class="offer" data-cmd="truth"><b>Lembrar como foi</b><span class="what">As duas versões ficam, até uma prova dizer qual aconteceu.</span></button>
+          <button class="offer" data-cmd="soft"><b>Lembrar como dói menos</b><span class="what soft-what"></span></button>
+        </nav>
       </div>
     </section>
 

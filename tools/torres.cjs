@@ -3,13 +3,13 @@
 // trancadas (runas e tranca por dentro), o Agrimensor na escada, uma foto de cada sala (T1) e a Capa de
 // Luz: a relíquia no pilar, os três voos, os lumes que recarregam e as luzes no HUD, as runas do pátio e
 // o mar de nuvens, os frascos do Arquivo e a máquina da Torre das Engrenagens (T2); o Guarda da Coroação,
-// a Vigia Rúnica e os Arquivados (T3); o Senhor de Vhalor (T4b) e o Cetro de Vhalor (T4a).
+// a Vigia Rúnica e os Arquivados (T3); o Senhor de Vhalor (T4b) e o Cetro de Vhalor (T4a); a história (T5).
 // uso: node torres.cjs <pasta-saida> [url]
 const { chromium } = require('playwright');
 const OUT = process.argv[2] || '.';
 const URL = process.argv[3] || 'http://localhost:8780/index.html';
 // ONLY=links,portao roda só essas partes (portao, links, portas, agrimensor, fotos, voo, runas, nuvens,
-// frascos, maquina, inimigos, cadeiras, vhalor, cetro)
+// frascos, maquina, inimigos, cadeiras, vhalor, cetro, historia)
 const ONLY = (process.env.ONLY || '').split(',').filter(Boolean);
 const part = (k) => !ONLY.length || ONLY.includes(k);
 (async () => {
@@ -1122,6 +1122,231 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
     const e1 = await page.evaluate(() => ({ energy: window.__progress.energy, max: window.__progress.mage ? 0 : -1 }));
     check(md.tex === 'mage-energy' && e1.energy === e0 + 1, `no Mago, o Senhor de Vhalor deixa a Energia dele (${JSON.stringify({ tex: md.tex, antes: e0, depois: e1.energy })})`);
     await page.evaluate(() => { const p = window.__progress; p.starter = null; p.save(); });
+  }
+
+  if (part('historia')) {
+    // ---------- T5. a história: os registros e as memórias das Torres, a escolha de como guardar uma memória
+    // decisiva, as provas que racham a versão falsa, as rachaduras da máscara, o Cobrador devolvendo uma
+    // memória e a aba A Noite ----------
+    await setProgress([...VALE, 'boss:vhalor', 'weapon:cetro']);
+    const hook = () => page.evaluate(() => {
+      const ui = window.__ui;
+      window.__thoughts = [];
+      window.__banners = [];
+      window.__talks = [];
+      if (ui.__hookedT5) return;
+      ui.__hookedT5 = true;
+      const th = ui.thought.bind(ui);
+      ui.thought = (text, ...rest) => { window.__thoughts.push(text); return th(text, ...rest); };
+      const ob = ui.banner.bind(ui);
+      ui.banner = (t, ...rest) => { window.__banners.push(t + ' | ' + (rest[0] || '')); return ob(t, ...rest); };
+      const ot = ui.talk.bind(ui);
+      ui.talk = (o) => { window.__talks.push({ name: o.name, lines: o.lines.slice() }); return ot(o); };
+    });
+    const top = () => page.evaluate(() => { const q = document.querySelector('.screen.show'); return q ? q.id.replace('screen-', '') : null; });
+    const read = async (id) => {
+      const r = await page.evaluate((id) => {
+        const s = window.__scene;
+        const k = s.records.list.find((q) => q.id === id);
+        if (!k) return null;
+        const p = s.player;
+        // para a foto ele fica de lado, e a arte aparece inteira
+        p.teleport(k.x - 76, k.y);
+        p.body.setVelocity(0, 0);
+        p.invuln = 99;
+        s.cameras.main.stopFollow();
+        s.cameras.main.centerOn(k.x, k.y - 30);
+        return { x: k.x, y: k.y, tex: s.children.list.some((o) => o.texture && o.texture.key === 'deco-record-' + id.replace(':', '-')) };
+      }, id);
+      if (!r) return null;
+      await waitGame(0.6);
+      await shot(`t5-${id.replace(':', '-')}`);
+      await page.evaluate((r) => { const p = window.__scene.player; p.teleport(r.x - 8, r.y); p.body.setVelocity(0, 0); }, r);
+      await waitGame(0.4);
+      const hint = await page.evaluate(() => { const s = window.__scene; const h = s.records.nearby(s.player); return h && h.hint; });
+      await page.evaluate(() => { window.__talks = []; });
+      await page.keyboard.down('KeyW');
+      await page.waitForTimeout(160);
+      await page.keyboard.up('KeyW');
+      await page.waitForTimeout(400);
+      const t = await page.evaluate(() => window.__talks[0] || null);
+      for (let i = 0; i < 12 && (await top()) === 'talk'; i++) {
+        await page.keyboard.down('KeyJ');
+        await page.waitForTimeout(120);
+        await page.keyboard.up('KeyJ');
+        await page.waitForTimeout(140);
+      }
+      await page.waitForTimeout(300);
+      const seen = await page.evaluate((id) => window.__progress.seen.has('record:' + id), id);
+      return t && { ...t, hint, seen, tex: r.tex, text: t.lines.join(' ') };
+    };
+    const recs = [
+      ['patio', 'patio:0', 'A ordem de subida', /guarda do núcleo/, /ordem de trazê-la ainda no bolso/],
+      ['arquivo', 'arquivo:0', 'O índice dela', /"devolver"/, /não se virou/],
+      ['arquivo', 'arquivo:1', 'A ficha do carrasco', /trezentos e doze/, /não lê as ordens/i],
+      ['experiencias', 'experiencias:0', 'O caderno dos testes', /Sétima sessão/, /tamanho de uma torre/],
+      ['experiencias', 'experiencias:1', 'A planta do núcleo', /consciência de milhares/, /carregar os fragmentos/],
+    ];
+    let here = null;
+    for (const [room, id, title, a, b] of recs) {
+      if (here !== room) {
+        await start(room, ENTRY[room]);
+        await clear();
+        here = room;
+      }
+      await hook();
+      const t = await read(id);
+      check(t && t.tex && t.hint === '{up} ler' && t.name === title && a.test(t.text) && b.test(t.text) && !/Arielle/.test(t.text),
+        `o registro ${id} "${t && t.name}" está no lugar dele, com a arte (dica ${t && t.hint})`);
+      check(t && t.seen, `${id} fica no Diário`);
+    }
+
+    // a memória da mesa dela: inteira (dourada)
+    await setProgress([...VALE, 'boss:vhalor', 'weapon:cetro']);
+    const take = (id) => page.evaluate((id) => {
+      const s = window.__scene;
+      const m = s.props.memories.find((k) => k.id === id);
+      if (!m) return null;
+      s.takeMemory(m);
+      return document.getElementById('banner').textContent;
+    }, id);
+    await start('arquivo', ENTRY.arquivo);
+    await clear();
+    await hook();
+    let bn = await take('arquivo:0');
+    check(bn && /As flores do arquivo/.test(bn) && /uma para cada nome/.test(bn), `a memória da mesa dela (${bn && bn.trim().slice(0, 50)})`);
+    await waitGame(3.2);
+    check((await top()) === null, `uma memória inteira não pede escolha (tela: ${await top()})`);
+
+    // a escada: memória decisiva. A onda passa, o mundo para e ele escolhe como guardar
+    await start('coroacao', ENTRY.coroacao);
+    await clear();
+    await hook();
+    const c0 = await page.evaluate(() => window.__progress.corruption);
+    bn = await take('coroacao:0');
+    check(bn && /A escada/.test(bn), `a memória da escada (${bn && bn.trim().slice(0, 40)})`);
+    await until(() => document.querySelector('#screen-choice.show'), null, 15000).catch(() => null);
+    const ch = await page.evaluate(() => {
+      const q = document.querySelector('#screen-choice');
+      return { show: q.classList.contains('show'), title: q.querySelector('.choice-title').textContent, versions: [...q.querySelectorAll('.choice-versions li')].map((e) => e.textContent), soft: q.querySelector('.soft-what').textContent };
+    });
+    await page.waitForTimeout(600);
+    await page.screenshot({ path: `${OUT}/t5-escolha.png` });
+    check(ch.show && ch.title === 'A escada' && ch.versions.length === 2 && /salvá-la/.test(ch.versions[0]) && /cumprir a ordem/.test(ch.versions[1]) && /salvá-la/.test(ch.soft),
+      `na escada ele escolhe como guardar: as duas versões e a mais leve (${JSON.stringify(ch)})`);
+    await page.click('#screen-choice [data-cmd="soft"]');
+    await page.waitForTimeout(500);
+    const st = await page.evaluate(() => {
+      const hud = window.__game.scene.getScene('hud');
+      const p = window.__progress;
+      return { top: document.querySelector('.screen.show') ? 'menu' : null, c: p.corruption, soft: p.seen.has('soft:coroacao:0'), rot: hud.rot.texture.key, frozen: window.__scene.player.frozen, cine: window.__scene.cinematic };
+    });
+    check(st.top === null && st.c === c0 + 1 && st.soft && st.rot === `mask-rot-${c0 + 1}` && !st.frozen && !st.cine,
+      `lembrar como dói menos: a máscara racha e o jogo volta (${JSON.stringify(st)})`);
+    await waitGame(1);
+    await page.evaluate(() => { const s = window.__scene; s.cameras.main.centerOn(s.player.x, s.player.body.center.y); });
+    await shot('t5-mascara-rachada');
+
+    // a prova chega: lendo a ordem de subida, a versão que dói menos racha e a máscara fecha uma rachadura
+    await start('patio', ENTRY.patio);
+    await clear();
+    await hook();
+    const before = await page.evaluate(() => window.__progress.corruption);
+    const rd = await read('patio:0');
+    // a prova racha a versão uns segundos depois de fechar o registro, e o pensamento vem logo atrás
+    await until(() => window.__thoughts.some((x) => /cumprir a ordem/.test(x)), null, 15000).catch(() => null);
+    const cf = await page.evaluate(() => ({ c: window.__progress.corruption, conf: window.__progress.seen.has('confirm:coroacao:0'), banners: window.__banners, thoughts: window.__thoughts }));
+    check(rd && rd.seen && cf.conf && cf.c === before - 1 && cf.banners.some((x) => /A versão que dói menos rachou/.test(x) && /A escada/.test(x) && /A ordem de subida/.test(x)) && cf.thoughts.some((x) => /cumprir a ordem/.test(x)),
+      `a ordem de subida prova a escada: a versão que dói menos racha (${JSON.stringify({ c: [before, cf.c], b: cf.banners.slice(-1), t: cf.thoughts.slice(-1) })})`);
+
+    // o Cobrador: trocar memória racha a máscara; comprar de volta fecha (e a prova lida confirma na hora)
+    await page.evaluate(() => {
+      const p = window.__progress;
+      p.memories.add('cais:boss');
+      p.memories.add('cachoeiras:0');
+      p.coins = 120;
+      p.save();
+    });
+    const tr = await page.evaluate(() => {
+      const s = window.__scene;
+      const p = window.__progress;
+      const c0 = p.corruption;
+      s.openShop();
+      const b = [...document.querySelectorAll('#screen-shop .offer')].find((e) => e.dataset.id === 'breath');
+      b.click();
+      return { c0, c1: p.corruption, traded: [...p.traded] };
+    });
+    check(tr.c1 === tr.c0 + 1 && tr.traded.length === 1, `trocar uma memória com o Cobrador racha a máscara (${JSON.stringify(tr)})`);
+    // a mais antiga foi trocada; põe a do cais no lugar dela para testar a volta com a prova já lida
+    await page.evaluate(() => {
+      const p = window.__progress;
+      p.traded = new Set(['cais:boss']);
+      window.__ui.closeAll();
+      window.__scene.openShop();
+    });
+    await page.waitForTimeout(300);
+    const back = await page.evaluate(() => [...document.querySelectorAll('#screen-shop .back-col .offer')].map((e) => ({ id: e.dataset.id, name: e.querySelector('b').textContent, off: e.disabled })));
+    await page.screenshot({ path: `${OUT}/t5-cobrador.png` });
+    check(back.length === 1 && back[0].id === 'cais:boss' && back[0].name === 'As duas passagens' && !back[0].off, `o Cobrador mostra a memória trocada para comprar de volta (${JSON.stringify(back)})`);
+    const bb = await page.evaluate(() => {
+      const p = window.__progress;
+      const c0 = p.corruption;
+      const coins = p.coins;
+      document.querySelector('#screen-shop .back-col .offer').click();
+      return { c0, c1: p.corruption, coins: [coins, p.coins], traded: p.traded.has('cais:boss') };
+    });
+    check(!bb.traded && bb.coins[1] === bb.coins[0] - 45 && bb.c1 === bb.c0 - 1, `comprar de volta: 45 moedas, a memória volta e a rachadura fecha (${JSON.stringify(bb)})`);
+    await page.evaluate(() => document.querySelector('#screen-shop [data-cmd="close"]').click());
+    await waitGame(2.4);
+    const cais = await page.evaluate(() => ({ conf: window.__progress.seen.has('confirm:cais:boss'), b: window.__banners.slice(-1) }));
+    check(cais.conf && /As duas passagens/.test(cais.b[0] || ''), `a memória que voltou já tinha a prova lida: a versão falsa racha (${JSON.stringify(cais)})`);
+
+    // A Noite: as essenciais, as versões (a falsa rachada), os planos da Casa, o núcleo e a máscara. O
+    // setProgress de antes da escada apagou as leituras da volta pelas Torres; daqui conta a ordem de subida
+    // e mais estas três (um plano e as duas folhas do núcleo)
+    await page.evaluate(() => {
+      const s = window.__scene;
+      for (const id of ['mercado:0', 'experiencias:0', 'experiencias:1']) window.__progress.seen.add('record:' + id);
+      s.scene.pause();
+      window.__ui.journal({ onBack: () => window.__ui.closeAll() });
+      document.querySelector('#screen-journal [data-tab="night"]').click();
+    });
+    await page.waitForTimeout(400);
+    const nt = await page.evaluate(() => {
+      const q = document.querySelector('#screen-journal .tab-panel[data-panel="night"]');
+      const entries = [...q.querySelectorAll('.j-entry')];
+      const esc = entries.find((e) => e.querySelector('b') && e.querySelector('b').textContent === 'A escada');
+      return {
+        visible: !q.hidden,
+        count: q.querySelector('.j-count').textContent,
+        heads: [...q.querySelectorAll('.j-head')].map((e) => e.textContent),
+        escada: esc && [...esc.querySelectorAll('.j-ver')].map((e) => e.className),
+        tip: esc && esc.querySelector('.j-tip').textContent,
+        missing: entries.filter((e) => e.classList.contains('unknown')).length,
+        arielle: /Arielle/.test(q.textContent),
+      };
+    });
+    await page.screenshot({ path: `${OUT}/t5-a-noite.png` });
+    await page.evaluate(() => { const l = document.querySelector('#screen-journal .night-list'); l.scrollTop = l.scrollHeight; });
+    await page.waitForTimeout(200);
+    await page.screenshot({ path: `${OUT}/t5-a-noite-fim.png` });
+    check(nt.visible && /Essenciais: 3 de 9/.test(nt.count) && /Versões confirmadas: 2 de 7/.test(nt.count) && nt.heads.includes('Memórias essenciais') && nt.heads.some((h) => /Os planos da Casa: 2 de 5/.test(h)) && nt.heads.some((h) => /Como o núcleo foi feito: 2 de 4/.test(h)) && nt.heads.includes('A máscara'),
+      `a aba A Noite conta o que ele sabe e o que falta (${JSON.stringify({ count: nt.count, heads: nt.heads })})`);
+    check(nt.escada && nt.escada[0].includes('cracked') && nt.escada[1].includes('true') && /A ordem de subida/.test(nt.tip) && nt.missing > 0 && !nt.arielle,
+      `na escada, a versão falsa aparece rachada e a prova embaixo (${JSON.stringify({ escada: nt.escada, tip: nt.tip, missing: nt.missing })})`);
+    await page.evaluate(() => { window.__ui.closeAll(); window.__scene.scene.resume(); });
+
+    // um save de antes das rachaduras: cada memória trocada já rachou a máscara
+    const mig = await page.evaluate(() => {
+      const p = window.__progress;
+      const d = JSON.parse(localStorage.getItem('eclipse-progresso-v1'));
+      d.traded = ['ponte:0', 'catacumbas:0'];
+      d.memories = [...new Set([...(d.memories || []), 'ponte:0', 'catacumbas:0'])];
+      delete d.corruption;
+      p.restore({ ...d, corruption: null });
+      return p.corruption;
+    });
+    check(mig === 2, `num save antigo, as memórias trocadas viram rachaduras (${mig})`);
   }
 
   console.log(errs.join('\n') || 'sem erros');

@@ -104,7 +104,7 @@ body.pad #touch { display: none !important; }
   margin: 0; font-family: var(--display); font-weight: 400; letter-spacing: 0.08em;
   font-size: calc(var(--u) * 21); line-height: 1.1;
 }
-#banner p { margin: calc(var(--u) * 3) 0 0; font-family: var(--italic); font-style: italic; color: #c9c2b2; font-size: calc(var(--u) * 8.5); }
+#banner p { margin: calc(var(--u) * 3) auto 0; max-width: calc(var(--u) * 330); line-height: 1.4; font-family: var(--italic); font-style: italic; color: #c9c2b2; font-size: calc(var(--u) * 8.5); }
 /* no vale ensolarado o título fica escuro, com brilho claro em volta */
 body.bright #banner { text-shadow: 0 0 3px rgba(255, 251, 240, 0.9), 0 0 14px rgba(255, 251, 240, 0.85); }
 body.bright #banner h2 { color: #2b2533; }
@@ -602,6 +602,36 @@ span.key { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 2px;
 .j-entry .j-tag { float: right; margin-left: 12px; color: var(--gold); font-size: 13px; letter-spacing: 0.06em; }
 .j-entry.unknown b { color: #6c7186; font-style: italic; }
 @media (max-height: 520px) { .j-list { max-height: calc(100vh - 210px); } }
+/* A Noite: as memórias essenciais, as duas versões (a falsa racha), as provas e a máscara */
+.j-head { margin: 10px 0 2px; font-family: var(--display); font-weight: 400; font-size: 15px; letter-spacing: 0.12em; color: var(--muted); }
+.j-head:first-child { margin-top: 0; }
+.j-entry .j-ver { display: block; position: relative; margin-top: 4px; padding-left: 10px; border-left: 2px solid var(--faint); font-family: var(--italic); font-style: italic; font-size: 16px; line-height: 1.45; color: #d6cfbf; }
+.j-entry .j-ver i { font-style: normal; font-family: var(--body); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
+.j-entry .j-ver.true { border-left-color: var(--gold); }
+.j-entry .j-ver.sunk { color: #6c7186; }
+.j-entry .j-ver.cracked { color: #6f6a7d; border-left-color: #6a3f9e; }
+.j-entry .j-ver.cracked::after {
+  content: ''; position: absolute; inset: 0 0 0 10px; pointer-events: none; opacity: 0.9;
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 20' preserveAspectRatio='none'><polyline points='0,11 14,8 27,13 41,6 56,12 70,9 86,14 101,7 117,12 131,8 146,13 160,7 176,12 189,9 200,11' fill='none' stroke='%23a66cff' stroke-width='1.3' vector-effect='non-scaling-stroke'/></svg>") center / 100% 100% no-repeat;
+}
+.j-entry .j-tag.dim { color: var(--muted); }
+.j-entry .j-tag.rot { color: #b48cff; }
+
+/* a escolha de como guardar uma memória decisiva */
+.panel.small.choice-panel { width: min(100%, 560px); }
+.choice-lead { margin: 16px 0 0; color: #ded7c8; font-family: var(--italic); font-style: italic; font-size: 18px; line-height: 1.5; }
+.choice-versions { list-style: none; margin: 12px auto 0; padding: 0; max-width: 46ch; text-align: left; }
+.choice-versions li { margin-top: 6px; padding-left: 10px; border-left: 2px solid #6a3f9e; color: #cdc7b9; font-family: var(--italic); font-style: italic; font-size: 16px; line-height: 1.45; }
+.choice-versions li i { font-style: normal; font-family: var(--body); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
+.choice-ask { margin: 16px auto 0; }
+.choice-opts { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; text-align: left; }
+.offer-col.back-col { grid-column: 1 / -1; }
+/* com as memórias para comprar de volta o Cobrador cresce: só as ofertas rolam, e o Ir embora fica à vista */
+#screen-shop .shop-panel { display: flex; flex-direction: column; }
+#screen-shop .shop-panel > * { flex-shrink: 0; }
+#screen-shop .offers { flex: 0 1 auto; min-height: 0; overflow-y: auto; padding-right: 4px; scrollbar-width: thin; }
+.back-col .back-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 720px) { .back-col .back-row { grid-template-columns: 1fr; } }
 
 /* ---------- moedas (contador embaixo da vida) ---------- */
 #coins {

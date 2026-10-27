@@ -4,8 +4,10 @@ import { raw } from '../systems/RawInput';
 import { ACTIONS, ACTION_LABEL, PAD_ACTIONS, codeName, settings, type Action, type Quality } from '../systems/Settings';
 import { audio } from '../systems/Audio';
 import { BRAND_LABEL, BTN, buttonGlyph, buttonName, pad, stickGlyph, type PadBrand } from '../systems/Pad';
-import { ABILITIES, LEVEL_MUL, MAX_LEVEL, SLOT_IDS, progress, type SlotFind, type Upgrade } from '../systems/Save';
-import { BESTIARY, ELO, FORGE, MATERIALS, MEMORY_TOTAL, OFFERS, PAGES, PAGE_IDS, RECORD_IDS, SLOT_FINDS, memoryInfo, recordInfo, relicInfo } from '../world/lore';
+import { ABILITIES, BUYBACK_COST, LEVEL_MUL, MAX_LEVEL, SLOT_IDS, progress, type SlotFind, type Upgrade } from '../systems/Save';
+import { BESTIARY, ELO, FORGE, MATERIALS, MEMORY_TOTAL, OFFERS, PAGES, PAGE_IDS, RECORD_IDS, SLOT_FINDS, VERSIONS, memoryInfo, recordInfo, relicInfo } from '../world/lore';
+import { night, regionName, versionState } from '../world/story';
+import { REGIONS } from '../world/regions';
 import { MAP_POS, ROOMS, type RoomId } from '../world/rooms';
 import { MapView, regionThumb, type MapHere } from './mapview';
 import type { RegionDef, RegionId } from '../world/regions';
@@ -16,7 +18,7 @@ import { FORCED_PRESET, PRESETS, PRESET_LABEL, applyFpsLimit, presetOf, type Fps
 const MAP_PAN: Record<string, [number, number]> = {
   ArrowUp: [0, 1], ArrowDown: [0, -1], ArrowLeft: [1, 0], ArrowRight: [-1, 0], KeyW: [0, 1], KeyS: [0, -1], KeyA: [1, 0], KeyD: [-1, 0],
 };
-type ScreenId = 'loading' | 'intro' | 'menu' | 'erase' | 'path' | 'mages' | 'weapons' | 'settings' | 'pause' | 'end' | 'map' | 'shop' | 'surveyor' | 'inventory' | 'talk' | 'forge' | 'journal';
+type ScreenId = 'loading' | 'intro' | 'menu' | 'erase' | 'path' | 'mages' | 'weapons' | 'settings' | 'pause' | 'end' | 'map' | 'shop' | 'surveyor' | 'inventory' | 'talk' | 'forge' | 'journal' | 'choice';
 
 const COBRADOR_LINES = [
   'Voltou. Sempre voltam.',
@@ -66,6 +68,7 @@ const TOUCH_LABEL: Record<Action, string> = {
 };
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector(sel) as T;
+const RECORD_REGION = (id: string) => recordInfo(id, false).region;
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string) => {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
@@ -933,6 +936,25 @@ class UI {
     this.push('end', o.onExplore);
   }
 
+  // uma memória decisiva acabou de voltar: como guardar. Não tem voltar (tem de escolher)
+  choice(o: { title: string; lead: string; versions: [string, string]; soft: string; onPick: (soft: boolean) => void }) {
+    this.clearTexts();
+    const s = $('#screen-choice');
+    $('.choice-title', s).textContent = o.title;
+    $('.choice-lead', s).textContent = o.lead;
+    $('.choice-versions', s).replaceChildren(
+      ...o.versions.map((v, i) => {
+        const li = el('li');
+        li.append(el('i', '', i ? 'Na outra' : 'Numa versão'), document.createTextNode(v));
+        return li;
+      }),
+    );
+    $('.soft-what', s).textContent = `Fica só a mais leve: "${o.soft}" A outra afunda, e a máscara racha.`;
+    $<HTMLButtonElement>('[data-cmd="truth"]', s).onclick = () => o.onPick(false);
+    $<HTMLButtonElement>('[data-cmd="soft"]', s).onclick = () => o.onPick(true);
+    this.push('choice');
+  }
+
   // ---------- mapa e inventário ----------
   private mapLoop = 0;
   private mapView: MapView | null = null;
@@ -1241,16 +1263,18 @@ class UI {
 
   // ---------- o Cobrador ----------
   // buy: 'on' entrou equipado, 'stored' foi para o inventário (não cabia), false não deu para comprar
-  shop(o: { first: boolean; buy: (id: Upgrade) => 'on' | 'stored' | false; onClose: () => void }) {
+  shop(o: { first: boolean; buy: (id: Upgrade) => 'on' | 'stored' | false; buyBack: (id: string) => boolean; onClose: () => void }) {
     const s = $('#screen-shop');
     const quote = $('.quote', s);
     const coinPrices = OFFERS.filter((f) => f.pay === 'coin' && !progress.upgrades.has(f.id)).map((f) => f.cost);
     const canPay = progress.held > 0 || (coinPrices.length > 0 && progress.coins >= Math.min(...coinPrices));
     quote.textContent = o.first
       ? 'Toda memória tem um preço. Eu compro as suas. Moedas também servem, para quem ainda quer lembrar.'
-      : canPay
-        ? COBRADOR_LINES[Math.floor(Math.random() * COBRADOR_LINES.length)]
-        : 'Mãos vazias. Volte com alguma coisa que doa perder.';
+      : progress.traded.size && progress.coins >= BUYBACK_COST && Math.random() < 0.5
+        ? 'Veio buscar o que vendeu? Tudo tem preço. Até a volta.'
+        : canPay
+          ? COBRADOR_LINES[Math.floor(Math.random() * COBRADOR_LINES.length)]
+          : 'Mãos vazias. Volte com alguma coisa que doa perder.';
     $<HTMLButtonElement>('[data-cmd="close"]', s).onclick = () => o.onClose();
     const list = $('.offers', s);
     const render = (focusId?: Upgrade) => {
@@ -1283,6 +1307,30 @@ class UI {
           };
           col.append(b);
         }
+        list.append(col);
+      }
+      // as memórias trocadas: ele guarda todas, e devolve por moedas (a rachadura que ela abriu fecha)
+      if (progress.traded.size) {
+        const col = el('div', 'offer-col back-col');
+        col.append(el('h3', 'offer-group', 'Comprar de volta'));
+        const row = el('div', 'back-row');
+        for (const id of progress.traded) {
+          const info = memoryInfo(id, progress.knowsHerName);
+          if (!info) continue;
+          const b = el('button', 'offer');
+          b.dataset.id = id;
+          b.disabled = progress.coins < BUYBACK_COST;
+          const cost = el('span', 'cost coins');
+          cost.append(el('i'), el('span', '', String(BUYBACK_COST)));
+          b.append(el('b', '', info.title), el('span', 'what', 'A memória volta inteira, e a rachadura que ela abriu fecha.'), cost);
+          b.onclick = () => {
+            if (!o.buyBack(id)) return;
+            quote.textContent = 'Pouca gente volta para buscar. Tome, ainda está quente.';
+            render();
+          };
+          row.append(b);
+        }
+        col.append(row);
         list.append(col);
       }
       const next = [...list.querySelectorAll<HTMLButtonElement>('button:not([disabled])')][0];
@@ -1503,9 +1551,93 @@ class UI {
         return entry(r.title, r.lines.join(' '), undefined, r.region);
       }),
     );
+    this.nightTab(panel('night'), entry);
     show('story');
     $<HTMLButtonElement>('[data-cmd="back"]', s).onclick = () => o.onBack();
     this.push('journal', o.onBack);
+  }
+
+  // A Noite: o que ele já sabe da noite da Coroação e o que ainda falta (sem dizer o que vem depois).
+  // As memórias essenciais, as duas versões de cada uma (com a prova, a falsa racha), as outras de duas
+  // versões, os planos da Casa, como o núcleo foi feito e as rachaduras da máscara
+  private nightTab(panel: HTMLElement, entry: (title: string, text?: string, tip?: string, tag?: string, unknown?: boolean) => HTMLButtonElement) {
+    const n = night();
+    const been = (id: string) => {
+      const room = id.split(':')[0];
+      return REGIONS.some((r) => r.rooms.includes(room as RoomId) && r.rooms.some((q) => progress.visited.has(q)));
+    };
+    const where = (id: string) => (been(id) ? regionName(id) : 'Mais adiante no caminho');
+    const held = n.essentials.filter((e) => e.held).length;
+    const done = n.decisive.filter((d) => d.state === 'confirmed').length;
+    $('.j-count', panel).textContent = `Essenciais: ${held} de ${n.essentials.length} · Versões confirmadas: ${done} de ${n.decisive.length}`;
+    const out: HTMLElement[] = [];
+    const head = (t: string) => out.push(el('h3', 'j-head', t));
+    // uma memória: o texto inteiro, ou (se tem duas versões) o que as duas contam e cada versão
+    const memory = (id: string) => {
+      const info = memoryInfo(id, progress.knowsHerName)!;
+      const v = VERSIONS[id];
+      const st = versionState(id);
+      if (st === 'missing') return entry('Memória não encontrada', undefined, where(id), undefined, true);
+      if (st === 'traded') {
+        const b = entry(info.title, undefined, 'Trocada com o Cobrador. Esquecida. Ele devolve por moedas.', 'Esquecida');
+        b.querySelector('.j-tag')?.classList.add('dim');
+        return b;
+      }
+      if (!v) return entry(info.title, info.text, undefined, 'Inteira');
+      const b = el('button', 'j-entry') as HTMLButtonElement;
+      b.type = 'button';
+      const tag = st === 'confirmed' ? 'Confirmada' : st === 'soft' ? 'Como dói menos' : 'Duas versões';
+      b.append(el('span', st === 'soft' ? 'j-tag rot' : st === 'open' ? 'j-tag dim' : 'j-tag', tag), el('b', '', info.title), el('span', 'j-text', v.lead));
+      const line = (i: 0 | 1, cls: string, text = v.v[i]) => {
+        const sp = el('span', `j-ver ${cls}`.trim());
+        sp.append(el('i', '', i === 0 ? 'Numa versão' : 'Na outra'), document.createTextNode(text));
+        b.append(sp);
+      };
+      if (st === 'confirmed') {
+        line(0, v.truth === 0 ? 'true' : 'cracked');
+        line(1, v.truth === 1 ? 'true' : 'cracked');
+        b.append(el('span', 'j-tip', `Prova: ${recordInfo(v.proof, progress.knowsHerName).title}. A versão falsa rachou.`));
+      } else if (st === 'soft') {
+        line(v.soft, '');
+        line(v.soft === 0 ? 1 : 0, 'sunk', 'A outra versão afundou.');
+        b.append(el('span', 'j-tip', 'Guardada como dói menos. Uma prova ainda pode dizer o que aconteceu.'));
+      } else if (v.hidden) {
+        line(v.soft, '');
+        b.append(el('span', 'j-tip', 'Ele só lembra de um jeito. Se houver outro, alguém escreveu.'));
+      } else {
+        line(0, '');
+        line(1, '');
+        b.append(el('span', 'j-tip', 'Falta a prova que diz qual das duas aconteceu.'));
+      }
+      return b;
+    };
+    head('Memórias essenciais');
+    for (const e of n.essentials) out.push(memory(e.id));
+    // as outras de duas versões: só as que ele já achou
+    const others = Object.keys(VERSIONS).filter((id) => !n.essentials.some((e) => e.id === id) && progress.memories.has(id));
+    if (others.length) {
+      head('Outras lembranças em duas versões');
+      for (const id of others) out.push(memory(id));
+    }
+    const records = (title: string, list: { id: string; read: boolean }[]) => {
+      head(`${title}: ${list.filter((r) => r.read).length} de ${list.length}`);
+      for (const r of list) {
+        if (!r.read) out.push(entry('Registro não encontrado', undefined, where(r.id), undefined, true));
+        else out.push(entry(recordInfo(r.id, progress.knowsHerName).title, undefined, undefined, RECORD_REGION(r.id)));
+      }
+    };
+    records('Os planos da Casa', n.plans);
+    records('Como o núcleo foi feito', n.core);
+    head('A máscara');
+    const m = entry(
+      n.corruption === 0 ? 'Nenhuma rachadura' : n.corruption === 1 ? 'Uma rachadura' : `${n.corruption} rachaduras`,
+      undefined,
+      'Racha quando ele troca uma memória com o Cobrador ou lembra como dói menos. Fecha quando uma prova confirma uma versão ou quando ele compra uma memória de volta.',
+      `Corrupção ${n.level}`,
+    );
+    if (n.level !== 'baixa') m.querySelector('.j-tag')?.classList.add('rot');
+    out.push(m);
+    $('.j-list', panel).replaceChildren(...out);
   }
 
   // ---------- textos sobre o jogo ----------

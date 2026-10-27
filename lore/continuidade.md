@@ -65,7 +65,7 @@ O que o jogo só pode afirmar no fim: que ele matou Arielle, e por quê. Antes d
 3. **"O carrasco do rei"** (abertura). Pela lore ele servia a Casa Vhalor. Troca para "o último carrasco de Vespera".
 4. **A máscara.** Pela lore é punição ritual e prisão de memórias; o jogo diz que a Carcereira fechou o ferro no rosto dele. Combina; não muda.
 
-## 6. Sistema da história (a construir)
+## 6. Sistema da história (no jogo desde a T5 das Torres, 27/10/2026; detalhes em `torres.md`)
 
 1. **Registros**: documentos, inscrições, livros e fichas espalhados pelas salas, com uma aba própria no Diário. Cada um tem região, texto e as provas que carrega: `vhalor` (planos da Casa), `inocentes` (as vítimas), `ambar` (como o Âmbar era feito), `nucleo` (como o núcleo foi construído), `arielle` (o que ela fazia e pensava).
 2. **Memórias essenciais**: as memórias que contam a noite, marcadas no Diário. Uma por região nova e as dos chefes.
@@ -78,6 +78,7 @@ O que o jogo só pode afirmar no fim: que ele matou Arielle, e por quê. Antes d
    - **II. O Rei do Eclipse**: chega ao fim com memórias para saber dos crimes, mas com registros importantes faltando, versões distorcidas aceitas ou corrupção alta. Ou escolhe absorver.
    - **III. O Último Silêncio**: tudo do final I, mais todas as memórias dele e de Arielle e os registros `nucleo`. A opção de carregar os fragmentos só aparece aí. Cena sóbria: sem detalhe gráfico, sem glória; o foco fica nas pessoas salvas e no peso da decisão.
    - Consequência visível: cada final tem a sua cena e muda Vespera depois dos créditos (céu clareando nos finais I e III, gente parada nas ruas no II).
+8. **Como ficou no jogo (T5)**: 11 memórias de duas versões, cada uma com a prova que decide (a tabela está em `torres.md`); 9 essenciais; 7 decisivas, com a escolha na primeira vez que ele acha cada uma; corrupção de 0 a 12 no save, com até 6 rachaduras roxas na máscara do HUD; o Cobrador compra de volta (45 moedas); a aba A Noite no Diário. Os finais leem `night()` em `story.ts`.
 
 ## 7. Arielle, aos poucos
 
@@ -116,7 +117,8 @@ O que o jogo só pode afirmar no fim: que ele matou Arielle, e por quê. Antes d
 - Pronto também: as Minas Abandonadas (v15) e o caminho do Mago com os quatro magos (v16; ver `magos.md`). Nos dois caminhos ele segue sendo o último carrasco de Vespera.
 - Pronto também (v17): a Floresta Nevada com os registros dela (4), as memórias (3), o nome de Arielle (depois de "O nome dela") e a Casa Vhalor no texto (livro da caça, bestiário). Os registros das Minas e da Floresta ficam no Diário, aba Registros.
 - Pronto também (v19): o Vale das Cachoeiras com os registros dele (4: a lista do que levar, a planta da casa, a ordem do aqueduto e o livro de bordo), as memórias (3) e a primeira menção escrita ao núcleo da Coroação (prova `nucleo`).
-- Não existe ainda: registros nas 22 salas da Cidade e da Prisão, memórias essenciais, versões com prova (a carta, o livro da caça e o livro de bordo já existem como prova, falta o Diário rachar a versão falsa), corrupção, momentos decisivos, os três finais, a Coroação no texto do jogo além da ordem do aqueduto, e a área que falta (Torres Rúnicas).
+- Pronto também (Torres, ainda no ramo `torres`, sai na v20): as salas, a Capa de Luz, os inimigos, o Senhor de Vhalor e o Cetro, os registros das Torres (5 mais o decreto), as memórias da noite ("As flores do arquivo", "A ordem", "A escada") e o sistema da história inteiro (seção 6.8): memórias essenciais, versões com prova que racham a falsa, corrupção na máscara, escolhas decisivas, o Cobrador devolvendo memórias e a aba A Noite.
+- Não existe ainda: registros nas 22 salas da Cidade e da Prisão (a integração L2), o Carrasco Coroado, os três finais e Vespera depois do fim, a memória "A noite" (nucleo:boss).
 
 
 ## 11. Salas novas da v18 (26/10/2026)

@@ -243,6 +243,51 @@ vozes param uma a uma. A cena fica nas pessoas que voltam a lembrar.
 - Pensamentos curtos ao entrar nas Torres, no Arquivo (a mesa dela), na escadaria e diante do núcleo.
 - Arielle: o nome só aparece com `progress.knowsHerName`; antes, "ela", "A.".
 
+## O sistema da história no jogo (T5)
+
+Feito na T5 (`game/src/world/story.ts`, `VERSIONS` e `ESSENTIAL` em `lore.ts`, aba A Noite em `ui.ts`).
+
+- **Memórias de duas versões** (11): cada uma tem o que as duas contam igual, as duas versões, a que dói
+  menos, a que aconteceu e o registro que prova. Com a memória guardada e a prova lida, a versão falsa
+  racha: um aviso ("A versão que dói menos rachou", ou "A outra versão rachou" quando a mais leve era a
+  verdadeira), o pensamento com a versão que ficou e uma rachadura a menos na máscara. Vale também
+  quando a prova é lida antes e a memória chega depois, ou quando ela volta do Cobrador.
+
+| Memória | Dói menos | Aconteceu | Prova |
+| --- | --- | --- | --- |
+| altar:boss O dízimo do casamento (ele só lembra uma) | o Arcebispo cobrou a memória dela | ela foi atrás do Âmbar lembrando dele | cabana:1 A carta que ficou |
+| mascara:boss A máscara de ferro | mãos limpas | mãos não limpas | arquivo:1 A ficha do carrasco |
+| margem:0 A tinta nas mãos | a tinta saía | a tinta não saiu | arquivo:1 |
+| abismo:boss O machado | caiu da mão | desceu | arquivo:1 |
+| espelhos:boss O reflexo | ele se virou | seguiu em frente | arquivo:0 O índice dela |
+| capataz:boss A fuga pelo túnel | segurava a grade | corria atrás com a ordem | arquivo:0 |
+| mata:0 O cercado da espera | abriu antes da corneta | contou até dez | mata:1 A lista do cercado |
+| clareira:boss A trilha na neve | mandou a matilha para o vale | a mesma (a mais leve é a verdade) | clareira:0 O livro da caça |
+| cais:boss As duas passagens | os nomes para devolver | a ordem no outro bolso | patio:0 A ordem de subida |
+| trono:boss A ordem | perguntou de quem era o nome | guardou sem ler | arquivo:1 |
+| coroacao:0 A escada | subiu para salvá-la | subiu para cumprir a ordem | patio:0 |
+
+- **Memórias essenciais** (9, na ordem do caminho): a máscara de ferro, o machado, a fuga pelo túnel,
+  o nome dela (cabana:0), a trilha na neve, as duas passagens, as flores do arquivo, a ordem e a escada.
+- **Decisivas**: as essenciais de duas versões (7). Na primeira vez que ele acha uma, a onda passa, o
+  mundo para e ele escolhe: **lembrar como foi** (as duas versões ficam até a prova) ou **lembrar como
+  dói menos** (fica a mais leve, a outra afunda e a máscara racha). Num save de antes da escolha, a
+  memória fica como foi. O fim de capítulo espera a escolha.
+- **Corrupção** (0 a 12, no save; o HUD mostra até 6 rachaduras roxas na máscara, que brilha a partir de
+  5): +1 por memória trocada com o Cobrador, +1 por "como dói menos"; −1 por versão confirmada, −1 por
+  memória comprada de volta. Saves antigos começam com uma rachadura por memória já trocada. Baixa até
+  2, média até 4, alta acima.
+- **O Cobrador devolve**: "Comprar de volta" lista as memórias trocadas, 45 moedas cada. A memória volta
+  inteira e a rachadura que ela abriu fecha (o item trocado continua com ele).
+- **Diário, aba A Noite**: essenciais (achadas, trocadas ou "Memória não encontrada" com a região; "Mais
+  adiante no caminho" se a região ainda não foi pisada), as outras de duas versões já achadas, os planos
+  da Casa (mercado:0, prensas:0, rio:0, trono:0, patio:0), como o núcleo foi feito (os 4 registros
+  `nucleo`) e a máscara. A versão falsa aparece riscada por uma rachadura roxa; a verdadeira, com borda
+  dourada e a prova embaixo. O nome dela segue o `knowsHerName`.
+- **Para os finais** (`night()`): `truth` = as 9 essenciais guardadas, as 7 decisivas confirmadas, os 5
+  planos lidos e corrupção baixa (final I inteiro). `whole` = `truth` mais todas as memórias dele e dela
+  guardadas e os 4 registros do núcleo (final III).
+
 ## Arte
 
 - A pintura a óleo inteira: pinceladas grossas e coloridas em espiral nas nuvens, na luz e no ouro (o
@@ -256,11 +301,12 @@ vozes param uma a uma. A cena fica nas pessoas que voltam a lembrar.
 
 ## Marcos
 
-1. T1 salas: mapas em `tools/rooms.py`, portão do cais, região no mapa, agrimensor.
-2. T2 sistemas: Capa de Luz (voo, lumes, HUD), runas, engrenagens, mar de nuvens, frascos.
-3. T3 inimigos: Guarda da Coroação, Vigia Rúnica, Arquivados (arte no traço liso).
-4. T4 chefe do meio: o Senhor de Vhalor e o Cetro.
-5. T5 sistema da história: versões confirmadas por prova, corrupção na máscara, aba A Noite.
+1. T1 salas: mapas em `tools/rooms.py`, portão do cais, região no mapa, agrimensor. Feito.
+2. T2 sistemas: Capa de Luz (voo, lumes, HUD), runas, engrenagens, mar de nuvens, frascos. Feito.
+3. T3 inimigos: Guarda da Coroação, Vigia Rúnica, Arquivados (arte no traço liso). Feito.
+4. T4 chefe do meio: o Senhor de Vhalor e o Cetro. Feito.
+5. T5 sistema da história: versões confirmadas por prova, corrupção na máscara, aba A Noite, os registros
+   e as memórias das Torres. Feito.
 6. T6 chefe final: o Carrasco Coroado (colosso e espelho) e a escolha.
 7. T7 finais: as três cenas, os créditos, Vespera depois do fim.
 8. T8 arte e áudio: terreno, fundos pintados, adereços, música do fim.

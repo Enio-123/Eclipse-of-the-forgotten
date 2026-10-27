@@ -54,7 +54,8 @@ import { Mine } from '../world/Mine';
 import { Finds, hasFind, isSlotFind, type FindId } from '../world/Finds';
 import type { Breakable } from '../world/secrets';
 import { Loot } from '../world/Loot';
-import { ARENA_WAVES, BELLS, ELO, FORGE, FOUND_THOUGHTS, LEVERS, MATERIALS, MEMORIES, MEMORY_ECHO, NAME_MEMORY, NUN, OFFERS, OLD_MINER, PAGES, PRISONER, RECORDS, SLOT_FINDS, SMITH, SURVEYOR, memoryInfo, recordInfo, relicInfo } from '../world/lore';
+import { ARENA_WAVES, BELLS, DECISIVE, ELO, FORGE, FOUND_THOUGHTS, LEVERS, MATERIALS, MEMORIES, MEMORY_ECHO, NAME_MEMORY, NUN, OFFERS, OLD_MINER, PAGES, PRISONER, RECORDS, SLOT_FINDS, SMITH, SURVEYOR, VERSIONS, memoryInfo, recordInfo, relicInfo } from '../world/lore';
+import { choose, chosen, confirm, confirmed, holds, pendingConfirmations } from '../world/story';
 import { REGION_BY_ID, sheetsFor, surveyorRegion } from '../world/regions';
 import { TILE_ONEWAY, smoothGlow } from '../gfx/textures';
 import { ui } from '../ui/ui';
@@ -842,6 +843,8 @@ export class GameScene extends Phaser.Scene {
 
     this.arrive(data.from);
     if (this.room.theme === 'mine') this.time.delayedCall(2200, () => this.catchUpPowers());
+    // provas que ficaram para trás (um save de antes das versões, ou uma sala trocada no meio)
+    this.checkVersions(3600);
 
     ui.onStackChange = (open) => {
       if (!open) this.controls.reset();
@@ -2879,6 +2882,8 @@ export class GameScene extends Phaser.Scene {
       progress.save();
       this.sfx('page');
       ui.banner('Registro guardado no Diário', r.title, 3600);
+      // um registro pode ser a prova de memórias que ele já guarda
+      this.checkVersions(3800);
     });
   }
 
@@ -3194,6 +3199,7 @@ export class GameScene extends Phaser.Scene {
     this.registry.set('maxhp', progress.maxHp);
     this.registry.set('memories', [...progress.memories].map((m) => (progress.traded.has(m) ? 0 : 1)));
     this.registry.set('coins', progress.coins);
+    this.registry.set('corruption', progress.corruption);
     document.body.classList.toggle('has-memory', progress.powers.size > 0);
     document.body.classList.toggle('is-mage', !!progress.mage);
     this.registry.set('power', progress.power ?? '');
@@ -3284,6 +3290,72 @@ export class GameScene extends Phaser.Scene {
       // o nome que ela escreveu na areia da prainha (a memória já guardada muda junto, no Diário)
       this.time.delayedCall(5000, () => ui.thought('O nome que ela escreveu na areia da prainha. Agora as letras ficam paradas: Arielle.', 4600));
     }
+    // as decisivas: na primeira vez ele escolhe como guardar; as outras de duas versões podem já ter a
+    // prova lida
+    if (DECISIVE.includes(m.id) && !chosen(m.id)) this.askMemory(m.id);
+    else this.checkVersions(5400);
+  }
+
+  // ---------- as duas versões ----------
+  // a memória decisiva acabou de voltar: a onda passa, o mundo para e ele escolhe como guardar. Como foi:
+  // as duas versões ficam até a prova. Como dói menos: fica a mais leve, e a máscara racha
+  private askMemory(id: string) {
+    const p = this.player;
+    const v = VERSIONS[id];
+    const info = memoryInfo(id, progress.knowsHerName);
+    if (!v || !info) return;
+    this.cinematic = true;
+    p.frozen = true;
+    p.body.setVelocity(0, 0);
+    this.time.delayedCall(2600, () => {
+      if (this.transitioning) return;
+      this.scene.pause();
+      ui.hint(null);
+      ui.choice({
+        title: info.title,
+        lead: v.lead,
+        versions: v.v,
+        soft: v.v[v.soft],
+        onPick: (soft) => {
+          choose(id, soft);
+          progress.save();
+          this.resumeGame();
+          p.frozen = false;
+          this.cinematic = false;
+          this.registry.set('corruption', progress.corruption);
+          if (soft) {
+            this.sfx('crack', 0.7, 0.8);
+            this.memWave?.start(p.x, p.body.center.y, 'corrupt', { power: 0.45, radius: 180, hold: 0.5 });
+            ui.thought('A outra versão afunda, como pedra na água. A máscara racha mais um pouco.', 4600);
+          } else ui.thought('As duas ficam. Uma delas é mentira, e em algum lugar alguém escreveu qual.', 4600);
+          this.checkVersions(4800);
+        },
+      });
+    });
+  }
+
+  // as provas lidas das memórias que ele guarda: cada versão falsa racha, uma de cada vez
+  checkVersions(delay = 0) {
+    pendingConfirmations().forEach((id, i) => this.time.delayedCall(delay + i * 5600, () => this.revealTruth(id)));
+  }
+
+  private revealTruth(id: string) {
+    const v = VERSIONS[id];
+    const info = memoryInfo(id, progress.knowsHerName);
+    if (!v || !info || confirmed(id) || !holds(id) || this.transitioning) return;
+    confirm(id);
+    progress.save();
+    const p = this.player;
+    this.registry.set('corruption', progress.corruption);
+    this.sfx('glass', 0.55, 1.15);
+    this.sfx('chime', 0.4, 0.8);
+    this.memWave?.start(p.x, p.body.center.y, 'restore', { power: 0.5, radius: 200, hold: 0.6 });
+    this.glowBurst(p.x, p.body.center.y, 0xffe2b0, 3);
+    const proof = recordInfo(v.proof, progress.knowsHerName).title;
+    // a falsa era a que dói menos (quase sempre) ou a outra (a trilha na neve)
+    const title = v.truth === v.soft ? 'A outra versão rachou' : 'A versão que dói menos rachou';
+    ui.banner(title, `${info.title} · ${proof}`, 4200);
+    this.time.delayedCall(1400, () => ui.thought(v.v[v.truth], 4600));
   }
 
   // ---------- a sombra (Eco) ----------
@@ -3910,13 +3982,14 @@ export class GameScene extends Phaser.Scene {
           if (progress.coins < offer.cost) return false;
           progress.coins -= offer.cost;
         } else {
-          // as memórias mais antigas vão primeiro
+          // as memórias mais antigas vão primeiro; cada uma trocada racha a máscara
           if (progress.held < offer.cost) return false;
           let n = 0;
           for (const m of progress.memories) {
             if (n >= offer.cost) break;
             if (progress.traded.has(m)) continue;
             progress.traded.add(m);
+            progress.corrupt(1);
             n++;
           }
         }
@@ -3931,9 +4004,18 @@ export class GameScene extends Phaser.Scene {
         audio.sfx('coin');
         return on ? 'on' : 'stored';
       },
+      // a memória trocada volta, por moedas (e fecha a rachadura que ela abriu)
+      buyBack: (id) => {
+        if (!progress.buyBack(id)) return false;
+        this.applyProgress();
+        audio.sfx('coin');
+        return true;
+      },
       onClose: () => {
         this.props.talk(false);
         this.resumeGame();
+        // a memória que voltou pode ter a prova lida
+        this.checkVersions(900);
       },
     });
   }
