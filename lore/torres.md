@@ -46,7 +46,7 @@ Nove salas, longas como as do vale (o pedido do Enio).
 | patio | O Pátio das Runas | Onde a Casa esperava | A esplanada no pé das três torres, a cisterna onde a calha despeja, a vela de descanso. Três portas: a do Arquivo (aberta), a grande porta da torre do meio (trancada por dentro: a tranca sai lá da Torre das Engrenagens e a porta vira atalho) e a da torre das Experiências, no terraço, sem fechadura: abre quando as quatro runas estão acesas juntas (uma no chão, uma no pedestal baixo, uma no terraço e uma no alto da coluna, onde se sobe pelos degraus de ferro presos entre a coluna e a parede da torre). Guardas da Coroação |
 | arquivo | O Arquivo Proibido | O lugar dela | Opcional, fora do caminho. Três pilhas de galerias entre as estantes, com o vão da subida trocando de lado a cada andar e passagens nas estantes embaixo, no meio e mais alto. A mesa dela (a memória e um registro), os frascos que brilham, os Arquivados, a sala de leitura no alto e, atrás da estante falsa, a ficha dele. O lugar da flor do final I |
 | experiencias | A Sala das Experiências | Antes da Coroação | As cadeiras com coroas de Âmbar ligadas por cabos, os cadernos dos testes, em três andares. Do último sai a ponte coberta até a torre do meio. Prova `nucleo` |
-| engrenagens | A Torre das Engrenagens | A água que esfria o núcleo | Sala vertical: a torre do meio é oca. O vapor do núcleo desce pelos canos e move as rodas; as rodas giram as engrenagens e a corrente dos baldes, que tira a água do poço do fundo (a da calha) e leva até o alto, para esfriar o núcleo. O eixo grande divide a torre em duas metades; em cada uma sobe-se por saliências que trocam de lado a cada seis linhas. A ponte das Experiências chega no meio da altura; embaixo, o lado de dentro da grande porta |
+| engrenagens | A Torre das Engrenagens | A água que esfria o núcleo | Sala vertical: a torre do meio é oca. O vapor do núcleo desce pelos canos e move as rodas; as rodas giram as engrenagens e a corrente dos baldes, que tira a água do poço do fundo (a da calha) e leva até o alto, para esfriar o núcleo. O eixo grande divide a torre em duas metades; atrás dele, o trem de engrenagens desce do alto até o mancal. Em cada metade sobe-se por saliências que trocam de lado a cada seis linhas. A ponte das Experiências chega no meio da altura; embaixo, o lado de dentro da grande porta |
 | trono | O Trono da Casa | O Senhor de Vhalor | Arena do chefe do meio: a antessala baixa com a grade, o salão, o estrado e o encosto alto do trono. Depois da luta, o alçapão do teto abre; sobe-se pelo degrau do estrado, pelos degraus de ferro presos no encosto e pelo lustre do meio do salão |
 | coroacao | A Escadaria da Coroação | A noite | A escada em caracol em volta do poço do núcleo: lanços de uma parede à outra e, em cada volta, um trecho de parede até o patamar de cima. Os ecos da noite: ela subindo na frente, os guardas, a ordem |
 | nucleo | O Coração do Eclipse | Onde tudo aconteceu | Arena final no alto da torre maior, sobre o mar de nuvens, com o núcleo preso nas correntes. O Carrasco Coroado e os três finais |
@@ -73,14 +73,27 @@ as portas como objetivos). A única passagem que pede a Capa de Luz é o vão gr
    nuvens). O lume enche as luzes e devolve o pulo duplo e o dash do ar, apaga e acende de novo em
    3,5 s; com tudo cheio, o cavaleiro passa por ele e o lume fica. É o voo do fim do jogo, e muda a
    forma de atravessar as salas abertas. Na água não se voa (lá é o nado).
-2. **Runas**: pedras gravadas que acendem com um golpe e ficam acesas por alguns segundos. Acender
-   todas as de um conjunto antes que a primeira apague abre a porta ou ergue a plataforma.
-3. **Engrenagens**: rodas que giram presas num eixo, movidas pela água; as pás e os dentes servem de
-   chão. Uma alavanca para a roda d'água e as engrenagens param juntas.
-4. **Mar de nuvens**: embaixo das salas abertas. Cair nele leva de volta ao último chão firme, com um
-   ponto de dano (como os espinhos).
-5. **Frascos de Âmbar**: nas estantes do Arquivo. A maior parte é cenário; os poucos que brilham mais
-   guardam um eco curto (uma frase de alguém cuja memória está ali), sem texto demais.
+2. **Runas** (']' no mapa): pedras gravadas da Casa. Um golpe, uma flecha ou a magia acende a runa
+   por 14 s; nos últimos 4 ela enfraquece e no último 1,5 pisca. Acesas todas juntas, a luz corre
+   delas até a porta que tem a marca da sala (`RoomDef.runes`), a marca entra no progresso e elas
+   ficam acesas de vez, junto com as runas do batente. No pátio são quatro e abrem a porta do terraço
+   (a das Experiências). A primeira que acende e a primeira que apaga sozinha deixam um pensamento.
+3. **A máquina das Engrenagens** (`RoomDef.gears`, `buckets`, `vents`): atrás do eixo, presas na
+   parede do fundo, dez rodas dentadas em trem, cada uma engrenada na de cima (o dente no vão da
+   vizinha, girando ao contrário e no mesmo passo de dentes, então nenhuma escapa); a corrente de 64
+   baldes que sobe cheia do poço do fundo pela direita, despeja no alto e desce vazia pela esquerda;
+   e cinco canos que soltam jatos de vapor de tempos em tempos. É cenário vivo, nada disso é chão: a
+   subida da torre já é longa. A máquina só para no fim, quando o núcleo apagar (T7).
+4. **Mar de nuvens**: embaixo das salas abertas (escada, calha, experiências e núcleo), duas faixas
+   de nuvem que correm devagar, uma atrás dos pilares e outra na frente, no pé da sala; os pilares
+   afundam nelas. Cair nele: um sopro de nuvem, um ponto de dano (como os espinhos) e a volta ao último
+   chão firme, com o escuro dourado das nuvens no lugar do preto.
+5. **Frascos de Âmbar** (',' no mapa): a maior parte das estantes é cenário; os quatro que brilham
+   guardam um eco curto, uma frase de alguém cuja memória está ali (`JAR_ECHOES` em lore.ts), e
+   {up} escuta de perto. Depois do primeiro, o cavaleiro entende que a Casa não guardava papéis no
+   Arquivo: guardava as pessoas.
+6. **A água das Torres**: a do Vale, que o aqueduto traz (calha, cisterna do pátio, poço das
+   Engrenagens), pintada pela profundidade com a linha d'água dourada.
 
 ## Inimigos
 

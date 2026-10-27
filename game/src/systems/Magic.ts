@@ -703,8 +703,9 @@ export class Magic {
       }
       if (o.once && r !== 'ignored') break;
     }
-    // o Âmbar cede à magia depois da Energia do Capataz
+    // o Âmbar cede à magia depois da Energia do Capataz; as runas das Torres acendem
     s.mine?.magicHit(box);
+    s.torres?.magicHit(box);
     if (n && o.heavy) s.hitstop(0.05);
     return n;
   }
@@ -1102,6 +1103,7 @@ export class Magic {
             else this.launch(e, C.launch, C.dmg * progress.dmgFor('espaco'));
           }
           s.mine?.magicHit(box);
+          s.torres?.magicHit(box);
         }
         if (down > 0 && Math.random() < dt * 30) this.rubble.emitParticle(1, x0 + Math.random() * w, floor - h);
         return true;

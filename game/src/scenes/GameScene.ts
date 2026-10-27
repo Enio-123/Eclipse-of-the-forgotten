@@ -1251,6 +1251,7 @@ export class GameScene extends Phaser.Scene {
       }
       if (this.fixtures.strike(box, p)) hit = true;
       if (this.mine?.strike(box, p)) hit = true;
+      if (this.torres?.strike(box, p)) hit = true;
       if (p.atkDir === 'down' && !p.hitSet.has('spikes') && this.level.touchesSpikes(box.x, box.y, box.width, box.height)) {
         p.hitSet.add('spikes');
         hit = true;
@@ -1924,6 +1925,13 @@ export class GameScene extends Phaser.Scene {
         a.destroy();
         continue;
       }
+      // as runas das Torres acendem com a flecha e com a magia
+      if (this.torres?.magicHit(a.rect)) {
+        if (a.orb) this.orbBurst(a);
+        else this.sfx('thunk', 0.6);
+        a.destroy();
+        continue;
+      }
       for (const e of this.enemies) {
         if (!e.alive || !overlap(a.rect, e.rect)) continue;
         const r = e.hit(a.x - a.dx * 20, a.dmg, 'arrow');
@@ -1981,16 +1989,19 @@ export class GameScene extends Phaser.Scene {
       this.thinkOnce('forest:water', 'A água morde. Não dá para ficar nela nem um instante.');
     }
     this.respawning = true;
+    if (fell) this.torres?.fallInto(b.center.x);
     if (p.hurt(b.center.x)) this.onHurt();
     if (p.dead) return;
     p.frozen = true;
     const cam = this.cameras.main;
+    // no mar de nuvens das Torres a tela apaga num ouro escuro, não no preto
+    const [fr, fg, fb] = fell && this.torres ? [58, 40, 24] : [7, 8, 13];
     this.time.delayedCall(fell ? 60 : 220, () => {
-      cam.fadeOut(160, 7, 8, 13);
+      cam.fadeOut(160, fr, fg, fb);
       cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
         p.teleport(p.lastSafe.x, p.lastSafe.y);
         p.body.setVelocity(0, 0);
-        cam.fadeIn(220, 7, 8, 13);
+        cam.fadeIn(220, fr, fg, fb);
         this.time.delayedCall(180, () => {
           p.frozen = false;
           this.respawning = false;
@@ -2144,7 +2155,7 @@ export class GameScene extends Phaser.Scene {
     if (!hint && !this.cinematic && !this.transitioning && !p.dead) {
       this.props.touch(p);
       this.fixtures.touch(p);
-      const near = this.mine?.nearby(p) ?? this.forest?.nearby(p) ?? this.records.nearby(p) ?? this.props.nearby(p) ?? this.fixtures.nearby(p) ?? this.npcs.nearby(p);
+      const near = this.mine?.nearby(p) ?? this.forest?.nearby(p) ?? this.torres?.nearby(p) ?? this.records.nearby(p) ?? this.props.nearby(p) ?? this.fixtures.nearby(p) ?? this.npcs.nearby(p);
       if (near) {
         hint = near.hint;
         if (this.controls.pressed.up) {

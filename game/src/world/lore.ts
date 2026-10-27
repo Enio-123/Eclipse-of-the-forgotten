@@ -740,6 +740,17 @@ export const LEVERS: Record<string, string> = {
   'lever:fuga:0': 'Lá em cima, um alçapão destrancou. O poço sobe até as celas.',
 };
 
+// os frascos de Âmbar que brilham nas estantes do Arquivo (',' no mapa, na ordem do mapa): cada um guarda
+// a memória de alguém, e o eco é uma frase só, na voz de quem ela era
+export const JAR_ECHOES: Record<string, string[]> = {
+  arquivo: [
+    'Minha mãe cantava para o pão crescer. Eu não lembro a letra. Eu lembrava.',
+    'Pediram só o dia do incêndio. Levaram o ano inteiro junto.',
+    'Eu tinha um irmão. Disso eu tenho certeza. O rosto dele ficou aqui.',
+    'Se alguém abrir isto: o nome da minha filha é Lis. Diga a ela que eu tentei.',
+  ],
+};
+
 // Tomé, o preso do corredor das celas: pede as chaves e conta a versão dele daquele dia
 export const PRISONER = {
   name: 'Tomé',

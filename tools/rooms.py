@@ -2361,8 +2361,9 @@ def engrenagens():
     cima, desce em vapor pelos canos e move as rodas; as rodas giram as engrenagens e a corrente dos
     baldes, que tira a água do poço do fundo (a da calha, que chega por baixo do pátio) e leva até o alto,
     para esfriar o núcleo. O eixo grande sobe pelo meio, do mancal de pedra do fundo até o patamar de
-    cima, e divide a torre em duas metades. Em cada metade sobe-se pelas saliências presas na parede e no
-    eixo, trocando de lado a cada seis linhas (o pulo duplo alcança). A ponte da torre das Experiências
+    cima, e divide a torre em duas metades; atrás dele, na parede do fundo, o trem de engrenagens desce
+    do alto até o mancal. Em cada metade sobe-se pelas saliências presas na parede e no eixo, trocando
+    de lado a cada seis linhas (o pulo duplo alcança). A ponte da torre das Experiências
     chega pela direita, no meio da altura; embaixo, à esquerda do mancal, fica o lado de dentro da grande
     porta do pátio (a tranca abre por aqui); a saída de cima leva ao trono."""
     W, H = 72, 150

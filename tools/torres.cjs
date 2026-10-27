@@ -1,12 +1,14 @@
 // Testa a Área 7, as Torres Rúnicas: o portão do cais que sobe com o Barqueiro vencido, as passagens
 // entre as nove salas nos dois sentidos (lados, de cima e de baixo, e as portas do pátio), as portas
 // trancadas (runas e tranca por dentro), o Agrimensor na escada, uma foto de cada sala (T1) e a Capa de
-// Luz: a relíquia no pilar, os três voos, os lumes que recarregam e as luzes no HUD (T2).
+// Luz: a relíquia no pilar, os três voos, os lumes que recarregam e as luzes no HUD, as runas do pátio e
+// o mar de nuvens, os frascos do Arquivo e a máquina da Torre das Engrenagens (T2).
 // uso: node torres.cjs <pasta-saida> [url]
 const { chromium } = require('playwright');
 const OUT = process.argv[2] || '.';
 const URL = process.argv[3] || 'http://localhost:8780/index.html';
-// ONLY=links,portao roda só essas partes (portao, links, portas, agrimensor, fotos, voo)
+// ONLY=links,portao roda só essas partes (portao, links, portas, agrimensor, fotos, voo, runas, nuvens,
+// frascos, maquina)
 const ONLY = (process.env.ONLY || '').split(',').filter(Boolean);
 const part = (k) => !ONLY.length || ONLY.includes(k);
 (async () => {
@@ -320,6 +322,155 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
     await shot('t2-voo');
     await page.keyboard.up('Space');
     check(true, `foto do voo em ${OUT}/t2-voo.png`);
+  }
+
+  if (part('runas')) {
+    // ---------- 7. as runas do pátio ----------
+    await setProgress(VALE);
+    await start('patio', '1');
+    await clear();
+    const R = () => page.evaluate(() => {
+      const s = window.__scene;
+      const T = s.torres;
+      return { runes: T.runes.map((r) => ({ x: Math.round(r.x / 16 * 10) / 10, t: r.t === Infinity ? 'inf' : Math.round(r.t * 10) / 10 })), open: window.__progress.seen.has('runas:patio'),
+        glyphs: T.doorGlyphs.map((g) => Math.round(g.alpha * 100) / 100), acesa: window.__progress.seen.has('thought:runa:acesa'), apagou: window.__progress.seen.has('thought:runa:apagou') };
+    });
+    // de pé do lado esquerdo da pedra, virado para ela, um golpe
+    const hit = async (i) => {
+      await page.evaluate((i) => { const s = window.__scene; const r = s.torres.runes[i]; const p = s.player; p.teleport(r.x - 22, r.y); p.body.setVelocity(0, 0); p.facing = 1; p.atkCd = 0; }, i);
+      await waitGame(0.3);
+      await page.keyboard.down('KeyJ');
+      await waitGame(0.08);
+      await page.keyboard.up('KeyJ');
+      await waitGame(0.35);
+    };
+    let st = await R();
+    check(st.runes.length === 4 && st.runes.every((r) => r.t === 0) && !st.open && st.glyphs.length === 5 && st.glyphs.every((a) => a === 0), `quatro runas apagadas e o batente apagado (${JSON.stringify(st)})`);
+    await hit(0);
+    st = await R();
+    check(st.runes[0].t > 12 && st.runes.slice(1).every((r) => r.t === 0) && st.acesa, `o golpe acende a primeira runa (${JSON.stringify(st.runes)})`);
+    await page.evaluate(() => { window.__scene.torres.runes[0].t = 0.3; });
+    await waitGame(0.5);
+    st = await R();
+    check(st.runes[0].t === 0 && st.apagou && !st.open, `o tempo acaba e ela apaga (${JSON.stringify(st.runes[0])})`);
+    for (let i = 0; i < 3; i++) await hit(i);
+    st = await R();
+    check(st.runes.slice(0, 3).every((r) => r.t > 9) && st.runes[3].t === 0 && !st.open, `três acesas ainda não abrem (${JSON.stringify(st.runes)})`);
+    await hit(3);
+    st = await R();
+    check(st.open && st.runes.every((r) => r.t === 'inf'), `as quatro acesas juntas abrem a porta (${JSON.stringify(st)})`);
+    await waitGame(2.6);
+    st = await R();
+    check(st.glyphs.every((a) => a > 0.8), `as runas do batente acendem (${st.glyphs.join(', ')})`);
+    await page.evaluate(() => { const s = window.__scene; const p = s.player; p.teleport(116 * 16, 40 * 16); p.body.setVelocity(0, 0); p.facing = 1; s.cameras.main.centerOn(120 * 16, 36 * 16); });
+    await waitGame(0.5);
+    await shot('t2-runas');
+    // a porta do terraço leva às Experiências
+    await page.evaluate(() => { const s = window.__scene; const d = s.fixtures.doors[0]; window.__oldPlayer = s.player; s.player.teleport(d.x, d.y); s.player.body.setVelocity(0, 0); });
+    await waitGame(0.4);
+    await page.keyboard.down('KeyW');
+    await page.waitForTimeout(160);
+    await page.keyboard.up('KeyW');
+    const r = await arrived('experiencias');
+    check(r.room === 'experiencias', `pela porta do terraço ele entra nas Experiências (${r.room})`);
+    await start('patio', '1');
+    st = await R();
+    check(st.open && st.runes.every((r) => r.t === 'inf') && st.glyphs.every((a) => a > 0.8), `de volta ao pátio, as runas continuam acesas (${JSON.stringify(st.runes)})`);
+    // a magia e a flecha acendem também (a mesma entrada que a cena usa para elas)
+    await setProgress(VALE);
+    await start('patio', '1');
+    const m = await page.evaluate(() => { const T = window.__scene.torres; const r = T.runes[1]; const hit = T.magicHit(new Phaser.Geom.Rectangle(r.x - 4, r.y - 16, 8, 8)); return { hit, t: r.t }; });
+    check(m.hit && m.t > 13, `a magia acende a runa (${JSON.stringify(m)})`);
+  }
+
+  if (part('nuvens')) {
+    // ---------- 8. o mar de nuvens ----------
+    await setProgress(VALE);
+    const seas = {};
+    for (const [room, entry] of [['escada', '1'], ['calha', '1'], ['experiencias', 'O0'], ['nucleo', '1'], ['patio', '1']]) {
+      await start(room, entry);
+      seas[room] = await page.evaluate(() => window.__scene.torres.clouds.map((c) => [Math.round(c.sprite.x / 16), Math.round((c.sprite.x + c.sprite.width) / 16)]));
+    }
+    check(seas.calha.length === 2 && seas.escada.length >= 2 && seas.experiencias.length === 2 && seas.nucleo.length === 4 && seas.patio.length === 0, `nuvens embaixo das salas abertas, nenhuma no pátio (${JSON.stringify(seas)})`);
+    // o poço do núcleo (a saída para baixo) fica sem nuvem
+    const hole = seas.nucleo.some(([a, b]) => a <= 63 && b >= 63);
+    check(!hole, 'o poço do núcleo fica sem nuvem');
+    // cair nelas: um ponto de dano e de volta ao último chão firme
+    await start('calha', '1');
+    await clear();
+    await page.evaluate(() => { const s = window.__scene; const p = s.player; p.invuln = 0; p.teleport(40 * 16 + 8, 22 * 16); p.body.setVelocity(0, 0); });
+    await waitGame(0.4);
+    const hp0 = (await P()).hp;
+    await page.evaluate(() => { const p = window.__scene.player; p.teleport(66 * 16 + 8, 46 * 16); p.body.setVelocity(0, 300); });
+    await until(() => !window.__scene.respawning && window.__scene.player.body.blocked.down && window.__scene.player.body.bottom < 30 * 16, null, 8000).catch(() => null);
+    const r = await P();
+    check(r.hp === hp0 - 1 && r.bottom < 23 && Math.abs(r.x - 40.5) < 3, `quem cai nas nuvens volta ao chão firme com um ponto de dano (vida ${hp0} -> ${r.hp}, x ${r.x.toFixed(1)}, pés ${r.bottom.toFixed(1)})`);
+    await page.evaluate(() => { const s = window.__scene; s.player.teleport(62 * 16, 40 * 16); s.player.invuln = 99; s.cameras.main.centerOn(70 * 16, 40 * 16); });
+    await waitGame(0.6);
+    await shot('t2-nuvens');
+  }
+
+  if (part('frascos')) {
+    // ---------- 9. os frascos de Âmbar do Arquivo ----------
+    await setProgress(VALE);
+    await start('arquivo', 'O0');
+    await clear();
+    const jars = await page.evaluate(() => window.__scene.torres.jars.map((j) => ({ x: j.x / 16, y: j.y / 16 })));
+    check(jars.length === 4, `quatro frascos que brilham no Arquivo (${JSON.stringify(jars)})`);
+    await page.evaluate(() => { window.__said = []; const o = window.__ui.say; window.__ui.say = (n, t, ms) => { window.__said.push([n, t]); return o.call(window.__ui, n, t, ms); }; });
+    for (let i = 0; i < jars.length; i++) {
+      await page.evaluate((j) => { const p = window.__scene.player; p.teleport(j.x * 16 + 10, j.y * 16); p.body.setVelocity(0, 0); }, jars[i]);
+      await waitGame(0.4);
+      await page.keyboard.down('KeyW');
+      await page.waitForTimeout(160);
+      await page.keyboard.up('KeyW');
+      await waitGame(0.3);
+    }
+    const said = await page.evaluate(() => window.__said.slice());
+    const seen = await page.evaluate(() => [0, 1, 2, 3].map((i) => window.__progress.seen.has(`jar:arquivo:${i}`)));
+    check(said.length === 4 && said.every(([n]) => n === 'Uma voz no frasco') && new Set(said.map(([, t]) => t)).size === 4 && seen.every(Boolean), `cada frasco toca o seu eco (${said.map(([, t]) => t.slice(0, 24)).join(' | ')})`);
+    await page.evaluate((j) => { const s = window.__scene; const p = s.player; p.teleport(j.x * 16 - 20, j.y * 16); p.invuln = 0; s.cameras.main.centerOn(j.x * 16, j.y * 16 - 30); }, jars[2]);
+    await waitGame(0.6);
+    await shot('t2-frasco');
+  }
+
+  if (part('maquina')) {
+    // ---------- 10. a máquina da Torre das Engrenagens ----------
+    await setProgress(VALE);
+    await start('engrenagens', '1');
+    await clear();
+    const M = () => page.evaluate(() => {
+      const T = window.__scene.torres;
+      // cada par vizinho: a distância dos centros contra a soma das circunferências primitivas e o erro de
+      // fase no contato (o dente de cima no vão da de baixo: fase de cima + fase de baixo = 0.34 + 0.84)
+      const fr = (v) => ((v % 1) + 1) % 1;
+      const mesh = T.gears.slice(1).map((g, i) => {
+        const a = T.gears[i].img;
+        const b = g.img;
+        const na = Number(a.texture.key.slice(5));
+        const nb = Number(b.texture.key.slice(5));
+        const pa = fr(((Math.PI / 2 - a.rotation) * na) / (Math.PI * 2));
+        const pb = fr(((-Math.PI / 2 - b.rotation) * nb) / (Math.PI * 2));
+        const gap = Math.hypot(b.x - a.x, b.y - a.y) - ((na + nb) * 14) / (Math.PI * 2);
+        return [Math.abs(gap), Math.abs(fr(pa + pb - 1.18 + 0.5) - 0.5), Math.sign(T.gears[i].w) !== Math.sign(g.w)];
+      });
+      return { gears: T.gears.map((g) => g.img.rotation), mesh, buckets: T.chain ? T.chain.buckets.map((b) => [Math.round(b.img.x), Math.round(b.img.y), b.full]) : [], vents: T.vents.length };
+    });
+    const m0 = await M();
+    await waitGame(1.5);
+    const m1 = await M();
+    const turned = m0.gears.every((r, i) => Math.abs(m1.gears[i] - r) > 0.01);
+    const moved = m0.buckets.filter((b, i) => b[1] !== m1.buckets[i][1]).length;
+    const up = m1.buckets.filter((b) => b[2] && b[0] > 1000).length;
+    const down = m1.buckets.filter((b) => !b[2] && b[0] < 930).length;
+    check(m0.gears.length === 10 && turned, `as dez rodas giram (${m0.gears.length})`);
+    const worst = (m, k) => Math.max(...m.mesh.map((e) => e[k]));
+    check(m1.mesh.every((e) => e[0] < 0.01 && e[2]) && worst(m0, 1) < 0.01 && worst(m1, 1) < 0.01, `cada roda engrenada na de cima, girando ao contrário e com o dente no vão (fase ${worst(m0, 1).toFixed(4)} e ${worst(m1, 1).toFixed(4)} depois de 1.5 s)`);
+    check(m1.buckets.length > 50 && moved > 50 && up > 20 && down > 20, `a corrente anda: cheios subindo, vazios descendo (${m1.buckets.length} baldes, ${moved} andaram, ${up} subindo, ${down} descendo)`);
+    check(m1.vents === 5, `cinco canos de vapor (${m1.vents})`);
+    await page.evaluate(() => { const s = window.__scene; const p = s.player; p.teleport(44 * 16, 88 * 16); p.invuln = 0; });
+    await waitGame(1.4);
+    await shot('t2-maquina');
   }
 
   console.log(errs.join('\n') || 'sem erros');

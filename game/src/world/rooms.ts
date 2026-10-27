@@ -147,6 +147,16 @@ export interface RoomDef {
   // a cachoeira grande que cai no fundo, atrás do lago (de x0 a x1, em tiles): não empurra ninguém; na
   // luta do Barqueiro ela vira Âmbar e puxa a correnteza do lago para o pé dela
   backFall?: { x0: number; x1: number };
+  // Torres Rúnicas: a marca que as runas ']' da sala, acesas juntas, deixam no progresso (abre a porta
+  // que tem essa chave)
+  runes?: string;
+  // o trem de engrenagens presas na parede do fundo, atrás de tudo: a de cima no tile (x, y) e as outras
+  // descendo, cada uma engrenada na de cima (os dentes de cada uma, em ordem); a corrente dos baldes
+  // (sobe cheia em x1 e desce vazia em x0, da roda de cima y0 até a de baixo y1, dentro do poço) e os
+  // canos de vapor (a boca no tile x, y, soprando para dir)
+  gears?: { x: number; y: number; teeth: number[] };
+  buckets?: { x0: number; x1: number; y0: number; y1: number };
+  vents?: { x: number; y: number; dir: 1 | -1 }[];
 }
 
 export interface Rect {
@@ -1360,6 +1370,7 @@ const CHAPTER7: Record<'escada' | 'calha' | 'patio' | 'arquivo' | 'experiencias'
     title: 'O Pátio das Runas',
     subtitle: 'Onde a Casa esperava',
     exits: [{ side: 'left', to: 'calha', entry: '2', range: [44, 49] }],
+    runes: 'runas:patio',
     // as portas na ordem do mapa, linha a linha: a do terraço (torre da direita), a do Arquivo, a grande porta
     doors: [
       { to: 'experiencias', entry: 'O0', key: 'runas:patio', locked: 'A porta da torre da direita não tem fechadura. Só runas gravadas no batente, apagadas.' },
@@ -1427,6 +1438,9 @@ const CHAPTER7: Record<'escada' | 'calha' | 'patio' | 'arquivo' | 'experiencias'
     ...TORRES,
     pit: false,
     drips: 10,
+    gears: { x: 36, y: 14, teeth: [50, 40, 56, 36, 50, 44, 56, 40, 50, 36] },
+    buckets: { x0: 57, x1: 63, y0: 6, y1: 140 },
+    vents: [{ x: 4, y: 30, dir: 1 }, { x: 4, y: 66, dir: 1 }, { x: 4, y: 102, dir: 1 }, { x: 67, y: 50, dir: -1 }, { x: 67, y: 86, dir: -1 }],
     music: 'nave',
     ambience: 'nave',
     hints: [],

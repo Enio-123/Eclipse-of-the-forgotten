@@ -74,6 +74,9 @@ export const WATER_LOOKS: Partial<Record<string, WaterLook>> = {
   vale: { surf: [74, 150, 134], deep: [12, 42, 54], line: 0xe6fff4, caustic: 0.11 },
   // o lago do Cais da Lua, de noite: azul de tinta, a linha d'água prateada do luar
   'vale-noite': { surf: [44, 74, 112], deep: [6, 12, 26], line: 0xcfe0ff, caustic: 0.05 },
+  // a água do Vale que o aqueduto traz até as Torres: a mesma do rio, mais escura na pedra, e a linha
+  // d'água dourada da luz do eclipse
+  torres: { surf: [62, 120, 118], deep: [8, 26, 34], line: 0xffe6b8, caustic: 0.08 },
 };
 
 // as texturas da água pintada: o brilho da linha d'água e a cáustica (linhas finas de luz que se
