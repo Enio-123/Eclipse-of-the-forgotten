@@ -18,7 +18,7 @@ import { FORCED_PRESET, PRESETS, PRESET_LABEL, applyFpsLimit, presetOf, type Fps
 const MAP_PAN: Record<string, [number, number]> = {
   ArrowUp: [0, 1], ArrowDown: [0, -1], ArrowLeft: [1, 0], ArrowRight: [-1, 0], KeyW: [0, 1], KeyS: [0, -1], KeyA: [1, 0], KeyD: [-1, 0],
 };
-type ScreenId = 'loading' | 'intro' | 'menu' | 'erase' | 'path' | 'mages' | 'weapons' | 'settings' | 'pause' | 'end' | 'map' | 'shop' | 'surveyor' | 'inventory' | 'talk' | 'forge' | 'journal' | 'choice';
+type ScreenId = 'loading' | 'intro' | 'menu' | 'erase' | 'path' | 'mages' | 'weapons' | 'settings' | 'pause' | 'end' | 'map' | 'shop' | 'surveyor' | 'inventory' | 'talk' | 'forge' | 'journal' | 'choice' | 'crown';
 
 const COBRADOR_LINES = [
   'Voltou. Sempre voltam.',
@@ -955,6 +955,46 @@ class UI {
     this.push('choice');
   }
 
+  // a coroa estendida: a escolha do fim. truth: null quando "Aceitar a verdade" está inteira; senão, o que ainda
+  // falta saber da noite (ela aparece apagada, sem contar o que vem). whole: "Carregar os fragmentos" aparece.
+  // Não tem voltar: tem "Ainda não"
+  crown(o: { truth: string[] | null; whole: boolean; onPick: (kind: 'truth' | 'absorb' | 'fragments' | 'later') => void }) {
+    this.clearTexts();
+    const s = $('#screen-crown');
+    const opt = (cmd: 'truth' | 'absorb' | 'fragments' | 'later', title: string, what: string, missing?: string[]) => {
+      const b = el('button', 'offer');
+      b.dataset.cmd = cmd;
+      b.append(el('b', '', title), el('span', 'what', what));
+      if (missing) {
+        b.disabled = true;
+        b.classList.add('locked');
+        const ul = el('ul', 'missing');
+        for (const m of missing) ul.append(el('li', '', m));
+        b.append(ul);
+      } else b.onclick = () => o.onPick(cmd);
+      return b;
+    };
+    const list = [
+      opt('truth', 'Aceitar a verdade', 'Deixar a coroa no chão e lembrar a noite inteira, como ela foi.', o.truth ?? undefined),
+      opt('absorb', 'Absorver', 'Pôr a coroa. Tudo foi necessário, e nada mais vai doer.'),
+    ];
+    if (o.whole) list.push(opt('fragments', 'Carregar os fragmentos', 'Levar de volta tudo o que o núcleo guardou e cortar o fio que o liga ao mundo.'));
+    list.push(opt('later', 'Ainda não', 'Ele espera de joelhos. A coroa não pesa nada para ele.'));
+    $('.crown-opts', s).replaceChildren(...list);
+    this.push('crown');
+  }
+
+  // uma voz baixa (as contas de Âmbar que acertam o cavaleiro): curta, sem nome, no lugar do pensamento
+  whisper(text: string, hold = 2200) {
+    const t = $('#thought');
+    t.classList.remove('speech');
+    t.classList.add('whisper');
+    t.textContent = text;
+    clearTimeout(this.timers.thought);
+    t.classList.add('on');
+    this.timers.thought = window.setTimeout(() => t.classList.remove('on', 'whisper'), hold);
+  }
+
   // ---------- mapa e inventário ----------
   private mapLoop = 0;
   private mapView: MapView | null = null;
@@ -1654,6 +1694,7 @@ class UI {
   say(name: string, text: string, hold = 5200) {
     const t = $('#thought');
     t.replaceChildren(el('span', 'who', name), document.createTextNode(text));
+    t.classList.remove('whisper');
     t.classList.add('speech');
     clearTimeout(this.timers.thought);
     t.classList.add('on');
@@ -1662,7 +1703,7 @@ class UI {
 
   thought(text: string, hold = 4200, html = false) {
     const t = $('#thought');
-    t.classList.remove('speech');
+    t.classList.remove('speech', 'whisper');
     if (html) t.innerHTML = text;
     else t.textContent = text;
     clearTimeout(this.timers.thought);

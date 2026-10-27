@@ -655,6 +655,17 @@ export class Fixtures {
       g.fillStyle(0x5a5e6a).fillRect(0, 3, 16, 2).fillRect(0, 12, 16, 2);
       g.fillStyle(0x8a8e9a).fillRect(3, 3, 1, 1).fillRect(12, 12, 1, 1);
     });
+    // a tampa de bronze do alto da torre: chapa grossa, a borda clara de cima, rebites e a linha de runa
+    // gravada no meio
+    const bronze = this.ensure('deco-trapdoor-bronze', 16, 16, (g) => {
+      g.fillStyle(0x3a2810).fillRect(0, 0, 16, 16);
+      g.fillStyle(0x7a5a2e).fillRect(0, 1, 16, 13);
+      g.fillStyle(0xb98a3e).fillRect(0, 1, 16, 2);
+      g.fillStyle(0xe4bd72).fillRect(0, 1, 16, 1);
+      g.fillStyle(0x4a3015).fillRect(0, 8, 16, 1).fillRect(0, 14, 16, 2);
+      g.fillStyle(0x2e1f10).fillRect(2, 6, 3, 1).fillRect(7, 6, 1, 1).fillRect(10, 6, 4, 1);
+      g.fillStyle(0xe4bd72).fillRect(2, 11, 1, 1).fillRect(13, 11, 1, 1);
+    });
     // cada trecho seguido de '=' na mesma linha é um alçapão, na ordem do mapa
     const cells = [...L.traps].sort((a, b) => a.y - b.y || a.x - b.x);
     const groups: { x0: number; x1: number; y: number }[] = [];
@@ -674,11 +685,13 @@ export class Fixtures {
         if (progress.seen.has(def.key)) this.openTrapdoor(t, false);
         return;
       }
-      const left = s.add.image(g.x0 * TILE, y, key).setOrigin(0, 0).setDisplaySize(half, TILE).setDepth(DEPTH.tiles + 0.5);
-      const right = s.add.image((g.x1 + 1) * TILE, y, key).setOrigin(1, 0).setDisplaySize(half, TILE).setDepth(DEPTH.tiles + 0.5).setFlipX(true);
+      const look = def?.look === 'bronze' ? bronze : key;
+      const left = s.add.image(g.x0 * TILE, y, look).setOrigin(0, 0).setDisplaySize(half, TILE).setDepth(DEPTH.tiles + 0.5);
+      const right = s.add.image((g.x1 + 1) * TILE, y, look).setOrigin(1, 0).setDisplaySize(half, TILE).setDepth(DEPTH.tiles + 0.5).setFlipX(true);
       const t: Trapdoor = { i, x0: g.x0, x1: g.x1, y: g.y, def, open: false, leaves: [left, right], giveT: 0 };
       this.trapdoors.push(t);
-      if (def && progress.seen.has(def.key)) this.openTrapdoor(t, false);
+      // o da arena fica aberto até a luta começar
+      if (def && (def.fight || progress.seen.has(def.key))) this.openTrapdoor(t, false);
     });
   }
 
@@ -779,6 +792,22 @@ export class Fixtures {
     s.tweens.add({ targets: left, angle: 90, duration: 420, ease: 'Bounce.easeOut' });
     s.tweens.add({ targets: right, angle: -90, duration: 420, ease: 'Bounce.easeOut' });
     s.dustBurst((t.x0 + t.x1 + 1) * TILE * 0.5, t.y * TILE, 12);
+  }
+
+  // o alçapão da arena bate e fecha quando o chefe acorda (as duas folhas sobem e a pedra trava)
+  closeTrapdoors(key: string) {
+    const s = this.scene;
+    for (const t of this.trapdoors) {
+      if (!t.open || t.stone || t.def?.key !== key) continue;
+      t.open = false;
+      for (let x = t.x0; x <= t.x1; x++) s.level.setBlock(x, t.y, true);
+      const [left, right] = t.leaves;
+      s.tweens.add({ targets: [left, right], angle: 0, duration: 360, ease: 'Quad.easeIn', onComplete: () => {
+        s.sfx('clang', 0.9, 0.6);
+        s.sfx('thud', 0.8, 0.7);
+        s.dustBurst((t.x0 + t.x1 + 1) * TILE * 0.5, t.y * TILE, 14);
+      } });
+    }
   }
 
   // abre as grades com chave e os alçapões que esperam por essa marca

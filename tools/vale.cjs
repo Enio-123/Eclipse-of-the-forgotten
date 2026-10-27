@@ -36,6 +36,18 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
     const c0 = await page.evaluate(() => window.__scene.clock);
     await page.waitForFunction((c) => window.__scene.clock >= c, c0 + sec, { timeout, polling: 16 });
   };
+  // espera o tempo do jogo; se uma memória decisiva pedir a escolha no meio (o cavaleiro encostou nela),
+  // lembra como foi e segue
+  const settle = async (sec) => {
+    const c0 = await page.evaluate(() => window.__scene.clock);
+    for (;;) {
+      await page.waitForFunction((c) => window.__scene.clock >= c || !!document.querySelector('#screen-choice.show'), c0 + sec, { timeout: 60000, polling: 16 });
+      if (!(await page.evaluate(() => !!document.querySelector('#screen-choice.show')))) return;
+      await page.waitForTimeout(500);
+      await page.click('#screen-choice [data-cmd="truth"]');
+      await page.waitForFunction(() => !document.querySelector('.screen.show'), null, { timeout: 20000 });
+    }
+  };
   const until = async (fn, arg, timeout = 30000) => {
     try {
       return await page.waitForFunction(fn, arg, { timeout, polling: 16 });
@@ -896,11 +908,12 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
     pp = await P();
     check(pp.x > 30.6, `a correnteza do lago leva para o pé da cachoeira (${pp.x.toFixed(1)})`);
     // 10. a derrota: o barco vem até o cais, a lanterna acende, a fala, o livro de bordo no cais
-    await page.evaluate(() => { const b = window.__scene.boss; delete b.toIdle; b.hp = 1; b.hit(b.x - 30, 5, 'side'); });
-    await until(() => !window.__scene.boss.alive, null, 20000);
-    await waitGame(2.4);
+    // (embaixo d'água o golpe não pega: bate de novo até ele estar à vista)
+    await page.evaluate(() => { const b = window.__scene.boss; delete b.toIdle; b.hp = 1; });
+    await until(() => { const b = window.__scene.boss; if (b.alive) b.hit(b.x - 30, 5, 'side'); return !b.alive; }, null, 20000);
+    await settle(2.4);
     await shot('b11-derrota');
-    await waitGame(5);
+    await settle(5);
     const end = await page.evaluate(() => {
       const s = window.__scene;
       const b = s.boss;

@@ -2505,6 +2505,8 @@ def coroacao():
     g.put(54, 111, '1')
     g.put(10, y - 3, '2')
     g.put(7, y - 3, 'm')
+    # a vela de descanso do patamar de cima: a última antes do núcleo
+    g.put(14, y - 3, 'R')
     g.put(8, 95, 'g')
     g.put(52, 67, 'g')
     return g.rows()
@@ -2512,29 +2514,25 @@ def coroacao():
 
 def nucleo():
     """O Coração do Eclipse: o alto da torre maior, sobre o mar de nuvens. O núcleo, uma esfera de Âmbar,
-    fica preso no meio por correntes amarradas nas quatro agulhas de pedra do alto. A escadaria chega
-    pela boca do chão. A beirada do alto tem a mureta quebrada; em volta, os lumes da luz das nuvens.
-    Arena do Carrasco Coroado (o colosso sobe das nuvens pela frente da torre)."""
+    fica preso no meio, no alto, pelas correntes amarradas nas agulhas de pedra da borda de trás do terraço
+    (quem desenha as agulhas, as correntes e o núcleo é Torres.addCore: ficam atrás do chão, fora do
+    caminho). O terraço é redondo; o jogo vê a borda da frente, de uma ponta à outra, com as nuvens dos
+    dois lados. A escadaria chega por baixo, pelo poço da esquerda, e sai no terraço por um alçapão de
+    bronze, aberto até a luta começar: o Carrasco Coroado sobe das nuvens atrás da torre, o tremor fecha
+    o alçapão, e ele só abre de novo quando a luta acaba. Os dois lumes da luz das nuvens ficam no ar entre
+    as mãos dele nas agulhas e o capuz, na altura da coroa (de lá a Capa de Luz alcança a máscara)."""
     W, H = 128, 64
     g = Grid(W, H, '.')
-    # o corpo da torre até lá embaixo, com o poço da escada no meio, e o alto dela
-    g.fill(30, 44, 97, H - 1, '#')
-    g.fill(58, 47, 69, H - 1, '.')
-    g.fill(58, 44, 69, 46, '.')
-    # as quatro agulhas: duas nas beiradas e duas mais para dentro (as correntes do núcleo saem delas)
-    g.fill(30, 8, 33, 43, '#')
-    g.fill(94, 8, 97, 43, '#')
-    g.fill(44, 22, 46, 43, '#')
-    g.fill(81, 22, 83, 43, '#')
-    # os restos da mureta
-    for x0, x1 in ((34, 36), (52, 55), (72, 75), (90, 93)):
-        g.fill(x0, 42, x1, 43, '#')
-    for (x, y) in ((18, 30), (110, 30), (24, 14), (104, 14), (64, 30)):
+    # o corpo da torre até lá embaixo, com o poço da escada à esquerda e o alçapão em cima dele
+    g.fill(46, 44, 81, H - 1, '#')
+    g.fill(49, 45, 54, H - 1, '.')
+    for x in range(49, 55):
+        g.put(x, 44, '=')
+    for (x, y) in ((51, 33), (76, 33)):
         g.put(x, y, '0')
-    g.put(56, 43, '1')
-    g.put(64, 20, 'X')
+    g.put(57, 43, '1')
+    g.put(64, 43, 'X')
     return g.rows()
-
 
 if __name__ == '__main__':
     out = sys.argv[1]

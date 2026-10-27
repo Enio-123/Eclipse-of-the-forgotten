@@ -40,6 +40,8 @@ export interface BossFoe extends Enemy {
   // onde o corpo para depois da queda, quando no golpe final ele não estava no chão (o trono erguido desce)
   readonly restY?: number;
   onDefeat: (() => void) | null;
+  // quanto a faixa com o nome espera depois que ele acorda (ms; sem isto, 1600)
+  readonly intro?: number;
   wake(): void;
 }
 

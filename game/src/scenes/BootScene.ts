@@ -31,7 +31,7 @@ const SHEETS = ['knight-scythe', 'knight-sword', 'knight-daggers', 'knight-bow',
   // Vale das Cachoeiras: a Truta de Âmbar, a Garça Cinzenta e o Barqueiro
   'trout', 'heron', 'barqueiro',
   // Torres Rúnicas: o Guarda da Coroação, os Arquivados e o Senhor de Vhalor (a Vigia Rúnica o jogo desenha)
-  'crownguard', 'archived', 'vhalor'];
+  'crownguard', 'archived', 'vhalor', 'coroado'];
 // (o terreno pintado, os pinheiros e os fundos de cada sala vêm quando ela abre: gfx/roomAssets.ts)
 const IMAGES = [
   'title-sky', 'title-land', 'title-rim', 'clouds-far', 'clouds-near',

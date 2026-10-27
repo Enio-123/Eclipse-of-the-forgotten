@@ -3,13 +3,14 @@
 // trancadas (runas e tranca por dentro), o Agrimensor na escada, uma foto de cada sala (T1) e a Capa de
 // Luz: a relíquia no pilar, os três voos, os lumes que recarregam e as luzes no HUD, as runas do pátio e
 // o mar de nuvens, os frascos do Arquivo e a máquina da Torre das Engrenagens (T2); o Guarda da Coroação,
-// a Vigia Rúnica e os Arquivados (T3); o Senhor de Vhalor (T4b) e o Cetro de Vhalor (T4a); a história (T5).
+// a Vigia Rúnica e os Arquivados (T3); o Senhor de Vhalor (T4b) e o Cetro de Vhalor (T4a); a história (T5); o
+// Carrasco Coroado, do terraço à escolha da coroa (T6).
 // uso: node torres.cjs <pasta-saida> [url]
 const { chromium } = require('playwright');
 const OUT = process.argv[2] || '.';
 const URL = process.argv[3] || 'http://localhost:8780/index.html';
 // ONLY=links,portao roda só essas partes (portao, links, portas, agrimensor, fotos, voo, runas, nuvens,
-// frascos, maquina, inimigos, cadeiras, vhalor, cetro, historia)
+// frascos, maquina, inimigos, cadeiras, vhalor, cetro, historia, carrasco)
 const ONLY = (process.env.ONLY || '').split(',').filter(Boolean);
 const part = (k) => !ONLY.length || ONLY.includes(k);
 (async () => {
@@ -1347,6 +1348,257 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
       return p.corruption;
     });
     check(mig === 2, `num save antigo, as memórias trocadas viram rachaduras (${mig})`);
+  }
+
+  if (part('carrasco')) {
+    // ---------- 16. O Carrasco Coroado (T6) ----------
+    await setProgress([...VALE, 'boss:vhalor', 'weapon:cetro']);
+    await start('nucleo', '1');
+    await pause();
+    const arena = await page.evaluate(() => {
+      const s = window.__scene;
+      const k = s.torres.core;
+      const b = s.boss;
+      window.__foe = b;
+      return { c: k.c, floorY: k.floorY, spires: k.spires, x0: k.x0, x1: k.x1, sleeping: b.sleeping, trap: s.fixtures.trapdoors.map((t) => t.open) };
+    });
+    check(arena.c === 1024 && arena.spires.join() === '748,1300' && arena.x0 === 736 && arena.x1 === 1312 && arena.sleeping && arena.trap.join() === 'true',
+      `o terraço vai de uma borda da torre à outra (com o alçapão da escada), as agulhas nas pontas, ele dorme nas nuvens e o alçapão está aberto (${JSON.stringify(arena)})`);
+    const C = arena.c;
+    const F = arena.floorY;
+    await shot('t6-nucleo');
+
+    // passando da beira do alçapão, ele sobe: o alçapão bate, a câmera trava no terraço e o cavaleiro para
+    await page.evaluate((C) => { const s = window.__scene; const p = s.player; p.teleport(C - 20, 702); p.body.setVelocity(0, 0); p.invuln = 99; }, C);
+    await freeze("e.state === 'rise'");
+    const woke = await page.evaluate(() => { const s = window.__scene; return { trap: s.fixtures.trapdoors.map((t) => t.open), lock: s.camLock, frozen: s.player.frozen }; });
+    check(woke.trap.join() === 'false' && woke.lock && woke.frozen, `ele acorda: o alçapão fecha, a câmera trava e o cavaleiro espera a subida (${JSON.stringify(woke)})`);
+    await freeze("e.state === 'idle'", 20000);
+    const held = await page.evaluate(() => {
+      const s = window.__scene;
+      const e = window.__foe;
+      return { frozen: s.player.frozen, arms: e.arms.map((a) => ({ st: a.st, grip: a.grip.visible, fist: a.fist.visible, x: Math.round(a.grip.x), y: Math.round(a.grip.y) })), mask: !!e.mask.rect && e.mask.rect.x > 0 };
+    });
+    check(!held.frozen && held.arms.every((a) => a.st === 'grip' && a.grip && !a.fist && a.y === F - 116) && held.arms[0].x === 748 && held.arms[1].x === 1300 && held.mask,
+      `de pé, as duas mãos fechadas nas agulhas e a máscara aberta ao golpe (${JSON.stringify(held)})`);
+    await shot('t6-colosso');
+
+    const attack = (a, px) => page.evaluate(([a, px]) => {
+      const s = window.__scene;
+      const b = window.__foe;
+      const p = s.player;
+      p.teleport(px, b.floorY - 2);
+      p.body.setVelocity(0, 0);
+      p.invuln = 99;
+      b.queue.length = 0;
+      b.toIdle(0);
+      b.start(a);
+      return b.state;
+    }, [a, px]);
+    const box = (x, bottom, h = 42) => `new Phaser.Geom.Rectangle(${x} - 7, ${bottom} - ${h}, 14, ${h})`;
+    const harmsAt = (rects) => page.evaluate((rects) => rects.map((src) => window.__foe.harms(new Function(`return ${src}`)(), false)), rects);
+
+    // o punho: sobe seguindo o cavaleiro, cai em cima dele e a onda corre rente ao chão; no chão, dá para bater
+    await attack('slam', C - 150);
+    await freeze("e.arms.some((a) => a.hot && a.y > e.floorY - 60)");
+    const sl = await page.evaluate((F) => {
+      const e = window.__foe;
+      const p = window.__scene.player;
+      const a = e.arms.find((q) => q.hot);
+      const R = (x) => new Phaser.Geom.Rectangle(x - 7, F - 42, 14, 42);
+      return { side: a.side, dx: Math.round(a.x - p.x), hit: e.harms(R(a.x), false), away: e.harms(R(a.x + 80), false), back: a.upper.depth < 0 && a.pauldron.depth < 0 && a.fore.depth > 0 };
+    }, F);
+    check(sl.side === -1 && Math.abs(sl.dx) < 12 && sl.hit && !sl.away && sl.back,
+      `o punho do lado do cavaleiro cai em cima dele (e não do lado); o antebraço vem para a frente, o ombro fica atrás (${JSON.stringify(sl)})`);
+    await shot('t6-punho');
+    await freeze("e.arms.some((a) => a.st === 'rest') && e.shocks.length === 2 && e.shocks[0].t > 0.1");
+    const sh = await page.evaluate((F) => {
+      const e = window.__foe;
+      const w = e.shocks[0];
+      const a = e.arms.find((q) => q.st === 'rest');
+      const hp0 = e.hp;
+      const r = a.part.hit(a.x - 30, 10, 'side');
+      return { low: e.harms(new Phaser.Geom.Rectangle(w.x - 7, F - 42, 14, 42), false), high: e.harms(new Phaser.Geom.Rectangle(w.x - 7, F - 62, 14, 42), false), r, dmg: hp0 - e.hp };
+    }, F);
+    check(sh.low && !sh.high && sh.r === 'hit' && Math.abs(sh.dmg - 7.5) < 0.01, `a onda pega em pé e passa por baixo do pulo; o punho no chão leva o golpe (três quartos) (${JSON.stringify(sh)})`);
+    await freeze("e.state === 'idle'");
+
+    // a foice por cima: pendurada no punho erguido, passa rente ao chão no meio (pulando passa) e alta nas pontas
+    await attack('sweepU', C);
+    await freeze("e.state === 'sweepwarn' && e.t > 0.5");
+    const piv = await page.evaluate(() => { const e = window.__foe; const a = e.arms[0]; return { st: a.st, fx: Math.round(a.x), fy: Math.round(a.y), px: e.sweep.px, py: e.sweep.py, blade: e.blade.visible }; });
+    await shot('t6-foice-aviso');
+    // o primeiro quadro depois do meio (a foice passa rápido por ele: um quadro mais lento não pode pular a espera)
+    await freeze("e.state === 'sweep' && e.sweep.ang * e.sweep.dir > -0.02");
+    const su = await page.evaluate((F) => {
+      const e = window.__foe;
+      const sw = e.sweep;
+      const R = (x, b) => new Phaser.Geom.Rectangle(x - 7, b - 42, 14, 42);
+      return { stand: e.harms(R(sw.px + 30, F), false), jump: e.harms(R(sw.px + 30, F - 30), false), hand: Math.round(Math.hypot(e.arms[0].x - sw.px, e.arms[0].y - sw.py)) };
+    }, F);
+    await shot('t6-foice-u');
+    await freeze("e.state === 'sweep' && e.t > 0.97");
+    const end = await page.evaluate((F) => {
+      const e = window.__foe;
+      const sw = e.sweep;
+      const x = sw.px + Math.sin(sw.ang) * sw.rOut;
+      return { x: Math.round(x), stand: e.harms(new Phaser.Geom.Rectangle(x - 7, F - 42, 14, 42), false) };
+    }, F);
+    check(piv.st === 'raise' && piv.px === C - 70 && piv.py === F - 270 && Math.abs(piv.fx - piv.px) < 6 && Math.abs(piv.fy - piv.py) < 6 && su.hand < 3 && su.stand && !su.jump && !end.stand,
+      `a foice de cima pende do punho erguido (o pivô), corta rente ao chão no meio, passa por cima do pulo e fica alta na ponta (${JSON.stringify({ piv, su, end })})`);
+    await freeze("e.state === 'idle'");
+
+    // a foice por baixo: a haste sobe de trás da borda; no meio ela passa por cima de quem fica em pé
+    await attack('sweepN', C + 230);
+    await freeze("e.state === 'sweep' && e.sweep.ang * e.sweep.dir > -0.02");
+    const sn = await page.evaluate(([C, F]) => {
+      const e = window.__foe;
+      const R = (x, b) => new Phaser.Geom.Rectangle(x - 7, b - 42, 14, 42);
+      return { dir: e.sweep.dir, stand: e.harms(R(C - 40, F), false), jump: e.harms(R(C - 40, F - 30), false), low: e.arms[1].st, hidden: e.arms[1].y > F, haft: e.g.depth < 0 };
+    }, [C, F]);
+    await shot('t6-foice-n');
+    check(sn.dir === -1 && !sn.stand && sn.jump && sn.low === 'low' && sn.hidden && sn.haft,
+      `a foice de baixo vem do lado do cavaleiro, a mão escondida atrás da borda: no meio, em pé passa e pulando pega (${JSON.stringify(sn)})`);
+    await freeze("e.state === 'idle'");
+
+    // a chuva de contas: a primeira cai onde o cavaleiro está, sobra um vão sem nenhuma, e a que acerta sussurra
+    await attack('beads', C - 100);
+    await freeze("e.state === 'beads'");
+    const bd = await page.evaluate((C) => {
+      const e = window.__foe;
+      const xs = e.beads.map((b) => b.x);
+      const slots = xs.map((x) => Math.floor((x - e.x0 - 12) / 30)).sort((a, b) => a - b);
+      const all = Math.floor((e.x1 - e.x0 - 24) / 30);
+      let gap = false;
+      for (let i = 0; i + 1 < all; i++) if (!slots.includes(i) && !slots.includes(i + 1)) gap = true;
+      return { n: xs.length, first: Math.round(xs[0] - (C - 100)), gap };
+    }, C);
+    await page.evaluate(() => { window.__scene.player.invuln = 0; });
+    await freeze("e.beads[0].falling && e.beads[0].y > e.floorY - 60");
+    const whisper = await page.evaluate(() => {
+      const e = window.__foe;
+      const b = e.beads[0];
+      const hit = e.harms(new Phaser.Geom.Rectangle(b.x - 7, e.floorY - 42, 14, 42), false);
+      const t = document.querySelector('#thought');
+      return { hit, text: t.textContent, whisper: t.classList.contains('whisper') };
+    });
+    await page.evaluate(() => { window.__scene.player.invuln = 99; });
+    await shot('t6-contas');
+    check(bd.n === 9 && Math.abs(bd.first) < 22 && bd.gap && whisper.hit && whisper.whisper && whisper.text.length > 4,
+      `nove contas, a primeira em cima do cavaleiro e um vão livre; a que acerta sussurra uma acusação (${JSON.stringify({ bd, whisper })})`);
+    await freeze("e.state === 'idle'", 20000);
+
+    // a cabeça desce até o chão: machuca embaixo na descida e, no chão, a máscara leva golpe e meio
+    await attack('lean', C + 110);
+    // a descida dura poucos quadros: confere em todos eles se a cabeça pega quem está embaixo
+    await page.evaluate(([C, F]) => {
+      const s = window.__scene;
+      const e = window.__foe;
+      const R = new Phaser.Geom.Rectangle(C - 7, F - 42, 14, 42);
+      window.__leanHit = false;
+      const h = () => {
+        if (e.state === 'leandrop' && e.harms(R, false)) window.__leanHit = true;
+        if (e.state === 'leanrest') s.events.off('postupdate', h);
+      };
+      s.events.on('postupdate', h);
+    }, [C, F]);
+    await freeze("e.state === 'leanrest' && e.t > 0.2");
+    const ld = await page.evaluate(() => window.__leanHit);
+    const lr = await page.evaluate((F) => {
+      const e = window.__foe;
+      const r = e.mask.rect;
+      const hp0 = e.hp;
+      const res = e.mask.hit(r.centerX, 10, 'side');
+      return { bottom: Math.round(r.bottom), res, dmg: hp0 - e.hp, braced: e.arms.map((a) => a.st), elbows: e.arms.map((a) => Math.round(a.fore.y) < F) };
+    }, F);
+    await shot('t6-cabeca');
+    check(ld && lr.res === 'hit' && Math.abs(lr.dmg - 15) < 0.01 && lr.bottom > F - 40 && lr.braced.every((s) => s === 'brace') && lr.elbows.every(Boolean),
+      `a cabeça machuca na descida; no chão a máscara fica ao alcance e leva golpe e meio, as mãos apoiadas com os cotovelos acima do chão (${JSON.stringify({ ld, lr })})`);
+    await freeze("e.state === 'idle'", 20000);
+
+    // na metade ele acelera; no fim do colosso, vira pó, a coroa cai e o carrasco dourado se forma nela
+    const rg = await page.evaluate(() => { const e = window.__foe; e.damage(e.hp - 79); return { rage: e.rage, hp: e.hp }; });
+    await page.evaluate(() => { const e = window.__foe; e.damage(e.hp - 48); });
+    await freeze("e.state === 'crumble' && e.t > 1.0");
+    await shot('t6-po');
+    await freeze("e.state === 'mirror'", 20000);
+    const mir = await page.evaluate((C) => {
+      const e = window.__foe;
+      const gold = !!(e.sprite.preFX && e.sprite.preFX.list.length >= 2);
+      return { rage: e.rage, hp: e.hp, gone: e.gone, crown: e.crownS.visible, big: e.crown.visible, x: Math.round(e.sprite.x), gold, chest: e.chest.visible };
+    }, C);
+    check(rg.rage && rg.hp === 79 && mir.hp === 48 && mir.gone && mir.crown && !mir.big && !mir.chest && Math.abs(mir.x - C) < 4 && mir.gold,
+      `na metade ele acelera; o colosso vira pó, e o carrasco dourado nasce da coroa, no meio, de coroa pequena (${JSON.stringify({ rg, mir })})`);
+
+    // o espelho: ele faz o que o cavaleiro fez, do outro lado do meio e com atraso
+    await page.evaluate((C) => { const p = window.__scene.player; p.teleport(C - 120, 702); p.body.setVelocity(0, 0); }, C);
+    await freeze("e.state === 'mirror' && e.now > 1.5 && e.lungeT > 1", 20000);
+    await page.evaluate(() => { window.__foe.lungeT = 99; });
+    await waitGame(1.4);
+    await pause();
+    const mm = await page.evaluate((C) => { const e = window.__foe; const p = window.__scene.player; return { want: Math.round(2 * C - p.x), x: Math.round(e.sprite.x), lag: e.lag }; }, C);
+    await shot('t6-espelho');
+    check(Math.abs(mm.want - mm.x) < 6, `o carrasco dourado fica no espelho do cavaleiro, do outro lado do meio (${JSON.stringify(mm)})`);
+
+    // a investida: aparada, ele fica tonto e leva golpe e meio
+    await page.evaluate(() => { const e = window.__foe; e.lungeT = 0; });
+    await freeze("e.state === 'lunge'");
+    const pr = await page.evaluate(() => {
+      const e = window.__foe;
+      const ok = e.parry(e.lungeBox(), e.lunge.x - e.lunge.dir * 20);
+      const st = e.state;
+      const hp0 = e.hp;
+      e.hit(e.lunge.x, 4, 'side');
+      return { ok, st, dmg: hp0 - e.hp };
+    });
+    check(pr.ok && pr.st === 'stagger' && Math.abs(pr.dmg - 6) < 0.01, `a investida aparada deixa ele tonto, e o golpe nele vale golpe e meio (${JSON.stringify(pr)})`);
+
+    // vencido: ajoelha no meio do terraço, a coroa nas mãos; a escolha abre sozinha
+    await page.evaluate(() => { const e = window.__foe; e.damage(e.hp); });
+    await freeze("e.state === 'offer'", 20000);
+    await page.evaluate(() => window.__scene.sys.resume());
+    await until(() => document.querySelector('#screen-crown.show'), null, 30000).catch(() => null);
+    const cr = await page.evaluate(() => {
+      const q = document.querySelector('#screen-crown');
+      const opts = [...q.querySelectorAll('.crown-opts button')];
+      return {
+        open: q.classList.contains('show'),
+        cmds: opts.map((b) => b.dataset.cmd + (b.disabled ? '-' : '')),
+        missing: [...q.querySelectorAll('.missing li')].map((li) => li.textContent),
+        won: window.__progress.seen.has('boss:coroado'),
+        trap: window.__scene.fixtures.trapdoors.map((t) => t.open),
+      };
+    });
+    await page.screenshot({ path: `${OUT}/t6-coroa.png` });
+    check(cr.open && cr.cmds.join() === 'truth-,absorb,later' && cr.missing.some((m) => /essenciais/.test(m)) && cr.won && cr.trap.join() === 'true',
+      `de joelhos, ele estende a coroa: Aceitar a verdade apagada (com o que falta), Absorver e Ainda não; o alçapão abriu (${JSON.stringify(cr)})`);
+
+    // "Ainda não": a escolha fecha; voltando à sala ele continua de joelhos, e perto dele {up} abre de novo
+    await page.evaluate(() => document.querySelector('#screen-crown [data-cmd="later"]').click());
+    await page.waitForTimeout(300);
+    await start('nucleo', '1');
+    await pause();
+    const back = await page.evaluate(() => {
+      const s = window.__scene;
+      const e = s.boss;
+      window.__foe = e;
+      return { st: e && e.state, kneel: e && e.sprite.visible, colossus: e && e.chest.visible, trap: s.fixtures.trapdoors.map((t) => t.open), ui: !!document.querySelector('#screen-crown.show') };
+    });
+    await page.evaluate((C) => { const s = window.__scene; const p = s.player; p.teleport(C - 20, 702); p.body.setVelocity(0, 0); s.sys.resume(); }, C);
+    await waitGame(0.5);
+    await page.keyboard.press('ArrowUp');
+    await until(() => document.querySelector('#screen-crown.show'), null, 8000).catch(() => null);
+    const again = await page.evaluate(() => !!document.querySelector('#screen-crown.show'));
+    check(back.st === 'offer' && back.kneel && !back.colossus && back.trap.join() === 'true' && !back.ui && again,
+      `de volta ao núcleo, ele continua de joelhos com a coroa e o alçapão aberto; perto dele, {up} abre a escolha de novo (${JSON.stringify({ back, again })})`);
+
+    // Absorver: o fim fica gravado e o cartão do fim aparece
+    await page.evaluate(() => document.querySelector('#screen-crown [data-cmd="absorb"]').click());
+    await until(() => document.querySelector('#screen-end.show'), null, 15000).catch(() => null);
+    const fin = await page.evaluate(() => ({ end: window.__progress.seen.has('ending:absorb'), title: document.querySelector('#screen-end .end-title').textContent, show: !!document.querySelector('#screen-end.show') }));
+    await page.screenshot({ path: `${OUT}/t6-fim.png` });
+    check(fin.end && fin.show && fin.title === 'O Rei do Eclipse', `escolhido Absorver: o fim fica gravado e o cartão dele aparece (${JSON.stringify(fin)})`);
+    await page.evaluate(() => window.__ui.closeAll());
   }
 
   console.log(errs.join('\n') || 'sem erros');

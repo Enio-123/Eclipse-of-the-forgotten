@@ -28,6 +28,7 @@ import { CrownGuard } from '../entities/CrownGuard';
 import { RuneWatcher } from '../entities/RuneWatcher';
 import { Archived } from '../entities/Archived';
 import { Vhalor } from '../entities/Vhalor';
+import { Coroado } from '../entities/Coroado';
 import { ABYSS, Echo } from '../entities/Echo';
 import { overlap, type BossFoe, type Enemy } from '../entities/Enemy';
 import { SmokeField } from '../entities/Smoke';
@@ -54,8 +55,8 @@ import { Mine } from '../world/Mine';
 import { Finds, hasFind, isSlotFind, type FindId } from '../world/Finds';
 import type { Breakable } from '../world/secrets';
 import { Loot } from '../world/Loot';
-import { ARENA_WAVES, BELLS, DECISIVE, ELO, FORGE, FOUND_THOUGHTS, LEVERS, MATERIALS, MEMORIES, MEMORY_ECHO, NAME_MEMORY, NUN, OFFERS, OLD_MINER, PAGES, PRISONER, RECORDS, SLOT_FINDS, SMITH, SURVEYOR, VERSIONS, memoryInfo, recordInfo, relicInfo } from '../world/lore';
-import { choose, chosen, confirm, confirmed, holds, pendingConfirmations } from '../world/story';
+import { ARENA_WAVES, BELLS, DECISIVE, ELO, ENDINGS, FORGE, FOUND_THOUGHTS, LEVERS, MATERIALS, MEMORIES, MEMORY_ECHO, NAME_MEMORY, NUN, OFFERS, OLD_MINER, PAGES, PRISONER, RECORDS, SLOT_FINDS, SMITH, SURVEYOR, VERSIONS, memoryInfo, recordInfo, relicInfo } from '../world/lore';
+import { choose, chosen, confirm, confirmed, ending, holds, night, pendingConfirmations, type EndingId } from '../world/story';
 import { REGION_BY_ID, sheetsFor, surveyorRegion } from '../world/regions';
 import { TILE_ONEWAY, smoothGlow } from '../gfx/textures';
 import { ui } from '../ui/ui';
@@ -293,6 +294,21 @@ const BOSSES: Record<BossId, BossInfo> = {
     note: { id: 'trono:0', dx: 150 },
     settle: 1300,
   },
+  // o fim: não deixa memória no chão nem arma (a memória da noite volta com o final que ele escolher)
+  coroado: {
+    make: (s, x, y) => new Coroado(s, x, y),
+    sheet: 'coroado',
+    name: 'O Carrasco Coroado',
+    title: 'Tudo foi necessário',
+    music: 'boss7',
+    memory: 'nucleo:boss',
+    wakeX: 61,
+    orb: 0,
+    drop: 0,
+    corpse: 'none',
+    corpseFacing: -1,
+    after: ['', ''],
+  },
 };
 
 // as folhas grandes que a sala carrega quando abre (a do chefe dela)
@@ -447,6 +463,8 @@ export class GameScene extends Phaser.Scene {
   }
   // cena parada (relíquia, morte de chefe, fim de capítulo): o jogo espera e as armadilhas não mexem
   cinematic = false;
+  // a câmera parada num lugar (a arena do fim mostra o terraço inteiro)
+  private camLock = false;
   private lookX = 36;
   // quanto a câmera fica acima do cavaleiro (no vale, mais céu e menos terra)
   private camY = 26;
@@ -649,6 +667,7 @@ export class GameScene extends Phaser.Scene {
     this.respawning = false;
     this.transitioning = false;
     this.cinematic = false;
+    this.camLock = false;
     this.hitstopT = 0;
     this.stopT = 0;
     this.stopFx = [];
@@ -1934,7 +1953,7 @@ export class GameScene extends Phaser.Scene {
   spawnArrow(x: number, y: number, dx: number, dy: number, dmg: number) {
     this.arrows.push(new Arrow(this, x, y, dx, dy, dmg * progress.dmgFor('bow')));
     // o espelho guarda a flechada também (e o Eco repete)
-    if (this.boss instanceof Reflexo && this.boss.alive) this.boss.noteShot(x, y, dx, dy);
+    if ((this.boss instanceof Reflexo || this.boss instanceof Coroado) && this.boss.alive) this.boss.noteShot(x, y, dx, dy);
     this.memEcho?.noteShot(x, y, dx, dy, dmg * progress.dmgFor('bow'));
   }
 
@@ -1951,7 +1970,7 @@ export class GameScene extends Phaser.Scene {
     this.arrows.push(new Arrow(this, x, y, dx, dy, d, { orb: true, speed: MAGIC.orb.speed, life: MAGIC.orb.life }));
     this.sfx('swoosh', 0.55, 1.7);
     this.sfx('censer', 0.25, 1.9);
-    if (this.boss instanceof Reflexo && this.boss.alive) this.boss.noteShot(x, y, dx, dy, true);
+    if ((this.boss instanceof Reflexo || this.boss instanceof Coroado) && this.boss.alive) this.boss.noteShot(x, y, dx, dy, true);
     this.memEcho?.noteShot(x, y, dx, dy, d);
   }
 
@@ -2294,7 +2313,9 @@ export class GameScene extends Phaser.Scene {
     if (!hint && !this.cinematic && !this.transitioning && !p.dead) {
       this.props.touch(p);
       this.fixtures.touch(p);
-      const near = this.mine?.nearby(p) ?? this.forest?.nearby(p) ?? this.torres?.nearby(p) ?? this.records.nearby(p) ?? this.props.nearby(p) ?? this.fixtures.nearby(p) ?? this.npcs.nearby(p);
+      // de joelhos, o Carrasco Coroado estende a coroa
+      const crown = this.boss instanceof Coroado && p.onGround && this.boss.near(p.x) ? { hint: '{up} a coroa', act: () => this.crownChoice() } : null;
+      const near = crown ?? this.mine?.nearby(p) ?? this.forest?.nearby(p) ?? this.torres?.nearby(p) ?? this.records.nearby(p) ?? this.props.nearby(p) ?? this.fixtures.nearby(p) ?? this.npcs.nearby(p);
       if (near) {
         hint = near.hint;
         if (this.controls.pressed.up) {
@@ -3174,10 +3195,24 @@ export class GameScene extends Phaser.Scene {
   }
 
   private follow(dt: number) {
-    if (this.cinematic && this.player.pose) return;
+    if (this.camLock || (this.cinematic && this.player.pose)) return;
     // olha um pouco à frente na direção em que o cavaleiro está virado
     this.lookX += (this.player.facing * 36 - this.lookX) * Math.min(1, dt * 2.2);
     this.cameras.main.setFollowOffset(-this.lookX, this.camY);
+  }
+
+  // a câmera para e mostra este ponto no meio da tela (a arena do fim); unlock volta a seguir o cavaleiro
+  lockCamera(x: number, y: number, ms = 900) {
+    const cam = this.cameras.main;
+    this.camLock = true;
+    cam.stopFollow();
+    cam.pan(x, y, ms, 'Sine.easeInOut', true);
+  }
+
+  unlockCamera() {
+    if (!this.camLock) return;
+    this.camLock = false;
+    this.cameras.main.startFollow(this.player.zone, true, 0.11, 0.13);
   }
 
   // ---------- progresso: habilidades, melhorias, velas, relíquias e memórias ----------
@@ -3459,6 +3494,15 @@ export class GameScene extends Phaser.Scene {
     // (x e y mudam para o lugar do corpo nos chefes que atracam)
     const info = BOSSES[id];
     const done = progress.seen.has(`boss:${id}`);
+    if (id === 'coroado' && done) {
+      // vencido e ainda sem a escolha: ele continua de joelhos no meio do terraço, com a coroa estendida
+      if (ending()) return;
+      const b = info.make(this, x, y) as Coroado;
+      b.kneelStill();
+      this.boss = b;
+      this.enemies.push(b);
+      return;
+    }
     if (id === 'arcebispo') this.placeRose(done);
     if (!done) {
       const b = info.make(this, x, y);
@@ -3520,7 +3564,7 @@ export class GameScene extends Phaser.Scene {
         this.sfx('clang', 1);
         audio.music(info.music, 0.4);
         b.wake();
-        this.time.delayedCall(1600, () => ui.banner(info.name, info.title, 2800));
+        this.time.delayedCall(b.intro ?? 1600, () => ui.banner(info.name, info.title, 2800));
       }
       return;
     }
@@ -3546,6 +3590,10 @@ export class GameScene extends Phaser.Scene {
     ui.bossBar(info.name, 0);
     this.time.delayedCall(1400, () => ui.bossBar(null));
     this.releaseSummons();
+    if (b instanceof Coroado) {
+      this.crownOffered(b);
+      return;
+    }
     // onde as coisas dele caem: no lugar da queda ou, nos que atracam, no chão do cais (depois que o
     // corpo chega lá)
     const m = info.moor;
@@ -3594,6 +3642,83 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(thoughtDelay + 5200, () => ui.thought(info.after[1], 4600));
     // no cais, o portão de bronze lá em cima da escada sobe junto (as Torres Rúnicas)
     if (id === 'barqueiro') this.time.delayedCall(thoughtDelay + 10400, () => ui.thought('Lá em cima da escada, o portão de bronze subiu sozinho. Como se as Torres estivessem esperando por mim.', 4800));
+  }
+
+  // ---------- o fim ----------
+  // o Carrasco Coroado ajoelhou: a luz do núcleo volta, o alçapão abre e ele estende a coroa. Na primeira vez a
+  // escolha abre sozinha; depois de "Ainda não", ela volta perto dele ({up})
+  private crownOffered(b: Coroado) {
+    this.time.delayedCall(700, () => this.memWave?.start(b.c, b.floorY - 30, 'restore', { radius: 760, hold: 2.6 }));
+    this.time.delayedCall(1400, () => {
+      this.fixtures.unlock('boss:coroado');
+      this.sfx('chime');
+    });
+    this.time.delayedCall(2200, () => ui.say('O Carrasco Coroado', 'A coroa ainda serve. Ela sempre foi sua.', 4600));
+    this.time.delayedCall(5200, () => {
+      if (this.player.dead || this.transitioning) return;
+      this.crownChoice();
+    });
+  }
+
+  // a escolha do fim: o que ele já sabe da noite decide o que aparece (lore/torres.md, Os três finais)
+  crownChoice() {
+    if (ui.open || this.transitioning) return;
+    const n = night();
+    const missing: string[] = [];
+    const held = n.essentials.filter((e) => e.held).length;
+    if (held < n.essentials.length) missing.push(`Memórias essenciais: ${held} de ${n.essentials.length}.`);
+    if (n.decisive.some((d) => d.state === 'soft')) missing.push('A noite ainda está na versão que dói menos.');
+    const open = n.decisive.filter((d) => d.state !== 'confirmed' && d.state !== 'soft' && d.state !== 'missing' && d.state !== 'traded').length;
+    if (open) missing.push(`Memórias com duas versões ainda sem prova: ${open}.`);
+    const plans = n.plans.filter((q) => q.read).length;
+    if (plans < n.plans.length) missing.push(`Os planos da Casa: ${plans} de ${n.plans.length}.`);
+    if (n.level !== 'baixa') missing.push('A máscara está rachada demais.');
+    const p = this.player;
+    p.body.setVelocity(0, 0);
+    this.scene.pause();
+    ui.crown({
+      truth: n.truth ? null : missing,
+      whole: n.whole,
+      onPick: (kind) => {
+        ui.closeAll();
+        this.scene.resume();
+        if (kind === 'later') {
+          this.thoughtNow('Ainda não. Ele espera, de joelhos, com a coroa estendida.');
+          return;
+        }
+        this.ending(kind);
+      },
+    });
+  }
+
+  // o final escolhido (as cenas de cada um, os créditos e Vespera depois do fim vêm na T7): por enquanto grava a
+  // escolha e fecha com o cartão do fim
+  private ending(kind: EndingId) {
+    progress.seen.add(`ending:${kind}`);
+    progress.save();
+    this.cinematic = true;
+    this.player.frozen = true;
+    audio.music('none', 2);
+    const cam = this.cameras.main;
+    cam.fadeOut(2600, 255, 244, 220);
+    cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      this.scene.pause();
+      const e = ENDINGS[kind];
+      ui.end({
+        title: e.title,
+        text: e.text,
+        onExplore: () => {
+          ui.closeAll();
+          this.scene.resume();
+          this.toTitle();
+        },
+        onTitle: () => {
+          ui.closeAll();
+          this.scene.resume();
+          this.toTitle();
+        },
+      });
+    });
   }
 
   // a Sombra vencida: a tinta da poça salta num fio até o cavaleiro e entra nele (vira o Véu)

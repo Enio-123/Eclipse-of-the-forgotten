@@ -339,15 +339,15 @@ const FLOOR = 27; // linha do chão da sala (os pés ficam em 28 * 16)
   const banner = await page.evaluate(() => document.querySelector('#banner') && document.querySelector('#banner').textContent);
   check(/máscara de ferro/i.test(banner || ''), `a memória da máscara de ferro (${(banner || '').slice(0, 50)})`);
   await shot('c11-memoria');
-  await waitGame(1.0);
-  const after2 = await page.evaluate(() => window.__thoughts.join(' | '));
-  check(/bigorna, a pedra rachou/.test(after2), `o eco lá de baixo (${after2.slice(-60)})`);
-  // memória decisiva: a onda passa e ele escolhe como guardar (como foi: as duas versões ficam)
+  // memória decisiva: a onda passa, o jogo para e ele escolhe como guardar (como foi: as duas versões ficam)
   await until(() => document.querySelector('#screen-choice.show'), null, 20000);
   const ask = await page.evaluate(() => document.querySelector('#screen-choice .choice-title').textContent);
   check(ask === 'A máscara de ferro', `a memória decisiva pede a escolha (${ask})`);
   await page.click('#screen-choice [data-cmd="truth"]');
   await until(() => !document.querySelector('.screen.show') && !window.__scene.cinematic, null, 20000);
+  await waitGame(1.0);
+  const after2 = await page.evaluate(() => window.__thoughts.join(' | '));
+  check(/bigorna, a pedra rachou/.test(after2), `o eco lá de baixo (${after2.slice(-60)})`);
 
   // ---------- 10. a Corrente nas mãos do cavaleiro ----------
   const wid = await page.evaluate(() => { const s = window.__scene; s.player.setWeapon('corrente'); return s.player.weapon.id; });
@@ -408,7 +408,8 @@ const FLOOR = 27; // linha do chão da sala (os pés ficam em 28 * 16)
   await page.click('#screen-pause [data-cmd="weapon"]').catch(() => {});
   await page.waitForTimeout(500);
   const cards = await page.evaluate(() => [...document.querySelectorAll('#screen-weapons .card')].map((c) => c.dataset.w + (c.classList.contains('locked') ? ':x' : '')));
-  check(cards.length === 9 && cards.includes('corrente'), `nove armas, a Corrente liberada (${cards.join(' ')})`);
+  // as armas das áreas seguintes entram trancadas (a carta continua lá)
+  check(cards.length >= 9 && cards.includes('corrente'), `as cartas das armas, a Corrente liberada (${cards.join(' ')})`);
   await shot('c14-armas');
 
   console.log(errs.length ? errs.join('\n') : 'sem erros no console');

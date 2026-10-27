@@ -743,6 +743,83 @@ export const VHALOR = {
   ground2: 9,
 };
 
+// O Carrasco Coroado (o fim, no alto da torre maior). Primeiro o colosso que sobe das nuvens e segura as
+// agulhas do terraço: o punho que desce em cima do cavaleiro (a sombra avisa; no chão, dá para bater), a
+// foice que varre a arena por cima (fique nas pontas) ou por baixo (fique no meio), a chuva de contas de
+// Âmbar (o brilho no chão avisa onde cada uma cai) e a cabeça que desce até o chão (a máscara leva mais).
+// Na metade dele, tudo mais rápido e os golpes emendam. Depois o colosso vira pó de ouro e volta do tamanho
+// do cavaleiro: o carrasco dourado faz tudo o que o cavaleiro faz, espelhado no meio da arena, e de tempos
+// em tempos investe com uma justificativa (dá para aparar). Vencido, ele se ajoelha e oferece a coroa.
+export const COROADO = {
+  hp: 112,
+  // o que sobra quando o colosso cai é a vida do carrasco dourado; na metade do colosso ele acelera
+  mirrorHp: 48,
+  rage: 80,
+  think: 1.05,
+  think2: 0.7,
+  // a subida das nuvens: inteira na primeira vez, mais curta nas outras
+  rise: 4.6,
+  riseAgain: 2.2,
+  // o punho: sobe até em cima do cavaleiro seguindo ele (trava no fim), cai, fica no chão, volta
+  slamUp: 1.0,
+  slamLock: 0.28,
+  slamDrop: 0.16,
+  slamRest: 1.35,
+  slamRest2: 1.0,
+  slamBack: 0.7,
+  slamHover: 200,
+  fistMul: 0.75,
+  // a onda que sai do impacto, rente ao chão (pule): px/s, quanto dura e a altura
+  shockSpeed: 300,
+  shockLife: 0.5,
+  shockH: 12,
+  // a foice: o rastro de luz que mostra o caminho, a varrida, a volta. Por cima, ela balança pendurada no punho
+  // erguido (sweepR do punho até o fio, que passa rente ao chão no meio; o punho fica sweepX para o lado do
+  // braço); por baixo, a haste sobe de trás da borda do terraço (o raio sweepR2, o mais alto a sweepLift do
+  // chão no meio, rente ao chão nas pontas). A grossura da lâmina e o comprimento dela
+  sweepWarn: 0.62,
+  sweepTime: 1.0,
+  sweepRec: 0.55,
+  sweepR: 270,
+  sweepX: 70,
+  sweepR2: 924,
+  sweepLift: 46,
+  sweepSpan: 1.15,
+  sweepSpan2: 0.5,
+  bladeT: 22,
+  bladeLen: 180,
+  // a chuva de contas: quantas (e na metade), o brilho de aviso no chão antes de cada uma, a queda, o espaço
+  // entre uma e outra
+  beads: 9,
+  beads2: 13,
+  beadWarn: 0.8,
+  beadFall: 0.42,
+  beadStep: 0.11,
+  // a cabeça desce até o chão: preparo, descida, no chão (dá para bater na máscara), subida
+  leanWind: 0.85,
+  leanDrop: 0.3,
+  leanRest: 3.0,
+  leanRest2: 2.4,
+  leanRise: 0.9,
+  maskMul: 1.5,
+  // o colosso vira pó, a coroa cai e o carrasco dourado se forma
+  crumble: 2.6,
+  form: 1.8,
+  // o espelho: o atraso (e na metade), quanto cada golpe trava, quão rápido ele volta ao atraso certo
+  delay: 0.55,
+  delay2: 0.35,
+  stutter: 0.22,
+  catchup: 0.5,
+  // a investida: de quanto em quanto tempo (s, entre os dois), o preparo, a velocidade, o alcance, a volta e a
+  // tontura depois de aparada
+  lungeEvery: [6, 8],
+  lungeWind: 0.6,
+  lungeSpeed: 620,
+  lungeReach: 300,
+  lungeBack: 0.45,
+  stagger: 1.6,
+};
+
 // O Cetro de Vhalor: cada golpe que acerta acende a runa da cabeça; o terceiro seguido solta a runa num
 // círculo em volta do cavaleiro. A conta zera quando um golpe erra ou quando passa tempo demais entre um
 // acerto e o próximo (s). O raio (px) e o dano (vezes o dano do golpe)

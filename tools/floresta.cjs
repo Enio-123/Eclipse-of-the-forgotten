@@ -42,6 +42,18 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
     const c0 = await page.evaluate(() => window.__scene.clock);
     await page.waitForFunction((c) => window.__scene.clock >= c, c0 + sec, { timeout, polling: 16 });
   };
+  // espera o tempo do jogo; se uma memória decisiva pedir a escolha no meio (o cavaleiro encostou nela),
+  // lembra como foi e segue
+  const settle = async (sec) => {
+    const c0 = await page.evaluate(() => window.__scene.clock);
+    for (;;) {
+      await page.waitForFunction((c) => window.__scene.clock >= c || !!document.querySelector('#screen-choice.show'), c0 + sec, { timeout: 60000, polling: 16 });
+      if (!(await page.evaluate(() => !!document.querySelector('#screen-choice.show')))) return;
+      await page.waitForTimeout(500);
+      await page.click('#screen-choice [data-cmd="truth"]');
+      await page.waitForFunction(() => !document.querySelector('.screen.show'), null, { timeout: 20000 });
+    }
+  };
   const until = async (fn, arg, timeout = 30000) => {
     try {
       return await page.waitForFunction(fn, arg, { timeout, polling: 16 });
@@ -435,7 +447,7 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
     const end = await page.evaluate(() => ({ says: window.__says, seen: window.__progress.seen.has('boss:cacador'), white: window.__scene.whiteout }));
     check(end.seen, 'vencer marca o chefe');
     check(end.says.some((t) => t.includes('Você também caçava')), `a fala dele (${end.says.join(' | ')})`);
-    await waitGame(2.5);
+    await settle(2.5);
     check((await page.evaluate(() => window.__scene.whiteout)) < 0.05, 'a neve abre depois da derrota');
     const drop = await page.evaluate(() => {
       const s = window.__scene;

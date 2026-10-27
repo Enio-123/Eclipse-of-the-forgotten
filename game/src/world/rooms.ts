@@ -44,7 +44,7 @@ export interface DoorDef {
   bar?: boolean;
 }
 
-export type BossId = 'sineiro' | 'arcebispo' | 'carcereira' | 'sombra' | 'reflexo' | 'capataz' | 'cacador' | 'barqueiro' | 'vhalor';
+export type BossId = 'sineiro' | 'arcebispo' | 'carcereira' | 'sombra' | 'reflexo' | 'capataz' | 'cacador' | 'barqueiro' | 'vhalor' | 'coroado';
 
 // alçapão (cada grupo de '=' do mapa, de cima para baixo e da esquerda para a direita): sólido até a
 // marca existir. auto: com esta outra marca, ele cai sozinho quando o cavaleiro chega perto
@@ -53,10 +53,14 @@ export interface TrapdoorDef {
   key: string;
   auto?: string;
   thought?: string;
-  // 'stone': não é tampa de madeira, é a laje do chão que racha e despenca
-  look?: 'stone';
+  // 'stone': não é tampa de madeira, é a laje do chão que racha e despenca; 'bronze': a tampa de bronze
+  // do alto da torre
+  look?: 'stone' | 'bronze';
   // quantas linhas de pedra a laje leva quando despenca (sem isto, até o fundo da sala)
   depth?: number;
+  // o alçapão da arena: aberto antes da luta (é por onde se chega), fecha quando o chefe acorda e abre de
+  // novo com a marca (a do chefe vencido)
+  fight?: boolean;
 }
 
 // Dica de controle mostrada quando o cavaleiro passa por um trecho (em tiles)
@@ -1495,13 +1499,15 @@ const CHAPTER7: Record<'escada' | 'calha' | 'patio' | 'arquivo' | 'experiencias'
     theme: 'torres',
     title: 'O Coração do Eclipse',
     subtitle: 'Onde tudo aconteceu',
-    exits: [{ side: 'down', to: 'coroacao', entry: '2', range: [58, 69] }],
+    exits: [{ side: 'down', to: 'coroacao', entry: '2', range: [49, 54] }],
+    trapdoors: [{ key: 'boss:coroado', fight: true, look: 'bronze' }],
+    boss: 'coroado',
     ...TORRES,
     pit: true,
     music: 'nave',
     ambience: 'wind',
     hints: [],
-    thoughts: [{ x: 50, y: 43, text: 'O núcleo. Era aqui. Foi aqui.' }],
+    thoughts: [{ x: 58, y: 43, text: 'O núcleo. Era aqui. Foi aqui.' }],
   },
 };
 

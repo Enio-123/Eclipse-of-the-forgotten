@@ -129,6 +129,9 @@ body.bright #banner p { color: #463f50; }
   letter-spacing: 0.18em; text-transform: uppercase; color: #b9a98a; margin-bottom: calc(var(--u) * 1.5);
 }
 #thought.speech { font-style: normal; color: #f0e8da; }
+/* uma voz baixa (as contas de Âmbar): menor, dourada e apagada */
+#thought.whisper { font-size: calc(var(--u) * 8); color: #d8b878; letter-spacing: 0.04em; opacity: 0; }
+#thought.whisper.on { opacity: 0.86; }
 #hint {
   position: absolute; left: 50%; bottom: 5.5%; margin: 0; transform: translateX(-50%); opacity: 0;
   padding: calc(var(--u) * 2.5) calc(var(--u) * 6); border-radius: 999px; white-space: nowrap;
@@ -625,6 +628,12 @@ span.key { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 2px;
 .choice-versions li i { font-style: normal; font-family: var(--body); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
 .choice-ask { margin: 16px auto 0; }
 .choice-opts { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; text-align: left; }
+/* a coroa: a escolha do fim. A apagada mostra o que ainda falta saber da noite */
+.crown-panel .choice-lead { margin-bottom: 4px; }
+.crown-opts .offer.locked { cursor: default; opacity: 0.55; border-style: dashed; }
+.crown-opts .offer.locked:hover, .crown-opts .offer.locked:focus { background: rgba(255, 255, 255, 0.025); }
+.crown-opts .missing { grid-column: 1 / -1; list-style: none; margin: 6px 0 0; padding: 0 0 0 10px; border-left: 2px solid #6a3f9e; }
+.crown-opts .missing li { color: #cdc7b9; font-family: var(--italic); font-style: italic; font-size: 14px; line-height: 1.45; }
 .offer-col.back-col { grid-column: 1 / -1; }
 /* com as memórias para comprar de volta o Cobrador cresce: só as ofertas rolam, e o Ir embora fica à vista */
 #screen-shop .shop-panel { display: flex; flex-direction: column; }

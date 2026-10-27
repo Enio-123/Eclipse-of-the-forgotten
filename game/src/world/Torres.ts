@@ -11,6 +11,7 @@ import { DEPTH } from './Decor';
 import { isSolid } from './Level';
 import { canvasRaster, mix, rng } from '../gfx/raster';
 import { PLANK_H } from '../gfx/textures';
+import { hd } from '../gfx/flip';
 
 // o bronze das luvas dos cabos da Sala das Experiências
 const BRZ_MID = 0x7a5a2e;
@@ -119,6 +120,22 @@ export interface ThroneHall {
   lustre: { x0: number; x1: number; y: number; bottom: number } | null;
 }
 
+// O alto da torre maior (o Coração do Eclipse): o meio do terraço e as pontas do chão, as duas agulhas de pedra
+// da borda de trás (x) e onde as correntes amarram nelas (y), e o núcleo pendurado entre elas pelas correntes,
+// no alto do meio (px). Quem segura as agulhas na luta é o Carrasco Coroado (entities/Coroado.ts)
+export interface CoreArena {
+  c: number;
+  floorY: number;
+  x0: number;
+  x1: number;
+  spires: [number, number];
+  anchorY: number;
+  core: { x: number; y: number; r: number; img: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image };
+}
+
+// as camadas do alto da torre, atrás do chão: o colosso, as agulhas na frente dele, as correntes e o núcleo
+export const CORE_DEPTH = { colossus: -6, spire: -5.2, chain: -5.1, core: -5 } as const;
+
 // um degrau dobrável do encosto do Trono: a chapa de ferro na dobradiça rente à pedra, pendurada enquanto o
 // Senhor de Vhalor vive e de pé depois, deitada na mão-francesa chumbada embaixo da dobradiça (o eixo da
 // dobradiça entra no encosto: quem gira é a mesma máquina que abre o alçapão)
@@ -133,6 +150,9 @@ interface FoldStep {
 }
 
 const LUSTRE_H = 18;
+// o núcleo: quanto acima do chão do terraço fica o meio dele e onde as correntes amarram nas agulhas (px)
+const CORE_HEIGHT = 290;
+const CORE_SPIRE_ANCHOR = 320;
 
 // As Torres Rúnicas (capítulo final, lore/torres.md): o que é só delas.
 // - Os lumes ('0'): a luz das nuvens parada no ar, perto delas. Com a Capa de Luz, encostar num lume
@@ -153,6 +173,7 @@ const LUSTRE_H = 18;
 //   ombros caídos por cima do encosto do trono vazio).
 export class Torres {
   throne: ThroneHall | null = null;
+  core: CoreArena | null = null;
   private steps: FoldStep[] = [];
   private lumes: Lume[] = [];
   private runes: Rune[] = [];
@@ -232,6 +253,7 @@ export class Torres {
     this.addExperiment();
     this.addMachine();
     if (s.room.boss === 'vhalor') this.addThrone();
+    if (s.room.boss === 'coroado') this.addCore();
   }
 
   // ---------- texturas ----------
@@ -1206,6 +1228,68 @@ export class Torres {
     return key;
   }
 
+  // ---------- o núcleo ----------
+  // As duas agulhas sobem da borda de trás do terraço (atrás do chão) até acima da tela; perto da ponta de cada
+  // uma amarra uma corrente, e as duas correntes descem curvas até os lados do núcleo, que fica pendurado no alto
+  // do meio, em cima de onde o colosso põe a cabeça. Desenhos da folha do Carrasco Coroado (art2/coroado.py)
+  private addCore() {
+    const s = this.s;
+    const L = s.level;
+    const sp = L.spawns.find((q) => q.kind === 'X');
+    if (!sp || !s.textures.exists('coroado')) return;
+    // o terraço vai de uma borda da torre à outra (o alçapão da escada faz parte dele)
+    const row = sp.ty + 1;
+    const deck = (x: number) => L.solidCell(x, row) || L.ch(x, row) === '=';
+    let a = sp.tx;
+    while (a > 0 && deck(a - 1)) a--;
+    let b = sp.tx;
+    while (b < L.w - 1 && deck(b + 1)) b++;
+    const x0 = a * TILE;
+    const x1 = (b + 1) * TILE;
+    const c = (x0 + x1) / 2;
+    const floorY = row * TILE;
+    const spires: [number, number] = [x0 + 12, x1 - 12];
+    const anchorY = floorY - CORE_SPIRE_ANCHOR;
+    for (const [i, x] of spires.entries()) {
+      hd(s.add.image(x, floorY + 6, 'coroado', 'spire')).setOrigin(0.5, 1).setFlipX(i === 1).setDepth(CORE_DEPTH.spire);
+    }
+    const cy = floorY - CORE_HEIGHT;
+    const r = 22;
+    const glow = s.add.image(c, cy, 'glow').setTint(0xffb04a).setBlendMode(Phaser.BlendModes.ADD).setScale(2.6).setAlpha(0.5).setDepth(CORE_DEPTH.core - 0.05);
+    const img = hd(s.add.image(c, cy, 'coroado', 'core')).setDepth(CORE_DEPTH.core);
+    // as correntes: elos de ferro seguindo a curva (a do meio cede com o peso do núcleo)
+    for (const x of spires) {
+      const side = x < c ? -1 : 1;
+      this.chainCurve(x - side * 6, anchorY, c + side * (r + 2), cy - 4, 26);
+    }
+    this.core = { c, floorY, x0, x1, spires, anchorY, core: { x: c, y: cy, r, img, glow } };
+  }
+
+  // uma corrente pendurada de (ax, ay) até (bx, by), cedendo sag px no meio: um elo a cada 7 px, alternando de
+  // frente e de lado, cada um virado na direção da curva
+  private chainCurve(ax: number, ay: number, bx: number, by: number, sag: number) {
+    const s = this.s;
+    const at = (t: number) => ({ x: ax + (bx - ax) * t, y: ay + (by - ay) * t + sag * 4 * t * (1 - t) });
+    const len = Math.hypot(bx - ax, by - ay) + sag * 0.6;
+    const n = Math.round(len / 7);
+    for (let i = 0; i <= n; i++) {
+      const t = i / n;
+      const p = at(t);
+      const q = at(Math.min(1, t + 0.01));
+      const o = at(Math.max(0, t - 0.01));
+      const ang = Math.atan2(q.y - o.y, q.x - o.x);
+      hd(s.add.image(p.x, p.y, 'coroado', i % 2 ? 'link-side' : 'link')).setRotation(ang).setDepth(CORE_DEPTH.chain);
+    }
+  }
+
+  // o núcleo pulsa devagar (na luta, o colosso puxa a luz dele)
+  private updateCore() {
+    const k = this.core?.core;
+    if (!k) return;
+    const p = 0.5 + 0.5 * Math.sin(this.time * 1.7);
+    k.glow.setAlpha(0.38 + p * 0.18).setScale(2.4 + p * 0.35);
+  }
+
   private addThrone() {
     const s = this.s;
     const L = s.level;
@@ -1429,6 +1513,7 @@ export class Torres {
     this.updateJars(dt);
     this.updateExperiment(dt);
     this.updateMachine(dt);
+    this.updateCore();
     // as nuvens andam devagar (a de trás mais devagar), na posição certa de cada trecho
     for (const c of this.clouds) c.sprite.tilePositionX = c.x0 + this.time * c.vx;
   }

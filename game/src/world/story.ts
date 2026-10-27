@@ -78,3 +78,12 @@ export function night() {
   const whole = truth && all.every(holds) && core.every((c) => c.read);
   return { essentials, decisive, plans, core, all, corruption: progress.corruption, level: corruptionLevel(), truth, whole };
 }
+
+// os três finais (lore/torres.md): I aceitar a verdade, II absorver, III carregar os fragmentos
+export type EndingId = 'truth' | 'absorb' | 'fragments';
+export const ENDING_IDS: EndingId[] = ['truth', 'absorb', 'fragments'];
+
+// o final que ele escolheu (null: ainda não escolheu)
+export function ending(): EndingId | null {
+  return ENDING_IDS.find((k) => progress.seen.has(`ending:${k}`)) ?? null;
+}
