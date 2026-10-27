@@ -1,5 +1,5 @@
 """Pacote do EXTREME: o terreno pintado de cada sala e os fundos em 2x (antes de virarem pixel),
-em pedaços de no máximo 2048 px (cabe em qualquer placa de vídeo) e em WebP, para o jogo baixar só
+em pedaços de no máximo 4096 px (toda placa de vídeo com WebGL aguenta; menos arquivos, porque o Artifact guarda no máximo 511) e em WebP, para o jogo baixar só
 quando a sala abre. Escreve game/public/assets/hd/*.webp e game/public/assets/hd/manifest.json.
 
 uso: python3 tools/hdpack.py [salas...]
@@ -14,7 +14,7 @@ HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ART = os.path.join(HERE, 'art2')
 OUT = os.path.join(HERE, 'game', 'public', 'assets', 'hd')
 SRC_DIRS = [os.path.join(ART, d) for d in ('hd_x', 'hd', 'hd_prisao', 'hd_fosso', 'hd_minas', 'hd_extreme', 'hd_floresta', 'hd_vale')]
-MAX = 2048
+MAX = 4096
 Q = 88
 
 # fundos que no jogo estão em 1x e têm a pintura 2x guardada
