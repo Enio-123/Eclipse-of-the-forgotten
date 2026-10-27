@@ -3,9 +3,9 @@ import { MAGIC, PAL, PLAYER } from '../config';
 import { progress } from '../systems/Save';
 import { fixedCamera } from '../gfx/view';
 
-// Interface do jogo: a máscara (memórias seladas com ouro), os fragmentos de vida, as memórias
-// guardadas (as trocadas com o Cobrador ficam apagadas), as contas de Âmbar dos poderes, a
-// habilidade do mago e as moedas (texto em HTML, nítido em qualquer tela)
+// Interface do jogo: a máscara (memórias seladas com ouro), os fragmentos de vida e, ao lado deles, as
+// luzes da Capa de Luz, as memórias guardadas (as trocadas com o Cobrador ficam apagadas), as contas de
+// Âmbar dos poderes, a habilidade do mago e as moedas (texto em HTML, nítido em qualquer tela)
 export class HudScene extends Phaser.Scene {
   private shards: Phaser.GameObjects.Image[] = [];
   private mems: Phaser.GameObjects.Image[] = [];
@@ -46,6 +46,7 @@ export class HudScene extends Phaser.Scene {
       }
       while (this.shards.length > n) this.shards.pop()!.destroy();
       syncHp();
+      syncLight();
     };
     const syncHp = () => {
       const hp = (this.registry.get('hp') as number | undefined) ?? 0;
@@ -58,6 +59,41 @@ export class HudScene extends Phaser.Scene {
           else this.tweens.add({ targets: s, scale: { from: 0.5, to: 1 }, duration: 260, ease: 'Back.easeOut' });
         }
       });
+    };
+    // a Capa de Luz: uma chama dourada por voo que ainda resta, logo depois do último fragmento de vida
+    // (só depois da relíquia). Gasta, fica o contorno; acende de novo com fagulhas
+    const pips: { img: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image }[] = [];
+    let lightShown = -1;
+    const syncLight = () => {
+      const max = (this.registry.get('light-max') as number | undefined) ?? 0;
+      const n = Math.min(max, (this.registry.get('light') as number | undefined) ?? 0);
+      while (pips.length < max) {
+        const glow = this.add.image(0, 24, 'glow').setTint(0xffb040).setBlendMode(Phaser.BlendModes.ADD).setScale(0.22).setAlpha(0);
+        const img = this.add.image(0, 24, 'light-pip').setOrigin(0.5);
+        pips.push({ img, glow });
+        this.root.add([glow, img]);
+      }
+      while (pips.length > max) {
+        const p = pips.pop()!;
+        p.img.destroy();
+        p.glow.destroy();
+      }
+      const x0 = 47 + this.shards.length * 15;
+      pips.forEach((p, i) => {
+        const x = x0 + i * 10;
+        p.img.x = p.glow.x = x;
+        const full = i < n;
+        const key = full ? 'light-pip' : 'light-pip-empty';
+        if (p.img.texture.key !== key) {
+          p.img.setTexture(key);
+          if (full && lightShown >= 0) {
+            sparks.explode(6, x, 24);
+            this.tweens.add({ targets: p.img, scale: { from: 1.5, to: 1 }, duration: 300, ease: 'Back.easeOut' });
+          } else if (lightShown >= 0) this.tweens.add({ targets: p.img, scale: { from: 1.4, to: 1 }, duration: 200 });
+        }
+        p.glow.setAlpha(full ? 0.3 : 0);
+      });
+      lightShown = n;
     };
     const syncMems = () => {
       const list = (this.registry.get('memories') as number[] | undefined) ?? [];
@@ -242,6 +278,8 @@ export class HudScene extends Phaser.Scene {
       ['changedata-kintsugi', syncMask], ['setdata-kintsugi', syncMask],
       ['changedata-hud-hidden', syncVis], ['setdata-hud-hidden', syncVis],
       ['changedata-coins', syncCoins], ['setdata-coins', syncCoins],
+      ['changedata-light', syncLight], ['setdata-light', syncLight],
+      ['changedata-light-max', syncLight], ['setdata-light-max', syncLight],
       ['changedata-amber', syncAmber], ['setdata-amber', syncAmber],
       ['changedata-power', syncAmber], ['setdata-power', syncAmber],
       ['changedata-amber-deny', denyAmber], ['setdata-amber-deny', denyAmber],
@@ -271,6 +309,7 @@ export class HudScene extends Phaser.Scene {
       this.root.add(s);
     }
     syncHp();
+    syncLight();
     syncMems();
     syncMask();
     syncAmber();

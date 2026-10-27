@@ -69,6 +69,7 @@ export class Props {
       else if (s.kind === 'w') this.addRelic('hook', s.x, s.y);
       else if (s.kind === '{') this.addRelic('cape', s.x, s.y);
       else if (s.kind === '<') this.addRelic('swim', s.x, s.y);
+      else if (s.kind === '/') this.addRelic('light', s.x, s.y);
       else if (s.kind === 'K') this.addCobrador(s.x, s.y);
       else if (s.kind === 'm') {
         const id = `${room}:${mi++}`;
@@ -164,13 +165,14 @@ export class Props {
   // ---------- relíquias ----------
   private addRelic(kind: Ability, x: number, y: number) {
     const s = this.scene;
-    // o retalho vermelho fica pendurado no prego da porta da cabana (sem pedestal)
+    // o retalho vermelho fica pendurado no prego da porta da cabana (sem pedestal); a luz das nuvens que
+    // ele bebe nas Torres fica parada no ar, em cima do pilar
     const hung = kind === 'cape';
-    if (!hung) s.add.image(x, y, 'deco-pedestal').setOrigin(0.5, 1).setDepth(DEPTH.prop);
+    if (!hung && kind !== 'light') s.add.image(x, y, 'deco-pedestal').setOrigin(0.5, 1).setDepth(DEPTH.prop);
     const r: Relic = { kind, x, y, sprite: null, glow: null };
     if (!progress.abilities.has(kind)) {
-      const tint = kind === 'wall' || kind === 'hook' ? 0xbcd4ff : kind === 'cape' ? 0xffb8a0 : kind === 'swim' ? 0xd2fff0 : 0xfff0c8;
-      r.glow = s.add.image(x, y - 50, 'glow').setScale(hung ? 1.4 : 1.8).setTint(tint).setAlpha(0.55).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.front);
+      const tint = kind === 'wall' || kind === 'hook' ? 0xbcd4ff : kind === 'cape' ? 0xffb8a0 : kind === 'swim' ? 0xd2fff0 : kind === 'light' ? 0xffc85a : 0xfff0c8;
+      r.glow = s.add.image(x, y - 50, 'glow').setScale(hung ? 1.4 : kind === 'light' ? 2.6 : 1.8).setTint(tint).setAlpha(0.55).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.front);
       const key = s.textures.exists(`relic-${kind}`) ? `relic-${kind}` : 'relic-double';
       r.sprite = hd(s.add.image(x, hung ? y - 63 : y - 50, key).setDepth(DEPTH.enemy));
       if (hung) r.sprite.setOrigin(0.5, 0.04);

@@ -299,6 +299,7 @@ function roomMarkers(id: RoomId): Marker[] {
       else if (c === 'K') out.push({ kind: 'cobrador', ...p, on: true });
       else if (c === '>' && !progress.abilities.has('dash')) out.push({ kind: 'relic', ...p, on: true });
       else if (c === '{' && !progress.abilities.has('cape')) out.push({ kind: 'relic', ...p, on: true });
+      else if (c === '/' && !progress.abilities.has('light')) out.push({ kind: 'relic', ...p, on: true });
       else if (c === '<' && !progress.abilities.has('swim')) out.push({ kind: 'relic', ...p, on: true });
       else if (c === 'J' && !progress.abilities.has('wall')) out.push({ kind: 'relic', ...p, on: true });
       else if (c === 'U' && !progress.abilities.has('double')) out.push({ kind: 'relic', ...p, on: true });

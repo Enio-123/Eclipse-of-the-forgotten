@@ -40,6 +40,7 @@ import { Weather } from '../world/Weather';
 import { MAP_POS, ROOMS, type Ability, type BossId, type Exit, type RoomDef, type RoomId, type Side } from '../world/rooms';
 import { Forest } from '../world/Forest';
 import { Vale } from '../world/Vale';
+import { Torres } from '../world/Torres';
 import { Records } from '../world/Records';
 import { CapeFx } from '../gfx/cape';
 import { Props, type MemoryOrb, type Relic, type Shrine } from '../world/Props';
@@ -361,6 +362,8 @@ export class GameScene extends Phaser.Scene {
   // a Floresta Nevada: neve, vento, correntes de ar, gelo, gelo fino, pegadas e registros
   forest: Forest | null = null;
   vale: Vale | null = null;
+  // as Torres Rúnicas: os lumes da Capa de Luz
+  torres: Torres | null = null;
   // os registros das salas fora das Minas e da Floresta
   records!: Records;
   // a Capa de Arielle no pescoço dele (depois que ele pega)
@@ -427,6 +430,9 @@ export class GameScene extends Phaser.Scene {
   private gritFx!: Phaser.GameObjects.Particles.ParticleEmitter;
   private glassFx!: Phaser.GameObjects.Particles.ParticleEmitter;
   private feathers!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private lightSparks!: Phaser.GameObjects.Particles.ParticleEmitter;
+  // as luzes da Capa de Luz que o HUD mostra (para só avisar quando mudam)
+  private lightShown = -1;
   private shards!: Phaser.GameObjects.Particles.ParticleEmitter;
   gold!: Phaser.GameObjects.Particles.ParticleEmitter;
   private waterFx!: Phaser.GameObjects.Particles.ParticleEmitter;
@@ -650,6 +656,7 @@ export class GameScene extends Phaser.Scene {
     this.mine = room.theme === 'mine' ? new Mine(this) : null;
     this.forest = room.theme === 'snow' ? new Forest(this) : null;
     this.vale = room.theme === 'vale' ? new Vale(this) : null;
+    this.torres = room.theme === 'torres' ? new Torres(this) : null;
     this.records = new Records(this);
     this.finds = new Finds(this);
     // começou de uma vela (jogo novo, continuar ou depois de morrer): a Flor prensada volta a valer
@@ -685,6 +692,10 @@ export class GameScene extends Phaser.Scene {
     if (!this.magic) this.registry.set('skill', null);
     this.cape = null;
     this.applyProgress();
+    // as luzes da Capa de Luz chegam cheias em cada sala
+    this.player.light = this.player.canFly ? PLAYER.lightCharges : 0;
+    this.lightShown = this.player.light;
+    this.registry.set('light', this.player.light);
     const keepHp = data.from === 'door' ? (this.registry.get('hp') as number | undefined) : undefined;
     this.player.hp = keepHp && keepHp > 0 ? Math.min(keepHp, progress.maxHp) : progress.maxHp;
     this.registry.set('hp', this.player.hp);
@@ -939,6 +950,18 @@ export class GameScene extends Phaser.Scene {
       tint: this.bright() ? [0xffffff, 0xf2e8d0] : [0xd8d2c6, 0x8a8478, 0x2b2730],
       emitting: false,
     }).setDepth(9);
+    // as fagulhas do voo da Capa de Luz: caem dos pés e apagam
+    this.lightSparks = this.add.particles(0, 0, 'px', {
+      lifespan: { min: 380, max: 820 },
+      speedX: { min: -70, max: 70 },
+      speedY: { min: 20, max: 140 },
+      gravityY: 260,
+      scale: { start: 1.3, end: 0 },
+      alpha: { start: 1, end: 0 },
+      tint: [0xffc24a, 0xffe6a6, 0xffffff],
+      blendMode: Phaser.BlendModes.ADD,
+      emitting: false,
+    }).setDepth(DEPTH.player + 0.4);
     this.clangs = this.add.particles(0, 0, 'px', {
       lifespan: { min: 100, max: 260 },
       speed: { min: 120, max: 300 },
@@ -1131,7 +1154,12 @@ export class GameScene extends Phaser.Scene {
     this.mine?.update(time, dt, this.stopT > 0);
     this.forest?.update(dt);
     this.vale?.update(dt);
+    this.torres?.update(dt);
     p.update(dt, this.controls);
+    if (p.light !== this.lightShown) {
+      this.lightShown = p.light;
+      this.registry.set('light', p.light);
+    }
     this.cape?.update(dt, this.forest?.wind.x ?? 0);
     this.magic?.update(dt, this.controls);
     this.hookHits();
@@ -3010,7 +3038,9 @@ export class GameScene extends Phaser.Scene {
     p.canVeil = progress.abilities.has('veil');
     p.canGlide = progress.abilities.has('cape');
     p.canSwim = progress.abilities.has('swim');
+    p.canFly = progress.abilities.has('light');
     if (p.canGlide && !this.cape) this.cape = new CapeFx(this, p);
+    this.registry.set('light-max', p.canFly ? PLAYER.lightCharges : 0);
     document.body.classList.toggle('has-hook', p.canHook);
     document.body.classList.toggle('has-dash', p.canDash);
     p.dashCdMul = progress.on('breath') ? 0.55 : 1;
@@ -3068,7 +3098,7 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(1250, () => {
       const cam = this.cameras.main;
       this.sfx('bell', 0.8);
-      this.glowBurst(p.x, p.body.center.y, r.kind === 'wall' || r.kind === 'hook' ? 0xbcd4ff : 0xfff0c8, 7);
+      this.glowBurst(p.x, p.body.center.y, r.kind === 'wall' || r.kind === 'hook' ? 0xbcd4ff : r.kind === 'light' ? 0xffc85a : 0xfff0c8, 7);
       cam.flash(220, 70, 66, 60);
       pad.rumble(0.3, 0.6, 300);
       this.applyProgress();
@@ -3830,14 +3860,14 @@ export class GameScene extends Phaser.Scene {
   }
 
   // ---------- efeitos ----------
-  spawnGhost(src: Phaser.GameObjects.Sprite) {
+  spawnGhost(src: Phaser.GameObjects.Sprite, tint?: number) {
     const g = this.add
       .image(src.x, src.y, src.texture.key, src.frame.name)
       .setOrigin(src.originX, src.originY)
       .setScale(src.scaleX, src.scaleY)
       .setFlipX(src.flipX)
       .setDepth(9)
-      .setTintFill(this.bright() ? 0xffffff : 0x7d8fb8)
+      .setTintFill(tint ?? (this.bright() ? 0xffffff : 0x7d8fb8))
       .setAlpha(0.45);
     this.tweens.add({ targets: g, alpha: 0, duration: 180, onComplete: () => g.destroy() });
   }
@@ -3868,6 +3898,17 @@ export class GameScene extends Phaser.Scene {
   // cinzas e penas do pulo duplo
   featherBurst(x: number, y: number) {
     this.feathers.explode(14, x, y);
+  }
+
+  // o voo da Capa de Luz: o anel de luz que se abre embaixo dos pés, o clarão e as fagulhas caindo; o
+  // som sobe um pouco a cada luz gasta (left: quantas ainda restam)
+  lightBurst(x: number, y: number, left: number) {
+    const ring = this.add.image(x, y, 'light-ring').setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.player + 0.5).setScale(0.4, 0.5).setAlpha(0.95);
+    this.tweens.add({ targets: ring, scaleX: 1.5, scaleY: 1.2, y: y + 6, alpha: 0, duration: 420, ease: 'Quad.easeOut', onComplete: () => ring.destroy() });
+    const g = this.add.image(x, y - 8, 'glow').setTint(0xffc85a).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.player - 0.2).setScale(0.5).setAlpha(0.8);
+    this.tweens.add({ targets: g, scale: 1.7, alpha: 0, duration: 520, ease: 'Quad.easeOut', onComplete: () => g.destroy() });
+    this.lightSparks.explode(14, x, y);
+    this.sfx('chime', 0.16, 1.9 - left * 0.12);
   }
 
   deathBurst(x: number, y: number) {

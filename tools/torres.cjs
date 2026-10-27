@@ -1,11 +1,12 @@
-// Testa a Área 7, as Torres Rúnicas (T1): o portão do cais que sobe com o Barqueiro vencido, as passagens
+// Testa a Área 7, as Torres Rúnicas: o portão do cais que sobe com o Barqueiro vencido, as passagens
 // entre as nove salas nos dois sentidos (lados, de cima e de baixo, e as portas do pátio), as portas
-// trancadas (runas e tranca por dentro), o Agrimensor na escada e uma foto de cada sala.
+// trancadas (runas e tranca por dentro), o Agrimensor na escada, uma foto de cada sala (T1) e a Capa de
+// Luz: a relíquia no pilar, os três voos, os lumes que recarregam e as luzes no HUD (T2).
 // uso: node torres.cjs <pasta-saida> [url]
 const { chromium } = require('playwright');
 const OUT = process.argv[2] || '.';
 const URL = process.argv[3] || 'http://localhost:8780/index.html';
-// ONLY=links,portao roda só essas partes (portao, links, portas, agrimensor, fotos)
+// ONLY=links,portao roda só essas partes (portao, links, portas, agrimensor, fotos, voo)
 const ONLY = (process.env.ONLY || '').split(',').filter(Boolean);
 const part = (k) => !ONLY.length || ONLY.includes(k);
 (async () => {
@@ -216,6 +217,109 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
       await shot(`t1${String(i++).padStart(2, '0')}-${room}`);
     }
     check(true, `fotos das salas em ${OUT}`);
+  }
+
+  if (part('voo')) {
+    // ---------- 6. a Capa de Luz ----------
+    await setProgress(VALE);
+    await start('calha', '1');
+    await clear();
+    const L = () => page.evaluate(() => {
+      const s = window.__scene;
+      const p = s.player;
+      return { light: p.light, canFly: p.canFly, vy: p.body.velocity.y, ground: p.body.blocked.down, hud: s.registry.get('light'), max: s.registry.get('light-max'), used: window.__progress.seen.has('used:flight'),
+        lumes: s.torres ? s.torres.lumes.map((l) => ({ off: Math.round(l.off * 10) / 10, k: Math.round(l.k * 100) / 100 })) : null };
+    });
+    const tap = async (sec) => { await page.keyboard.down('Space'); await waitGame(sec); await page.keyboard.up('Space'); };
+    let st = await L();
+    check(!st.canFly && st.light === 0 && st.max === 0 && st.lumes && st.lumes.length === 2, `sem a relíquia: sem voo, sem luzes no HUD e dois lumes na calha (${JSON.stringify(st)})`);
+    // sem a Capa de Luz, o toque depois do pulo duplo não faz nada
+    await page.evaluate(() => { const p = window.__scene.player; p.teleport(40 * 16 + 8, 22 * 16); p.body.setVelocity(0, 0); });
+    await waitGame(0.3);
+    await tap(0.3);
+    await waitGame(0.1);
+    await tap(0.2);
+    await waitGame(0.12);
+    await page.keyboard.down('Space');
+    await waitGame(0.08);
+    st = await L();
+    await page.keyboard.up('Space');
+    check(!st.used && st.vy > -200, `sem a relíquia, o terceiro toque no ar não voa (vy ${Math.round(st.vy)})`);
+    await until(() => window.__scene.player.body.blocked.down, null, 8000);
+    // a relíquia no alto do pilar do vão grande
+    const rel = await page.evaluate(() => { const r = window.__scene.props.relics.find((r) => r.kind === 'light'); return r ? { x: r.x / 16, y: r.y / 16 } : null; });
+    check(!!rel && Math.abs(rel.x - 156.5) < 0.6 && Math.abs(rel.y - 34) < 0.6, `a Capa de Luz está no alto do pilar (${JSON.stringify(rel)})`);
+    await page.evaluate(() => { const p = window.__scene.player; p.teleport(156 * 16 + 8, 34 * 16); p.body.setVelocity(0, 0); });
+    await until(() => window.__progress.abilities.has('light'), null, 8000).catch(() => null);
+    await until(() => !window.__scene.cinematic && !window.__scene.player.frozen, null, 12000).catch(() => null);
+    await waitGame(0.3);
+    st = await L();
+    check(st.canFly && st.light === 3 && st.hud === 3 && st.max === 3, `pegou a relíquia: três luzes no cavaleiro e no HUD (${JSON.stringify(st)})`);
+    // pulo, pulo duplo e o primeiro voo
+    await tap(0.3);
+    await waitGame(0.1);
+    await tap(0.2);
+    await waitGame(0.12);
+    await page.keyboard.down('Space');
+    await waitGame(0.05);
+    st = await L();
+    check(st.light === 2 && st.vy < -250 && st.used, `depois do pulo duplo, o toque voa e gasta uma luz (luzes ${st.light}, vy ${Math.round(st.vy)})`);
+    await waitGame(0.1);
+    st = await L();
+    check(st.hud === 2, `o HUD mostra as duas que restam (${st.hud})`);
+    await page.keyboard.up('Space');
+    await waitGame(0.15);
+    await tap(0.15);
+    await waitGame(0.12);
+    await tap(0.15);
+    st = await L();
+    check(st.light === 0, `três voos e as luzes acabam (${st.light})`);
+    await waitGame(0.1);
+    await page.keyboard.down('Space');
+    await waitGame(0.06);
+    st = await L();
+    await page.keyboard.up('Space');
+    check(st.light === 0 && st.vy > -250, `sem luz, o toque não voa mais (vy ${Math.round(st.vy)})`);
+    // o lume: cheio de tudo, ele passa e o lume fica; gasto, o lume enche e apaga, e acende de novo
+    const lume = await page.evaluate(() => { const l = window.__scene.torres.lumes[0]; return { x: l.x, y: l.y }; });
+    await page.evaluate(() => { const p = window.__scene.player; p.teleport(156 * 16 + 8, 34 * 16); p.body.setVelocity(0, 0); });
+    await until(() => window.__scene.player.body.blocked.down, null, 8000);
+    await waitGame(0.2);
+    await page.evaluate((l) => { const p = window.__scene.player; p.teleport(l.x, l.y + 20); p.body.setVelocity(0, -60); }, lume);
+    await waitGame(0.05);
+    st = await L();
+    check(st.lumes[0].off <= 0 && st.light === 3, `com tudo cheio o lume fica aceso (${JSON.stringify(st.lumes[0])})`);
+    await page.evaluate(() => { const p = window.__scene.player; p.light = 1; });
+    await page.evaluate((l) => { const p = window.__scene.player; p.teleport(l.x, l.y + 20); p.body.setVelocity(0, -60); }, lume);
+    await waitGame(0.05);
+    st = await L();
+    check(st.light === 3 && st.lumes[0].off > 3, `gasto, o lume enche as luzes e apaga (luzes ${st.light}, ${JSON.stringify(st.lumes[0])})`);
+    await waitGame(4.2);
+    st = await L();
+    check(st.lumes[0].off <= 0 && st.lumes[0].k > 0.9, `e acende de novo (${JSON.stringify(st.lumes[0])})`);
+    // no chão firme as luzes voltam
+    await page.evaluate(() => { const p = window.__scene.player; p.teleport(40 * 16 + 8, 22 * 16); p.body.setVelocity(0, 0); p.light = 0; });
+    await until(() => window.__scene.player.body.blocked.down, null, 8000);
+    await waitGame(0.1);
+    st = await L();
+    check(st.light === 3 && st.hud === 3, `no chão firme as três luzes voltam (${st.light}, HUD ${st.hud})`);
+    // a luz vale em outra sala (o HUD continua lá)
+    await start('patio', '1');
+    st = await L();
+    check(st.canFly && st.light === 3 && st.hud === 3 && st.max === 3, `em outra sala as luzes chegam cheias (${JSON.stringify({ light: st.light, hud: st.hud, max: st.max })})`);
+    // foto do voo, perto do lume de cima
+    await start('calha', '1');
+    await clear();
+    await page.evaluate(() => { const p = window.__scene.player; p.teleport(172 * 16 + 8, 24 * 16); p.body.setVelocity(0, 0); p.invuln = 0; window.__scene.cameras.main.centerOn(172 * 16, 22 * 16); });
+    // passado o instante de pular da beirada (coyote), o primeiro toque no ar é o pulo duplo; o segundo, o voo
+    await waitGame(0.2);
+    await tap(0.15);
+    await waitGame(0.1);
+    await page.keyboard.down('Space');
+    await waitGame(0.07);
+    await shot('t2-voo');
+    await page.keyboard.up('Space');
+    check(true, `foto do voo em ${OUT}/t2-voo.png`);
   }
 
   console.log(errs.join('\n') || 'sem erros');

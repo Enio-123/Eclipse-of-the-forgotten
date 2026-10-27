@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { PLAYER as C } from '../config';
 import type { Player } from '../entities/Player';
 import { DEPTH } from '../world/Decor';
 
@@ -11,11 +12,14 @@ const N = 7;
 const RED = 0xb4222b;
 const DARK = 0x6c1019;
 const LIGHT = 0xe2483f;
+// a Capa de Luz: o retalho bebeu a luz das nuvens e brilha por dentro, como brasa
+const EMBER = 0xffc24a;
 
 // A Capa de Arielle: o retalho vermelho amarrado no pescoço dele. Fechado, é uma faixa de pano que
 // bate atrás dele com o vento e o embalo; planando, o retalho abre por cima dos ombros como uma vela
 // cheia de ar (e brilha de leve, como as memórias). Três bordas de pontos: a de cima, a do meio e a de
-// baixo; cada ponto corre atrás do lugar dele no desenho, a ponta mais solta que o nó
+// baixo; cada ponto corre atrás do lugar dele no desenho, a ponta mais solta que o nó. Com a Capa de Luz,
+// a dobra do meio brilha dourada pelas luzes que ainda restam, e cada voo acende o pano inteiro um instante
 export class CapeFx {
   private g: Phaser.GameObjects.Graphics;
   private glow: Phaser.GameObjects.Image;
@@ -25,6 +29,11 @@ export class CapeFx {
   private side: 1 | -1;
   // onde o nó estava na última vez que o pano andou (para ver um salto: teletransporte, volta ao chão seguro)
   private last: Node | null = null;
+  // a Capa de Luz: o brilho de brasa (as luzes que restam, 0 a 1, devagar), o clarão de cada voo e as
+  // luzes do quadro anterior (para ver o voo)
+  private ember = 0;
+  private flare = 0;
+  private lastLight = 0;
 
   constructor(scene: Phaser.Scene, private p: Player) {
     this.g = scene.add.graphics().setDepth(DEPTH.player - 0.1);
@@ -54,6 +63,11 @@ export class CapeFx {
     this.glow.setVisible(!hidden);
     if (hidden) return;
     this.open += ((p.gliding ? 1 : 0) - this.open) * Math.min(1, dt * (p.gliding ? 9 : 6));
+    if (p.light < this.lastLight) this.flare = 1;
+    this.lastLight = p.light;
+    const full = p.canFly ? p.light / C.lightCharges : 0;
+    this.ember += (full - this.ember) * Math.min(1, dt * 5);
+    this.flare = Math.max(0, this.flare - dt * 2.4);
     if (p.facing !== this.side) this.side = p.facing;
     const f = this.side;
     const a = this.anchor();
@@ -116,12 +130,29 @@ export class CapeFx {
     for (let i = 0; i < N - 1; i++) g.lineBetween(top[i].x, top[i].y, top[i + 1].x, top[i + 1].y);
     const tip = low[N - 1];
     g.lineStyle(1, DARK, 1).lineBetween(tip.x, tip.y, tip.x + (low[N - 1].x - low[N - 2].x) * 0.6, tip.y + 1.5);
+    // a brasa da Capa de Luz na dobra do meio (mais forte perto do nó; no voo, a borda de cima também)
+    const fly = this.p.canFly;
+    if (fly) {
+      const e = Math.min(1, this.ember * (0.55 + 0.2 * Math.sin(this.t * 5)) + this.flare);
+      for (let i = 0; i < N - 1; i++) {
+        g.lineStyle(1, EMBER, e * (1 - (i / (N - 1)) * 0.5));
+        g.lineBetween(mid[i].x, mid[i].y, mid[i + 1].x, mid[i + 1].y);
+      }
+      if (this.flare > 0.02) {
+        g.lineStyle(1, 0xfff0b8, this.flare);
+        for (let i = 0; i < N - 1; i++) g.lineBetween(top[i].x, top[i].y, top[i + 1].x, top[i + 1].y);
+      }
+    }
     // o nó
     g.fillStyle(DARK, 1).fillRect(a.x - 1.5, a.y - 1, 3, 3);
     g.fillStyle(RED, 1).fillRect(a.x - 1, a.y - 1, 2, 2);
     // aberto, o retalho brilha de leve por trás
     const c = mid[Math.floor(N / 2)];
-    this.glow.setPosition(c.x, c.y).setScale(0.8 + o * 1.4).setAlpha(o * 0.22);
+    this.glow
+      .setTint(fly ? 0xffb050 : 0xff9a80)
+      .setPosition(c.x, c.y)
+      .setScale(0.8 + o * 1.4 + this.flare * 1.1)
+      .setAlpha(o * 0.22 + (fly ? this.ember * 0.08 + this.flare * 0.45 : 0));
   }
 
   destroy() {

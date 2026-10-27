@@ -11,7 +11,7 @@ import { drawChain, drawWhip, type LashPose } from '../gfx/lash';
 
 export type AttackDir = 'side' | 'up' | 'down' | 'low';
 // ações que o jogador já descobriu (as dicas somem quando ele usa)
-export type PlayerAction = 'move' | 'attack' | 'jump' | 'dash' | 'slide' | 'pogo' | 'crouch' | 'trip' | 'walljump' | 'doublejump' | 'parry' | 'hook' | 'glide' | 'row';
+export type PlayerAction = 'move' | 'attack' | 'jump' | 'dash' | 'slide' | 'pogo' | 'crouch' | 'trip' | 'walljump' | 'doublejump' | 'parry' | 'hook' | 'glide' | 'row' | 'flight';
 
 // a ponta do gancho: voando até a argola (ou até o fim do alcance), puxando o cavaleiro, voltando
 export interface HookState {
@@ -78,6 +78,10 @@ export class Player {
   canGlide = false;
   gliding = false;
   private glideArmed = false;
+  // Capa de Luz: depois do pulo duplo, cada novo toque no pulo no ar gasta uma das luzes (light) e voa mais
+  // um trecho para cima; elas enchem no chão firme e nos lumes
+  canFly = false;
+  light = 0;
   // Floresta Nevada (o Forest marca a cada quadro): gelo embaixo dos pés, o vento da rajada (px/s para
   // o lado) e a corrente de ar subindo onde ele está (px/s para cima)
   ice = false;
@@ -294,6 +298,10 @@ export class Player {
   get sliding() {
     return this.slideT > 0;
   }
+  // já gastou alguma luz da Capa de Luz, o pulo duplo ou o dash do ar (um lume tem o que devolver)
+  get spent() {
+    return this.light < (this.canFly ? C.lightCharges : 0) || this.airJumps < (this.canDouble ? 1 : 0) || !this.airDash;
+  }
   // deslizando, o cavaleiro passa por baixo e através dos inimigos
   get untouchable() {
     return this.slideT > 0;
@@ -340,6 +348,7 @@ export class Player {
       this.coyote = C.coyote;
       this.airDash = true;
       this.airJumps = this.canDouble ? 1 : 0;
+      this.light = this.canFly ? C.lightCharges : 0;
       this.wallDir = 0;
     } else this.coyote -= dt;
     this.wallCoyote -= dt;
@@ -515,6 +524,8 @@ export class Player {
       this.wallJump();
     } else if (input.pressed.jump && !onGround && this.airJumps > 0) {
       this.doubleJump();
+    } else if (input.pressed.jump && !onGround && this.light > 0) {
+      this.flight();
     }
     if (this.jumping && !input.held.jump && b.velocity.y < 0) {
       b.velocity.y *= C.jumpCut;
@@ -970,6 +981,26 @@ export class Player {
     this.scene.spawnGhost(this.sprite);
     this.scene.sfx('swoosh', 0.5);
     this.scene.onPlayerAction('doublejump');
+  }
+
+  // Capa de Luz: a luz da capa se gasta num clarão embaixo dos pés e leva ele mais um trecho para cima
+  private flight() {
+    const b = this.body;
+    this.light--;
+    b.velocity.y = -C.lightVel;
+    this.buffer = 0;
+    this.jumping = true;
+    this.scene.lightBurst(this.zone.x, b.bottom, this.light);
+    this.scene.spawnGhost(this.sprite, 0xffc85a);
+    this.scene.sfx('swoosh', 0.45, 1.35);
+    this.scene.onPlayerAction('flight');
+  }
+
+  // um lume da Capa de Luz: as luzes enchem, e o pulo duplo e o dash do ar voltam junto
+  refill() {
+    this.light = this.canFly ? C.lightCharges : 0;
+    this.airJumps = this.canDouble ? 1 : 0;
+    this.airDash = true;
   }
 
   get onWall() {

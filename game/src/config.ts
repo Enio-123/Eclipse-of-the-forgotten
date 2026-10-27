@@ -42,6 +42,10 @@ export const PLAYER = {
   wallLock: 0.15,
   // Pena do Eclipse: segundo pulo no ar
   doubleJumpVel: 420,
+  // Capa de Luz (Torres Rúnicas): depois do pulo duplo, cada toque no ar gasta uma das luzes e sobe
+  // mais um trecho; enchem no chão firme e nos lumes
+  lightVel: 400,
+  lightCharges: 3,
   // Gancho de Corrente: alcance, voo da ponta, puxada e o impulso no fim (para passar da argola)
   hookRange: 180,
   hookSpeed: 1500,

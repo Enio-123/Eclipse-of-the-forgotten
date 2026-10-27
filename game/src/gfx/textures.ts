@@ -35,6 +35,11 @@ export function buildTextures(scene: Phaser.Scene) {
   for (let n = 0; n <= 3; n++) add(tex, `mask-icon-${n}`, makeMaskIcon(n));
   add(tex, 'amber-bead', makeBead(false));
   add(tex, 'amber-bead-empty', makeBead(true));
+  add(tex, 'light-pip', makeLightPip(false));
+  add(tex, 'light-pip-empty', makeLightPip(true));
+  add(tex, 'relic-light', makeLightRelic());
+  add(tex, 'lume', makeLume());
+  add(tex, 'light-ring', makeLightRing());
   add(tex, 'shard-drop', makeShardDrop());
   // moedas: quatro quadros do giro lado a lado
   for (const [key, c] of [['coin', COIN_SMALL], ['coin-big', COIN_BIG]] as const) {
@@ -407,6 +412,66 @@ function makeBead(empty: boolean) {
   r.rect(3, 1, 3, 2, empty ? 0x3a3e52 : PAL.gold);
   r.set(4, 1, empty ? 0x4a4e62 : 0xfff4d2);
   r.outline(empty ? 0x3a3e52 : PAL.ink);
+  commit();
+  return canvas;
+}
+
+// Luz da Capa de Luz na interface: uma chama dourada pequena por voo que ainda resta. Gasta, fica só o
+// contorno apagado
+function makeLightPip(empty: boolean) {
+  const { canvas, r, commit } = canvasRaster(8, 12);
+  const pts: [number, number][] = [[4, 0], [6.5, 4.5], [7, 8], [5.5, 11], [2.5, 11], [1, 8], [1.5, 4.5]];
+  if (empty) {
+    r.poly(pts, 0x1a1c26);
+  } else {
+    r.poly(pts, 0xe0962e);
+    r.poly([[4, 2.5], [5.8, 6], [5.8, 9], [4, 10.4], [2.2, 9], [2.2, 6]], 0xffc24a);
+    r.ellipse(4, 8.2, 1.3, 1.7, 0xfff0b8);
+  }
+  r.outline(empty ? 0x3a3e52 : PAL.ink);
+  commit();
+  return canvas;
+}
+
+// A luz das nuvens que o retalho bebe nas Torres (a Capa de Luz): uma chama dourada parada no ar, com o
+// miolo branco
+function makeLightRelic() {
+  const { canvas, r, commit } = canvasRaster(14, 22);
+  r.poly([[7, 0], [11, 7], [12.5, 13], [10, 19], [7, 21], [4, 19], [1.5, 13], [3, 7]], 0xd9902e);
+  r.poly([[7, 3], [10, 9], [10.5, 14], [8.5, 18.5], [7, 19.5], [5.5, 18.5], [3.5, 14], [4, 9]], 0xffc24a);
+  r.ellipse(7, 14, 2.4, 3.6, 0xffeaa0);
+  r.ellipse(7, 15, 1.2, 1.8, 0xffffff);
+  r.outline(0x6b3a10);
+  commit();
+  return canvas;
+}
+
+// Lume das Torres: a luz das nuvens parada no ar, uma bola dourada de borda mole e miolo branco (o halo
+// em volta é a imagem 'glow' somada por cima, que também ilumina a sala)
+function makeLume() {
+  const { canvas, r, commit } = canvasRaster(16, 16);
+  r.ellipse(8, 8, 7.5, 7.5, 0xd9902e, 70);
+  r.ellipse(8, 8, 6, 6, 0xffaa36, 170);
+  r.ellipse(8, 8, 4.4, 4.4, 0xffcf62);
+  r.ellipse(8, 8, 2.9, 2.9, 0xffecb0);
+  r.ellipse(8, 8, 1.5, 1.5, 0xffffff);
+  commit();
+  return canvas;
+}
+
+// o voo da Capa de Luz: um anel de luz achatado que se abre embaixo dos pés (mais forte um pouco para
+// dentro da borda, apagando para os dois lados)
+function makeLightRing() {
+  const { canvas, r, commit } = canvasRaster(40, 14);
+  for (let y = 0; y < 14; y++) {
+    for (let x = 0; x < 40; x++) {
+      const dx = (x + 0.5 - 20) / 19.5;
+      const dy = (y + 0.5 - 7) / 6.5;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d > 1 || d < 0.6) continue;
+      r.set(x, y, d > 0.86 ? 0xffc24a : 0xfff0b8, Math.round(255 * Math.max(0, 1 - Math.abs(d - 0.82) / 0.22)));
+    }
+  }
   commit();
   return canvas;
 }

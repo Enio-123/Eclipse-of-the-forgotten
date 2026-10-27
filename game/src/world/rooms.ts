@@ -21,7 +21,8 @@ export type RoomId =
   | 'escada' | 'calha' | 'patio' | 'arquivo' | 'experiencias' | 'engrenagens' | 'trono' | 'coroacao' | 'nucleo';
 // 'cape': a Capa de Arielle (segurando o pulo no ar, plana; nas correntes de ar, sobe)
 // 'swim': a Concha do Rio (na água funda, nada para todos os lados e não perde o fôlego)
-export type Ability = 'dash' | 'wall' | 'double' | 'hook' | 'veil' | 'cape' | 'swim';
+// 'light': a Capa de Luz (o retalho bebe a luz das nuvens das Torres: depois do pulo duplo, voa três trechos)
+export type Ability = 'dash' | 'wall' | 'double' | 'hook' | 'veil' | 'cape' | 'swim' | 'light';
 export type Side = 'left' | 'right' | 'up' | 'down';
 
 export interface Exit {
@@ -1340,7 +1341,7 @@ const CHAPTER7: Record<'escada' | 'calha' | 'patio' | 'arquivo' | 'experiencias'
     pit: true,
     music: 'nave',
     ambience: 'wind',
-    hints: [],
+    hints: [{ x0: 150, x1: 162, text: 'No ar, depois do pulo duplo, {jump} de novo: voar · até três vezes', needs: 'light', until: 'flight' }],
     currents: [
       { x0: 0, x1: 57, y0: 21, y1: 21, vx: 40 },
       { x0: 78, x1: 128, y0: 21, y1: 21, vx: 40 },

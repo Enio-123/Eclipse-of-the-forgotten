@@ -38,6 +38,17 @@ for (const [d, n] of [[L, 'esq'], [R, 'dir']]) {
   macros.push({ name: `planar-dash-${n}`, keys: [[J, 0, 22], [d, 0, 240], [J, 30, 52], [F, 54, 56], [J, 70, 240]] });
   macros.push({ name: `cair-planando-${n}`, keys: [[d, 0, 240], [J, 20, 22], [J, 40, 240]] });
 }
+// Capa de Luz (só com 'light' em EXPLORE_AB): depois do pulo duplo, cada toque de novo voa mais um trecho
+// (até três); o último fica segurado e abre a capa. Um voo só, ou subir reto e só depois ir para o lado
+if ((process.env.EXPLORE_AB || '').split(',').includes('light')) {
+  for (const [d, n] of [[L, 'esq'], [R, 'dir']]) {
+    macros.push({ name: `voar-${n}`, keys: [[J, 0, 22], [d, 0, 250], [J, 30, 50], [J, 58, 76], [J, 84, 102], [J, 110, 250]] });
+    macros.push({ name: `voar-um-${n}`, keys: [[J, 0, 22], [d, 0, 250], [J, 30, 50], [J, 58, 250]] });
+    macros.push({ name: `voar-subir-${n}`, keys: [[J, 0, 22], [d, 70, 250], [J, 30, 50], [J, 58, 76], [J, 84, 102], [J, 110, 250]] });
+    macros.push({ name: `voar-dash-${n}`, keys: [[J, 0, 22], [d, 0, 250], [J, 30, 50], [J, 58, 76], [J, 84, 102], [F, 104, 106], [J, 120, 250]] });
+  }
+  macros.push({ name: 'voar-reto', keys: [[J, 0, 22], [J, 30, 50], [J, 58, 76], [J, 84, 102]] });
+}
 macros.push({ name: 'pulo-reto', keys: [[J, 0, 40]] });
 macros.push({ name: 'pulo-duplo-reto', keys: [[J, 0, 22], [J, 30, 52]] });
 macros.push({ name: 'descer', keys: [[DN, 0, 10], [J, 2, 4]] });
@@ -112,6 +123,8 @@ macros.push({ name: 'descer', keys: [[DN, 0, 10], [J, 2, 4]] });
         p.dashT = 0; p.dashCd = 0; p.slideT = 0; p.airDash = true; p.buffer = 0; p.coyote = 0; p.jumping = false;
         p.hurtT = 0; p.recoilT = 0; p.atkCd = 0; p.atkAnimT = 0; p.windupT = 0; p.atkT = 0; p.moveTarget = null; p.dropT = 0;
         p.body.setAllowGravity(true);
+        // os lumes das Torres acesos de novo (cada tentativa começa igual)
+        for (const l of s.torres?.lumes ?? []) { l.off = 0; l.k = 1; }
         p.crouched = !!crouched;
         p.updateCrouchBody(true);
         p.teleport(x, feet);

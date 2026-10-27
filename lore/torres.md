@@ -65,10 +65,14 @@ as portas como objetivos). A única passagem que pede a Capa de Luz é o vão gr
 ## Mecânicas novas
 
 1. **A Capa de Luz** (relíquia da área, na calha): o retalho vermelho bebe a luz dourada das nuvens.
-   No ar, segurar o pulo depois do pulo duplo faz ele subir voando um trecho curto. A luz da capa
-   tem três partes (mostradas no HUD, junto da máscara); cada voo gasta, e ela enche de novo no chão
-   firme ou ao passar por um lume (as luzes douradas paradas no ar perto das nuvens, que se apagam e
-   voltam). É o voo do fim do jogo, e muda a forma de atravessar as salas abertas.
+   No ar, depois do pulo duplo, cada novo toque no pulo faz ele subir voando um trecho curto (um
+   anel de luz se abre embaixo dos pés); segurando o último toque, a capa abre e ele plana como
+   antes. A luz da capa tem três partes (três chamas no HUD, logo depois dos fragmentos de vida, e a
+   brasa dourada na dobra do retalho); cada voo gasta uma, e elas enchem de novo no chão firme, ao
+   entrar numa sala ou ao passar por um lume ('0' no mapa: as luzes douradas paradas no ar perto das
+   nuvens). O lume enche as luzes e devolve o pulo duplo e o dash do ar, apaga e acende de novo em
+   3,5 s; com tudo cheio, o cavaleiro passa por ele e o lume fica. É o voo do fim do jogo, e muda a
+   forma de atravessar as salas abertas. Na água não se voa (lá é o nado).
 2. **Runas**: pedras gravadas que acendem com um golpe e ficam acesas por alguns segundos. Acender
    todas as de um conjunto antes que a primeira apague abre a porta ou ergue a plataforma.
 3. **Engrenagens**: rodas que giram presas num eixo, movidas pela água; as pás e os dentes servem de

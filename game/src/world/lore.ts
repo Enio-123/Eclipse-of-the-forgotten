@@ -484,6 +484,15 @@ export const RELICS: Record<Ability, RelicInfo> = {
       text: 'Arielle achou a concha no rio, no dia em que ele confessou que nunca tinha aprendido a nadar. Furou com um prego e amarrou num cordão.',
     },
   },
+  light: {
+    name: 'A Capa de Luz',
+    text: 'No pilar que sobrou no meio do vazio, o retalho vermelho bebeu a luz dourada que sobe das nuvens. Agora ele brilha por dentro, como brasa.',
+    how: 'No ar, depois do pulo duplo, {jump} de novo voa mais um trecho para cima, até três vezes (as luzes ficam ao lado da vida). Elas voltam no chão firme e nos lumes dourados',
+    named: {
+      name: 'A Luz de Arielle',
+      text: 'O retalho da capa de Arielle bebeu a luz das nuvens. Ela dizia que usava vermelho para ele achar ela de longe, em qualquer multidão.',
+    },
+  },
 };
 
 export function relicInfo(a: Ability, knowsName: boolean) {
