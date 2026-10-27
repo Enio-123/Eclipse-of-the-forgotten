@@ -2,7 +2,8 @@
 
 uso: python3 slash.py <pasta_saida> [--hd]
 Gera slash.png (espada), slash-big.png (foice), slash-small.png (adagas), slash-heavy.png (badalo),
-slash-censer.png (incensário), slash-thrust.png (a estocada da lança), slash-oar.png (a remada do remo) e arrow.png. Com --hd (ou main(out, hd=2)) sai no traço liso, com 2
+slash-censer.png (incensário), slash-thrust.png (a estocada da lança), slash-oar.png (a remada do remo),
+slash-rune.png (a pancada do Cetro de Vhalor) e arrow.png. Com --hd (ou main(out, hd=2)) sai no traço liso, com 2
 pixels por pixel do mundo: o fio sem serrilhado e o rastro em degradê no lugar do xadrez de pixels;
 slashes.json guarda o tamanho do quadro na folha e a escala.
 """
@@ -25,6 +26,9 @@ EMBER = (255, 166, 60)
 # remo: a pá varrendo larga, cor de água, com as gotas espirrando pelo arco
 O_CORE, O_MID, O_EDGE, O_DEEP = (240, 253, 255), (168, 226, 230), (72, 156, 168), (26, 72, 88)
 DROP = (236, 252, 255)
+# Cetro de Vhalor: o arco pesado de bronze aceso, com as faíscas da runa saindo da cabeça
+R_CORE, R_MID, R_EDGE, R_DEEP = (255, 244, 214), (255, 196, 102), (198, 112, 36), (92, 46, 14)
+RUNE = (255, 226, 150)
 
 
 def arc_frame(W, H, cx, R, squash, start, end, thick, alpha, cols, a0=-80, a1=80, trail=2.2, sparkle=None, spark=GOLD, nspark=14):
@@ -313,6 +317,13 @@ def main(out, hd=0):
                     cols, 22, seed=21, a0=-70, a1=88, spark=DROP, nspark=24)
     sheet(fr, f'{out}/slash-oar.png')
     meta['slash-oar'] = dict(w=W, h=H, ox=14 / W, frames=len(fr), fps=fps)
+    # Cetro de Vhalor: a pancada do badalo, no bronze aceso, soltando as faíscas da runa
+    W, H = 96, 92
+    cols = (R_CORE, R_MID, R_EDGE, R_DEEP)
+    fr, fps = swing(W, H, 12, 60, 1.3, [K(0.0, 0.4, 10, 1.0, 2.4), K(0.0, 0.86, 14, 1.0, 2.4), K(0.22, 1.0, 12, 0.95, 2.4), K(0.6, 1.0, 6, 0.6, 2.0)],
+                    cols, 20, seed=33, a0=-96, a1=74, spark=RUNE, nspark=20)
+    sheet(fr, f'{out}/slash-rune.png')
+    meta['slash-rune'] = dict(w=W, h=H, ox=12 / W, frames=len(fr), fps=fps)
     # flecha
     a = Image.new('RGBA', (24, 7), (0, 0, 0, 0))
     px = a.putpixel
@@ -337,7 +348,7 @@ def main(out, hd=0):
     # prévia
     prev = Image.new('RGBA', (520 * max(1, hd), 500 * max(1, hd)), (24, 28, 42, 255))
     y = 4
-    for k in ('slash', 'slash-big', 'slash-small', 'slash-heavy', 'slash-censer', 'slash-thrust', 'slash-oar'):
+    for k in ('slash', 'slash-big', 'slash-small', 'slash-heavy', 'slash-censer', 'slash-thrust', 'slash-oar', 'slash-rune'):
         im = Image.open(f'{out}/{k}.png')
         prev.alpha_composite(im, (4, y))
         y += im.height + 4

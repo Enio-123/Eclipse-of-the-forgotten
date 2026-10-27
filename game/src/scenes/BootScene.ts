@@ -25,13 +25,13 @@ const SHEETS = ['knight-scythe', 'knight-sword', 'knight-daggers', 'knight-bow',
   // o caminho do Mago: o personagem com cada um dos quatro cajados
   'knight-eclipse', 'knight-necro', 'knight-veu', 'knight-espaco',
   // Floresta Nevada: a matilha, as corujas, o Mestre da Caça e o cavaleiro com a lança dele
-  'wolf', 'owl', 'cacador', 'knight-lanca', 'knight-remo',
+  'wolf', 'owl', 'cacador', 'knight-lanca', 'knight-remo', 'knight-cetro',
   // o Agrimensor, que vende as folhas do mapa
   'surveyor',
   // Vale das Cachoeiras: a Truta de Âmbar, a Garça Cinzenta e o Barqueiro
   'trout', 'heron', 'barqueiro',
-  // Torres Rúnicas: o Guarda da Coroação e os Arquivados (a Vigia Rúnica o jogo desenha)
-  'crownguard', 'archived'];
+  // Torres Rúnicas: o Guarda da Coroação, os Arquivados e o Senhor de Vhalor (a Vigia Rúnica o jogo desenha)
+  'crownguard', 'archived', 'vhalor'];
 // (o terreno pintado, os pinheiros e os fundos de cada sala vêm quando ela abre: gfx/roomAssets.ts)
 const IMAGES = [
   'title-sky', 'title-land', 'title-rim', 'clouds-far', 'clouds-near',
@@ -59,7 +59,7 @@ const IMAGES = [
   // os achados das Minas (art/mine_items.py): os seis itens e os dois espaços do inventário
   'item-flower', 'item-helmet', 'item-rawamber', 'item-watch', 'item-whistle', 'item-mirror', 'item-bornal', 'item-cinto',
   // a Floresta Nevada: os objetos (art/forest_props.py)
-  'relic-cape', 'deco-palisade', 'deco-note-pinhal-0', 'deco-note-cabana-0', 'deco-note-cabana-1', 'deco-note-clareira-0', 'item-lanca', 'item-remo', 'deco-record-cais-0', 'deco-record-gruta-0', 'deco-record-prainha-0', 'deco-record-rio-0',
+  'relic-cape', 'deco-palisade', 'deco-note-pinhal-0', 'deco-note-cabana-0', 'deco-note-cabana-1', 'deco-note-clareira-0', 'item-lanca', 'item-remo', 'item-cetro', 'deco-record-cais-0', 'deco-record-gruta-0', 'deco-record-prainha-0', 'deco-record-rio-0', 'deco-record-trono-0',
   'deco-record-nichos-0', 'deco-record-nichos-1', 'deco-record-mercado-0', 'deco-record-mercado-1', 'deco-record-solitarias-0', 'deco-record-solitarias-1', 'deco-record-margem-0', 'deco-record-margem-1', 'deco-record-alagada-0', 'deco-record-alagada-1', 'deco-balanca', 'deco-toldo',
   // o Vale das Cachoeiras (art/vale_props.py); a vara solta do Barqueiro e a mão por cima dela
   'relic-swim', 'barqueiro-pole', 'barqueiro-fist',

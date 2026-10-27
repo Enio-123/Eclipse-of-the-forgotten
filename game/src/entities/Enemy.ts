@@ -2,7 +2,7 @@ import type Phaser from 'phaser';
 
 // de onde veio o golpe do jogador (o guarda só bloqueia o que vem pela frente; a onda do badalo
 // corre pelo chão e passa por baixo do escudo; o incenso contorna o escudo)
-export type HitDir = 'side' | 'up' | 'down' | 'low' | 'arrow' | 'quake' | 'smoke';
+export type HitDir = 'side' | 'up' | 'down' | 'low' | 'arrow' | 'quake' | 'smoke' | 'rune';
 export type HitResult = 'hit' | 'blocked' | 'ignored';
 // quem é (decide as moedas e a vida que deixa ao morrer)
 export type EnemyKind = 'crawler' | 'crow' | 'guard' | 'archer' | 'censer' | 'jailer' | 'miner' | 'ambat' | 'wisp' | 'wolf' | 'owl' | 'trout' | 'heron' | 'motes' | 'crownguard' | 'watcher' | 'archived' | 'boss' | 'echo';
@@ -37,6 +37,8 @@ export interface BossFoe extends Enemy {
   readonly sleeping: boolean;
   readonly facing: 1 | -1;
   readonly sprite: Phaser.GameObjects.Sprite;
+  // onde o corpo para depois da queda, quando no golpe final ele não estava no chão (o trono erguido desce)
+  readonly restY?: number;
   onDefeat: (() => void) | null;
   wake(): void;
 }

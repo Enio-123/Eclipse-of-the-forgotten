@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { MAGES, PLAYER as C, WEAPONS, type WeaponDef, type WeaponId } from '../config';
+import { CETRO, MAGES, PLAYER as C, WEAPONS, type WeaponDef, type WeaponId } from '../config';
 import type { Controls } from '../systems/Controls';
 import type { GameScene } from '../scenes/GameScene';
 import { isGround, isSolid } from '../world/Level';
@@ -29,7 +29,7 @@ const approach = (v: number, target: number, step: number) =>
 
 export const SLASH_KEY: Record<WeaponId, string | null> = {
   sword: 'slash', scythe: 'slash-big', daggers: 'slash-small', bow: null, badalo: 'slash-heavy', incensario: 'slash-censer', corrente: null, picareta: 'slash-heavy',
-  lanca: 'slash-thrust', remo: 'slash-oar',
+  lanca: 'slash-thrust', remo: 'slash-oar', cetro: 'slash-rune',
   // os cajados: o do Grimório bate como bordão (o arco do corte na cor dele); os outros têm o desenho próprio
   eclipse: null, necro: 'slash', veu: null, espaco: null,
 };
@@ -153,6 +153,12 @@ export class Player {
   private lungeT = 0;
   // a lanterna da lança (luz de Âmbar onde ela está pendurada, quadro a quadro)
   private lantern: Phaser.GameObjects.Image | null = null;
+  // o Cetro de Vhalor: a luz da runa na cabeça, quantos golpes seguidos já acertaram (ela acende mais a
+  // cada um), quanto tempo falta para a conta zerar e se o golpe de agora já contou
+  private runeGlow: Phaser.GameObjects.Image | null = null;
+  runeCharge = 0;
+  private runeT = 0;
+  private runeHit = false;
   private wasGround = false;
   private prevVy = 0;
   private ghostT = 0;
@@ -233,13 +239,21 @@ export class Player {
       const c = MAGES[mage].color;
       this.slash.setTint(0xeafff8, 0xeafff8, c, c);
     } else this.slash.clearTint();
-    this.points = mage || this.weapon.lantern ? ((this.scene.cache.json.get(`knight-${id}-meta`) as { points?: Record<string, [number, number][]> } | undefined)?.points ?? null) : null;
+    this.points = mage || this.weapon.lantern || this.weapon.rune ? ((this.scene.cache.json.get(`knight-${id}-meta`) as { points?: Record<string, [number, number][]> } | undefined)?.points ?? null) : null;
     if (this.weapon.lantern && !this.lantern) {
       this.lantern = this.scene.add.image(0, 0, 'glow').setTint(0xffa64a).setScale(1.15).setAlpha(0).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.player + 0.3);
     } else if (!this.weapon.lantern && this.lantern) {
       this.lantern.destroy();
       this.lantern = null;
     }
+    if (this.weapon.rune && !this.runeGlow) {
+      this.runeGlow = this.scene.add.image(0, 0, 'glow').setTint(0xffb050).setScale(0.35).setAlpha(0).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.player + 0.3);
+    } else if (!this.weapon.rune && this.runeGlow) {
+      this.runeGlow.destroy();
+      this.runeGlow = null;
+    }
+    this.runeCharge = 0;
+    this.runeHit = false;
     this.cancelAttack();
     this.aiming = false;
     this.castT = 0;
@@ -347,6 +361,11 @@ export class Player {
     this.dropT -= dt;
     this.hookCd -= dt;
     this.lastRingT -= dt;
+    // o Cetro: tempo demais sem acertar de novo, a runa apaga e a conta zera
+    if (this.runeCharge > 0) {
+      this.runeT -= dt;
+      if (this.runeT <= 0) this.runeCharge = 0;
+    }
     if (onGround) {
       this.coyote = C.coyote;
       this.airDash = true;
@@ -1140,6 +1159,11 @@ export class Player {
     }
     // o remo: nadando, o golpe para o lado é uma remada; de pé num tronco, leva o tronco
     if (W.row && this.atkDir === 'side') this.row(onGround);
+    // o Cetro: o golpe de antes errou, a runa apaga e a conta começa de novo
+    if (W.rune) {
+      if (!this.runeHit) this.runeCharge = 0;
+      this.runeHit = false;
+    }
     this.windupT = W.windup;
     this.atkT = W.ranged ? 0 : W.active;
     this.lungeT = W.lunge && this.atkDir === 'side' ? W.windup + W.active * 0.9 : 0;
@@ -1282,6 +1306,20 @@ export class Player {
 
   get attacking() {
     return !this.weapon.ranged && this.windupT <= 0 && this.atkT > 0;
+  }
+
+  // um golpe do Cetro acertou alguém: conta uma vez por golpe; no terceiro seguido, a runa solta (true)
+  chargeRune() {
+    if (this.runeHit) return false;
+    this.runeHit = true;
+    this.runeT = CETRO.window;
+    this.runeCharge++;
+    if (this.runeCharge < CETRO.hits) {
+      this.scene.sfx('chime', 0.22, 1.1 + this.runeCharge * 0.25);
+      return false;
+    }
+    this.runeCharge = 0;
+    return true;
   }
 
   onAttackHit() {
@@ -1626,6 +1664,16 @@ export class Player {
       const t = this.scene.time.now / 1000;
       const on = s.visible && !this.dead && !this.veilFx?.active;
       lan.setPosition(at.x, at.y).setAlpha(on ? (blink ? 0.18 : 0.4) + 0.05 * Math.sin(t * 13) + 0.03 * Math.sin(t * 31) : 0);
+    }
+    // a runa do Cetro, na cabeça: mais acesa a cada golpe seguido que acertou
+    const rg = this.runeGlow;
+    if (rg) {
+      const at = this.staffTip();
+      const t = this.scene.time.now / 1000;
+      const on = s.visible && !this.dead && !this.veilFx?.active;
+      const k = this.runeCharge / CETRO.hits;
+      const a = (0.1 + 0.6 * k + (k > 0.5 ? 0.08 * Math.sin(t * 17) : 0)) * (blink ? 0.5 : 1);
+      rg.setPosition(at.x, at.y).setScale(0.32 + 0.4 * k).setAlpha(on ? a : 0);
     }
   }
 

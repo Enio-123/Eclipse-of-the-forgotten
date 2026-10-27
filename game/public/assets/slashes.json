@@ -54,5 +54,13 @@
   "frames": 13,
   "fps": 66,
   "scale": 2
+ },
+ "slash-rune": {
+  "w": 192,
+  "h": 184,
+  "ox": 0.125,
+  "frames": 13,
+  "fps": 60,
+  "scale": 2
  }
 }

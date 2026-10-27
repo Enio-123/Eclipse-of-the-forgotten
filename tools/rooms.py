@@ -2417,8 +2417,10 @@ def trono():
     """O Trono da Casa: o salão no alto da torre do meio, onde o Senhor de Vhalor esperava o núcleo ligar.
     Ele ficou preso ao trono pelos cabos de Âmbar que subiam do chão e desciam do teto. Sobe-se da torre
     das engrenagens pela antessala baixa da esquerda; a grade fecha atrás. Depois da luta, o alçapão do
-    teto, em cima do trono, abre para a escadaria da Coroação: sobe-se pelo degrau do estrado (em postes),
-    pelos dois degraus de ferro presos no encosto alto e pelo lustre pendurado no meio do salão."""
+    teto, em cima do trono, abre para a escadaria da Coroação: sobe-se pelo lustre baixo pendurado na
+    frente do estrado e pelos três degraus de ferro do encosto alto, que ficam dobrados (pendurados na
+    dobradiça, rentes à pedra) enquanto ele vive e sobem para o lugar quando ele cai. Os dois são '"'
+    (quem desenha é o salão, Torres.addThrone): o lustre tem as correntes dele e cada degrau a sua."""
     W, H = 100, 48
     g = Grid(W, H, '#')
     g.fill(4, 5, 95, 39, '.')
@@ -2433,11 +2435,11 @@ def trono():
     # o estrado do trono e o encosto alto, até perto do teto
     g.fill(76, 34, 95, 39, '#')
     g.fill(90, 8, 95, 33, '#')
-    # a subida até o alçapão (nenhuma corrente cruza outro degrau)
-    g.fill(80, 29, 86, 29, '-')
-    g.fill(86, 22, 89, 22, '-')
-    g.fill(74, 15, 79, 15, '-')
-    g.fill(86, 8, 89, 8, '-')
+    # a subida até o alçapão: o lustre (longe o bastante do trono para o Cetro apontado não encostar nele) e
+    # os degraus do encosto, acima de onde o pistão ergue o trono
+    g.fill(75, 29, 80, 29, '"')
+    for y in (22, 15, 8):
+        g.fill(86, y, 89, y, '"')
     # o alçapão do teto, em cima do trono (abre quando ele cai)
     g.fill(84, 0, 89, 4, '.')
     for x in range(84, 90):

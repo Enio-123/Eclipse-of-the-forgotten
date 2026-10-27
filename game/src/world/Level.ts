@@ -247,6 +247,18 @@ export class Level {
     else this.layer.removeTileAt(x, y);
   }
 
+  // põe ou tira a prancha de cenário ('"') da célula: pisa por cima e passa por baixo, como as outras, e
+  // quem desenha é o objeto (os degraus dobráveis do Trono, que só ficam de pé depois da luta)
+  setPlank(x: number, y: number, on: boolean) {
+    if (!on) {
+      this.layer.removeTileAt(x, y);
+      return;
+    }
+    const t = this.layer.putTileAt(TILE_ONEWAY, x, y);
+    t.setCollision(false, false, true, false, false);
+    t.setVisible(false);
+  }
+
   spawn(kind: string) {
     // R0, R1...: a vela de descanso de número n; O0, O1...: a porta de número n (na ordem do mapa)
     if (kind.length > 1 && (kind[0] === 'R' || kind[0] === 'O')) return this.spawns.filter((s) => s.kind === kind[0])[Number(kind.slice(1))];

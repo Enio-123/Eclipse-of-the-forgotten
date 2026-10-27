@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { AMBER_BAR, ARCHER, ARCHIVED, FRAGMENT, INCENSE, MAGES, MAGIC, MINE_ITEMS, PAL, PARRY, PLAYER, POWERS, QUAKE, TILE, VIEW_H, VIEW_W, WEAPONS, WEAPON_IDS, type PowerId, type WeaponId } from '../config';
+import { AMBER_BAR, ARCHER, ARCHIVED, CETRO, FRAGMENT, INCENSE, MAGES, MAGIC, MINE_ITEMS, PAL, PARRY, PLAYER, POWERS, QUAKE, TILE, VIEW_H, VIEW_W, WEAPONS, WEAPON_IDS, type PowerId, type WeaponId } from '../config';
 import { Player, type AttackDir, type PlayerAction } from '../entities/Player';
 import { MemoryEcho } from '../entities/MemoryEcho';
 import { Crawler } from '../entities/Crawler';
@@ -27,6 +27,7 @@ import { InkWisp } from '../entities/InkWisp';
 import { CrownGuard } from '../entities/CrownGuard';
 import { RuneWatcher } from '../entities/RuneWatcher';
 import { Archived } from '../entities/Archived';
+import { Vhalor } from '../entities/Vhalor';
 import { ABYSS, Echo } from '../entities/Echo';
 import { overlap, type BossFoe, type Enemy } from '../entities/Enemy';
 import { SmokeField } from '../entities/Smoke';
@@ -151,6 +152,9 @@ interface BossInfo {
   // vencido, o corpo vai até um lugar certo (o barco do Barqueiro atraca no cais): x do corpo, quanto o
   // chão onde as coisas caem fica acima da base dele e quanto tempo a mais elas esperam (ms)
   moor?: { x: number; lift: number; delay: number };
+  // quanto tempo a mais a memória, o registro e a arma esperam o corpo acabar de cair (ms): a estátua de
+  // Âmbar do Senhor de Vhalor ainda se desfaz antes
+  settle?: number;
 }
 
 const BOSSES: Record<BossId, BossInfo> = {
@@ -272,6 +276,22 @@ const BOSSES: Record<BossId, BossInfo> = {
     note: { id: 'cais:0', dx: 230 },
     moor: { x: 922, lift: 35, delay: 2200 },
   },
+  vhalor: {
+    make: (s, x, y) => new Vhalor(s, x, y),
+    sheet: 'vhalor',
+    name: 'O Senhor de Vhalor',
+    title: 'Ainda espera o núcleo ligar',
+    music: 'boss7',
+    memory: 'trono:boss',
+    wakeX: 22,
+    orb: 80,
+    drop: 50,
+    corpse: 'empty',
+    corpseFacing: -1,
+    after: ['O trono ficou vazio. Pela primeira vez, ninguém manda na Casa.', 'O alçapão em cima do trono abriu, e os degraus do encosto subiram para o lugar. Lá em cima é a escadaria da Coroação.'],
+    note: { id: 'trono:0', dx: 150 },
+    settle: 1300,
+  },
 };
 
 // as folhas grandes que a sala carrega quando abre (a do chefe dela)
@@ -298,6 +318,10 @@ const CHAPTERS: Record<string, { title: string; text: string }> = {
   'cais:boss': {
     title: 'Fim do sexto capítulo',
     text: 'O vale ficava fora do alcance da Casa: o rio descia as cachoeiras e saía do reino, e o barqueiro levava quem fugia com a memória inteira. Ela arranjou as passagens e esperou no cais com duas. Ele chegou até o barco e disse que voltava depois da Coroação. Ela soltou a corda e voltou a pé, sozinha. A água do vale agora desce por um aqueduto até as Torres Rúnicas.',
+  },
+  'trono:boss': {
+    title: 'Fim do sétimo capítulo',
+    text: 'A Coroação era a Casa decidindo o que o povo de Vespera lembra. O Senhor de Vhalor esperou a noite inteira no trono o núcleo ligar, e o Âmbar dos cabos cresceu nele até prendê-lo ali. A ordem que ele entregou naquela noite passou pela minha mão. Lá em cima, a escadaria da Coroação sobe até o núcleo.',
   },
   'abismo:boss': {
     title: 'Fim do terceiro capítulo',
@@ -1210,6 +1234,8 @@ export class GameScene extends Phaser.Scene {
     if (p.attacking) {
       const box = p.attackBox();
       let hit = false;
+      // (algum inimigo levou o golpe: o Cetro conta os golpes seguidos que acertam)
+      let struck = false;
       let blocked = false;
       // aparar vem antes do dano: o golpe que encontra o ataque do inimigo na hora só rebate
       let parried: { x: number; y: number } | null = null;
@@ -1234,6 +1260,7 @@ export class GameScene extends Phaser.Scene {
         }
         if (r !== 'hit') continue;
         hit = true;
+        struck = true;
         this.sparks.explode(10, c.centerX, c.centerY);
         this.sfx(e.alive ? 'hit' : 'kill');
         this.gainAmber(e);
@@ -1248,8 +1275,11 @@ export class GameScene extends Phaser.Scene {
       if (parried) {
         this.onParry(parried.x, parried.y, true);
         hit = false;
+        struck = false;
         blocked = false;
       }
+      // o Cetro de Vhalor: o terceiro golpe seguido que acerta solta a runa da cabeça em volta do cavaleiro
+      if (struck && p.weapon.rune && p.chargeRune()) this.runeBurst(p.x, p.body.center.y);
       if (blocked && !hit) {
         p.onBlocked();
         this.hitstop(0.06);
@@ -1761,6 +1791,63 @@ export class GameScene extends Phaser.Scene {
         onComplete: () => spr.destroy(),
       });
     });
+  }
+
+  // ---------- a runa do Cetro de Vhalor ----------
+  // o terceiro golpe seguido: a runa sai da cabeça do Cetro e explode num círculo em volta do cavaleiro
+  // (passa por escudo: vem de todo lado)
+  runeBurst(x: number, y: number) {
+    const p = this.player;
+    const R = CETRO.radius;
+    const dmg = p.weapon.dmg * progress.dmgFor(p.weapon.id) * CETRO.dmg;
+    this.sfx('beam', 0.7, 1.3);
+    this.sfx('chime', 0.55, 0.8);
+    this.sfx('thud', 0.7, 0.9);
+    this.cameras.main.shake(140, 0.005);
+    pad.rumble(0.45, 0.6, 160);
+    this.hitstop(0.05);
+    // o anel de luz abrindo com as seis marcas da runa, a runa grande no meio e o clarão
+    const g = this.add.graphics().setDepth(DEPTH.slash).setBlendMode(Phaser.BlendModes.ADD);
+    const glow = this.add.image(x, y, 'glow').setTint(0xffb050).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.slash - 0.1).setScale(0.6).setAlpha(0.9);
+    const st = { k: 0 };
+    this.tweens.add({
+      targets: st,
+      k: 1,
+      duration: 440,
+      ease: 'Cubic.easeOut',
+      onUpdate: () => {
+        const k = st.k;
+        const r = R * (0.25 + 0.75 * k);
+        const a = 1 - k;
+        g.clear();
+        g.lineStyle(7 * a + 1, 0xffa040, 0.32 * a).strokeCircle(x, y, r + 2);
+        g.lineStyle(2, 0xffe6a6, 0.9 * a).strokeCircle(x, y, r);
+        for (let i = 0; i < 6; i++) {
+          const ang = (i * Math.PI) / 3 + k * 0.7;
+          g.lineStyle(2, 0xffd27a, 0.85 * a).lineBetween(x + Math.cos(ang) * (r - 6), y + Math.sin(ang) * (r - 6), x + Math.cos(ang) * (r + 5), y + Math.sin(ang) * (r + 5));
+        }
+        // a runa do Cetro: o risco do meio, o gancho em cima e o pé cruzado
+        const u = 7 + 5 * k;
+        g.lineStyle(2, 0xfff0c8, 0.95 * a);
+        g.lineBetween(x, y - u, x, y + u);
+        g.lineBetween(x, y - u * 0.45, x + u * 0.6, y - u);
+        g.lineBetween(x - u * 0.55, y + u * 0.6, x + u * 0.55, y + u * 0.6);
+      },
+      onComplete: () => g.destroy(),
+    });
+    this.tweens.add({ targets: glow, scale: 2.4, alpha: 0, duration: 480, ease: 'Quad.easeOut', onComplete: () => glow.destroy() });
+    this.sparks.explode(18, x, y);
+    for (const e of this.enemies) {
+      if (!e.alive) continue;
+      const r = e.rect;
+      const dx = Math.max(r.x - x, 0, x - r.right);
+      const dy = Math.max(r.y - y, 0, y - r.bottom);
+      if (dx * dx + dy * dy > R * R) continue;
+      if (e.hit(x, dmg, 'rune') !== 'hit') continue;
+      this.sparks.explode(8, Phaser.Math.Clamp(x, r.x, r.right), Phaser.Math.Clamp(y, r.y, r.bottom));
+      this.sfx(e.alive ? 'hit' : 'kill', 0.8, 0.9);
+      if (!e.alive) this.onKill(e);
+    }
   }
 
   // ---------- onda do badalo ----------
@@ -3392,8 +3479,8 @@ export class GameScene extends Phaser.Scene {
     const m = info.moor;
     const x = m ? m.x : b.zone.x;
     const f = m ? info.corpseFacing : b.facing;
-    const bottom = m ? (b instanceof Barqueiro ? b.base : b.body.bottom) - m.lift : b.body.bottom;
-    const wait = m?.delay ?? 0;
+    const bottom = m ? (b instanceof Barqueiro ? b.base : b.body.bottom) - m.lift : b.restY ?? b.body.bottom;
+    const wait = m?.delay ?? info.settle ?? 0;
     // a sala sente a queda: a cor de antes volta por um instante (a tinta da Sombra se espalha roxa)
     const cx = b.zone.x;
     const cy = b.body.center.y;
@@ -3428,7 +3515,9 @@ export class GameScene extends Phaser.Scene {
     this.props.addMemory(info.memory, this.bossX(x + f * info.orb), bottom - 28, true);
     this.sfx('chime');
     this.props.setGates(true, true);
-    this.fixtures.openLocks(`boss:${id}`, true);
+    // as grades com a chave dele e os alçapões que esperavam por ele (o do Trono, em cima do trono)
+    this.fixtures.unlock(`boss:${id}`);
+    if (id === 'vhalor') this.time.delayedCall(700, () => this.torres?.raiseSteps());
     this.time.delayedCall(thoughtDelay, () => ui.thought(info.after[0], 4600));
     this.time.delayedCall(thoughtDelay + 5200, () => ui.thought(info.after[1], 4600));
     // no cais, o portão de bronze lá em cima da escada sobe junto (as Torres Rúnicas)
@@ -3571,6 +3660,16 @@ export class GameScene extends Phaser.Scene {
     const make = SPAWNERS[kind];
     if (!make || this.transitioning || !this.boss?.alive) return null;
     const e = make(this, x, y);
+    this.enemies.push(e);
+    this.summons.push(e);
+    this.physics.add.collider(e.zone, this.level.layer);
+    return e;
+  }
+
+  // o Senhor de Vhalor chama a lembrança de um Guarda da Coroação: um eco de luz que luta como o guarda
+  summonEcho(x: number, y: number) {
+    if (this.transitioning || !this.boss?.alive) return null;
+    const e = new CrownGuard(this, x, y, true);
     this.enemies.push(e);
     this.summons.push(e);
     this.physics.add.collider(e.zone, this.level.layer);

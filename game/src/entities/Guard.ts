@@ -287,7 +287,7 @@ export class Guard implements Enemy {
     if (!this.alive) return 'ignored';
     if (this.state === 'stagger') dmg *= PARRY.bonus;
     const front = (Math.sign(fromX - this.zone.x) || this.facing) === this.facing;
-    if (front && dir !== 'down' && dir !== 'quake' && dir !== 'smoke' && !OPEN.includes(this.state)) {
+    if (front && dir !== 'down' && dir !== 'quake' && dir !== 'smoke' && dir !== 'rune' && !OPEN.includes(this.state)) {
       if (this.state === 'guard' || this.state === 'patrol' || this.state === 'turn' || this.state === 'block') this.go('block', 'block');
       return 'blocked';
     }

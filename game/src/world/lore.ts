@@ -42,6 +42,8 @@ export const MEMORIES: Record<string, MemoryInfo> = {
   },
   // O Cais do Barqueiro (v19): a noite das duas passagens
   'cais:boss': { title: 'As duas passagens', text: 'O cais na lua cheia. Ela de pé no barco, a mão estendida para mim, a outra passagem paga. Numa versão eu dei um passo para trás porque ainda tinha nomes no bolso para devolver. Na outra, porque a ordem de levá-la de volta estava no outro bolso.' },
+  // O Trono da Casa (Torres): a ordem que o Senhor de Vhalor entregou na noite da Coroação
+  'trono:boss': { title: 'A ordem', text: 'O salão aceso, na noite da Coroação. Do trono, o Senhor de Vhalor me estende uma ordem dobrada, com o selo da Casa ainda mole. Numa versão eu fico parado com o papel na mão e pergunto de quem é o nome. Na outra, eu dobro mais uma vez e guardo no bolso sem ler, junto com os outros.' },
 };
 export const MEMORY_TOTAL = Object.keys(MEMORIES).length;
 
@@ -75,6 +77,7 @@ export const MEMORY_ECHO: Record<string, { kind: EchoKind; mode: WaveMode }> = {
   'cachoeiras:0': { kind: 'ela', mode: 'restore' },
   'prainha:0': { kind: 'ela', mode: 'restore' },
   'cais:boss': { kind: 'ela', mode: 'corrupt' },
+  'trono:boss': { kind: 'carrasco', mode: 'corrupt' },
 };
 
 // as provas que cada registro carrega (lore/continuidade.md, 6.1)
@@ -347,6 +350,17 @@ export const RECORDS: Record<string, RecordInfo> = {
       ],
     },
     proofs: ['inocentes', 'arielle'],
+  },
+  // O Trono da Casa (Torres): o decreto que o Senhor de Vhalor guardava no colo
+  'trono:0': {
+    title: 'O decreto da Coroação',
+    region: 'Torres Rúnicas',
+    lines: [
+      'Um pergaminho grosso com o selo da Casa, enrolado numa fita de bronze. A letra é de escrivão, caprichada, de quem escreve para ser lido em voz alta na praça.',
+      '"Na noite da Coroação o núcleo das Torres será ligado. Dali em diante a Casa Vhalor decide o que o povo de Vespera lembra, o que sente e no que acredita, para que ninguém mais sofra pelo que passou."',
+      '"O que doer será guardado no Arquivo. O que restar será coroado." Embaixo, a assinatura do Senhor de Vhalor e, do lado, o espaço de mais uma, que ninguém assinou.',
+    ],
+    proofs: ['vhalor', 'nucleo'],
   },
 };
 export const RECORD_IDS = Object.keys(RECORDS);
@@ -746,6 +760,11 @@ export const BESTIARY: { kind: string; name: string; text: string; tip: string }
     kind: 'boss:barqueiro', name: 'O Barqueiro',
     text: 'Levava rio abaixo quem fugia de Vespera, sem cobrar memória: anotava cada passageiro no livro de bordo. A Casa cobrou a dele, e ele ficou no lago empurrando o barco em roda, esperando a passagem.',
     tip: 'A varrida vem na altura de onde você pisa: alta, agache; baixa, pule; nadando, mergulhe. Dois golpes arrebentam a corda. Quando o barco afundar, saia de cima das bolhas e fique longe da cachoeira.',
+  },
+  {
+    kind: 'boss:vhalor', name: 'O Senhor de Vhalor',
+    text: 'O chefe da Casa Vhalor, que pediu a Coroação. Na noite ele esperava no trono o núcleo ligar. O Eclipse fez crescer nele o Âmbar dos cabos que ligavam o trono ao núcleo, e ele ficou preso ali, mandando nos cabos.',
+    tip: 'A luz corre pela calha do teto até onde o cabo vai descer. Pule a ponta do cabo do chão, fique nas runas apagadas e saia da linha da runa do Cetro antes de ela piscar. A pancada de perto dá para aparar. Com o trono lá em cima, passe por dentro de um dos pilares com o dash.',
   },
 ];
 

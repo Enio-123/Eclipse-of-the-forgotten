@@ -12,7 +12,7 @@ export type SfxName =
   | 'howl' | 'hoot' | 'horn' | 'gust' | 'flap' | 'crunch' | 'ice-crack' | 'ice-break' | 'freeze' | 'growl' | 'yelp' | 'lantern'
   | 'plop' | 'leap' | 'flop' | 'heron' | 'buzz' | 'gurgle' | 'creak' | 'rope'
   | 'beam' | 'sap';
-export type TrackId = 'title' | 'bridge' | 'crypt' | 'memory' | 'boss' | 'city' | 'nave' | 'boss2' | 'boss3' | 'mine' | 'mirror' | 'boss4' | 'forest' | 'cabin' | 'boss5' | 'boss6' | 'vale' | 'cais' | FileTrackId | 'none';
+export type TrackId = 'title' | 'bridge' | 'crypt' | 'memory' | 'boss' | 'city' | 'nave' | 'boss2' | 'boss3' | 'mine' | 'mirror' | 'boss4' | 'forest' | 'cabin' | 'boss5' | 'boss6' | 'boss7' | 'vale' | 'cais' | FileTrackId | 'none';
 export type AmbienceId = 'rain' | 'crypt' | 'wind' | 'city' | 'nave' | 'prison' | 'mine' | 'snow' | 'hearth' | 'river' | 'falls' | 'night' | 'none';
 // faixas gravadas, em arquivo (as trilhas que o Enio escolheu)
 type FileTrackId = 'prison' | 'fosso' | 'shadow';
@@ -58,6 +58,13 @@ const FMAJ6 = [41, 45, 48], AMIN6 = [45, 48, 52], BBMAJ6 = [46, 50, 53], CMAJ6 =
 const BARCAROLA = [
   [69, 0, 0, 67, 0, 65], [64, 0, 0, 65, 0, 0], [70, 0, 0, 69, 0, 67], [65, 0, 0, 0, 0, 0],
   [67, 0, 0, 70, 0, 74], [72, 0, 0, 70, 0, 0], [69, 0, 0, 73, 0, 76], [73, 0, 0, 0, 0, 0],
+];
+// o Senhor de Vhalor: sol menor, com o lá bemol napolitano que pesa antes da dominante. O hino da
+// Coroação (oito compassos de colcheias; 0 é pausa), que ele ainda espera ouvir no trono
+const GMIN7 = [43, 46, 50], EBMAJ7 = [39, 43, 46], CMIN7 = [48, 51, 55], ABMAJ7 = [44, 48, 51], DMAJ7 = [50, 54, 57];
+const HINO = [
+  [67, 0, 0, 0, 70, 0, 74, 0], [79, 0, 0, 0, 77, 0, 75, 0], [74, 0, 0, 0, 75, 0, 70, 0], [72, 0, 0, 0, 0, 0, 0, 0],
+  [70, 0, 72, 0, 74, 0, 79, 0], [75, 0, 0, 0, 72, 0, 68, 0], [66, 0, 0, 0, 69, 0, 72, 0], [74, 0, 0, 0, 0, 0, 0, 0],
 ];
 // a cantiga que ela cantarolava na cabana (oito compassos de colcheias; 0 é pausa)
 const CANTIGA = [
@@ -447,6 +454,36 @@ const TRACKS: Record<SynthTrackId, TrackDef> = {
         else e.piano(p.bus, t, m + 12, 0.05, d * 3);
       }
       if (i === 0 && bar % 4 === 3) e.choir(p.bus, t, ch[2] + 12, d * 9, 0.022);
+    },
+  },
+  // O Senhor de Vhalor: uma marcha de coroação que virou cortejo. O bumbo marca o passo, os sinos das
+  // torres batem no tempo forte, o piano grave anda em oitavas, os cabos rangem no contratempo e o hino
+  // da Coroação passa da trompa (na primeira volta) para o coro (na segunda)
+  boss7: {
+    bpm: 92,
+    start(e, p) {
+      p.stop.push(e.drone(p.bus, 31, 0.04), e.drone(p.bus, 38, 0.016));
+    },
+    step(e, p, s, t, d) {
+      const bar = Math.floor(s / 8);
+      const i = s % 8;
+      const ch = [GMIN7, GMIN7, EBMAJ7, CMIN7, GMIN7, ABMAJ7, DMAJ7, DMAJ7][bar % 8];
+      const r = ch[0] - 12;
+      if (i === 0 || i === 4) e.drum(p.bus, t, i === 0 ? 0.19 : 0.12);
+      if (i === 6 && bar % 2 === 1) e.drum(p.bus, t, 0.07);
+      if (i === 7 && bar % 2 === 1) e.drum(p.bus, t, 0.09);
+      e.piano(p.bus, t, r + [0, 12, 7, 12, 0, 12, 3, 7][i], i % 2 === 0 ? 0.1 : 0.055, d * 2);
+      if (i === 0) e.bell(p.bus, t, ch[0] + 24, bar % 4 === 0 ? 0.05 : 0.032);
+      // no fim de cada volta, o repique dos sinos descendo pelo acorde
+      if (bar % 8 === 7 && i % 2 === 0) e.bell(p.bus, t, [ch[2] + 24, ch[1] + 24, ch[0] + 24, ch[2] + 12][i / 2], 0.03);
+      if ((i === 3 || i === 7) && chance(0.45)) e.metal(p.bus, t, 50, 0.016, 0.5);
+      if (i === 0 && bar % 2 === 0) e.pad(p.bus, t, ch.map((n) => n + 12), d * 16, 0.03, 1200);
+      const m = HINO[bar % 8][i];
+      if (m) {
+        if (Math.floor(bar / 8) % 2 === 0) e.horn(p.bus, t, m - 12, d * 3, 0.042);
+        else e.choir(p.bus, t, m, d * 3.5, 0.02);
+      }
+      if (i === 0 && bar % 8 === 3) e.choir(p.bus, t, ch[1] + 12, d * 12, 0.022);
     },
   },
   // Memória: ré maior, caixinha de música, pad quente e uma flauta

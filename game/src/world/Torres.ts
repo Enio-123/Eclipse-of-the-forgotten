@@ -10,6 +10,7 @@ import { BG } from './Backdrop';
 import { DEPTH } from './Decor';
 import { isSolid } from './Level';
 import { canvasRaster, mix, rng } from '../gfx/raster';
+import { PLANK_H } from '../gfx/textures';
 
 // o bronze das luvas dos cabos da Sala das Experiências
 const BRZ_MID = 0x7a5a2e;
@@ -98,6 +99,41 @@ interface Rune {
   cd: number;
 }
 
+// O salão do trono (o Senhor de Vhalor): o que fica na sala com ou sem ele. O chão do salão e o do estrado
+// (y), a frente do estrado e a parede do encosto alto (x), a calha de bronze embaixo do teto (os cabos de
+// Âmbar correm dentro dela; a luz deles é a faixa somada em cima da fenda), os dois bocais no encosto de
+// onde saem os cabos dos ombros dele, a grade no pé do estrado (por onde sai o cabo do chão), as runas
+// embutidas no chão, da esquerda para a direita (cada uma com a luz dela, apagada até ele acender, e a altura
+// da coluna de luz quando explode: embaixo do lustre ela para nas lâmpadas) e o lustre (px)
+export interface ThroneHall {
+  floorY: number;
+  daisY: number;
+  daisX: number;
+  wallX: number;
+  ceilY: number;
+  rail: { x0: number; x1: number; y: number };
+  railGlow: Phaser.GameObjects.TileSprite;
+  anchors: { x: number; y: number }[];
+  grate: { x: number; y: number };
+  runes: { x: number; y: number; h: number; glow: Phaser.GameObjects.Image; line: Phaser.GameObjects.Image }[];
+  lustre: { x0: number; x1: number; y: number; bottom: number } | null;
+}
+
+// um degrau dobrável do encosto do Trono: a chapa de ferro na dobradiça rente à pedra, pendurada enquanto o
+// Senhor de Vhalor vive e de pé depois, deitada na mão-francesa chumbada embaixo da dobradiça (o eixo da
+// dobradiça entra no encosto: quem gira é a mesma máquina que abre o alçapão)
+interface FoldStep {
+  x0: number;
+  x1: number;
+  y: number;
+  w: number;
+  hinge: { x: number; y: number };
+  plate: Phaser.GameObjects.Image;
+  up: boolean;
+}
+
+const LUSTRE_H = 18;
+
 // As Torres Rúnicas (capítulo final, lore/torres.md): o que é só delas.
 // - Os lumes ('0'): a luz das nuvens parada no ar, perto delas. Com a Capa de Luz, encostar num lume
 //   enche as luzes da capa (e devolve o pulo duplo e o dash do ar); ele apaga e acende de novo pouco
@@ -112,7 +148,12 @@ interface Rune {
 // - A máquina da Torre das Engrenagens (RoomDef.gears, buckets, vents), atrás de tudo: o trem de rodas
 //   dentadas presas na parede do fundo, cada uma movendo a de baixo, a corrente dos baldes que sobe
 //   cheia do poço do fundo e desce vazia, e o vapor dos canos.
+// - O salão do trono (ThroneHall): a calha dos cabos no teto, os bocais do encosto, a grade do estrado e
+//   as runas do chão (quem acende tudo é o Senhor de Vhalor; vencido, fica tudo apagado e os cabos dos
+//   ombros caídos por cima do encosto do trono vazio).
 export class Torres {
+  throne: ThroneHall | null = null;
+  private steps: FoldStep[] = [];
   private lumes: Lume[] = [];
   private runes: Rune[] = [];
   private jars: Jar[] = [];
@@ -190,6 +231,7 @@ export class Torres {
     for (const sp of s.level.spawns) if (sp.kind === ',') this.addJar(sp.x, sp.y, ji++);
     this.addExperiment();
     this.addMachine();
+    if (s.room.boss === 'vhalor') this.addThrone();
   }
 
   // ---------- texturas ----------
@@ -983,6 +1025,334 @@ export class Torres {
       const b = this.s.add.image(t.x - 10 + Math.random() * 20, t.y - 10, 'px').setTint(0xffe6a6).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.8).setDepth(DEPTH.prop + 0.7);
       this.s.tweens.add({ targets: b, y: t.y - 43 - Math.random() * 1, x: b.x + (Math.random() - 0.5) * 4, alpha: 0.2, duration: 1800 + Math.random() * 900, ease: 'Sine.easeIn', onComplete: () => b.destroy() });
     }
+  }
+
+  // ---------- o salão do trono ----------
+  private throneTextures() {
+    const T = this.s.textures;
+    const BRZ = [0x2e1f10, 0x4a3015, 0x7a5a2e, 0xb98a3e, 0xe4bd72];
+    // a calha: um trecho de 96 px visto de lado. A aba de cima presa no teto, a face do cocho com os rebites,
+    // o lábio de baixo e a fenda por onde se vê o cabo de Âmbar; a cinta que segura a calha no teto a cada trecho
+    if (!T.exists('throne-rail')) {
+      const { canvas, r, commit } = canvasRaster(96, 13);
+      r.rect(0, 0, 96, 1, 0x120d08);
+      r.rect(0, 1, 96, 1, BRZ[3]);
+      r.rect(0, 2, 96, 1, BRZ[2]);
+      r.rect(0, 3, 96, 5, BRZ[1]);
+      r.rect(0, 3, 96, 1, BRZ[2]);
+      for (let x = 6; x < 96; x += 12) {
+        r.set(x, 5, BRZ[4]);
+        r.set(x + 1, 6, BRZ[0]);
+      }
+      r.rect(0, 8, 96, 1, BRZ[3]);
+      r.rect(0, 9, 96, 2, 0x1a0e06);
+      // o cabo dentro da fenda, com as luvas de bronze
+      r.rect(0, 9, 96, 1, 0x6a3410);
+      for (let x = 20; x < 96; x += 32) r.rect(x, 9, 2, 2, BRZ[2]);
+      r.rect(0, 11, 96, 1, BRZ[2]);
+      r.rect(0, 12, 96, 1, 0x120d08);
+      // a cinta: sobe do teto, abraça a calha e tem um parafuso no meio
+      r.rect(44, 0, 4, 13, BRZ[1]);
+      r.rect(44, 0, 1, 13, BRZ[3]);
+      r.rect(47, 0, 1, 13, BRZ[0]);
+      r.set(46, 6, BRZ[4]);
+      commit();
+      T.addCanvas('throne-rail', canvas);
+    }
+    // a ponta da calha: a curva que entra no teto (o cabo sobe por dentro da pedra até o núcleo)
+    if (!T.exists('throne-rail-end')) {
+      const { canvas, r, commit } = canvasRaster(8, 15);
+      r.rect(0, 0, 8, 13, BRZ[1]);
+      r.rect(0, 0, 1, 13, BRZ[3]);
+      r.rect(7, 0, 1, 13, BRZ[0]);
+      r.rect(0, 3, 8, 1, BRZ[2]);
+      r.rect(0, 9, 8, 2, BRZ[2]);
+      r.rect(1, 13, 6, 2, BRZ[0]);
+      r.set(4, 6, BRZ[4]);
+      commit();
+      T.addCanvas('throne-rail-end', canvas);
+    }
+    // a luz do cabo na fenda (somada na tela)
+    if (!T.exists('throne-rail-glow')) {
+      const { canvas, r, commit } = canvasRaster(16, 5);
+      r.rect(0, 0, 16, 1, 0xffa040, 70);
+      r.rect(0, 1, 16, 2, 0xffc46a);
+      r.rect(0, 3, 16, 1, 0xff9a30, 110);
+      r.rect(0, 4, 16, 1, 0xff8a20, 40);
+      commit();
+      T.addCanvas('throne-rail-glow', canvas);
+    }
+    // o bocal no encosto: a meia argola de bronze com o furo escuro de onde o cabo sai
+    if (!T.exists('throne-socket')) {
+      const { canvas, r, commit } = canvasRaster(6, 9);
+      r.rect(1, 0, 5, 9, BRZ[1]);
+      r.rect(1, 0, 5, 1, BRZ[3]);
+      r.rect(0, 2, 2, 5, BRZ[2]);
+      r.rect(2, 3, 3, 3, 0x0e0905);
+      r.set(1, 1, BRZ[4]);
+      commit();
+      T.addCanvas('throne-socket', canvas);
+    }
+    // a grade no pé do estrado: a moldura de bronze e as barras, com o escuro de dentro
+    if (!T.exists('throne-grate')) {
+      const { canvas, r, commit } = canvasRaster(6, 15);
+      r.rect(0, 0, 6, 15, 0x0b0805);
+      r.rect(0, 0, 6, 1, BRZ[3]);
+      r.rect(0, 1, 1, 14, BRZ[2]);
+      for (const y of [4, 8, 12]) r.rect(0, y, 6, 1, BRZ[1]);
+      r.rect(5, 1, 1, 14, BRZ[0]);
+      commit();
+      T.addCanvas('throne-grate', canvas);
+    }
+    // a runa embutida no chão: a placa de bronze rasa (o risco da runa em pontos)
+    if (!T.exists('throne-inlay')) {
+      const { canvas, r, commit } = canvasRaster(22, 2);
+      r.rect(0, 0, 22, 1, BRZ[2]);
+      r.rect(0, 1, 22, 1, BRZ[0]);
+      for (const x of [3, 6, 7, 10, 14, 15, 18]) r.set(x, 0, 0x2a1a0c);
+      r.set(0, 0, BRZ[3]);
+      commit();
+      T.addCanvas('throne-inlay', canvas);
+    }
+    // a luz de uma runa do chão acesa: a faixa rente ao chão (somada na tela)
+    if (!T.exists('throne-inlay-glow')) {
+      const { canvas, r, commit } = canvasRaster(28, 4);
+      r.rect(3, 0, 22, 1, 0xffd27a);
+      r.rect(1, 1, 26, 1, 0xffb050, 200);
+      r.rect(0, 2, 28, 1, 0xff9030, 110);
+      r.rect(2, 3, 24, 1, 0xff8020, 50);
+      commit();
+      T.addCanvas('throne-inlay-glow', canvas);
+    }
+  }
+
+  // o lustre de roda visto de lado (w px): o aro de bronze por cima (é nele que se pisa), a meia roda de
+  // baixo presa por hastes, as lâmpadas de Âmbar nas gaiolas e o pingente do meio
+  private lustreTexture(w: number) {
+    const T = this.s.textures;
+    const key = `throne-lustre-${w}`;
+    if (T.exists(key)) return key;
+    const BRZ = [0x2e1f10, 0x4a3015, 0x7a5a2e, 0xb98a3e, 0xe4bd72];
+    const { canvas, r, commit } = canvasRaster(w, LUSTRE_H);
+    r.rect(1, 0, w - 2, 1, BRZ[4]);
+    r.rect(0, 1, w, 2, BRZ[3]);
+    r.rect(0, 3, w, 2, BRZ[2]);
+    r.rect(1, 5, w - 2, 1, BRZ[0]);
+    for (let x = 5; x < w - 2; x += 10) {
+      r.set(x, 3, BRZ[4]);
+      r.set(x + 1, 4, BRZ[1]);
+    }
+    // a meia roda de baixo: do aro nas pontas até o fundo, no meio
+    for (let x = 3; x < w - 3; x++) {
+      const t = (x + 0.5 - w / 2) / (w / 2 - 3);
+      const y = 6 + Math.round(4 * (1 - t * t));
+      r.set(x, y, BRZ[2]);
+      r.set(x, y + 1, BRZ[0]);
+    }
+    const lamps = this.lustreLamps(w);
+    for (const lx of lamps) {
+      const t = (lx + 0.5 - w / 2) / (w / 2 - 3);
+      const ring = 6 + Math.round(4 * (1 - t * t));
+      // a haste até a meia roda, a gaiola de bronze e o vidro aceso
+      r.rect(lx, 6, 1, ring - 6, BRZ[1]);
+      r.rect(lx - 2, ring + 2, 5, 5, BRZ[1]);
+      r.rect(lx - 2, ring + 2, 5, 1, BRZ[3]);
+      r.rect(lx - 1, ring + 3, 3, 3, 0xd27a26);
+      r.set(lx, ring + 4, 0xffe6a6);
+      r.set(lx - 1, ring + 3, 0xffc46a);
+      r.rect(lx - 1, ring + 7, 3, 1, BRZ[0]);
+    }
+    // o pingente do meio, embaixo da roda
+    const m = Math.floor(w / 2);
+    r.rect(m - 1, 6, 3, 5, BRZ[1]);
+    r.rect(m - 2, 11, 5, 3, BRZ[2]);
+    r.rect(m - 2, 11, 5, 1, BRZ[3]);
+    r.rect(m - 1, 14, 3, 2, BRZ[1]);
+    r.set(m, 16, BRZ[3]);
+    r.outline(0x120d08);
+    commit();
+    T.addCanvas(key, canvas);
+    return key;
+  }
+
+  // onde ficam as lâmpadas no lustre (px a partir da ponta esquerda)
+  private lustreLamps(w: number) {
+    return [0.11, 0.31, 0.69, 0.89].map((k) => Math.round(w * k));
+  }
+
+  // a chapa de um degrau dobrável (w px): o ferro com os rebites, o olho da corrente na ponta de fora e o
+  // nó da dobradiça na ponta da parede
+  private stepTexture(w: number) {
+    const T = this.s.textures;
+    const key = `throne-step-${w}`;
+    if (T.exists(key)) return key;
+    const { canvas, r, commit } = canvasRaster(w, PLANK_H);
+    r.rect(0, 0, w, 1, 0x9aa0ac);
+    r.rect(0, 1, w, 3, 0x4c505c);
+    r.rect(0, 4, w, 1, 0x34363f);
+    r.rect(0, 5, w, 1, 0x1c1d23);
+    for (let x = 9; x < w - 6; x += 16) {
+      r.set(x, 2, 0x8a8e9a);
+      r.set(x + 1, 3, 0x24262e);
+    }
+    r.rect(0, 1, 4, 4, 0x34363f);
+    r.set(1, 2, 0x0e0f12);
+    r.set(2, 2, 0x0e0f12);
+    r.rect(w - 4, 1, 4, 5, 0x5a5e6a);
+    r.set(w - 3, 2, 0x9aa0ac);
+    r.set(w - 2, 4, 0x24262e);
+    commit();
+    T.addCanvas(key, canvas);
+    return key;
+  }
+
+  private addThrone() {
+    const s = this.s;
+    const L = s.level;
+    const sp = L.spawns.find((q) => q.kind === 'X');
+    if (!sp) return;
+    this.throneTextures();
+    const done = progress.seen.has('boss:vhalor');
+    const row = sp.ty + 1;
+    // a frente do estrado, o chão do salão, a parede do encosto (atrás dele) e o começo do salão (a grade)
+    let dx = sp.tx;
+    while (dx > 0 && L.solidCell(dx - 1, row)) dx--;
+    const floorRow = L.groundBelow(dx - 1, row);
+    let wx = sp.tx;
+    while (wx < L.w - 1 && !L.solidCell(wx + 1, sp.ty)) wx++;
+    let hx = dx - 1;
+    while (hx > 0 && !L.solidCell(hx - 1, floorRow - 1) && L.ch(hx - 1, floorRow - 1) !== '|') hx--;
+    const ceil = L.ceilingAbove(Math.floor((hx + dx) / 2), floorRow - 1);
+    const floorY = floorRow * TILE;
+    const daisY = row * TILE;
+    const daisX = dx * TILE;
+    const wallX = (wx + 1) * TILE;
+    const ceilY = (ceil + 1) * TILE;
+    // a calha: do começo do salão até perto do estrado (a ponta para antes das correntes do lustre), com uma
+    // ponta entrando no teto de cada lado
+    const x0 = hx * TILE + 40;
+    const x1 = daisX - 40;
+    s.add.tileSprite(x0, ceilY, x1 - x0, 13, 'throne-rail').setOrigin(0, 0).setDepth(DEPTH.support);
+    s.add.image(x0, ceilY, 'throne-rail-end').setOrigin(1, 0).setDepth(DEPTH.support);
+    s.add.image(x1, ceilY, 'throne-rail-end').setOrigin(0, 0).setFlipX(true).setDepth(DEPTH.support);
+    const railGlow = s.add.tileSprite(x0, ceilY + 8, x1 - x0, 5, 'throne-rail-glow').setOrigin(0, 0)
+      .setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.support + 0.1).setAlpha(done ? 0 : 0.18);
+    // os bocais dos cabos dos ombros, no encosto logo acima do espaldar do trono (embaixo do degrau dobrado)
+    const anchors = [{ x: wallX, y: daisY - 92 }, { x: wallX, y: daisY - 100 }];
+    for (const a of anchors) s.add.image(a.x, a.y, 'throne-socket').setOrigin(1, 0.5).setDepth(DEPTH.enemy - 0.15);
+    // a grade no pé do estrado
+    const grate = { x: daisX, y: floorY };
+    s.add.image(daisX, floorY, 'throne-grate').setOrigin(1, 1).setDepth(DEPTH.prop + 0.4);
+    // o lustre e os degraus do encosto ('"': o salão desenha os dois)
+    let lustre: ThroneHall['lustre'] = null;
+    for (const r of L.spans((x, y) => L.ch(x, y) === '"')) {
+      if (L.solidCell(r.x1 + 1, r.y)) this.addFoldStep(r, done);
+      else lustre = this.hangLustre(r);
+    }
+    // as runas embutidas: pelo chão do salão e pelo estrado, na frente do trono. A coluna de luz de cada uma
+    // sobe até a altura dela ou até a primeira coisa em cima (embaixo do lustre, até as lâmpadas)
+    const runes: ThroneHall['runes'] = [];
+    const RUNE_H = 74;
+    const add = (x: number, y: number) => {
+      s.add.image(x, y, 'throne-inlay').setOrigin(0.5, 0).setDepth(DEPTH.tiles + 0.4);
+      const line = s.add.image(x, y - 2, 'throne-inlay-glow').setOrigin(0.5, 0).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.front).setAlpha(0);
+      const glow = s.add.image(x, y - 10, 'glow').setTint(0xffa040).setBlendMode(Phaser.BlendModes.ADD).setScale(0.9, 0.55).setDepth(DEPTH.enemy - 0.6).setAlpha(0);
+      let top = y - RUNE_H;
+      if (lustre && x + 13 > lustre.x0 && x - 13 < lustre.x1 && lustre.bottom < y) top = Math.max(top, lustre.bottom + 1);
+      for (const cx of [x - 11, x, x + 11]) {
+        const c = L.ceilingAbove(Math.floor(cx / TILE), Math.floor(y / TILE) - 1);
+        if (c >= 0) top = Math.max(top, (c + 1) * TILE);
+      }
+      runes.push({ x, y, h: y - top, glow, line });
+    };
+    for (let x = hx * TILE + 56; x < daisX - 20; x += 48) add(x, floorY);
+    // (no estrado: uma inteira embaixo do lustre e outra fora dele, sem nenhuma pela metade)
+    for (let x = daisX + 48; x < sp.x - 40; x += 48) add(x, daisY);
+    this.throne = { floorY, daisY, daisX, wallX, ceilY, rail: { x0, x1, y: ceilY }, railGlow, anchors, grate, runes, lustre };
+    // vencido: os cabos dos ombros soltos dos bocais, caídos por cima do espaldar do trono vazio
+    if (done) {
+      const g = s.add.graphics().setDepth(DEPTH.enemy - 0.2);
+      anchors.forEach((a, i) => {
+        const end = { x: wallX - 14 - i * 5, y: daisY - 70 + i * 4 };
+        const pts: Phaser.Math.Vector2[] = [];
+        for (let k = 0; k <= 12; k++) {
+          const t = k / 12;
+          pts.push(new Phaser.Math.Vector2(a.x - 3 + (end.x - a.x + 3) * t, a.y + (end.y - a.y) * t + Math.sin(t * Math.PI) * 9));
+        }
+        g.lineStyle(3, 0x2a170b, 1).strokePoints(pts);
+        g.lineStyle(1, 0x683c17, 1).strokePoints(pts);
+      });
+    }
+  }
+
+  // o lustre de roda na frente do estrado: as duas correntes até o teto e a luz das lâmpadas (a física é a
+  // prancha '"' do mapa, sem tábua desenhada)
+  private hangLustre(r: { x0: number; x1: number; y: number }) {
+    const s = this.s;
+    const L = s.level;
+    const w = (r.x1 - r.x0 + 1) * TILE;
+    const x = r.x0 * TILE;
+    const y = r.y * TILE;
+    for (let tx = r.x0; tx <= r.x1; tx++) L.layer.getTileAt(tx, r.y)?.setVisible(false);
+    s.add.image(x, y, this.lustreTexture(w)).setOrigin(0, 0).setDepth(DEPTH.tiles + 0.3);
+    for (const cx of [x + 3, x + w - 3]) {
+      const c = L.ceilingAbove(Math.floor(cx / TILE), r.y - 1);
+      if (c < 0) continue;
+      const y0 = (c + 1) * TILE;
+      s.add.tileSprite(cx, y0, 5, y + 2 - y0, 'deco-chain').setOrigin(0.5, 0).setDepth(DEPTH.support);
+      s.add.image(cx, y0, 'deco-anchor').setOrigin(0.5, 0).setDepth(DEPTH.support);
+    }
+    for (const lx of this.lustreLamps(w)) {
+      const t = (lx + 0.5 - w / 2) / (w / 2 - 3);
+      const ly = y + 6 + Math.round(4 * (1 - t * t)) + 4;
+      const glow = s.add.image(x + lx, ly, 'glow').setTint(0xffb050).setBlendMode(Phaser.BlendModes.ADD).setScale(0.42).setAlpha(0.5).setDepth(DEPTH.front);
+      s.tweens.add({ targets: glow, alpha: 0.32, scale: 0.38, duration: 420 + Math.random() * 380, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    }
+    return { x0: x, x1: x + w, y, bottom: y + LUSTRE_H };
+  }
+
+  // um degrau do encosto: a chapa na dobradiça (pendurada rente à pedra até a luta acabar; sem física
+  // enquanto isso) e a mão-francesa embaixo, onde ela deita de pé
+  private addFoldStep(r: { x0: number; x1: number; y: number }, up: boolean) {
+    const s = this.s;
+    const L = s.level;
+    const w = (r.x1 - r.x0 + 1) * TILE;
+    const wallX = (r.x1 + 1) * TILE;
+    const hinge = { x: wallX, y: r.y * TILE + PLANK_H };
+    s.add.image(wallX, hinge.y, 'deco-bracket').setOrigin(1, 0).setFlipX(true).setDepth(DEPTH.support);
+    const plate = s.add.image(hinge.x, hinge.y, this.stepTexture(w)).setOrigin(1, 1).setDepth(DEPTH.tiles + 0.3).setAngle(up ? 0 : -90);
+    this.steps.push({ x0: r.x0, x1: r.x1, y: r.y, w, hinge, plate, up });
+    for (let x = r.x0; x <= r.x1; x++) {
+      if (up) L.layer.getTileAt(x, r.y)?.setVisible(false);
+      else L.setPlank(x, r.y, false);
+    }
+  }
+
+  // o Senhor de Vhalor caiu: os degraus do encosto sobem um depois do outro, de baixo para cima (o eixo gira
+  // cada chapa até ela deitar na mão-francesa; a física volta quando ela trava)
+  raiseSteps() {
+    const s = this.s;
+    const order = [...this.steps].filter((st) => !st.up).sort((a, b) => b.y - a.y);
+    order.forEach((st, i) => {
+      st.up = true;
+      s.tweens.add({
+        targets: st.plate,
+        angle: 0,
+        delay: i * 520,
+        duration: 760,
+        ease: 'Sine.easeInOut',
+        onStart: () => {
+          s.sfx('creak', 0.6, 0.8 + i * 0.08);
+          s.sfx('gate', 0.3, 1.3);
+        },
+        onComplete: () => {
+          for (let x = st.x0; x <= st.x1; x++) s.level.setPlank(x, st.y, true);
+          s.sfx('clang', 0.7, 0.8 + i * 0.1);
+          s.dustBurst(st.hinge.x - st.w / 2, st.hinge.y - PLANK_H, 6);
+          s.cameras.main.shake(90, 0.002);
+        },
+      });
+    });
   }
 
   // de pé perto de um frasco: {up} escuta o eco

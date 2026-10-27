@@ -89,8 +89,8 @@ export const PLAYER = {
   knockY: 230,
 };
 
-export type WeaponId = 'sword' | 'scythe' | 'daggers' | 'bow' | 'badalo' | 'incensario' | 'corrente' | 'picareta' | 'lanca' | 'remo' | MageId;
-export const WEAPON_IDS: WeaponId[] = ['sword', 'scythe', 'daggers', 'bow', 'badalo', 'incensario', 'corrente', 'picareta', 'lanca', 'remo', 'eclipse', 'necro', 'veu', 'espaco'];
+export type WeaponId = 'sword' | 'scythe' | 'daggers' | 'bow' | 'badalo' | 'incensario' | 'corrente' | 'picareta' | 'lanca' | 'remo' | 'cetro' | MageId;
+export const WEAPON_IDS: WeaponId[] = ['sword', 'scythe', 'daggers', 'bow', 'badalo', 'incensario', 'corrente', 'picareta', 'lanca', 'remo', 'cetro', 'eclipse', 'necro', 'veu', 'espaco'];
 
 // os quatro magos (o caminho do Mago): cada um com o cajado dele (o golpe básico é a "arma" do
 // cajado em WEAPONS) e a habilidade forte com versões de escolha
@@ -132,6 +132,8 @@ export interface WeaponDef {
   // tronco, o golpe para o lado é uma remada (leva o cavaleiro, ou o tronco, junto)
   shove?: boolean;
   row?: boolean;
+  // a runa na cabeça do Cetro: acende a cada golpe seguido que acerta e, no terceiro, solta em volta
+  rune?: boolean;
   // cajado de mago: a bolinha de eclipse (no lugar da flecha), o chicote de tinta e o pulso do espaço
   mage?: MageId;
   orb?: boolean;
@@ -201,6 +203,13 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
     boss: { id: 'barqueiro', name: 'Barqueiro', art: 'o', found: 'Estava embaixo do banco do barco, enrolado no oleado. A pá larga empurra para longe, e na água cada remada me leva junto. Dá para usar em Trocar arma, no menu de pausa.' },
     shove: true, row: true,
     stats: { dano: 3, velocidade: 3, alcance: 4, corrida: 3 },
+  },
+  cetro: {
+    id: 'cetro', name: 'Cetro de Vhalor', summary: 'Maça pesada de bronze. A runa da cabeça acende a cada golpe que acerta, e o terceiro seguido solta a runa em volta.',
+    dmg: 2.3, cooldown: 0.58, windup: 0.15, active: 0.12, reach: 62, height: 48, recoil: 60, moveMul: 0.45, ranged: false, speed: 0.9,
+    boss: { id: 'vhalor', name: 'Senhor de Vhalor', art: 'o', found: 'A runa da cabeça ainda pulsa. A cada golpe que acerta ela acende mais, e no terceiro seguido ela solta. Dá para usar em Trocar arma, no menu de pausa.' },
+    rune: true,
+    stats: { dano: 4, velocidade: 2, alcance: 3, corrida: 2 },
   },
   eclipse: {
     id: 'eclipse', name: 'Cajado do Eclipse', summary: 'A bolinha de eclipse vai reta e longe. Fraca, mas sai rápido.',
@@ -665,6 +674,83 @@ export const BARQUEIRO = {
   surgeW: 34,
   up: 7.5,
   pull: 58,
+};
+
+// O Senhor de Vhalor (o Trono da Casa): sentado no trono do estrado, preso pelos cabos de Âmbar, ele não
+// levanta. De longe, o cabo desce da calha de bronze do teto em cima do cavaleiro (o bocal acende antes) e o
+// cabo de baixo do estrado varre o chão (pule); as runas do chão acendem e explodem (fique no meio delas, nas
+// apagadas); ele chama os ecos de dois guardas. Perto, no estrado, a pancada do Cetro (dá para aparar). Na
+// metade, o trono sobe no pistão do estrado: lá de cima, os cabos descem como pilares que correm pela calha
+// um contra o outro (passe por dentro de um com o dash) e o trono cai, sacudindo a sala (pule a onda do chão
+// e saia de baixo das pedras do teto).
+export const VHALOR = {
+  hp: 84,
+  phase2: 0.5,
+  think: 0.72,
+  // o chicote do teto: o preparo, a descida do cabo, quanto ele fica no chão, a volta, o intervalo entre os
+  // da sequência e a meia largura do cabo
+  lashWind: 0.66,
+  lashDrop: 0.1,
+  lashHold: 0.3,
+  lashBack: 0.32,
+  lashGap: 0.46,
+  lashHalf: 6,
+  // a varrida rente ao chão: preparo, a ponta correndo (px/s), a altura (pule), o alcance e a volta
+  sweepWind: 0.62,
+  sweepSpeed: 760,
+  sweepH: 13,
+  sweepReach: 720,
+  sweepRec: 0.55,
+  // as runas do chão: preparo, o aviso, a explosão, a meia largura de cada coluna e a altura dela
+  runeWind: 0.5,
+  runeWarn: 1.0,
+  runeBurst: 0.34,
+  runeHalf: 13,
+  runeH: 74,
+  // os ecos dos guardas: a vida de cada um e o intervalo mínimo entre uma chamada e outra (s)
+  echoHp: 4,
+  echoCd: 15,
+  // a pancada de perto: preparo, ativa, volta e a distância da frente dele em que ele usa
+  bashWind: 0.54,
+  bashActive: 0.16,
+  bashRec: 0.66,
+  bashRange: 96,
+  stagger: 1.5,
+  // a runa do Cetro apontada (para quem fica no alto, no lustre ou nos degraus): mirando, travada, o feixe,
+  // a meia largura dele, o alcance e o quanto a mira vira por segundo
+  boltAim: 0.85,
+  boltLock: 0.3,
+  boltFire: 0.3,
+  boltHalf: 4,
+  boltRange: 560,
+  boltTurn: 3.2,
+  // a segunda fase: quanto o pistão sobe (px) e em quanto tempo, quanto tempo ele fica lá em cima, os
+  // pilares (px/s, a distância em que eles param um do outro), o aviso da queda e a queda
+  lift: 80,
+  rise: 1.3,
+  hang: 7,
+  cageSpeed: 115,
+  cageMeet: 30,
+  fallWarn: 0.75,
+  fall: 0.26,
+  slamRec: 1.2,
+  // a onda que corre pelo chão depois da queda (px/s, s) e as pedras que caem do teto (quantas, o aviso)
+  waveSpeed: 250,
+  waveLife: 1.9,
+  debris: 4,
+  debrisWarn: 0.7,
+  // embaixo, entre uma subida e outra (s)
+  ground2: 9,
+};
+
+// O Cetro de Vhalor: cada golpe que acerta acende a runa da cabeça; o terceiro seguido solta a runa num
+// círculo em volta do cavaleiro. A conta zera quando um golpe erra ou quando passa tempo demais entre um
+// acerto e o próximo (s). O raio (px) e o dano (vezes o dano do golpe)
+export const CETRO = {
+  hits: 3,
+  window: 1.5,
+  radius: 66,
+  dmg: 1.25,
 };
 
 // O Reflexo (Câmara de Âmbar): o espelho de Âmbar devolve o cavaleiro com atraso. Ele repete tudo

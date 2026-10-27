@@ -20,7 +20,7 @@ ICON_S = 4   # ícones do inventário: 24 -> 96 (a tela mostra com 48)
 
 def sheets():
     import anims, knight, guard, crow, archer, censer, sineiro, arcebispo, townsfolk, enemy, props, deco, jailer, carcereira, sombra
-    import miner, ambat, capataz, wolf, owl, cacador, trout, heron, barqueiro, coroa, arquivado
+    import miner, ambat, capataz, wolf, owl, cacador, trout, heron, barqueiro, coroa, arquivado, vhalor
     out = {}
     for w in anims.WEAPONS:
         out[f'knight-{w}'] = dict(anims=anims.anims_for(w), mod='knight', W=knight.W, H=knight.H, feet=knight.FEET,
@@ -28,6 +28,9 @@ def sheets():
     # a lança do Mestre da Caça: onde fica a lanterna em cada quadro (o jogo acende a luz ali)
     A = anims.anims_for('lanca')
     out['knight-lanca']['meta_extra'] = {'points': {n: [knight.focus_point(p, 'lanca') for p in poses] for n, (poses, _, _) in A.items()}}
+    # o Cetro de Vhalor: onde fica a runa da cabeça em cada quadro (o jogo acende a luz dela a cada golpe)
+    A = anims.anims_for('cetro')
+    out['knight-cetro']['meta_extra'] = {'points': {n: [knight.focus_point(p, 'cetro') for p in poses] for n, (poses, _, _) in A.items()}}
     # os cajados dos magos: o foco de cada quadro (de onde sai a magia e onde fica a luz dela)
     for w in anims.STAFFS:
         A = anims.anims_for(w)
@@ -89,6 +92,8 @@ def sheets():
     add('crownguard', coroa, coroa.ANIMS, points=coroa.points, cap=3)
     # e os Arquivados (dois corpos na mesma folha)
     add('archived', arquivado, arquivado.ANIMS, points=arquivado.points, which=lambda n: n.startswith(('sit', 'getup')))
+    # O Senhor de Vhalor: a cabeça do Cetro, a coroa, os olhos e os pontos de onde os cabos sobem ao teto
+    add('vhalor', vhalor, vhalor.ANIMS, points=vhalor.points, cap=2)
     # o mineiro que ficou (NPC do Veio de Âmbar): o mesmo boneco, sentado, com a vela acesa
     A, holds = fluid.densify(miner.NPC_ANIMS, miner)
     out['oldminer'] = dict(anims=A, mod='miner', W=miner.W, H=miner.H, feet=miner.FEET, meta_extra={'holds': holds} if holds else None)

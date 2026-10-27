@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { CROWN_GUARD as C, PARRY, TILE } from '../config';
+import { CROWN_GUARD as C, PAL, PARRY, TILE, VHALOR } from '../config';
 import type { GameScene } from '../scenes/GameScene';
 import { isGround, isSolid } from '../world/Level';
 import { overlap, type Enemy, type HitDir, type HitResult } from './Enemy';
@@ -21,9 +21,10 @@ interface SheetPoints {
 // passa por baixo). De longe, a estocada: recua a alabarda (a viseira e a runa do escudo acendem) e estica
 // tudo de uma vez, na altura do peito: agache, pule por cima ou apare a ponta. Perto demais ou pelas
 // costas, o giro: agacha e passa a alabarda rente ao chão dos dois lados: pule. Depois de cada golpe ele
-// fica aberto.
+// fica aberto. O Senhor de Vhalor chama ecos deles (echo): dourados, de luz, com pouca vida; vencidos (ou
+// quando ele cai), desmancham em pó de ouro e não deixam nada.
 export class CrownGuard implements Enemy {
-  readonly kind = 'crownguard' as const;
+  readonly kind: 'crownguard' | 'echo';
   readonly zone: Phaser.GameObjects.Zone;
   readonly body: Phaser.Physics.Arcade.Body;
   readonly sprite: Phaser.GameObjects.Sprite;
@@ -41,8 +42,12 @@ export class CrownGuard implements Enemy {
   private readonly points: SheetPoints['points'];
   // o rastro do giro rente ao chão
   private arc: Phaser.GameObjects.Image | null = null;
+  // eco: quanto falta para acabar de aparecer (s) e a luz dele
+  private born = 0;
+  private aura: Phaser.GameObjects.Image | null = null;
 
-  constructor(private scene: GameScene, x: number, feetY: number) {
+  constructor(private scene: GameScene, x: number, feetY: number, private readonly echo = false) {
+    this.kind = echo ? 'echo' : 'crownguard';
     this.homeX = x;
     this.zone = scene.add.zone(x, feetY - C.bodyH / 2, C.bodyW, C.bodyH);
     scene.physics.add.existing(this.zone);
@@ -54,6 +59,21 @@ export class CrownGuard implements Enemy {
     this.facing = scene.player && scene.player.x > x ? 1 : -1;
     this.play('idle');
     CrownGuard.textures(scene);
+    if (echo) {
+      this.hp = VHALOR.echoHp;
+      this.born = 0.7;
+      this.state = 'guard';
+      this.aura = scene.add.image(x, feetY - C.bodyH / 2, 'glow').setTint(PAL.gold).setBlendMode(Phaser.BlendModes.ADD)
+        .setScale(1.1, 1.6).setAlpha(0).setDepth(DEPTH.enemy - 0.1);
+      this.look();
+      this.sprite.setAlpha(0);
+    }
+  }
+
+  // o eco é de luz dourada
+  private look() {
+    if (this.echo) this.sprite.setTint(0xffe2a0, 0xffd27a, 0xd89a3a, 0xc8862a);
+    else this.sprite.clearTint();
   }
 
   // o rastro do giro: um anel achatado de luz fria, mais forte na frente
@@ -162,6 +182,19 @@ export class CrownGuard implements Enemy {
     if (!this.alive) return;
     const b = this.body;
     const p = this.scene.player;
+    if (this.aura) this.aura.setPosition(this.zone.x, b.bottom - C.bodyH / 2);
+    // o eco aparecendo: a luz desce, ele ganha corpo e só então se mexe
+    if (this.born > 0) {
+      this.born -= dt;
+      const k = 1 - Math.max(0, this.born) / 0.7;
+      this.sprite.setAlpha(k * 0.9);
+      this.aura?.setAlpha(0.6 * (1 - k) + 0.25);
+      b.velocity.x = 0;
+      this.sprite.setPosition(Math.round(this.zone.x), Math.round(b.bottom));
+      face(this.sprite, this.facing < 0);
+      return;
+    }
+    if (this.aura) this.aura.setAlpha(0.22 + 0.06 * Math.sin(this.t * 5));
     this.t += dt;
     this.atkCd -= dt;
     const dx = p.x - this.zone.x;
@@ -303,14 +336,14 @@ export class CrownGuard implements Enemy {
     }
     if (this.flashT > 0) {
       this.flashT -= dt;
-      if (this.flashT <= 0) this.sprite.clearTint();
+      if (this.flashT <= 0) this.look();
     }
     this.sprite.setPosition(Math.round(this.zone.x), Math.round(b.bottom));
     face(this.sprite, this.facing < 0);
   }
 
   harms(pr: Phaser.Geom.Rectangle, sliding: boolean) {
-    if (!this.alive) return false;
+    if (!this.alive || this.born > 0) return false;
     if (this.state === 'thrust' && this.t < C.thrustActive && overlap(pr, this.thrustBox)) return true;
     if (this.state === 'spin' && overlap(pr, this.spinBox)) return true;
     // tonto, ele não empurra ninguém; deslizando, o cavaleiro passa entre as pernas dele
@@ -334,11 +367,11 @@ export class CrownGuard implements Enemy {
   }
 
   hit(fromX: number, dmg: number, dir: HitDir): HitResult {
-    if (!this.alive) return 'ignored';
+    if (!this.alive || this.born > 0) return 'ignored';
     if (this.state === 'stagger') dmg *= PARRY.bonus;
     const front = (Math.sign(fromX - this.zone.x) || this.facing) === this.facing;
     // o escudo alto para o que vem de frente; o golpe de cima, a onda pelo chão e a fumaça passam
-    if (front && dir !== 'down' && dir !== 'quake' && dir !== 'smoke' && dir !== 'low' && !OPEN.includes(this.state)) {
+    if (front && dir !== 'down' && dir !== 'quake' && dir !== 'smoke' && dir !== 'rune' && dir !== 'low' && !OPEN.includes(this.state)) {
       if (this.state === 'guard' || this.state === 'patrol' || this.state === 'turn' || this.state === 'block') this.go('block', 'block');
       return 'blocked';
     }
@@ -363,12 +396,35 @@ export class CrownGuard implements Enemy {
     this.body.enable = false;
     this.arc?.destroy();
     this.arc = null;
+    // o eco não vira cinza: desmancha em ouro
+    if (this.echo) {
+      this.dissolve();
+      return null;
+    }
     return this.sprite;
   }
 
   destroy() {
     this.arc?.destroy();
     this.arc = null;
+    this.aura?.destroy();
+    this.aura = null;
+  }
+
+  // o eco desmanchando: o pó de ouro sobe e a luz apaga
+  private dissolve() {
+    const s = this.scene;
+    const y = this.body.bottom - C.bodyH / 2;
+    s.glowBurst(this.zone.x, y, PAL.gold, 2.2);
+    for (let i = 0; i < 4; i++) s.lightThread(this.zone.x + (i - 1.5) * 6, this.body.bottom - 8 - i * 12, this.zone.x + (i - 1.5) * 10, y - 60 - i * 6, 5, 700 + i * 120, PAL.gold);
+    s.sfx('chime', 0.25, 1.4);
+    s.sfx('ghost', 0.3, 1.2);
+    const a = this.aura;
+    this.aura = null;
+    s.tweens.add({ targets: [this.sprite, a].filter(Boolean), alpha: 0, scaleY: '*=1.08', duration: 520, ease: 'Sine.easeIn', onComplete: () => {
+      this.sprite.destroy();
+      a?.destroy();
+    } });
   }
 
   private die() {
@@ -376,6 +432,10 @@ export class CrownGuard implements Enemy {
     this.body.enable = false;
     this.arc?.destroy();
     this.arc = null;
+    if (this.echo) {
+      this.dissolve();
+      return;
+    }
     const s = this.scene;
     s.deathBurst(this.zone.x, this.zone.y);
     s.time.delayedCall(80, () => this.sprite.clearTint());

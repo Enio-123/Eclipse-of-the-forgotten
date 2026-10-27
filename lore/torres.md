@@ -48,7 +48,7 @@ Nove salas, longas como as do vale (o pedido do Enio).
 | arquivo | O Arquivo Proibido | O lugar dela | Opcional, fora do caminho. Três pilhas de galerias entre as estantes, com o vão da subida trocando de lado a cada andar e passagens nas estantes embaixo, no meio e mais alto. A mesa dela (a memória e um registro), os frascos que brilham, os Arquivados, a sala de leitura no alto e, atrás da estante falsa, a ficha dele. O lugar da flor do final I |
 | experiencias | A Sala das Experiências | Antes da Coroação | Embaixo, as quatro cadeiras em fila, viradas para a porta, com um Arquivado sentado em cada uma, de coroa; os cabos saem das costas das cadeiras, correm pelo chão e sobem no tanque do fim da fila, onde as memórias se misturaram (o cano dele sobe até o teto). Os cadernos dos testes no andar do meio, a planta do núcleo no de cima. Do último sai a ponte coberta até a torre do meio. Prova `nucleo` |
 | engrenagens | A Torre das Engrenagens | A água que esfria o núcleo | Sala vertical: a torre do meio é oca. O vapor do núcleo desce pelos canos e move as rodas; as rodas giram as engrenagens e a corrente dos baldes, que tira a água do poço do fundo (a da calha) e leva até o alto, para esfriar o núcleo. O eixo grande divide a torre em duas metades; atrás dele, o trem de engrenagens desce do alto até o mancal. Em cada metade sobe-se por saliências que trocam de lado a cada seis linhas. A ponte das Experiências chega no meio da altura; embaixo, o lado de dentro da grande porta |
-| trono | O Trono da Casa | O Senhor de Vhalor | Arena do chefe do meio: a antessala baixa com a grade, o salão, o estrado e o encosto alto do trono. Depois da luta, o alçapão do teto abre; sobe-se pelo degrau do estrado, pelos degraus de ferro presos no encosto e pelo lustre do meio do salão |
+| trono | O Trono da Casa | O Senhor de Vhalor | Arena do chefe do meio: a antessala baixa com a grade, o salão comprido com as runas embutidas no chão e a calha de bronze no teto (por onde correm os cabos), o lustre de bronze pendurado em duas correntes do teto, ao lado do estrado, e o encosto alto do trono, com os bocais dos cabos. Os três degraus de ferro do encosto ficam dobrados para baixo, pendurados na dobradiça, durante a luta (não há poleiro em cima do trono). Vencido o Senhor de Vhalor, o alçapão em cima do trono abre e os degraus sobem para o lugar, um por um, de baixo para cima: sobe-se do estrado para o lustre e do lustre pelos degraus até o alçapão |
 | coroacao | A Escadaria da Coroação | A noite | A escada em caracol em volta do poço do núcleo: lanços de uma parede à outra e, em cada volta, um trecho de parede até o patamar de cima. Os ecos da noite: ela subindo na frente, os guardas, a ordem |
 | nucleo | O Coração do Eclipse | Onde tudo aconteceu | Arena final no alto da torre maior, sobre o mar de nuvens, com o núcleo preso nas correntes. O Carrasco Coroado e os três finais |
 
@@ -129,20 +129,43 @@ as portas como objetivos). A única passagem que pede a Capa de Luz é o vão gr
   núcleo ligar. O Eclipse fez crescer nele o Âmbar dos cabos que ligavam o trono ao núcleo, e ele
   ficou preso ali.
 - Aparência: um velho de roupa de cerimônia muito escura e bronze, a coroa de runas da Casa, metade
-  do corpo coberto de Âmbar cristalizado, os cabos saindo das costas para o chão e o teto. Não sai do
-  trono.
-- Fase 1: chicoteia com os cabos de Âmbar (de cima e varrendo o chão), acende runas no chão que
-  explodem depois do aviso, chama ecos de dois guardas.
-- Fase 2 (metade da vida): o trono sobe no mecanismo e cai, sacudindo a sala; os cabos do teto
-  descem como pilares que se movem.
-- Vencido: os cabos apagam. Fala (uma vez): "Eu só queria que ninguém mais chorasse. Para isso,
-  ninguém podia lembrar." Deixa o decreto da Coroação (registro), a memória da ordem e a arma Cetro
-  de Vhalor (no mago, vira Energia).
+  do corpo coberto de Âmbar cristalizado, os cabos saindo dos ombros para os bocais do encosto. Não
+  sai do trono; o Cetro de bronze com a runa na cabeça na mão.
+- Fase 1, de longe: o cabo desce da calha do teto em cima do cavaleiro (a luz corre pela calha e o
+  bocal acende antes; um cabo, dois depois de um quarto da vida). O cabo de baixo sai da grade do
+  estrado e varre o chão rente (pule a ponta). As runas embutidas no chão acendem uma sim, uma não, e
+  explodem em colunas de luz (fique nas apagadas; a coluna embaixo do lustre para nas lâmpadas). Chama
+  os ecos de dois guardas, um de cada lado do cavaleiro (se desfazem em luz e não entram no
+  bestiário).
+- Perto, no estrado: a pancada do Cetro. Aparada no fim da preparação, ele fica tonto e o golpe
+  entra uma vez e meia.
+- No alto (no lustre): a runa do Cetro apontada. A mira segue o cavaleiro, trava e o feixe vai até
+  a primeira pedra ou tábua (embaixo da beirada do estrado a pedra segura).
+- Fase 2 (metade da vida): o estrado abre embaixo dele e um pistão de bronze ergue o trono. Lá de
+  cima: o cerco (dois cabos descem da calha até o chão como pilares e correm um contra o outro; pulando
+  não passa, o dash passa por dentro de um), três cabos de cima seguidos, as runas e o Cetro. Depois
+  de um tempo o pistão chia, o trono treme e cai: embaixo dele machuca, a onda corre pelo estrado e pelo
+  chão (pule) e soltam pedras em volta da calha (a sombra avisa; uma cai sempre em cima do cavaleiro).
+  Embaixo de novo por um tempo, e sobe outra vez.
+- Vencido: os cabos apagam; se estava lá em cima, o pistão solta e o trono desce até o estrado. O
+  Âmbar toma o corpo inteiro, a estátua estala e se desfaz em pó; fica o trono vazio com a coroa no
+  assento e os cabos dos ombros caídos por cima do encosto. Fala (uma vez): "Eu só queria que ninguém
+  mais chorasse. Para isso, ninguém podia lembrar." Deixa o decreto da Coroação (registro), a memória
+  da ordem e a arma Cetro de Vhalor (no mago, vira Energia). A grade abre, o alçapão em cima do trono
+  abre e os degraus do encosto sobem.
 
 ## Arma: Cetro de Vhalor
 
-Maça pesada de bronze com uma runa na cabeça: o terceiro golpe seguido solta uma explosão de runa em
-volta. Corrida 0,9. Trancado em Trocar arma até vencer o Senhor de Vhalor.
+Maça pesada de bronze com uma runa de Âmbar na cabeça, cabo da madeira escura do trono. Lenta (golpe
+0,58 s, corrida 0,9, anda a 45% enquanto bate) e forte (dano 2,3).
+
+- A runa: cada golpe que acerta acende mais a runa (o brilho na cabeça cresce e um sininho sobe de
+  tom). Um golpe que erra, ou 1,5 s sem acertar, apaga a contagem.
+- O terceiro golpe seguido que acerta solta a runa: um anel de luz com seis marcas e o desenho da runa
+  abre em volta do cavaleiro (raio de uns 66 px) e acerta todo inimigo dentro, na frente e atrás, com
+  1,25 vez o dano do golpe. A runa passa por cima do escudo dos guardas.
+- No Mago o Senhor de Vhalor deixa a Energia dele em vez do Cetro.
+- Trancado em Trocar arma até vencer o Senhor de Vhalor.
 
 ## Chefe final: O Carrasco Coroado
 

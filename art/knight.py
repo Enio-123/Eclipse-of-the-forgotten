@@ -1,8 +1,8 @@
 """Modelo do Cavaleiro de Máscara Partida (o carrasco de Vespera) para o renderizador de esqueleto.
 
 Armas: espada, foice, adagas duplas, arco, o badalo do Sineiro, o incensário do Arcebispo, a corrente da
-Carcereira, a picareta do Capataz, a lança do Mestre da Caça e o remo do Barqueiro (liberados ao vencer cada
-chefe). A mão de
+Carcereira, a picareta do Capataz, a lança do Mestre da Caça, o remo do Barqueiro e o Cetro de Vhalor (liberados
+ao vencer cada chefe). A mão de
 trás pode usar cinemática inversa para segurar o cabo da foice ou puxar a corda do arco.
 """
 import math
@@ -29,6 +29,9 @@ puppet.RAMPS.setdefault('oarwood', [0x150e08, 0x2a1c11, 0x45301d, 0x664729, 0x8c
 puppet.SHINY.setdefault('oarwood', (0.35, 14))
 puppet.RAMPS.setdefault('rope', [0x2a2012, 0x4a3a20, 0x6e5a34, 0x958050, 0xbba878])
 puppet.RAMPS.setdefault('weed', [0x0b150e, 0x152518, 0x203824, 0x2f4f34, 0x426a47])
+# o Cetro de Vhalor: o cabo de madeira escura do trono da Casa (o resto é bronze e a runa de Âmbar)
+puppet.RAMPS.setdefault('throne', [0x140d0b, 0x24170f, 0x382417, 0x4f3420, 0x6a482d])
+puppet.SHINY.setdefault('throne', (0.18, 8))
 
 W, H = 144, 120
 BASE_HIP = (72.0, 87.0)
@@ -289,6 +292,48 @@ def build(pose, weapon='sword'):
         prims.append(Capsule('peye', 'steel', 6.57, H(-0.9, -2.0), H(-0.9, 2.0), 1.6, 1.6, shade=0.8))
         for (a, b, r) in ((-4.4, 0.6, 0.9), (4.6, 0.6, 0.8), (7.6, 2.4, 0.6)):
             prims.append(Ellipse('pamber', 'amber', 6.6, H(a, b), r, r * 0.8, flat=3))
+        if p['ikB'] and p['ikB'][0] == 'staff':
+            back_target = add(handF, sd, p['ikB'][1])
+
+    elif weapon == 'cetro':
+        # o Cetro de Vhalor: a maça de bronze do Senhor da Casa no tamanho da mão do cavaleiro. O cabo de
+        # madeira escura com os dois anéis, o pé de bronze, a gola, a cabeça com três abas pontudas de cada
+        # lado, a runa de Âmbar no meio e a ponta em cima (a luz da runa o jogo acende, a cada golpe)
+        grip = p['grip'] if p['grip'] is not None else 7.0
+        LEN = 27.0
+        HS = 0.72
+        butt = add(handF, sd, -grip)
+        top = add(handF, sd, LEN - grip)
+        side = (sd[1], -sd[0])
+        hb = add(top, sd, -9.5 * HS)
+        prims.append(Capsule('haft', 'throne', 6.4, butt, hb, 1.05, 0.95, shade=1.0))
+        prims.append(Capsule('cbutt', 'bronze', 6.41, add(butt, sd, -0.6), add(butt, sd, 1.6), 1.45, 1.3, shade=0.9))
+        for t in (0.2, 0.62):
+            q = add(butt, sd, (LEN - 9.5 * HS) * t)
+            prims.append(Capsule('cring', 'bronze', 6.42, add(q, sd, -0.5), add(q, sd, 0.5), 1.4, 1.4, shade=0.95))
+        prims.append(Capsule('ccollar', 'bronze', 6.43, add(hb, sd, -1.0), add(hb, sd, 0.9), 1.7, 1.95, shade=0.95))
+        hc = add(top, sd, -4.6 * HS)
+        for a, l in ((-2.6, 2.6), (0.0, 3.2), (2.6, 2.6)):
+            for k in (-1, 1):
+                b0 = add(add(hc, sd, a * HS), side, k * 2.6 * HS)
+                tip = add(add(hc, sd, (a + 0.4) * HS), side, k * (2.6 + l) * HS)
+                prims.append(Poly('flange', 'bronze', 6.5, [add(b0, sd, -1.3 * HS), tip, add(b0, sd, 1.3 * HS)],
+                                  nf=lambda x, y, k=k, side=side: norm((0.35 * k * side[0], 0.35 * k * side[1] - 0.5, 0.78)), shade=0.95))
+        core = Ellipse('chead', 'bronze', 6.55, hc, 3.3 * HS, 4.4 * HS, ang=math.atan2(sd[1], sd[0]) + math.pi / 2)
+        prims.append(core)
+        prims.append(Poly('cspike', 'bronze', 6.52, [add(add(top, sd, -0.4), side, -1.0 * HS), add(top, sd, 3.4 * HS), add(add(top, sd, -0.4), side, 1.0 * HS)],
+                          nf=lambda x, y: norm((-0.3, -0.6, 0.75)), shade=1.0))
+
+        def glyph(x, y, cur, hc=hc, sd=sd, side=side):
+            lx = ((x - hc[0]) * side[0] + (y - hc[1]) * side[1]) / HS
+            ly = ((x - hc[0]) * sd[0] + (y - hc[1]) * sd[1]) / HS
+            # a runa: o risco do meio, o gancho em cima e o pé cruzado (a mesma do Cetro dele)
+            if (abs(lx) < 0.5 and -2.6 < ly < 2.6) or (abs(ly - 1.4 - lx * 0.8) < 0.45 and 0 < lx < 1.6) or (abs(ly + 1.6) < 0.42 and abs(lx) < 1.4):
+                return ('amber', 3)
+            return None
+
+        decals.append(Decal('chead', glyph))
+        LAST['focus'] = hc
         if p['ikB'] and p['ikB'][0] == 'staff':
             back_target = add(handF, sd, p['ikB'][1])
 

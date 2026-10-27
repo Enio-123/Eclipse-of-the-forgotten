@@ -44,7 +44,7 @@ export interface DoorDef {
   bar?: boolean;
 }
 
-export type BossId = 'sineiro' | 'arcebispo' | 'carcereira' | 'sombra' | 'reflexo' | 'capataz' | 'cacador' | 'barqueiro';
+export type BossId = 'sineiro' | 'arcebispo' | 'carcereira' | 'sombra' | 'reflexo' | 'capataz' | 'cacador' | 'barqueiro' | 'vhalor';
 
 // alçapão (cada grupo de '=' do mapa, de cima para baixo e da esquerda para a direita): sólido até a
 // marca existir. auto: com esta outra marca, ele cai sozinho quando o cavaleiro chega perto
@@ -1464,6 +1464,7 @@ const CHAPTER7: Record<'escada' | 'calha' | 'patio' | 'arquivo' | 'experiencias'
       { side: 'up', to: 'coroacao', entry: '1', range: [84, 89] },
     ],
     trapdoors: [{ key: 'boss:vhalor' }],
+    boss: 'vhalor',
     ...TORRES,
     pit: false,
     music: 'nave',

@@ -3,13 +3,13 @@
 // trancadas (runas e tranca por dentro), o Agrimensor na escada, uma foto de cada sala (T1) e a Capa de
 // Luz: a relíquia no pilar, os três voos, os lumes que recarregam e as luzes no HUD, as runas do pátio e
 // o mar de nuvens, os frascos do Arquivo e a máquina da Torre das Engrenagens (T2); o Guarda da Coroação,
-// a Vigia Rúnica e os Arquivados (T3).
+// a Vigia Rúnica e os Arquivados (T3); o Senhor de Vhalor (T4b) e o Cetro de Vhalor (T4a).
 // uso: node torres.cjs <pasta-saida> [url]
 const { chromium } = require('playwright');
 const OUT = process.argv[2] || '.';
 const URL = process.argv[3] || 'http://localhost:8780/index.html';
 // ONLY=links,portao roda só essas partes (portao, links, portas, agrimensor, fotos, voo, runas, nuvens,
-// frascos, maquina, inimigos, cadeiras)
+// frascos, maquina, inimigos, cadeiras, vhalor, cetro)
 const ONLY = (process.env.ONLY || '').split(',').filter(Boolean);
 const part = (k) => !ONLY.length || ONLY.includes(k);
 (async () => {
@@ -701,6 +701,427 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
     const far = await page.evaluate(() => { const s = window.__scene; return { flare: +s.torres.tank.flare.toFixed(2), alive: window.__foe.alive, free: s.torres.chairs[3].free, seated: s.enemies.filter((q) => q.kind === 'archived').slice(1, 3).map((q) => q.state) }; });
     check(!far.alive && far.free && far.flare > 0.5 && far.seated.join() === 'seated,seated', `vencido ainda sentado, a coroa solta e a luz vai para o tanque; os outros continuam sentados (${JSON.stringify(far)})`);
     await page.evaluate(() => window.__scene.sys.resume());
+  }
+
+  if (part('vhalor')) {
+    // ---------- 13. o Senhor de Vhalor (T4) ----------
+    await setProgress(VALE);
+    await start('trono', ENTRY.trono);
+    await pause();
+    const look = (x, y) => page.evaluate(([x, y]) => { const c = window.__scene.cameras.main; c.stopFollow(); c.centerOn(x, y); }, [x, y]);
+    const hall = await page.evaluate(() => {
+      const s = window.__scene;
+      const h = s.torres.throne;
+      const b = s.boss;
+      const L = s.level;
+      const plank = (x, y) => { const t = L.layer.getTileAt(x, y); return !!(t && t.collides); };
+      window.__foe = b;
+      return {
+        boss: b && b.kind, sleeping: b && b.sleeping, facing: b && b.facing,
+        rail: [h.rail.x0, h.rail.x1, h.rail.y], dais: [h.daisX, h.daisY, h.floorY, h.wallX],
+        runes: h.runes.map((r) => [r.x, r.y, r.h]), lustre: h.lustre,
+        steps: s.torres.steps.map((st) => [st.y, st.up, Math.round(st.plate.angle)]),
+        stepPhys: [22, 15, 8].map((y) => plank(87, y)), lustrePhys: plank(77, 29), trap: s.fixtures.trapdoors.map((t) => t.open),
+      };
+    });
+    check(hall.boss === 'boss' && hall.sleeping && hall.facing === -1, `o Senhor de Vhalor dorme no trono, virado para o salão (${JSON.stringify([hall.boss, hall.sleeping, hall.facing])})`);
+    check(hall.steps.length === 3 && hall.steps.every((st) => !st[1] && st[2] === -90) && hall.stepPhys.every((v) => !v) && hall.lustrePhys && hall.trap.join() === 'false',
+      `antes da luta: os três degraus pendurados na dobradiça e sem chão, o lustre firme e o alçapão fechado (${JSON.stringify({ steps: hall.steps, phys: hall.stepPhys, lustre: hall.lustrePhys, trap: hall.trap })})`);
+    const under = hall.runes.filter((r) => hall.lustre && r[0] + 13 > hall.lustre.x0 && r[0] - 13 < hall.lustre.x1);
+    check(!!hall.lustre && under.length === 1 && under[0][2] === under[0][1] - hall.lustre.bottom - 1 && hall.runes.filter((r) => !under.includes(r)).every((r) => r[2] === 74),
+      `as runas do chão: a coluna da que fica embaixo do lustre para nas lâmpadas, as outras sobem inteiras (${JSON.stringify({ lustre: hall.lustre, runes: hall.runes })})`);
+    check(hall.rail[1] + 8 < hall.lustre.x0 + 3, `a calha do teto (com a ponta) acaba antes das correntes do lustre (calha até ${hall.rail[1]}, lustre de ${hall.lustre.x0})`);
+    await look(1290, 430);
+    await shot('t4-trono-dormindo');
+
+    // passando da coluna do aviso, a grade fecha atrás e ele acorda (o Cetro bate no estrado)
+    await page.evaluate(() => { const s = window.__scene; const p = s.player; p.teleport(26 * 16, 40 * 16); p.body.setVelocity(0, 0); p.invuln = 99; });
+    await freeze("e.state === 'wake'");
+    await freeze("e.state === 'idle'");
+    const woke = await page.evaluate(() => {
+      const s = window.__scene;
+      const t = s.level.layer.getTileAt(17, 37);
+      return { st: window.__foe.state, gate: !!(t && t.collides), bar: window.__ui && true };
+    });
+    check(woke.st === 'idle' && woke.gate, `passando da entrada, a grade fecha e ele acorda (${JSON.stringify(woke)})`);
+    // o que cada ataque faz: o jogo fica parado e o teste dispara o golpe que quer
+    const attack = (a, px, py) => page.evaluate(([a, px, py]) => {
+      const s = window.__scene;
+      const b = window.__foe;
+      const p = s.player;
+      p.teleport(px, py);
+      p.body.setVelocity(0, 0);
+      p.invuln = 99;
+      b.toIdle(0);
+      b.startAttack(a);
+      return b.state;
+    }, [a, px, py]);
+    const R = (x, bottom, h = 42) => `new Phaser.Geom.Rectangle(${x} - 7, ${bottom} - ${h}, 14, ${h})`;
+    const harmsAt = (rects) => page.evaluate((rects) => rects.map((src) => window.__foe.harms(new Function(`return ${src}`)(), false)), rects);
+
+    // o cabo do teto: a luz corre pela calha até o bocal em cima do cavaleiro; o cabo desce e bate
+    await attack('lash', 600, 640);
+    await freeze('e.lashes.length && e.lashes[0].stage === 0 && e.lashes[0].t > 0.45');
+    await look(640, 540);
+    await shot('t4-cabo-aviso');
+    await freeze('e.lashes.length && e.lashes[0].stage === 2');
+    const lash = await page.evaluate(() => window.__foe.lashes[0].x);
+    const lh = await harmsAt([R(lash, 640), R(lash + 40, 640)]);
+    await shot('t4-cabo-teto');
+    check(lh[0] && !lh[1], `o cabo do teto desce onde o bocal acendeu e machuca embaixo dele, não do lado (${lh.join(', ')} em x ${Math.round(lash)})`);
+
+    // o cabo do chão sai da grade do estrado e varre o salão: em pé machuca, pulando passa
+    await freeze('!e.lashes.length');
+    await attack('sweep', 900, 640);
+    await freeze("e.whip && !e.whip.back && e.whip.head < 980");
+    const head = await page.evaluate(() => window.__foe.whip.head);
+    const sw = await harmsAt([R(head + 14, 640), R(head + 14, 640 - 24)]);
+    await look(980, 560);
+    await shot('t4-cabo-chao');
+    check(sw[0] && !sw[1], `a ponta do cabo do chão corre rente ao chão: em pé pega, pulando passa por cima (${sw.join(', ')})`);
+    await freeze('!e.whip');
+
+    // as runas do chão: uma sim, uma não; a coluna de luz pega quem está em cima e não quem está na apagada
+    await attack('rune', 700, 640);
+    await freeze('e.bursts.some((b) => e.burstOn(b))');
+    const rn = await page.evaluate(() => {
+      const b = window.__foe;
+      const on = b.bursts.filter((q) => b.burstOn(q)).map((q) => q.i);
+      const R = b.hall.runes;
+      const lit = R[on[0]];
+      const off = R.find((r, i) => !on.includes(i) && r.y === lit.y);
+      const rect = (r) => new Phaser.Geom.Rectangle(r.x - 7, r.y - 42, 14, 42);
+      return { n: on.length, total: R.length, lit: b.harms(rect(lit), false), off: off ? b.harms(rect(off), false) : null };
+    });
+    await look(800, 560);
+    await shot('t4-runas');
+    check(rn.lit && rn.off === false && (rn.n === Math.ceil(rn.total / 2) || rn.n === Math.floor(rn.total / 2)), `as runas acendem uma sim, uma não: em cima da acesa machuca, na apagada não (${JSON.stringify(rn)})`);
+    await freeze("e.state === 'idle'");
+
+    // os ecos: a luz desce da coroa e nascem dois guardas de luz, um de cada lado do cavaleiro
+    await attack('summon', 760, 640);
+    await freeze("s.enemies.filter((q) => q.kind === 'echo' && q.alive).length === 2", 8000);
+    const ec = await page.evaluate(() => {
+      const s = window.__scene;
+      const es = s.enemies.filter((q) => q.kind === 'echo' && q.alive);
+      return { n: es.length, xs: es.map((q) => Math.round(q.zone.x)), sides: es.map((q) => Math.sign(q.zone.x - s.player.x)), born: es.map((q) => q.born > 0) };
+    });
+    await freeze("s.enemies.filter((q) => q.kind === 'echo' && q.alive).every((q) => q.born <= 0)", 6000);
+    await look(760, 560);
+    await shot('t4-ecos');
+    check(ec.n === 2 && ec.sides.includes(-1) && ec.sides.includes(1), `ele chama dois ecos de guarda, um de cada lado (${JSON.stringify(ec)})`);
+    // um eco vencido se desfaz em luz e não conta como guarda vencido
+    const ek = await page.evaluate(() => {
+      const s = window.__scene;
+      const e = s.enemies.find((q) => q.kind === 'echo' && q.alive);
+      const k0 = window.__progress.kills.get('crownguard') || 0;
+      e.hit(e.zone.x - 30, 99, 'down');
+      s.killed(e);
+      return { alive: e.alive, kills: (window.__progress.kills.get('crownguard') || 0) - k0, echoKills: window.__progress.kills.get('echo') || 0 };
+    });
+    check(!ek.alive && ek.kills === 0 && ek.echoKills === 0, `um eco vencido se desfaz e não entra no bestiário (${JSON.stringify(ek)})`);
+    await page.evaluate(() => { for (const e of window.__scene.enemies) if (e.kind === 'echo' && e.alive) e.vanish(); });
+
+    // no lustre só a runa do Cetro alcança: ele aponta, trava e o feixe vai até o cavaleiro
+    const perch = await page.evaluate(() => {
+      const s = window.__scene;
+      const b = window.__foe;
+      const L = b.hall.lustre;
+      s.player.teleport(L.x0 + 40, L.y);
+      s.player.body.setVelocity(0, 0);
+      b.toIdle(0);
+      const n = {};
+      for (let i = 0; i < 200; i++) { const a = b.choose(); n[a] = (n[a] || 0) + 1; }
+      return n;
+    });
+    check((perch.bolt || 0) > 120 && !perch.bash && !perch.sweep && !perch.lash, `com o cavaleiro no lustre ele escolhe a runa do Cetro (${JSON.stringify(perch)})`);
+    await page.evaluate(() => { const s = window.__scene; const b = window.__foe; s.player.invuln = 0; s.player.hp = 5; b.toIdle(0); b.startAttack('bolt'); });
+    await freeze("e.state === 'boltaim' && e.t > 0.6");
+    await look(1250, 480);
+    await shot('t4-cetro-mira');
+    await freeze("e.state === 'bolt'");
+    await freeze("e.state === 'bolt' && e.t > 0.05");
+    await shot('t4-cetro-feixe');
+    const bolt = await foe();
+    check(bolt.hp === 4, `a runa do Cetro acerta quem está no lustre (vida 5 -> ${bolt.hp})`);
+    // o feixe para na primeira pedra: atrás da beirada do estrado, no chão do salão, ele não chega
+    const shield = await page.evaluate(() => {
+      const s = window.__scene;
+      const b = window.__foe;
+      s.player.teleport(b.hall.daisX - 20, b.hall.floorY);
+      const h = b.boltHead();
+      const p = s.player;
+      const d = Math.hypot(p.x - h.x, p.body.center.y - h.y);
+      b.aimDir = b.forward({ x: (p.x - h.x) / d, y: (p.body.center.y - h.y) / d });
+      const end = b.cast(h);
+      return { end: [Math.round(end.x), Math.round(end.y)], short: Math.hypot(end.x - h.x, end.y - h.y) < d - 10 };
+    });
+    check(shield.short, `colado no estrado, embaixo da beirada, a pedra segura o feixe (${JSON.stringify(shield)})`);
+    await page.evaluate(() => { const s = window.__scene; s.player.invuln = 99; s.player.hp = 5; });
+    await freeze("e.state === 'idle'");
+
+    // a pancada de perto: aparada no fim da preparação, ele fica tonto e o golpe entra uma vez e meia
+    await attack('bash', 1384 - 60, 544);
+    await freeze("e.state === 'bashwind' && e.t > 0.45");
+    await look(1330, 500);
+    await shot('t4-pancada');
+    const bp = await page.evaluate(() => {
+      const b = window.__foe;
+      const c = b.cetroBox() || b.bashBox();
+      const ok = b.parry(new Phaser.Geom.Rectangle(c.x, c.y, 20, 20), b.x - 60);
+      const hp0 = b.hp;
+      b.hit(b.x - 60, 1, 'side');
+      return { ok, st: b.state, dmg: +(hp0 - b.hp).toFixed(2) };
+    });
+    check(bp.ok && bp.st === 'stagger' && bp.dmg === 1.5, `aparar a pancada deixa ele tonto e o golpe entra mais forte (${JSON.stringify(bp)})`);
+    await freeze("e.state === 'idle'");
+
+    // ---------- na metade da vida: o pistão do estrado ergue o trono ----------
+    const p2 = await page.evaluate(() => {
+      const s = window.__scene;
+      const b = window.__foe;
+      s.player.teleport(700, 640);
+      s.player.body.setVelocity(0, 0);
+      s.player.invuln = 99;
+      b.toIdle(0);
+      b.hp = b.maxHp * 0.5 + 0.5;
+      b.hit(b.x - 60, 1, 'side');
+      return { phase2: b.phase2, hp: b.hp };
+    });
+    await freeze("e.state === 'rise' && e.t > 0.8");
+    await look(1300, 460);
+    await shot('t4-pistao');
+    await freeze("e.state === 'idle' && e.lift >= 80");
+    const up = await page.evaluate(() => {
+      const s = window.__scene;
+      const b = window.__foe;
+      const tally = (px, py) => {
+        s.player.teleport(px, py);
+        const n = {};
+        for (let i = 0; i < 200; i++) { const a = b.choose(); n[a] = (n[a] || 0) + 1; }
+        return n;
+      };
+      const r = { lift: b.lift, hang: +b.hangT.toFixed(2), floor: tally(700, 640), dais: tally(1290, 544) };
+      s.player.teleport(700, 640);
+      return r;
+    });
+    check(p2.phase2 && up.lift === 80 && up.hang > 6, `na metade da vida o pistão ergue o trono ${up.lift} px e ele fica ${up.hang} s lá em cima (${JSON.stringify(p2)})`);
+    check(!up.floor.bash && !up.floor.sweep && !up.floor.bolt && !up.floor.summon && up.floor.cage > 0 && !up.dais.bash && !up.dais.sweep && !up.dais.lash && !up.dais.cage,
+      `lá de cima: no chão do salão o cerco, os cabos e as runas; no estrado só as runas e o Cetro (${JSON.stringify({ chao: up.floor, estrado: up.dais })})`);
+
+    // o cerco: dois cabos descem da calha como pilares e correm um contra o outro; o dash passa por dentro
+    await attack('cage', 700, 640);
+    await freeze('e.pillars.length === 2 && e.pillars.every((q) => q.drop >= 1) && e.pillars[1].x - e.pillars[0].x < 380');
+    const cg = await page.evaluate(() => window.__foe.pillars.map((q) => Math.round(q.x)));
+    const ch = await harmsAt([R(cg[0], 640), R(cg[1], 640), R((cg[0] + cg[1]) / 2, 640), R(cg[0], 640 - 50)]);
+    await look(700, 470);
+    await shot('t4-cerco');
+    check(ch[0] && ch[1] && !ch[2] && ch[3], `o cerco: os pilares vão da calha ao chão (pulando não passa) e o meio ainda não machuca (${JSON.stringify({ x: cg, harms: ch })})`);
+    await page.evaluate((x0) => {
+      const p = window.__scene.player;
+      p.teleport(x0 + 40, 640);
+      p.body.setVelocity(0, 0);
+      p.invuln = 0;
+      p.hp = 5;
+      p.startDash(-1, true);
+    }, cg[0]);
+    await freeze('!s.player.ghost', 4000);
+    const out = await page.evaluate(() => { const s = window.__scene; const q = window.__foe.pillars[0]; return { x: Math.round(s.player.x), hp: s.player.hp, pillar: q ? Math.round(q.x) : null }; });
+    check(out.hp === 5 && out.pillar !== null && out.x < out.pillar - 8, `o dash atravessa o pilar sem machucar e sai do cerco (${JSON.stringify(out)})`);
+    await page.evaluate(() => { const p = window.__scene.player; p.invuln = 99; p.teleport(700, 640); p.body.setVelocity(0, 0); });
+    if (!(await freeze("!e.pillars.length && e.state === 'idle'", 20000))) console.log('aviso: o cerco não terminou a tempo');
+
+    // o tempo lá em cima acaba: o pistão chia, o trono cai, a onda corre pelo estrado e pelo chão e o teto solta pedras
+    await page.evaluate(() => { const b = window.__foe; b.hangT = 0; b.thinkT = 0; });
+    await freeze("e.state === 'fallwarn'");
+    await freeze("e.state === 'fall' && e.t > 0.12");
+    const crush = await harmsAt([R(1395, 544), R(1300, 544)]);
+    check(crush[0] && !crush[1], `embaixo do trono caindo machuca; do lado, não (${crush.join(', ')})`);
+    await freeze('e.waves.length === 2');
+    // onde o cavaleiro estava na hora da queda (é em cima dele que uma pedra solta)
+    const atSlam = await page.evaluate(() => window.__scene.player.x);
+    const wv = await page.evaluate(() => window.__foe.waves.map((w) => [Math.round(w.x), w.y, w.dir, Math.round(w.lo), Math.round(w.hi)]));
+    await freeze('e.rocks.length >= 3', 4000);
+    const rk = await page.evaluate((px) => { const b = window.__foe; const r = b.hall.rail; return { xs: b.rocks.map((q) => Math.round(q.x)), lo: r.x0 + 20, hi: r.x1 - 26, px: Math.round(px) }; }, atSlam);
+    check(wv.length === 2 && wv.some((w) => w[1] === 544) && wv.some((w) => w[1] === 640) && wv.every((w) => w[2] === -1),
+      `o trono caiu: uma onda corre pelo estrado e outra pelo chão do salão, para longe do trono (${JSON.stringify(wv)})`);
+    check(rk.xs.length >= 3 && rk.xs.every((x) => x >= rk.lo && x <= rk.hi) && rk.xs.some((x) => Math.abs(x - rk.px) < 30),
+      `as pedras soltam só em volta da calha, uma em cima do cavaleiro (${JSON.stringify(rk)})`);
+    await freeze('e.rocks.some((r) => r.falling && r.y > 400)', 4000);
+    await look(820, 470);
+    await shot('t4-queda');
+    await freeze('e.waves.some((w) => w.y === 640 && w.x < 1000)', 4000);
+    const fw = await page.evaluate(() => Math.round(window.__foe.waves.find((w) => w.y === 640).x));
+    const wh = await harmsAt([R(fw, 640), R(fw, 640 - 24)]);
+    check(wh[0] && !wh[1], `a onda do chão pega quem está em pé e passa embaixo de quem pula (${wh.join(', ')} em x ${fw})`);
+    await freeze('e.rocks.some((r) => r.falling && r.y > 612)', 4000);
+    const rh = await page.evaluate(() => { const b = window.__foe; const r = b.rocks.find((q) => q.falling && q.y > 612); return b.harms(new Phaser.Geom.Rectangle(r.x - 7, 640 - 42, 14, 42), false); });
+    check(rh, `a pedra caindo machuca quem está embaixo dela (${rh})`);
+
+    // vencido lá em cima: o pistão solta, o trono desce até o estrado e o Âmbar toma o corpo inteiro
+    await freeze("e.state === 'idle' && !e.rocks.length && !e.waves.length", 8000);
+    await page.evaluate(() => { const b = window.__foe; b.groundT = 0; b.thinkT = 0; });
+    await freeze("e.state === 'idle' && e.lift >= 80");
+    await page.evaluate(() => { const s = window.__scene; const b = window.__foe; s.player.teleport(1180, 640); s.player.body.setVelocity(0, 0); b.hp = 0.5; b.hit(b.x - 60, 1, 'side'); });
+    await freeze('e.deadT > 0.4');
+    const down = await page.evaluate(() => { const b = window.__foe; return { lift: b.lift, st: b.state, alive: b.alive, seen: window.__progress.seen.has('boss:vhalor') }; });
+    check(down.lift === 0 && down.st === 'dead' && !down.alive && down.seen, `vencido lá em cima, o trono desce até o estrado (${JSON.stringify(down)})`);
+    await freeze('e.deadT > 2.0');
+    await look(1330, 470);
+    await shot('t4-estatua');
+    await freeze('e.crumbled && e.deadT > 3.5');
+    const emptied = await page.evaluate(() => { const b = window.__foe; return b.sprite.anims.currentAnim && b.sprite.anims.currentAnim.key; });
+    await shot('t4-trono-vazio');
+    check(emptied === 'vhalor-empty', `a estátua de Âmbar se desfaz e fica o trono vazio (${emptied})`);
+
+    // depois: a memória sai do corpo, a grade abre, o alçapão em cima do trono abre e os degraus do encosto sobem
+    await freeze("[22, 15, 8].every((y) => { const t = s.level.layer.getTileAt(87, y); return !!(t && t.collides); })", 15000);
+    const after = await page.evaluate(() => {
+      const s = window.__scene;
+      const m = s.props.memories.find((q) => q.id === 'trono:boss');
+      const n = s.records.list.find((r) => r.id === 'trono:0');
+      const g = s.level.layer.getTileAt(17, 37);
+      return {
+        trap: s.fixtures.trapdoors.map((t) => t.open), steps: s.torres.steps.map((st) => [st.up, Math.round(st.plate.angle)]),
+        orb: m ? [Math.round(m.x), Math.round(m.y)] : null, note: n ? [Math.round(n.x), Math.round(n.y)] : null, gate: !!(g && g.collides),
+      };
+    });
+    check(after.trap.join() === 'true' && after.steps.every((st) => st[0] && st[1] === 0) && !after.gate,
+      `depois da luta a grade abre, o alçapão em cima do trono abre e os três degraus sobem para o lugar (${JSON.stringify(after)})`);
+    check(!!after.orb && Math.abs(after.orb[1] - (544 - 28)) <= 2 && !!after.note && after.note[1] === 544,
+      `a memória sai em cima do estrado (não lá no alto, onde ele caiu) e o decreto fica no chão do estrado (${JSON.stringify({ orb: after.orb, note: after.note })})`);
+    await page.evaluate(() => { const p = window.__scene.player; p.teleport(1410, 22 * 16 - 4); p.body.setVelocity(0, 0); });
+    await freeze('s.player.body.blocked.down', 3000);
+    const stand = await page.evaluate(() => { const p = window.__scene.player; return { bottom: Math.round(p.body.bottom), ground: p.body.blocked.down }; });
+    check(stand.ground && stand.bottom === 22 * 16, `dá para ficar de pé no primeiro degrau do encosto (${JSON.stringify(stand)})`);
+    await look(1380, 300);
+    await shot('t4-degraus');
+
+    // voltando à sala: o trono vazio continua lá, com os degraus no lugar e o alçapão aberto
+    await start('trono', ENTRY.trono);
+    await pause();
+    const done = await page.evaluate(() => {
+      const s = window.__scene;
+      const L = s.level;
+      const plank = (x, y) => { const t = L.layer.getTileAt(x, y); return !!(t && t.collides); };
+      const last = s.anims.get('vhalor-empty').frames.slice(-1)[0].textureFrame;
+      const corpse = s.children.list.find((o) => o.type === 'Image' && o.texture && o.texture.key === 'vhalor');
+      return {
+        boss: !!s.boss, steps: s.torres.steps.map((st) => [st.up, Math.round(st.plate.angle)]), phys: [22, 15, 8].map((y) => plank(87, y)),
+        trap: s.fixtures.trapdoors.map((t) => t.open), corpse: corpse ? String(corpse.frame.name) === String(last) : null,
+        note: s.records.list.map((r) => r.id), orb: s.props.memories.map((m) => m.id),
+      };
+    });
+    check(!done.boss && done.corpse && done.steps.every((st) => st[0] && st[1] === 0) && done.phys.every(Boolean) && done.trap.join() === 'true' && done.note.includes('trono:0') && done.orb.includes('trono:boss'),
+      `voltando ao Trono: o trono vazio no lugar dele, os degraus firmes, o alçapão aberto, o decreto e a memória esperando (${JSON.stringify(done)})`);
+    await look(1330, 420);
+    await shot('t4-trono-vencido');
+  }
+
+  if (part('cetro')) {
+    // ---------- 14. o Cetro de Vhalor (T4a) ----------
+    await setProgress([...VALE, 'boss:vhalor']);
+    await start('trono', ENTRY.trono);
+    await until(() => !!window.__scene.weaponDrop && window.__scene.weaponDrop.ready, null, 20000);
+    const drop = await page.evaluate(() => { const d = window.__scene.weaponDrop; return { id: d.id, x: Math.round(d.x), y: Math.round(d.y), tex: d.sprite.texture.key }; });
+    check(drop.id === 'cetro' && drop.tex === 'item-cetro' && drop.x > 1216 && drop.x < 1380 && Math.abs(drop.y - (544 - 16)) <= 1,
+      `o Cetro de Vhalor fica caído no estrado, na frente do trono vazio (${JSON.stringify(drop)})`);
+    await page.evaluate(() => { const s = window.__scene; s.sys.pause(); s.cameras.main.stopFollow(); s.cameras.main.centerOn(1300, 470); });
+    await shot('t4a-cetro-caido');
+    await page.evaluate(() => window.__scene.sys.resume());
+    await page.evaluate((x) => { const p = window.__scene.player; p.teleport(x, 544); p.body.setVelocity(0, 0); p.invuln = 99; }, drop.x);
+    await until(() => window.__progress.seen.has('weapon:cetro') && !window.__scene.cinematic, null, 20000).catch(() => null);
+    const got = await page.evaluate(() => ({ seen: window.__progress.seen.has('weapon:cetro'), claimed: window.__progress.claimed('cetro'), has: window.__progress.hasWeapon('cetro') }));
+    check(got.seen && got.claimed && got.has, `pegou o Cetro e ele fica liberado em Trocar arma (${JSON.stringify(got)})`);
+
+    // dois bonecos no chão do salão: um na frente do cavaleiro (o golpe pega) e outro atrás, perto (só a runa pega)
+    await pause();
+    const setup = await page.evaluate(() => {
+      const s = window.__scene;
+      const p = s.player;
+      p.setWeapon('cetro');
+      p.teleport(700, 640);
+      p.body.setVelocity(0, 0);
+      p.facing = 1;
+      p.invuln = 99;
+      const dummy = (x) => {
+        const e = s.spawn('c', x, 640);
+        e.hp = 99;
+        e.update = function () { this.body.setVelocityX(0); };
+        return e;
+      };
+      window.__front = dummy(736);
+      window.__back = dummy(660);
+      return { tex: p.sprite.texture.key, glow: !!p.runeGlow, charge: p.runeCharge };
+    });
+    check(setup.tex === 'knight-cetro' && setup.glow && setup.charge === 0, `com o Cetro na mão, a runa da cabeça está quase apagada (${JSON.stringify(setup)})`);
+    // o golpe sai do jeito do botão (startAttack com os controles parados) e o jogo para quando a recarga
+    // acaba: assim o tempo entre um golpe e outro é o do jogo, não o da ida e volta até a página
+    const strike = () => page.evaluate(() => { const s = window.__scene; s.player.startAttack(s.controls, true); });
+    const state = () => page.evaluate(() => {
+      const p = window.__scene.player;
+      return { charge: p.runeCharge, glow: +p.runeGlow.scaleX.toFixed(2), front: +window.__front.hp.toFixed(2), back: +window.__back.hp.toFixed(2) };
+    });
+    // (a luz da runa pisca junto com o cavaleiro invulnerável: o tamanho dela é que diz o quanto acendeu)
+    const swing = async () => {
+      await strike();
+      await freeze('s.player.atkCd <= 0', 4000);
+      return state();
+    };
+    const s1 = await swing();
+    const s2 = await swing();
+    check(s1.charge === 1 && s2.charge === 2 && s2.glow > s1.glow && s1.front < 99 && s2.front < s1.front && s2.back === 99,
+      `cada golpe que acerta acende mais a runa; o de trás ainda não levou nada (${JSON.stringify([s1, s2])})`);
+    await strike();
+    const burst = await freeze('window.__back.hp < 99', 4000);
+    const t0 = await page.evaluate(() => window.__scene.clock);
+    await freeze(`s.clock > ${t0} + 0.1`, 2000);
+    await page.evaluate(() => { const c = window.__scene.cameras.main; c.stopFollow(); c.centerOn(700, 590); });
+    await shot('t4a-runa');
+    const s3 = await page.evaluate(() => {
+      const p = window.__scene.player;
+      const W = p.weapon;
+      return { charge: p.runeCharge, front: +window.__front.hp.toFixed(2), back: +window.__back.hp.toFixed(2), want: +(W.dmg * window.__progress.dmgFor('cetro') * 1.25).toFixed(2) };
+    });
+    check(burst && s3.charge === 0 && Math.abs(99 - s3.back - s3.want) < 0.02 && s2.front - s3.front > s3.want,
+      `o terceiro golpe seguido solta a runa em volta: pega o de trás e o da frente leva o golpe e a runa (${JSON.stringify(s3)})`);
+    await freeze('s.player.atkCd <= 0', 4000);
+    // golpe que erra zera a conta; tempo demais entre um acerto e outro também
+    await swing();
+    await page.evaluate(() => { const p = window.__scene.player; p.facing = 1; p.teleport(560, 640); p.body.setVelocity(0, 0); });
+    const missed = await swing();
+    await page.evaluate(() => { const p = window.__scene.player; p.teleport(700, 640); p.body.setVelocity(0, 0); p.facing = 1; });
+    const miss = await swing();
+    await swing();
+    const t1 = await page.evaluate(() => window.__scene.clock);
+    await freeze(`s.clock > ${t1} + 1.6`, 4000);
+    const late = await page.evaluate(() => window.__scene.player.runeCharge);
+    check(missed.charge === 1 && miss.charge === 1 && late === 0, `um golpe errado no meio zera a conta (${missed.charge} -> ${miss.charge}) e a runa apaga sozinha se demorar (${late})`);
+    // o escudo segura o golpe de frente, mas não a runa (ela vem de todo lado)
+    const sh = await page.evaluate(() => {
+      const s = window.__scene;
+      const g = s.spawn('g', 900, 640);
+      g.facing = -1;
+      const fx = g.zone.x - 30;
+      const a = g.hit(fx, 1, 'side');
+      const hp = g.hp;
+      const b = g.hit(fx, 1, 'rune');
+      return { side: a, rune: b, took: +(hp - g.hp).toFixed(2) };
+    });
+    check(sh.side === 'blocked' && sh.rune === 'hit' && sh.took === 1, `o escudo do guarda segura o golpe de frente, a runa passa (${JSON.stringify(sh)})`);
+    await page.evaluate(() => { for (const e of window.__scene.enemies) if (e.alive && e.vanish) e.vanish(); window.__scene.sys.resume(); });
+
+    // no caminho do Mago o Senhor de Vhalor deixa a Energia dele no lugar do Cetro
+    await setProgress([...VALE, 'boss:vhalor']);
+    const e0 = await page.evaluate(() => { const p = window.__progress; p.starter = 'eclipse'; p.save(); return p.energy; });
+    await start('trono', ENTRY.trono);
+    await until(() => !!window.__scene.weaponDrop && window.__scene.weaponDrop.ready, null, 20000);
+    const md = await page.evaluate(() => { const d = window.__scene.weaponDrop; return { id: d.id, x: d.x, tex: d.sprite.texture.key }; });
+    await page.evaluate((x) => { const p = window.__scene.player; p.teleport(x, 544); p.body.setVelocity(0, 0); p.invuln = 99; }, md.x);
+    await until(() => window.__progress.seen.has('weapon:cetro') && !window.__scene.cinematic, null, 20000).catch(() => null);
+    const e1 = await page.evaluate(() => ({ energy: window.__progress.energy, max: window.__progress.mage ? 0 : -1 }));
+    check(md.tex === 'mage-energy' && e1.energy === e0 + 1, `no Mago, o Senhor de Vhalor deixa a Energia dele (${JSON.stringify({ tex: md.tex, antes: e0, depois: e1.energy })})`);
+    await page.evaluate(() => { const p = window.__progress; p.starter = null; p.save(); });
   }
 
   console.log(errs.join('\n') || 'sem erros');

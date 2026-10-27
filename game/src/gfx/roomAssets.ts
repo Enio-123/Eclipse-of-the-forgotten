@@ -29,7 +29,7 @@ const ROOM_IMAGES = new Set([
 ]);
 
 // as folhas dos chefes (grandes e cada uma usada numa sala só)
-export const ROOM_SHEETS = new Set(['sineiro', 'arcebispo', 'carcereira', 'sombra', 'capataz', 'cacador', 'barqueiro']);
+export const ROOM_SHEETS = new Set(['sineiro', 'arcebispo', 'carcereira', 'sombra', 'capataz', 'cacador', 'barqueiro', 'vhalor']);
 
 export function roomImages(room: RoomDef) {
   const keys = [`terrain-${room.id}`, `terrain-${room.id}-secret`, `pinhos-${room.id}`, `flores-${room.id}-0`, `flores-${room.id}-1`, ...backdropKeys(room.theme, room.id)];
