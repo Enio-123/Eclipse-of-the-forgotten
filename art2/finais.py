@@ -991,6 +991,10 @@ class Pile:
 
     STONE = dict(front=0x332a38, top=0x5e4e5e, lit=0x86686a, dark=0x262030, rim=0xffd2a0)
     WOOD = dict(front=0x22170f, top=0x463228, lit=0x8c5a3a, dark=0x1a100b, rim=0xffc690)
+    # a névoa, o cascalho do monte e as lascas da ponta da viga (uma cena de outra luz troca as cores)
+    HAZE = 0xe0b29c
+    HEAP = dict(fill=0x2e2634, rim=0xffd2a0)
+    SPLINTER = dict(fill=0x2a1c12, rim=0xffc690)
 
     def __init__(self, ref, rng, tex, vp=DX_VP, haze=None):
         self.ref = ref
@@ -1027,7 +1031,7 @@ class Pile:
         ln = math.hypot(vx, vy) or 1.0
         Dx, Dy = vx / ln * d, min(vy / ln * d, -d * 0.3)
         q = lambda p: (p[0] + Dx, p[1] + Dy)
-        hz = np.asarray(col(0xe0b29c), np.float32)
+        hz = np.asarray(col(self.HAZE), np.float32)
         c = {k: mix(col(v) * (tone if k != 'rim' else 1.0), hz, fog * (0.35 if k == 'rim' else 1.0)) for k, v in pal.items()}
         front = [bl, br, tr, tl]
         if chip:
@@ -1082,11 +1086,11 @@ class Pile:
                 L = t * rng.uniform(0.4, 1.6) * (1 if i % 2 else 0.3)
                 pts.append((bx + ux * L, by + uy * L))
             pts.append(tr)
-            hz = np.asarray(col(0xe0b29c), np.float32)
-            self._put(pts + [(tr[0] - ux * 2, tr[1] - uy * 2), (p1[0] - ux * 2, p1[1] - uy * 2)], mix(col(0x2a1c12) * tone, hz, fog))
+            hz = np.asarray(col(self.HAZE), np.float32)
+            self._put(pts + [(tr[0] - ux * 2, tr[1] - uy * 2), (p1[0] - ux * 2, p1[1] - uy * 2)], mix(col(self.SPLINTER['fill']) * tone, hz, fog))
             for a, b in zip(pts[:-1], pts[1:]):
                 if b[1] < a[1]:
-                    self._rim(a, b, mix(col(0xffc690), hz, fog * 0.35), 0.5, 1.0)
+                    self._rim(a, b, mix(col(self.SPLINTER['rim']), hz, fog * 0.35), 0.5, 1.0)
 
     def heap(self, cx, foot, w, h, n, size, fog=0.0, tone=1.0, skip=None):
         """Um monte de entulho: o miúdo por baixo (um morro de cascalho) e os blocos por cima, maiores no meio;
@@ -1097,10 +1101,10 @@ class Pile:
         prof = prof + (noise1d(48, 6, rng, 2) - 0.5) * h * 0.12
         prof[0] = prof[-1] = foot
         fill = [(xs[0], foot + 2)] + list(zip(xs, prof)) + [(xs[-1], foot + 2)]
-        hz = np.asarray(col(0xe0b29c), np.float32)
-        self._put(fill, mix(col(0x2e2634) * tone, hz, fog))
+        hz = np.asarray(col(self.HAZE), np.float32)
+        self._put(fill, mix(col(self.HEAP['fill']) * tone, hz, fog))
         for a, b in zip(fill[1:-2], fill[2:-1]):
-            self._rim(a, b, mix(col(0xffd2a0), hz, fog * 0.35), 0.3, 1.2)
+            self._rim(a, b, mix(col(self.HEAP['rim']), hz, fog * 0.35), 0.3, 1.2)
         items = []
         for i in range(n):
             u = rng.uniform(-1, 1)
@@ -2158,6 +2162,13 @@ FRAME_FN.update({
     'trono': _fim('trono3d', lambda m, rng: m.frame(rng)),
     'rosto': _fim('rosto3d', lambda m, rng: m.frame(rng)),
     'eclipse': _fim('eclipse', lambda m, rng: m.frame(rng)),
+    'vozes': _fim('vozes', lambda m, rng: m.frame(rng)),
+    'vozes-luz': _fim('vozes', lambda m, rng: m.f_vozes_luz(rng)),
+    'cacos': _fim('cacos', lambda m, rng: m.frame(rng)),
+    'ceu': _fim('ceu', lambda m, rng: m.frame(rng)),
+    'ceu-perto': _fim('ceu', lambda m, rng: m.ce_perto(rng)),
+    'campo': _fim('campo', lambda m, rng: m.frame(rng)),
+    'campo-perto': _fim('campo', lambda m, rng: m.cp_perto(rng)),
 })
 
 

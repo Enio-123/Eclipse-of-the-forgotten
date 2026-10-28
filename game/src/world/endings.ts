@@ -42,6 +42,8 @@ export interface FilmShot {
   voices?: string[];
   // a cor do efeito de luz (motes, fall, rise, rays)
   tint?: number;
+  // de onde saem os fachos (rays), em px da pintura: o sol que está no quadro; sem isso eles descem do alto
+  rayFrom?: [number, number];
 }
 
 export interface Film {
@@ -159,6 +161,8 @@ export const FILMS: Record<EndingId, Film> = {
       {
         layers: [L('ceu', 1.0, 1.05, -8), L('ceu-perto', 1.0, 1.08, -18)],
         fx: ['rays', 'fall'],
+        tint: 0xffecc8,
+        rayFrom: [812, 128],
         lines: [
           'Pela primeira vez desde o Primeiro Eclipse, o céu de Vespera começou a clarear.',
           'As memórias voltaram para os seus donos. As ruínas continuaram lá, e a verdade também.',

@@ -277,15 +277,22 @@ export class EndingScene extends Phaser.Scene {
           tint, blendMode: ADD, frequency: 45, advance: 5000,
         }).setDepth(depth));
         break;
-      case 'rays':
-        for (let k = 0; k < 4; k++) {
-          const ray = keep(this.add.image(VIEW_W * (0.18 + k * 0.22) + (Math.random() - 0.5) * 30, -20, 'film-ray'))
-            .setOrigin(0.5, 0).setBlendMode(ADD).setTint(tint).setAlpha(0).setDepth(depth)
-            .setScale(0.8 + Math.random() * 0.7, 0.9 + Math.random() * 0.25).setAngle(-14 + k * 3);
+      case 'rays': {
+        // do sol do quadro (rayFrom): um leque para baixo, começando fora do disco; sem ele, do alto da tela
+        const from = r.shot.rayFrom;
+        for (let k = 0; k < (from ? 5 : 4); k++) {
+          const ray = from
+            ? keep(this.add.image(0, 0, 'film-ray')).setOrigin(0.5, 0).setAngle(-56 + k * 28 + (Math.random() - 0.5) * 12)
+              .setScale(1.0 + Math.random() * 0.5, 1.05 + Math.random() * 0.3)
+            : keep(this.add.image(VIEW_W * (0.18 + k * 0.22) + (Math.random() - 0.5) * 30, -20, 'film-ray')).setOrigin(0.5, 0)
+              .setScale(0.8 + Math.random() * 0.7, 0.9 + Math.random() * 0.25).setAngle(-14 + k * 3);
+          ray.setBlendMode(ADD).setTint(tint).setAlpha(0).setDepth(depth);
           ray.setData('ph', Math.random() * 6);
+          if (from) ray.setData('from', from);
           r.rays.push(ray);
         }
         break;
+      }
       case 'dust':
         keep(this.add.particles(0, 0, 'px', {
           x: { min: -10, max: VIEW_W }, y: { min: 0, max: VIEW_H },
@@ -372,8 +379,18 @@ export class EndingScene extends Phaser.Scene {
       img.setScale(s * (VIEW_W / FILM_CELL.w)).setPosition(VIEW_W / 2 + ox, VIEW_H / 2 + oy);
       img.setAlpha(l.add ? inA * (0.75 + 0.25 * Math.sin(now * 1.3 + l.dx)) : inA);
     }
+    // os fachos que saem do sol do quadro andam com a pintura de baixo
+    const under = r.imgs[0]?.img;
     for (const ray of r.rays) {
       const ph = ray.getData('ph') as number;
+      const from = ray.getData('from') as [number, number] | undefined;
+      if (from && under) {
+        const off = 22 * under.scaleX * 2;
+        ray.setPosition(
+          under.x + (from[0] - FILM_CELL.w / 2) * under.scaleX - Math.sin(ray.rotation) * off,
+          under.y + (from[1] - FILM_CELL.h / 2) * under.scaleY + Math.cos(ray.rotation) * off,
+        );
+      }
       ray.setAlpha(inA * (0.1 + 0.07 * Math.sin(now * 0.7 + ph)));
       ray.rotation += Math.sin(now * 0.3 + ph) * 0.00005;
     }
