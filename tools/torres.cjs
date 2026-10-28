@@ -4,13 +4,14 @@
 // Luz: a relíquia no pilar, os três voos, os lumes que recarregam e as luzes no HUD, as runas do pátio e
 // o mar de nuvens, os frascos do Arquivo e a máquina da Torre das Engrenagens (T2); o Guarda da Coroação,
 // a Vigia Rúnica e os Arquivados (T3); o Senhor de Vhalor (T4b) e o Cetro de Vhalor (T4a); a história (T5); o
-// Carrasco Coroado, do terraço à escolha da coroa (T6).
+// Carrasco Coroado, do terraço à escolha da coroa (T6); os três finais, do terraço ao filme, a Vespera depois do fim
+// e a tela de título (T7).
 // uso: node torres.cjs <pasta-saida> [url]
 const { chromium } = require('playwright');
 const OUT = process.argv[2] || '.';
 const URL = process.argv[3] || 'http://localhost:8780/index.html';
 // ONLY=links,portao roda só essas partes (portao, links, portas, agrimensor, fotos, voo, runas, nuvens,
-// frascos, maquina, inimigos, cadeiras, vhalor, cetro, historia, carrasco)
+// frascos, maquina, inimigos, cadeiras, vhalor, cetro, historia, carrasco, finais)
 const ONLY = (process.env.ONLY || '').split(',').filter(Boolean);
 const part = (k) => !ONLY.length || ONLY.includes(k);
 (async () => {
@@ -1590,13 +1591,277 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
     check(back.st === 'offer' && back.kneel && !back.colossus && back.trap.join() === 'true' && !back.ui && again,
       `de volta ao núcleo, ele continua de joelhos com a coroa e o alçapão aberto; perto dele, {up} abre a escolha de novo (${JSON.stringify({ back, again })})`);
 
-    // Absorver: o fim fica gravado e o cartão do fim aparece
+    // Absorver: a escolha fecha e o fim começa no terraço, com o Carrasco falando (o resto fica na parte finais)
     await page.evaluate(() => document.querySelector('#screen-crown [data-cmd="absorb"]').click());
-    await until(() => document.querySelector('#screen-end.show'), null, 15000).catch(() => null);
-    const fin = await page.evaluate(() => ({ end: window.__progress.seen.has('ending:absorb'), title: document.querySelector('#screen-end .end-title').textContent, show: !!document.querySelector('#screen-end.show') }));
+    await waitGame(1.8);
+    const fin = await page.evaluate(() => {
+      const t = document.querySelector('#thought');
+      const who = t.querySelector('.who');
+      return { open: !!document.querySelector('#screen-crown.show'), cine: window.__scene.cinematic, who: who && who.textContent, end: window.__progress.seen.has('ending:absorb') };
+    });
     await page.screenshot({ path: `${OUT}/t6-fim.png` });
-    check(fin.end && fin.show && fin.title === 'O Rei do Eclipse', `escolhido Absorver: o fim fica gravado e o cartão dele aparece (${JSON.stringify(fin)})`);
-    await page.evaluate(() => window.__ui.closeAll());
+    check(!fin.open && fin.cine && fin.who === 'O Carrasco Coroado' && !fin.end, `escolhido Absorver: a escolha fecha e o fim começa no terraço, com o Carrasco falando (${JSON.stringify(fin)})`);
+  }
+
+  if (part('finais')) {
+    // ---------- 17. Os finais (T7) ----------
+    // cada final do começo ao fim: a escolha, o terraço, o filme (adiantado fase a fase: as pinturas, a última
+    // frase, o nome do final e os créditos), Vespera depois do fim e a tela de título que lembra o final
+    const WON = [...VALE, 'boss:vhalor', 'weapon:cetro', 'boss:coroado'];
+    // o que a verdade pede: as memórias (menos a da noite, que volta no terraço), os registros e as versões
+    // inteiras guardadas e confirmadas, sem corrupção
+    const whole = () => page.evaluate(() => {
+      const p = window.__progress;
+      const L = window.__lore;
+      for (const id of Object.keys(L.MEMORIES)) if (id !== L.NIGHT) p.memories.add(id);
+      for (const id of Object.keys(L.RECORDS)) p.seen.add('record:' + id);
+      for (const id of Object.keys(L.VERSIONS)) { p.seen.add('kept:' + id); p.seen.add('confirm:' + id); }
+      p.corruption = 0;
+      p.save();
+    });
+    // perto dele de joelhos, {up} abre a escolha; devolve as opções (com - as fechadas)
+    const offer = async () => {
+      await start('nucleo', '1');
+      await page.evaluate(() => { const s = window.__scene; const p = s.player; p.teleport(s.torres.core.c - 20, 702); p.body.setVelocity(0, 0); p.invuln = 99; });
+      await waitGame(0.5);
+      await page.keyboard.press('ArrowUp');
+      await until(() => document.querySelector('#screen-crown.show'), null, 8000).catch(() => null);
+      return page.evaluate(() => [...document.querySelectorAll('#screen-crown .crown-opts button')].map((b) => b.dataset.cmd + (b.disabled ? '-' : '')).join());
+    };
+    // a escolha: ela fecha, a interface some e o Carrasco fala uma vez
+    const choose = async (kind) => {
+      await page.evaluate((k) => document.querySelector(`#screen-crown [data-cmd="${k}"]`).click(), kind);
+      await waitGame(1.8);
+      return page.evaluate(() => {
+        const s = window.__scene;
+        const t = document.querySelector('#thought');
+        const who = t.querySelector('.who');
+        return { who: who && who.textContent, say: t.textContent.slice(who ? who.textContent.length : 0).slice(0, 60), cine: s.cinematic, hud: !!s.registry.get('hud-hidden'), open: !!document.querySelector('#screen-crown.show') };
+      });
+    };
+    // o terraço apaga na cor do final: o save guarda o final e o filme começa
+    const toFilm = async () => {
+      await until(() => window.__ending && window.__ending.scene.isActive() && document.querySelector('#screen-film .film-line.on'), null, 160000);
+      return page.evaluate(() => {
+        const p = window.__progress;
+        const g = window.__game.scene;
+        return { ends: [...p.seen].filter((k) => k.startsWith('ending:')), room: p.room, entry: p.entry, night: p.memories.has(window.__lore.NIGHT), line: document.querySelector('#screen-film .film-line').textContent.slice(0, 60), game: g.isActive('game'), hud: g.isActive('hud') };
+      });
+    };
+    // o resto do filme, adiantado fase a fase (a cena anda o tempo dela, e aqui ele é empurrado)
+    const film = async (tag) => {
+      await page.screenshot({ path: `${OUT}/t7-${tag}-filme.png` });
+      await page.evaluate(() => { const e = window.__ending; e.t = e.shotsEnd + 2.7; });
+      await until(() => window.__ending.phase === 'last', null, 10000);
+      await page.evaluate(() => { const e = window.__ending; e.t = e.lastAt + 0.2; });
+      await page.waitForTimeout(250);
+      const last = await page.evaluate(() => {
+        const q = document.querySelector('#screen-film .film-last');
+        return { on: q.classList.contains('on'), text: q.textContent, light: document.querySelector('#screen-film').classList.contains('light') };
+      });
+      if (last.on) await page.screenshot({ path: `${OUT}/t7-${tag}-ultima.png` });
+      await page.evaluate(() => { const e = window.__ending; e.t = Math.max(e.t, e.cardAt + 0.2); });
+      await until(() => window.__ending.phase === 'card' && document.querySelector('#screen-film .film-card.on'), null, 10000);
+      const card = await page.evaluate(() => ({ kicker: document.querySelector('#screen-film .film-kicker').textContent, title: document.querySelector('#screen-film .film-title').textContent }));
+      await page.screenshot({ path: `${OUT}/t7-${tag}-cartao.png` });
+      await page.evaluate(() => { const e = window.__ending; e.t = e.rollAt + 0.2; });
+      await until(() => window.__ending.phase === 'roll', null, 10000);
+      // (o cartão apaga devagar: no filme ele sai antes de os créditos subirem)
+      await page.evaluate(() => { window.__ending.t += 14; });
+      await page.waitForTimeout(2000);
+      const roll = await page.evaluate(() => ({ on: !!document.querySelector('#screen-film .film-credits.on'), text: [...document.querySelectorAll('#screen-film .film-roll h3, #screen-film .film-roll p')].map((q) => q.textContent) }));
+      await page.screenshot({ path: `${OUT}/t7-${tag}-creditos.png` });
+      // o fim dos créditos
+      await page.evaluate(() => { window.__oldPlayer = window.__scene && window.__scene.player; window.__ending.finish(); });
+      return { last, card, roll };
+    };
+    // de volta a Vespera: a sala nova, depois que a tela sai da cor do final
+    const back = (id) => until((id) => window.__scene && window.__scene.player && window.__scene.player !== window.__oldPlayer && window.__scene.room.id === id, id, 30000);
+    const menu = () => page.evaluate(() => {
+      const t = window.__game.scene.getScene('title');
+      const q = document.querySelector('#screen-menu');
+      const keys = t.children.list.filter((o) => o.texture && o.visible).map((o) => o.texture.key);
+      return {
+        title: t.scene.isActive(), game: window.__game.scene.isActive('game'), ended: q.querySelector('.ended').hidden ? null : q.querySelector('.ended').textContent,
+        cont: !q.querySelector('[data-cmd="continue"]').hidden, film: !q.querySelector('[data-cmd="film"]').hidden,
+        knight: t.knight.visible ? t.knight.texture.key : null, tint: t.knight.tintTopLeft.toString(16), dawn: keys.includes('title-sky-aurora'), crown: keys.includes('crown-rei'),
+      };
+    });
+    const toTitle = async () => {
+      await page.evaluate(() => window.__scene.toTitle());
+      await until(() => document.querySelector('#screen-menu.show') && window.__game.scene.isActive('title'), null, 20000);
+      await page.waitForTimeout(1800);
+    };
+    const npcNames = () => page.evaluate(() => { const s = window.__scene; return s.npcs.list.map((n) => s.npcs.label(n)); });
+
+    // ===== Final I: aceitar a verdade =====
+    await setProgress(WON);
+    await whole();
+    const o1 = await offer();
+    await page.screenshot({ path: `${OUT}/t7-escolha.png` });
+    check(o1 === 'truth,absorb,fragments,later', `com tudo lembrado e guardado inteiro, a coroa abre as três saídas e o Ainda não (${o1})`);
+    const c1 = await choose('truth');
+    check(c1.who === 'O Carrasco Coroado' && /^Sem a coroa, você vai lembrar de tudo/.test(c1.say) && c1.cine && c1.hud && !c1.open,
+      `Aceitar a verdade: a escolha fecha, a interface some e o Carrasco Coroado fala uma vez (${JSON.stringify(c1)})`);
+    // ele ajoelha e deixa a coroa no chão, entre os dois; o lado fica gravado (na volta ela continua lá)
+    await until(() => [...window.__progress.seen].some((k) => k.startsWith('fim:coroa:')), null, 60000);
+    await waitGame(1.7);
+    const down = await page.evaluate(() => {
+      const b = window.__scene.boss;
+      return { side: [...window.__progress.seen].find((k) => k.startsWith('fim:coroa:')), x: Math.round(b.crownImg.x), y: Math.round(b.crownImg.y), floor: b.floorY, bx: Math.round(b.kneelAt.x), end: window.__progress.seen.has('ending:truth') };
+    });
+    await shot('t7-verdade-coroa');
+    const side = +down.side.split(':')[2];
+    check(Math.abs(down.y - (down.floor - 1)) <= 1 && Math.abs(down.x - down.bx - side * 23) <= 1 && !down.end,
+      `ele deixa a coroa no chão do terraço, entre os dois (o lado fica gravado), e o fim ainda não está no save (${JSON.stringify(down)})`);
+    const f1 = await toFilm();
+    check(f1.ends.join() === 'ending:truth' && f1.room === 'ponte' && f1.entry === 'P' && f1.night && !f1.game && !f1.hud && f1.line.length > 10,
+      `o terraço apaga no branco da manhã: o save guarda o Final I e a volta pela Ponte, e o filme começa (${JSON.stringify(f1)})`);
+    const v1 = await film('verdade');
+    check(!v1.last.on && v1.last.light && v1.card.kicker === 'Final I' && v1.card.title === 'A Aurora das Memórias' && v1.roll.on
+      && v1.roll.text.includes('Um jogo de Enio Josias') && v1.roll.text.includes('Arielle') && v1.roll.text[v1.roll.text.length - 1] === 'Obrigado por jogar.',
+      `o filme do I termina claro, no nome do final e nos créditos, com o nome dela (ele lembra) (${JSON.stringify({ last: v1.last, card: v1.card, n: v1.roll.text.length })})`);
+
+    // Vespera depois do fim: a primeira manhã na Ponte, seca, e o rosto dele
+    await back('ponte');
+    await until(() => document.querySelector('#banner.on'), null, 10000).catch(() => null);
+    const pon = await page.evaluate(() => {
+      const s = window.__scene;
+      return { banner: document.querySelector('#banner p').textContent, sky: s.backdrop.parts.map((q) => q.key).filter((k) => /sky/.test(k)), music: s.roomMusic(), face: s.player.sprite.texture.key, enemies: s.enemies.length };
+    });
+    await until(() => /Não chove/.test(document.querySelector('#thought').textContent), null, 10000).catch(() => null);
+    const th1 = await page.evaluate(() => document.querySelector('#thought').textContent);
+    await shot('t7-verdade-ponte');
+    check(pon.banner === 'A primeira manhã' && pon.sky.includes('bridge-sky-aurora') && pon.music === 'aurora' && /-rosto$/.test(pon.face) && pon.enemies === 0 && /Não chove/.test(th1),
+      `depois dos créditos ele acorda na Ponte: a primeira manhã, o céu sem o eclipse, a música da aurora, o rosto sem a máscara e ninguém para lutar (${JSON.stringify({ pon, th1 })})`);
+    // o terraço: a coroa onde ele deixou, a máscara encostada nela e a foice (ele ficou com a arma de chefe), o núcleo vazio
+    await start('nucleo', '1');
+    await until(() => /A coroa continua no chão/.test(document.querySelector('#thought').textContent), null, 8000).catch(() => null);
+    const ter = await page.evaluate(() => {
+      const s = window.__scene;
+      const at = (k) => s.children.list.filter((o) => o.texture && o.texture.key === k && o.visible).map((o) => Math.round(o.x));
+      return { boss: !!s.boss, crown: at('crown-rei'), mask: at('mascara-chao'), scythe: at('foice-chao'), dim: s.torres.coreDim, music: s.roomMusic(), th: document.querySelector('#thought').textContent, seen: window.__progress.seen.has('fim:terraco') };
+    });
+    await shot('t7-verdade-terraco');
+    check(!ter.boss && ter.crown.length === 1 && Math.abs(ter.crown[0] - down.x) <= 4 && ter.mask.length === 1 && Math.sign(ter.mask[0] - ter.crown[0]) === side
+      && ter.scythe.length === 1 && ter.dim === 0.6 && ter.music === 'aurora' && /A máscara e a foice também/.test(ter.th) && ter.seen,
+      `no terraço a coroa continua onde ele deixou, com a máscara e a foice no chão, e o núcleo apagado (${JSON.stringify(ter)})`);
+    // a praça de manhã: o povo lembra o próprio nome, e quem voltou para a rua diz uma coisa só
+    await start('praca', '1');
+    const pr = await page.evaluate(() => {
+      const s = window.__scene;
+      const m = s.npcs.list.find((n) => n.kind === 'folk' && n.i === 0);
+      return { sky: s.backdrop.parts.map((q) => q.key).filter((k) => /sky/.test(k)), names: s.npcs.list.map((n) => s.npcs.label(n)), crowd: s.npcs.list.filter((n) => n.i >= 100).length, enemies: s.enemies.length, marta: m && [m.x, m.y] };
+    });
+    await page.evaluate(([x, y]) => { const p = window.__scene.player; p.teleport(x - 22, y); p.body.setVelocity(0, 0); p.invuln = 99; }, pr.marta);
+    await waitGame(0.4);
+    await page.keyboard.press('ArrowUp');
+    await until(() => document.querySelector('#screen-talk.show'), null, 8000).catch(() => null);
+    await page.waitForTimeout(1200);
+    const marta = await page.evaluate(() => ({ name: document.querySelector('#screen-talk .talk-name').textContent, text: document.querySelector('#screen-talk .talk-text').textContent }));
+    await page.screenshot({ path: `${OUT}/t7-verdade-marta.png` });
+    for (let i = 0; i < 20 && (await page.evaluate(() => !!document.querySelector('#screen-talk.show'))); i++) {
+      await page.keyboard.press('KeyJ');
+      await page.waitForTimeout(150);
+    }
+    const told = await page.evaluate(() => window.__progress.seen.has('after:praca:0'));
+    check(pr.sky.includes('city-sky-aurora') && pr.names.includes('Marta') && pr.names.includes('Bento') && pr.names.includes('a irmã Luzia') && pr.crowd > 0 && pr.enemies === 0
+      && marta.name === 'Marta' && /^Marta/.test(marta.text) && told,
+      `a cidade de manhã: a Marta e o Bento lembram o nome, tem gente na rua, e a Marta conta tudo na primeira conversa (${JSON.stringify({ pr, marta, told })})`);
+    // o título lembra o Final I: a manhã, ele sem a máscara no penhasco, e o jogo continua
+    await toTitle();
+    const t1 = await menu();
+    await page.screenshot({ path: `${OUT}/t7-verdade-titulo.png` });
+    check(t1.title && t1.ended === 'Final I · A Aurora das Memórias' && t1.cont && t1.film && /-rosto$/.test(t1.knight || '') && t1.dawn && !t1.crown,
+      `o título lembra o Final I: a manhã, o cavaleiro sem a máscara, Continuar e Rever o final (${JSON.stringify(t1)})`);
+
+    // ===== Final II: absorver =====
+    await setProgress(WON);
+    const o2 = await offer();
+    check(o2 === 'truth-,absorb,later', `sem tudo lembrado, a verdade fica fechada e não há fragmentos para carregar: Absorver e o Ainda não (${o2})`);
+    const c2 = await choose('absorb');
+    check(c2.who === 'O Carrasco Coroado' && /^Tudo foi necessário\. Ponha a coroa/.test(c2.say) && c2.cine && c2.hud && !c2.open,
+      `Absorver: o Carrasco Coroado fala uma vez (${JSON.stringify(c2)})`);
+    // a coroa vai das mãos dele para a cabeça do cavaleiro e fica; o ouro toma o corpo
+    await until(() => { const c = window.__scene.player.crown; return c && c.shown && c.img.visible; }, null, 20000);
+    await waitGame(5);
+    const king = await page.evaluate(() => {
+      const s = window.__scene;
+      const p = s.player;
+      const w = p.crown.where();
+      return { tint: p.sprite.tintTopLeft.toString(16), dx: Math.round(p.crown.img.x - w.x), dy: Math.round(p.crown.img.y - w.y), held: s.boss.crownImg.visible };
+    });
+    await shot('t7-rei-coroa');
+    check(king.tint === 'ffdca0' && !king.held && Math.abs(king.dx) <= 1 && Math.abs(king.dy) <= 1,
+      `a coroa sai das mãos do carrasco e fica na cabeça dele, e o ouro toma o corpo (${JSON.stringify(king)})`);
+    const f2 = await toFilm();
+    check(f2.ends.join() === 'ending:absorb' && f2.room === 'trono' && f2.entry === 'X' && f2.night && !f2.game && !f2.hud,
+      `o terraço apaga no roxo: o save guarda o Final II e a volta pelo Trono (${JSON.stringify(f2)})`);
+    const v2 = await film('rei');
+    check(v2.last.on && v2.last.text === 'Se ninguém se lembrar da dor, ninguém poderá me condenar.' && !v2.last.light && v2.card.kicker === 'Final II' && v2.card.title === 'O Rei do Eclipse'
+      && v2.roll.on && !v2.roll.text.includes('Arielle') && v2.roll.text.includes('Ela'),
+      `o filme do II termina na última frase, no nome do final e nos créditos, sem o nome dela (ele não lembra) (${JSON.stringify({ last: v2.last, card: v2.card })})`);
+    // o rei: acorda no Trono de coroa e dourado
+    await back('trono');
+    await until(() => document.querySelector('#banner.on'), null, 10000).catch(() => null);
+    const tr = await page.evaluate(() => {
+      const s = window.__scene;
+      const p = s.player;
+      return { banner: document.querySelector('#banner p').textContent, crown: !!(p.crown && p.crown.img.visible), tint: p.sprite.tintTopLeft.toString(16), music: s.roomMusic() };
+    });
+    await shot('t7-rei-trono');
+    check(tr.banner === 'O rei' && tr.crown && tr.tint === 'ffdca0' && tr.music === 'rei', `depois dos créditos ele acorda no Trono, de coroa e dourado, com a música do rei (${JSON.stringify(tr)})`);
+    // quem é gente fica de joelhos, parado e virado para ele; ninguém lembra o nome, só a irmã Luzia
+    await start('celas', '1');
+    const ce = await page.evaluate(() => {
+      const s = window.__scene;
+      return { enemies: s.enemies.length, kneel: s.children.list.filter((o) => o.type === 'Sprite' && o.tintTopLeft === 0x9a8cb0).length };
+    });
+    await shot('t7-rei-celas');
+    await start('praca', '1');
+    const pa = await npcNames();
+    check(ce.enemies === 0 && ce.kneel > 0 && pa.includes('a irmã Luzia') && pa.length > 1 && pa.filter((n) => n !== 'a irmã Luzia').every((n) => /esquecid/.test(n)),
+      `no Final II ninguém luta: quem era gente fica de joelhos, ninguém lembra o nome e só a irmã Luzia continua sendo ela (${JSON.stringify({ ce, pa })})`);
+    // o título lembra o Final II: o eclipse maior e ele de coroa no penhasco
+    await toTitle();
+    const t2 = await menu();
+    await page.screenshot({ path: `${OUT}/t7-rei-titulo.png` });
+    check(t2.title && t2.ended === 'Final II · O Rei do Eclipse' && t2.cont && t2.film && t2.knight && t2.tint === 'ffdca0' && t2.crown && !t2.dawn,
+      `o título lembra o Final II: o cavaleiro de coroa e dourado, sem a manhã, Continuar e Rever o final (${JSON.stringify(t2)})`);
+
+    // ===== Final III: carregar os fragmentos =====
+    await setProgress(WON);
+    await whole();
+    await offer();
+    const c3 = await choose('fragments');
+    check(c3.who === 'O Carrasco Coroado' && /^Aceitar a culpa é aceitar/.test(c3.say) && c3.cine && !c3.open, `Carregar os fragmentos: o Carrasco Coroado fala uma vez (${JSON.stringify(c3)})`);
+    // a luz o levanta para baixo do núcleo; um clarão, e o núcleo apaga com ele dentro
+    await until(() => !window.__scene.player.sprite.visible, null, 120000);
+    await waitGame(0.3);
+    const gone = await page.evaluate(() => { const p = window.__scene.player; return { drift: !!p.drift, gravity: p.body.allowGravity, shown: p.sprite.visible, glow: p.runeGlow ? p.runeGlow.alpha : 0 }; });
+    await shot('t7-silencio-nucleo');
+    const f3 = await toFilm();
+    check(gone.drift && !gone.gravity && !gone.shown && gone.glow === 0 && f3.ends.join() === 'ending:fragments' && f3.night && !f3.game,
+      `a luz o leva para dentro do núcleo, que apaga; o save guarda o Final III (${JSON.stringify({ gone, f3 })})`);
+    const v3 = await film('silencio');
+    check(v3.last.on && v3.last.text === 'Que o mundo se lembre. Que o mundo continue.' && !v3.last.light && v3.card.kicker === 'Final III' && v3.card.title === 'O Último Silêncio' && v3.roll.on,
+      `o filme do III termina na última frase, no nome do final e nos créditos (${JSON.stringify({ last: v3.last, card: v3.card })})`);
+    // ele não volta: o título, com o penhasco vazio na manhã; o Continuar some e o Rever o final fica
+    await until(() => document.querySelector('#screen-menu.show') && window.__game.scene.isActive('title'), null, 20000);
+    await page.waitForTimeout(1800);
+    const t3 = await menu();
+    await page.screenshot({ path: `${OUT}/t7-silencio-titulo.png` });
+    check(t3.title && !t3.game && t3.ended === 'Final III · O Último Silêncio' && !t3.cont && t3.film && !t3.knight && t3.dawn,
+      `no Final III ele não volta: o título fica com o penhasco vazio na manhã, sem Continuar e com Rever o final (${JSON.stringify(t3)})`);
+    // Rever o final: o filme do começo; Esc volta para o título, e o save continua o mesmo
+    await page.evaluate(() => document.querySelector('#screen-menu [data-cmd="film"]').click());
+    await until(() => window.__ending && window.__ending.scene.isActive() && window.__ending.replay && document.querySelector('#screen-film .film-line.on'), null, 20000);
+    const rv = await page.evaluate(() => ({ phase: window.__ending.phase, kind: window.__ending.kind }));
+    await page.keyboard.press('Escape');
+    await until(() => document.querySelector('#screen-menu.show') && window.__game.scene.isActive('title'), null, 20000).catch(() => null);
+    const rv2 = await page.evaluate(() => ({ menu: !!document.querySelector('#screen-menu.show'), ends: [...window.__progress.seen].filter((k) => k.startsWith('ending:')) }));
+    check(rv.phase === 'shots' && rv.kind === 'fragments' && rv2.menu && rv2.ends.join() === 'ending:fragments',
+      `Rever o final passa o filme do começo, e Esc volta para o título (${JSON.stringify({ rv, rv2 })})`);
   }
 
   console.log(errs.join('\n') || 'sem erros');

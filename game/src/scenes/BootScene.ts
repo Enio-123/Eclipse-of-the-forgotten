@@ -63,6 +63,8 @@ const IMAGES = [
   'deco-record-nichos-0', 'deco-record-nichos-1', 'deco-record-mercado-0', 'deco-record-mercado-1', 'deco-record-solitarias-0', 'deco-record-solitarias-1', 'deco-record-margem-0', 'deco-record-margem-1', 'deco-record-alagada-0', 'deco-record-alagada-1', 'deco-balanca', 'deco-toldo',
   // o Vale das Cachoeiras (art/vale_props.py); a vara solta do Barqueiro e a mão por cima dela
   'relic-swim', 'barqueiro-pole', 'barqueiro-fist',
+  // a coroa pequena do Carrasco Coroado: no final II ele anda com ela na cabeça (art2/coroa_rei.py)
+  'crown-rei',
 ];
 // tiras de quadros pequenos: [largura, altura] de cada quadro
 const STRIPS: Record<string, [number, number]> = {

@@ -7,7 +7,7 @@ import { pad } from '../systems/Pad';
 import { progress } from '../systems/Save';
 import { ui } from '../ui/ui';
 import { fixedCamera } from '../gfx/view';
-import { FILMS, FILM_CELL, FILM_FRAMES, credits, fill, type FilmFx, type FilmLayer, type FilmShot } from '../world/endings';
+import { FILMS, FILM_CELL, FILM_FRAMES, NUMERAL, credits, fill, type FilmFx, type FilmLayer, type FilmShot } from '../world/endings';
 import type { EndingId } from '../world/story';
 
 export interface EndingInit {
@@ -29,7 +29,6 @@ const FAST = 4;
 // quanto tempo uma frase fica, pelo tamanho dela
 const stepFor = (text: string) => Phaser.Math.Clamp(2.6 + text.length * 0.042, 4.4, 7.4);
 const ease = (k: number) => k * k * (3 - 2 * k);
-const NUMERAL: Record<EndingId, string> = { truth: 'Final I', absorb: 'Final II', fragments: 'Final III' };
 // onde as vozes aparecem (em % da tela), longe da frase de baixo
 const VOICE_AT: [number, number][] = [
   [26, 22], [74, 17], [20, 50], [79, 45], [50, 33], [62, 60],

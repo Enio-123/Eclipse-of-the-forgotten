@@ -354,3 +354,31 @@ export function lookFor(theme: Theme, room: RoomId, paint?: number): Look {
   if (paint !== undefined) l.oil = paint;
   return l;
 }
+
+// Vespera depois do fim. I: o eclipse acabou e o que tem céu amanhece (sky: o céu da sala, o da manhã termina em
+// -aurora): a luz e a névoa pegam o sol, as sombras puxam para o azul; a ponte, que vivia na chuva, amanhece
+// seca (sem o brilho molhado). II: o novo Eclipse cobre o que fica ao ar livre: a luz esfria para o lilás e a cor
+// some um pouco
+export function afterLook(l: Look, end: 'truth' | 'absorb' | 'fragments' | null, theme: Theme, sky: string | null): Look {
+  if (end === 'truth' && theme === 'bridge') {
+    return { ...l, wet: 0, ambient: [1.03, 1.0, 0.96], sky: [0.1, 0.085, 0.07], mistColor: [0.98, 0.9, 0.82], mist: 0.42, mistFront: 0.06, highTint: [1.06, 1.0, 0.92], shadowTint: [1.0, 0.97, 0.98], sat: 1.06 };
+  }
+  if (end === 'truth' && sky?.endsWith('-aurora')) {
+    const [r, g, b] = l.ambient;
+    const [mr, mg, mb] = l.mistColor;
+    return {
+      ...l,
+      ambient: [Math.max(r, 1.02), Math.max(g, 1.0), Math.max(b, 0.97)],
+      sky: [l.sky[0] + 0.03, l.sky[1] + 0.028, l.sky[2] + 0.024],
+      mistColor: [mr + (0.97 - mr) * 0.6, mg + (0.94 - mg) * 0.6, mb + (0.9 - mb) * 0.6],
+      highTint: [1.05, 1.0, 0.93],
+      shadowTint: [0.97, 0.99, 1.04],
+      sat: l.sat * 1.02,
+    };
+  }
+  if (end === 'absorb' && sky) {
+    const [r, g, b] = l.ambient;
+    return { ...l, ambient: [r * 0.84, g * 0.82, b * 0.96], mistColor: [0.55, 0.5, 0.7], highTint: [0.98, 0.96, 1.06], shadowTint: [0.97, 0.96, 1.05], sat: l.sat * 0.8 };
+  }
+  return l;
+}

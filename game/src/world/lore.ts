@@ -967,19 +967,3 @@ export const ELO = {
   name: 'Elo do Condenado',
   text: 'Um elo de corrente partido. Mais um espaço no inventário.',
 };
-
-// o cartão de cada final (o nome e as primeiras linhas; as cenas inteiras são da T7)
-export const ENDINGS: Record<'truth' | 'absorb' | 'fragments', { title: string; text: string }> = {
-  truth: {
-    title: 'A Aurora das Memórias',
-    text: 'Ele deixou a coroa no chão e lembrou a noite inteira, como ela foi. Doeu. E, pela primeira vez, a dor era dele.',
-  },
-  absorb: {
-    title: 'O Rei do Eclipse',
-    text: 'Ele pôs a coroa. Tudo foi necessário, e nada mais doeu. Lá embaixo, Vespera parou de lembrar.',
-  },
-  fragments: {
-    title: 'O Último Silêncio',
-    text: 'Ele reuniu os fragmentos em si e cortou o fio do núcleo. As vozes pararam, uma a uma. Lá embaixo, as pessoas voltaram a lembrar.',
-  },
-};

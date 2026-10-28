@@ -200,7 +200,13 @@ span.key { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 2px;
 
 /* ---------- os finais: o filme pintado (scenes/EndingScene.ts) ---------- */
 /* --k: a velocidade (segurar uma tecla acelera), as transições encurtam junto */
-#screen-film { display: block; padding: 0; --k: 1; background: linear-gradient(to top, rgba(3, 5, 10, 0.55), rgba(3, 5, 10, 0) 32%); }
+#screen-film { display: block; padding: 0; --k: 1; }
+/* a sombra de baixo, para a frase ler em cima da pintura; no fim claro do final I ela some devagar */
+#screen-film::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none; transition: opacity 2.4s ease;
+  background: linear-gradient(to top, rgba(3, 5, 10, 0.55), rgba(3, 5, 10, 0) 32%);
+}
+#screen-film.light::before { opacity: 0; }
 .film-line {
   position: absolute; left: 50%; bottom: calc(50px + env(safe-area-inset-bottom, 0px)); width: min(92vw, 960px); margin: 0;
   transform: translate(-50%, 6px); text-align: center; text-wrap: balance;
@@ -511,7 +517,7 @@ span.key { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 2px;
 @media (max-width: 520px) { .slider { grid-template-columns: 1fr; gap: 6px; } .key { min-width: 104px; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .screen, .story p, #banner, #thought, #hint, .film-line, .film-voices span, .film-last, .film-card, .film-credits { transition: none; }
+  .screen, .story p, #banner, #thought, #hint, .film-line, .film-voices span, .film-last, .film-card, .film-credits, #screen-film::before { transition: none; }
   .key.wait { animation: none; }
 }
 

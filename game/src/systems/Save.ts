@@ -391,7 +391,21 @@ export const progress = {
     if (this.mage) return id === this.starter;
     if (WEAPONS[id].mage) return false;
     if (WEAPONS[id].boss) return this.seen.has(`weapon:${id}`);
+    if (id === 'scythe' && this.scytheLeft) return false;
     return !this.starter || id === this.starter;
+  },
+
+  // no final I a foice ficou no chão do terraço, com a máscara: quem já tem uma arma de chefe não usa mais
+  // a foice (sem nenhuma, ela continua, para não deixar o cavaleiro de mãos vazias)
+  get scytheLeft() {
+    return this.seen.has('ending:truth') && WEAPON_IDS.some((w) => !!WEAPONS[w].boss && this.seen.has(`weapon:${w}`));
+  },
+
+  // a arma que vale quando a do save não vale mais: a do começo ou, sem ela, a última de chefe
+  fallbackWeapon(): WeaponId {
+    const first = this.starter ?? 'scythe';
+    if (this.hasWeapon(first)) return first;
+    return [...WEAPON_IDS].reverse().find((w) => this.hasWeapon(w)) ?? 'scythe';
   },
 
   // escolhe a arma do começo de vez (jogo novo, ou a primeira troca num save antigo)

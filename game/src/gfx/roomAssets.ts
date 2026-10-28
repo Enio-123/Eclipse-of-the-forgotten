@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type { RoomDef } from '../world/rooms';
 import { backdropKeys } from '../world/Backdrop';
+import { ending } from '../world/story';
 import { dropSheet, loadSheet, setupSheet, sheetMeta } from './sheets';
 
 // O que só a sala usa vem quando ela abre e sai da placa de vídeo quando ela fecha: o terreno pintado,
@@ -22,10 +23,12 @@ const ROOM_IMAGES = new Set([
   'terrain-descida', 'terrain-prado', 'terrain-riacho', 'terrain-cachoeiras', 'terrain-gruta', 'terrain-prainha', 'terrain-rio', 'terrain-cais',
   'pinhos-descida', 'pinhos-prado', 'pinhos-riacho', 'pinhos-cachoeiras', 'pinhos-gruta', 'pinhos-prainha', 'pinhos-rio', 'pinhos-cais',
   'flores-prado-0', 'flores-prado-1',
-  'bridge-sky', 'bridge-far', 'bridge-far-rim', 'bridge-mid', 'bridge-mid-rim', 'bridge-fg', 'cat-far', 'cat-mid', 'mem-sky', 'mem-far', 'mem-mid',
-  'city-sky', 'city-far', 'city-mid', 'claustro-mid', 'nave-far', 'nave-mid', 'prison-far', 'prison-mid', 'fosso-far', 'fosso-mid',
+  'bridge-sky', 'bridge-sky-aurora', 'bridge-far', 'bridge-far-rim', 'bridge-mid', 'bridge-mid-rim', 'bridge-fg', 'cat-far', 'cat-mid', 'mem-sky', 'mem-far', 'mem-mid',
+  'city-sky', 'city-sky-aurora', 'city-far', 'city-mid', 'claustro-mid', 'nave-far', 'nave-mid', 'prison-far', 'prison-mid', 'fosso-far', 'fosso-mid',
   'mine-far', 'mine-mid', 'snow-sky', 'snow-far', 'snow-mid', 'mata-far', 'mata-mid', 'serra-far', 'serra-mid',
-  'vale-sky', 'vale-far', 'vale-mid', 'cascata-far', 'cascata-mid', 'gruta-far', 'gruta-mid', 'cais-sky', 'cais-far', 'cais-mid',
+  'vale-sky', 'vale-sky-aurora', 'vale-far', 'vale-mid', 'cascata-far', 'cascata-mid', 'gruta-far', 'gruta-mid', 'cais-sky', 'cais-far', 'cais-mid',
+  // o que ficou no chão do terraço depois do final I (art2/terraco_fim.py)
+  'mascara-chao', 'foice-chao',
 ]);
 
 // as folhas dos chefes (grandes e cada uma usada numa sala só)
@@ -33,6 +36,7 @@ export const ROOM_SHEETS = new Set(['sineiro', 'arcebispo', 'carcereira', 'sombr
 
 export function roomImages(room: RoomDef) {
   const keys = [`terrain-${room.id}`, `terrain-${room.id}-secret`, `pinhos-${room.id}`, `flores-${room.id}-0`, `flores-${room.id}-1`, ...backdropKeys(room.theme, room.id)];
+  if (room.boss === 'coroado' && ending() === 'truth') keys.push('mascara-chao', 'foice-chao');
   return keys.filter((k) => ROOM_IMAGES.has(k));
 }
 

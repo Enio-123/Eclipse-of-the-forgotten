@@ -331,9 +331,8 @@ Feito na T6 (`game/src/entities/Coroado.ts`, os números em `COROADO` no `config
   - **Carregar os fragmentos**: só com `whole`.
   - **Ainda não**: a tela fecha e ele continua de joelhos. Quem volta ao núcleo encontra ele lá, com o
     alçapão aberto; perto dele, {up} abre a escolha de novo.
-- **Até a T7**: a escolha fica gravada no save (`ending:<id>`) e o jogo fecha com o cartão do final (o
-  nome e as primeiras linhas, `ENDINGS` em `lore.ts`). As cenas, os créditos e Vespera depois do fim são
-  da T7.
+- **Depois da escolha**: ela fica gravada no save (`ending:<id>`), e o final segue no terraço, no filme e
+  nos créditos (a seção da T7, mais abaixo).
 - **Arte** (`coroado.png`, um atlas de 1024x800, e `coroado.json`): pintada com relevo, contorno e uma
   borda fria do céu. O colosso vem em partes: capuz e máscara, peito, ombreiras, braço, antebraço, punho,
   a mão que agarra a agulha, a foice, as contas, o núcleo de Âmbar e as duas coroas. A máscara é a mesma
@@ -341,6 +340,69 @@ Feito na T6 (`game/src/entities/Coroado.ts`, os números em `COROADO` no `config
   bronze para a pegada. O ombro e o braço ficam sempre atrás do terraço; só o antebraço e o punho vêm
   para a frente quando ele bate. O carrasco dourado é a folha do cavaleiro com um filtro de ouro e brilho.
 - **Teste**: `tools/torres.cjs`, parte `carrasco`.
+
+## Os finais no jogo (T7)
+
+Feito na T7: o terraço em `game/src/world/Finale.ts`, o filme em `game/src/scenes/EndingScene.ts`, os textos
+e os planos em `game/src/world/endings.ts`, a pintura dos planos em `art2/finais.py` e Vespera depois do fim
+em `GameScene` (a seção Vespera depois do fim), `Npcs.ts`, `Backdrop.ts` e `gfx/looks.ts`.
+
+- **No terraço, depois da escolha**: a interface some, a câmera abre para o terraço e o núcleo, e ele anda
+  até a frente do carrasco de joelhos, do lado em que já estava. O Carrasco Coroado fala uma vez, e a memória
+  da noite (`nucleo:boss`, "A noite") desce do núcleo até ele: inteira e dourada nos finais I e III, torta e
+  roxa no II (a verdade aparece em clarões antes de entortar). As frases vêm uma por vez e a música do final
+  entra.
+  - **I**: ele pensa ("Eu matei aquela gente. Não foi a corrupção, nem o reino. Fui eu.", "E é por isso que
+    eu continuo."), se ajoelha e deixa a coroa no chão, entre os dois; o carrasco vira pó. Depois da noite
+    vem a conta na margem da planta: o núcleo abre e as memórias descem para a cidade. A tela vai para o
+    branco da manhã.
+  - **II**: a coroa sai das mãos do carrasco, encolhe e fica na cabeça dele (`gfx/crown.ts`: o lugar dela
+    sai da máscara de cada quadro da folha, então ela acompanha todas as animações e todas as armas). O pó
+    do carrasco entra nele e o ouro toma o corpo. As memórias de todos vêm para ele, e um sussurro: "Tudo
+    foi necessário." A tela vai para o roxo do eclipse.
+  - **III**: "Não é por isso." Depois da noite, a conta dela e a decisão ("Tem que ser eu. Ninguém mais
+    carrega a máscara."). O carrasco deixa a coroa no chão e vira pó; ele se ajoelha, os fragmentos se
+    juntam nele e a música para. A luz o levanta devagar até embaixo do núcleo; um clarão, e o núcleo apaga
+    com ele dentro. A tela vai para o preto, em silêncio.
+- **O save**: quando a tela vai para a cor do final, o save guarda `ending:<id>`, a memória da noite e onde
+  ele volta depois dos créditos: a Ponte (I) ou o Trono (II). O III não volta.
+- **O filme** (`EndingScene`): os planos pintados de cada final (`finais-<id>.webp`, quadros de 1280x720 em
+  duas colunas; cinco planos no I e no II, quatro no III), com a câmera andando devagar por cima (as camadas
+  "-perto" andam mais que o fundo, as "-luz" somam luz e pulsam). Por cima, os efeitos de cada plano (as
+  luzes soltas, as que caem e as que sobem, as estrelas, os fachos que saem do sol pintado, a poeira, as
+  pétalas, a rachadura roxa, o escurecer), a frase embaixo (o tempo dela pelo tamanho), as vozes que passam
+  por cima, a última frase sozinha (II e III), o cartão com o número e o nome do final e os créditos: o jogo
+  é do Enio, e depois vem quem estava em Vespera (o nome dela só aparece se ele lembra). Segurar qualquer
+  tecla, a tela ou um botão acelera quatro vezes. No fim do I a tela fica clara e a letra, escura.
+- **Vespera depois do Final I**: ele acorda na Ponte, "A primeira manhã".
+  - Não chove: a ponte está seca, sem poças. O eclipse saiu do céu: no lugar dele, a manhã pintada na Ponte,
+    na Cidade, no Vale e nas Torres (`art2/aurora.py` tira as estrelas e troca o disco escuro pelo sol
+    nascendo), com a luz da manhã nas salas com céu (`afterLook`). A Ponte e o terraço tocam a aurora.
+  - Ele anda sem a máscara (as folhas `-rosto` de todas as armas). As criaturas eram gente e voltaram para
+    casa: não há mais com quem lutar, e a procissão acabou.
+  - O povo lembra o próprio nome: a Marta e o Bento na praça, a Iara no mercado, a Célia na rua, a Joana no
+    claustro. Cada um conta tudo na primeira conversa e depois diz uma coisa por vez. A irmã Luzia, o Brás, o
+    Tomé, o mineiro (Otávio) e o Agrimensor têm falas novas, e a gente que voltou para a rua diz uma coisa só.
+  - No terraço, a coroa continua no chão onde ele deixou (`fim:coroa`), com a máscara encostada nela e a
+    foice deitada ao lado, e o núcleo apagado (`art2/terraco_fim.py`). Se ele não ganhou nenhuma arma de
+    chefe, a foice não fica: ele pegou de volta, porque tem gente lá embaixo que ainda precisa de ajuda.
+- **Vespera depois do Final II**: ele acorda no Trono, "O rei", de coroa e dourado.
+  - O Eclipse do céu ficou maior (na Ponte, na Cidade, no Vale, nas Torres e no título), e a luz das salas
+    com céu fica lilás. O Trono e o terraço tocam a música do rei.
+  - Quem era gente fica de joelhos, parado e virado para ele; os bichos somem.
+  - Ninguém lembra o nome: os esquecidos ficam parados, e a conversa é o silêncio e o que ele pensa. Só a
+    irmã Luzia lembra (nasceu cega, e o eclipse não tem o que levar dela). O Brás não sabe quem é, mas as
+    mãos dele ainda lembram o ferro; o Agrimensor ainda tem as medidas. A procissão fica parada no caminho.
+- **O título** lembra o final que o save guarda: a linha embaixo do nome do jogo ("Final I · A Aurora das
+  Memórias") e o botão Rever o final (o filme do começo; Esc volta ao título). No I, a manhã e o cavaleiro
+  sem a máscara no penhasco; no II, o eclipse maior e o cavaleiro de coroa e dourado; no III, a manhã, o
+  penhasco vazio e pétalas, e o Continuar some (ele não voltou; Apagar progresso continua).
+- **Chaves do save**: `ending:<id>`; `fim:coroa:1` ou `fim:coroa:-1` (de que lado do carrasco a coroa
+  ficou); `fim:terraco` (o que ele pensa na primeira volta ao terraço); `after:<sala>:<i>`, `after:nun`,
+  `after:smith`, `after:prisoner`, `after:miner` e `after:surveyor` (a primeira conversa de cada um depois
+  do fim).
+- **Teste**: `tools/torres.cjs`, parte `finais` (cada final do começo ao fim, com o filme adiantado fase a
+  fase).
 
 ## Arte
 
@@ -361,8 +423,7 @@ Feito na T6 (`game/src/entities/Coroado.ts`, os números em `COROADO` no `config
 4. T4 chefe do meio: o Senhor de Vhalor e o Cetro. Feito.
 5. T5 sistema da história: versões confirmadas por prova, corrupção na máscara, aba A Noite, os registros
    e as memórias das Torres. Feito.
-6. T6 chefe final: o Carrasco Coroado (colosso e espelho) e a escolha. Feito (as cenas dos finais ficam para
-   a T7).
-7. T7 finais: as três cenas, os créditos, Vespera depois do fim.
+6. T6 chefe final: o Carrasco Coroado (colosso e espelho) e a escolha. Feito.
+7. T7 finais: o terraço, os três filmes, os créditos, Vespera depois do fim e o título de cada final. Feito.
 8. T8 arte e áudio: terreno, fundos pintados, adereços, música do fim.
 9. T9 lore, testes, regressão e publicação (v20).

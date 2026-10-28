@@ -49,6 +49,26 @@ export function setupSheet(scene: Phaser.Scene, key: string) {
   if (meta.frames) scene.textures.get(key).setFilter(Phaser.Textures.FilterMode.LINEAR);
 }
 
+// uma cópia da folha com outra imagem e os mesmos quadros (o cavaleiro sem a máscara, gfx/unmask.ts): a mesma
+// origem, a mesma escala e as mesmas animações, com o nome da cópia
+export function cloneSheet(scene: Phaser.Scene, key: string, out: string) {
+  const meta = sheetMeta(scene, key);
+  if (!meta || !scene.textures.exists(out)) return;
+  for (const [name, a] of Object.entries(meta.anims)) {
+    const k = `${out}-${name}`;
+    if (scene.anims.exists(k)) continue;
+    const frames = scene.anims.generateFrameNumbers(out, { start: a.start, end: a.start + a.count - 1 });
+    const hold = meta.holds?.[name];
+    if (hold && frames.length) frames[frames.length - 1] = { ...frames[frames.length - 1], duration: hold * 1000 };
+    scene.anims.create({ key: k, frames, frameRate: a.fps, repeat: a.loop ? -1 : 0 });
+  }
+  scene.registry.set(`${out}-origin`, { x: meta.originX, y: meta.originY });
+  if (meta.frames) {
+    scene.registry.set(`${out}-scale`, 1 / (meta.scale ?? 1));
+    scene.textures.get(out).setFilter(Phaser.Textures.FilterMode.LINEAR);
+  }
+}
+
 // tira a folha da placa de vídeo, com as animações dela
 export function dropSheet(scene: Phaser.Scene, key: string) {
   const meta = sheetMeta(scene, key);

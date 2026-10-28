@@ -6,6 +6,8 @@ import { isGround, isSolid } from '../world/Level';
 import { TILE_ONEWAY } from '../gfx/textures';
 import { DEPTH } from '../world/Decor';
 import { hd } from '../gfx/flip';
+import { unmasked } from '../gfx/unmask';
+import { HeadCrown } from '../gfx/crown';
 import { VeilFx } from '../gfx/veil';
 import { drawChain, drawWhip, type LashPose } from '../gfx/lash';
 
@@ -212,7 +214,14 @@ export class Player {
   // de onde sai a magia em cada quadro de cada animação (a ponta do cajado, a partir dos pés)
   private points: Record<string, [number, number][]> | null = null;
 
-  constructor(private scene: GameScene, x: number, feetY: number, weapon: WeaponId) {
+  // a folha em uso: a da arma, ou a mesma sem a máscara (o final I)
+  private sheet = 'knight-scythe';
+  // o final II: a coroa na cabeça e o ouro que ficou no corpo (a cor de sempre do desenho; null: nenhuma)
+  crown: HeadCrown | null = null;
+  private tint: number | null = null;
+
+  // bare: ele tirou a máscara no terraço (final I); o rosto aparece em todas as armas
+  constructor(private scene: GameScene, x: number, feetY: number, weapon: WeaponId, private bare = false) {
     this.zone = scene.add.zone(x, feetY - C.bodyH / 2, C.bodyW, C.bodyH);
     scene.physics.add.existing(this.zone);
     this.body = this.zone.body as Phaser.Physics.Arcade.Body;
@@ -229,8 +238,9 @@ export class Player {
 
   setWeapon(id: WeaponId) {
     this.weapon = WEAPONS[id];
-    const o = this.scene.registry.get(`knight-${id}-origin`) as { x: number; y: number };
-    hd(this.sprite.setTexture(`knight-${id}`, 0).setOrigin(o.x, o.y));
+    this.sheet = this.bare ? unmasked(this.scene, `knight-${id}`) : `knight-${id}`;
+    const o = this.scene.registry.get(`${this.sheet}-origin`) as { x: number; y: number };
+    hd(this.sprite.setTexture(this.sheet, 0).setOrigin(o.x, o.y));
     this.baseScale = this.sprite.scaleX;
     const key = SLASH_KEY[id];
     if (key) {
@@ -266,11 +276,29 @@ export class Player {
     this.curAnim = '';
   }
 
+  // o final II: ele anda de coroa (shown false: ela ainda vem chegando, no terraço)
+  wearCrown(shown = true) {
+    if (!this.crown && this.scene.textures.exists('crown-rei')) this.crown = new HeadCrown(this.scene, this.sprite, DEPTH.player + 0.05, shown);
+    if (this.crown && shown) this.crown.shown = true;
+    return this.crown;
+  }
+
+  // a cor de sempre do desenho (null: a da folha); os efeitos que tingem voltam para ela
+  setBaseTint(c: number | null) {
+    this.tint = c;
+    this.restoreTint();
+  }
+
+  restoreTint() {
+    if (this.tint === null) this.sprite.clearTint();
+    else this.sprite.setTint(this.tint);
+  }
+
   // a ponta do cajado agora, no mundo (onde nasce a bolinha, de onde sai o chicote). Sem os pontos
   // da folha, um palmo na frente do peito
   staffTip(anim?: string, frame?: number) {
     const s = this.sprite;
-    const name = anim ?? s.anims.currentAnim?.key.slice(`knight-${this.weapon.id}-`.length) ?? 'idle';
+    const name = anim ?? s.anims.currentAnim?.key.slice(`${this.sheet}-`.length) ?? 'idle';
     const list = this.points?.[name];
     const i = frame ?? Math.max(0, (s.anims.currentFrame?.index ?? 1) - 1);
     const pt = list?.[Math.min(i, list.length - 1)];
@@ -1637,10 +1665,10 @@ export class Player {
     else if (this.ride) anim = this.crouched ? 'crouch' : 'idle';
     else if (this.swim && this.canSwim && !onGround) {
       // nadando: a braçada (ou, numa folha sem ela, o quadro do topo do pulo)
-      if (this.scene.anims.exists(`knight-${this.weapon.id}-swim`)) anim = 'swim';
+      if (this.scene.anims.exists(`${this.sheet}-swim`)) anim = 'swim';
       else {
         anim = 'air';
-        air = Math.round(((this.scene.anims.get(`knight-${this.weapon.id}-air`)?.frames.length ?? 13) - 1) / 2);
+        air = Math.round(((this.scene.anims.get(`${this.sheet}-air`)?.frames.length ?? 13) - 1) / 2);
       }
     } else if (!onGround) {
       // no ar o quadro vem da velocidade: impulso, subida, topo, queda; numa queda longa a capa tremula
@@ -1684,7 +1712,7 @@ export class Player {
     if (ghost !== this.ghostLook) {
       this.ghostLook = ghost;
       if (ghost) s.setTint(0xb4c2e8);
-      else s.clearTint();
+      else this.restoreTint();
     }
     const blink = this.invuln > 0 && !this.dead && Math.floor(this.invuln * 18) % 2 === 0;
     s.setAlpha(blink ? 0.3 : ghost ? 0.55 : 1);
@@ -1715,7 +1743,7 @@ export class Player {
   }
 
   play(name: string, reverse = false) {
-    const key = `knight-${this.weapon.id}-${name}`;
+    const key = `${this.sheet}-${name}`;
     const tag = reverse ? `${key}<` : key;
     if (this.curAnim === tag) return;
     this.curAnim = tag;
@@ -1725,7 +1753,7 @@ export class Player {
 
   // um quadro escolhido de uma animação, parado nele (o ar escolhe pela velocidade, não pelo relógio)
   private holdFrame(name: string, i: number) {
-    const key = `knight-${this.weapon.id}-${name}`;
+    const key = `${this.sheet}-${name}`;
     const a = this.scene.anims.get(key);
     if (!a) {
       this.play(name === 'air' ? (this.body.velocity.y < 0 ? 'jump' : 'fall') : name);
@@ -1743,7 +1771,7 @@ export class Player {
   // o quadro do ar: 0 é o impulso logo depois de sair do chão, o do meio é o topo e o último a queda
   // rápida. Quem sai de uma beirada andando já começa com as pernas descendo
   private airFrame(vy: number) {
-    const n = this.scene.anims.get(`knight-${this.weapon.id}-air`)?.frames.length ?? 13;
+    const n = this.scene.anims.get(`${this.sheet}-air`)?.frames.length ?? 13;
     const top = (n - 1) / 2;
     const t = (vy + C.jumpVel) / (C.jumpVel + C.maxFall);
     let i = Math.round(t * (n - 1));

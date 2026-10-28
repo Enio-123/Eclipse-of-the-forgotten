@@ -12,6 +12,7 @@ import { isSolid } from './Level';
 import { canvasRaster, mix, rng } from '../gfx/raster';
 import { PLANK_H } from '../gfx/textures';
 import { hd } from '../gfx/flip';
+import { ending } from './story';
 
 // o bronze das luvas dos cabos da Sala das Experiências
 const BRZ_MID = 0x7a5a2e;
@@ -1263,6 +1264,8 @@ export class Torres {
       this.chainCurve(x - side * 6, anchorY, c + side * (r + 2), cy - 4, 26);
     }
     this.core = { c, floorY, x0, x1, spires, anchorY, core: { x: c, y: cy, r, img, glow } };
+    // depois do fim as memórias já saíram dele (I) ou foram para o cavaleiro (II): fica uma luz fraca, de brasa
+    if (ending()) this.coreDim = 0.6;
   }
 
   // uma corrente pendurada de (ax, ay) até (bx, by), cedendo sag px no meio: um elo a cada 7 px, alternando de

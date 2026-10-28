@@ -9,6 +9,7 @@ import { ui } from '../ui/ui';
 import { DEPTH } from './Decor';
 import { FILMS, FINALE_LINES, NIGHT_MEMORY, fill } from './endings';
 import { NIGHT } from './lore';
+import { CROWN_K, KING_TINT } from '../gfx/crown';
 import type { EndingId } from './story';
 
 const GOLD = 0xffd27a;
@@ -27,7 +28,6 @@ const holdFor = (text: string) => Phaser.Math.Clamp(1800 + text.length * 46, 320
 export class Finale {
   private t = 0;
   private named = progress.knowsHerName;
-  private crownOn = false;
 
   constructor(
     private s: GameScene,
@@ -128,6 +128,8 @@ export class Finale {
     this.then(200, () => {
       p.kneel();
       this.b.crownTo(bx + facing * (GAP / 2), this.b.floorY - 1, 1500, () => this.crownDown(0.5));
+      // de que lado ela ficou (na volta ao terraço ela continua lá, com a máscara e a foice)
+      progress.seen.add(`fim:coroa:${facing}`);
     });
     this.then(1900, () => {
       p.getUp(() => (p.frozen = true));
@@ -151,18 +153,23 @@ export class Finale {
     const s = this.s;
     const p = s.player;
     const L = FINALE_LINES.absorb;
-    // a coroa vai das mãos dele para a cabeça do cavaleiro; o carrasco vira pó e o pó entra nele
+    // a coroa vai das mãos dele para a cabeça do cavaleiro e encolhe para o tamanho dela; lá ela troca pela coroa
+    // que fica com ele (gfx/crown.ts, a mesma pintura, presa na cabeça quadro a quadro). O carrasco vira pó e o
+    // pó entra nele
     this.then(0, () => {
-      const head = this.headAt();
-      this.b.crownImg.setDepth(DEPTH.player + 0.3);
+      const crown = p.wearCrown(false);
+      const head = crown?.where() ?? this.headAt();
+      const c = this.b.crownImg.setDepth(DEPTH.player + 0.3);
+      s.tweens.add({ targets: c, scaleX: c.scaleX * CROWN_K, scaleY: c.scaleY * CROWN_K, duration: 1700, ease: 'Sine.easeInOut' });
       this.b.crownTo(head.x, head.y, 1700, () => {
-        this.crownOn = true;
+        if (crown) {
+          crown.shown = true;
+          c.setVisible(false);
+        }
         s.sfx('chime', 0.6, 0.7);
         s.glowBurst(head.x, head.y, GOLD, 1.6);
       });
     });
-    s.events.on('postupdate', this.followCrown, this);
-    s.events.once('shutdown', () => s.events.off('postupdate', this.followCrown, this));
     this.then(1900, () => {
       this.b.dissolve(3200, () => ({ x: p.x, y: p.body.center.y }));
       this.gild(4200);
@@ -179,14 +186,8 @@ export class Finale {
     this.then(3400, () => this.toFilm());
   }
 
-  // a coroa acompanha a cabeça dele depois de posta (na frente do capuz, cercando a ponta)
-  private followCrown() {
-    if (!this.crownOn) return;
-    const h = this.headAt();
-    this.b.crownImg.setPosition(h.x, h.y).setDepth(DEPTH.player + 0.3);
-  }
-
-  // a base da coroa na cabeça: um pouco abaixo da ponta do capuz, que passa do alto do corpo
+  // a base da coroa na cabeça, sem o lugar quadro a quadro: um pouco abaixo da ponta do capuz, que passa do alto
+  // do corpo
   private headAt() {
     const p = this.s.player;
     return { x: p.x + p.facing * 1, y: p.body.top - 3 };
@@ -201,9 +202,11 @@ export class Finale {
       v: 1,
       duration: ms,
       onUpdate: () => {
-        const c = Phaser.Display.Color.Interpolate.ColorWithColor(new Phaser.Display.Color(255, 255, 255), new Phaser.Display.Color(255, 214, 140), 1, k.v);
+        const c = Phaser.Display.Color.Interpolate.ColorWithColor(new Phaser.Display.Color(255, 255, 255), Phaser.Display.Color.ValueToColor(KING_TINT), 1, k.v);
         p.sprite.setTint(Phaser.Display.Color.GetColor(c.r, c.g, c.b));
       },
+      // o ouro fica: é a cor dele daqui em diante (o dash fantasma e os outros efeitos voltam para ela)
+      onComplete: () => p.setBaseTint(KING_TINT),
     });
   }
 
@@ -236,7 +239,8 @@ export class Finale {
       s.sfx('bell', 0.6, 0.5);
       s.cameras.main.flash(1400, 255, 246, 230);
       s.torres?.coreDark(3200);
-      p.sprite.setAlpha(0);
+      // ele some no clarão (a transparência o Player refaz a cada quadro; o escondido, não)
+      p.sprite.setVisible(false);
     });
     this.then(3600, () => this.toFilm(3600));
   }

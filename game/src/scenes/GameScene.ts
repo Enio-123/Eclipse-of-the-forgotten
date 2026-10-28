@@ -50,7 +50,7 @@ import { Records } from '../world/Records';
 import { CapeFx } from '../gfx/cape';
 import { Props, type MemoryOrb, type Relic, type Shrine } from '../world/Props';
 import { Fixtures, type Door, type Ring } from '../world/Fixtures';
-import { Npcs, type Npc } from '../world/Npcs';
+import { CROWD, Npcs, female, type Npc } from '../world/Npcs';
 import { Mine } from '../world/Mine';
 import { Finds, hasFind, isSlotFind, type FindId } from '../world/Finds';
 import type { Breakable } from '../world/secrets';
@@ -58,7 +58,8 @@ import { Loot } from '../world/Loot';
 import { ARENA_WAVES, BELLS, DECISIVE, ELO, FORGE, FOUND_THOUGHTS, LEVERS, MATERIALS, MEMORIES, MEMORY_ECHO, NAME_MEMORY, NUN, OFFERS, OLD_MINER, PAGES, PRISONER, RECORDS, SLOT_FINDS, SMITH, SURVEYOR, VERSIONS, memoryInfo, recordInfo, relicInfo } from '../world/lore';
 import { choose, chosen, confirm, confirmed, ending, holds, night, pendingConfirmations, type EndingId } from '../world/story';
 import { Finale } from '../world/Finale';
-import { AFTER_END, FILMS, fill } from '../world/endings';
+import { AFTER_END, AFTER_TALK, FILMS, fill } from '../world/endings';
+import { CROWN, KING_TINT } from '../gfx/crown';
 import { REGION_BY_ID, sheetsFor, surveyorRegion } from '../world/regions';
 import { TILE_ONEWAY, smoothGlow } from '../gfx/textures';
 import { ui } from '../ui/ui';
@@ -68,10 +69,10 @@ import { face, hd } from '../gfx/flip';
 import { RES, screenOrigin } from '../gfx/view';
 import { extremeCamera, type ExtremePipeline, type Look } from '../gfx/extreme';
 import { RoomLighting, type TerrainPiece } from '../gfx/lighting';
-import { lookFor } from '../gfx/looks';
+import { afterLook, lookFor } from '../gfx/looks';
 import { ensure, hdKey, hdTerrain, prefetch, release, roomFiles } from '../gfx/hdAssets';
 import { queueRoom, settleRoom } from '../gfx/roomAssets';
-import { HD_LAYERS } from '../world/Backdrop';
+import { HD_LAYERS, backdropKeys } from '../world/Backdrop';
 import { Life } from '../world/Life';
 import { Mist } from '../world/Mist';
 import { Shafts } from '../world/Shafts';
@@ -395,6 +396,17 @@ const TORRES_SPAWNERS: Record<'guarda' | 'vigia' | 'arquivado', (s: GameScene, x
   vigia: (s, x, y) => new RuneWatcher(s, x, y - 8),
   arquivado: (s, x, y) => new Archived(s, x, y),
 };
+
+// Final II: quem é gente fica de joelhos (as letras do mapa: penitente, guarda, arqueiro, incensário, carcereiro,
+// mineiro; nas Torres o g e o u são o Guarda da Coroação e os Arquivados). O quadro de cada um é o meio da queda,
+// antes de tombar; o arqueiro fica de pé, de arco baixo, e o penitente já anda de rastros
+const KNEELERS = new Set(['c', 'g', 'a', 'i', 'W', 'u']);
+const KNEEL_POSE: Record<string, [string, number]> = {
+  guard: ['death', 1], jailer: ['death', 1], censer: ['death', 1], miner: ['death', 1], crownguard: ['death', 2],
+  archer: ['idle', 0], penitent: ['crawl', 0],
+};
+// a luz do novo Eclipse em quem se ajoelhou
+const KNEEL_TINT = 0x9a8cb0;
 
 export class GameScene extends Phaser.Scene {
   controls!: Controls;
@@ -730,10 +742,16 @@ export class GameScene extends Phaser.Scene {
     if (hidden) this.fixtures.breakWall(hidden, false);
     // uma arma de chefe só vale se já foi ganha neste progresso; de começo, só a escolhida
     if (!progress.hasWeapon(settings.data.weapon)) {
-      settings.data.weapon = progress.starter ?? 'scythe';
+      settings.data.weapon = progress.fallbackWeapon();
       settings.save();
     }
-    this.player = new Player(this, spawn.x, spawn.y, settings.data.weapon);
+    // no final I ele deixou a máscara no terraço: o rosto aparece; no II ele anda de coroa e o ouro ficou no corpo
+    const end = ending();
+    this.player = new Player(this, spawn.x, spawn.y, settings.data.weapon, end === 'truth');
+    if (end === 'absorb') {
+      this.player.wearCrown();
+      this.player.setBaseTint(KING_TINT);
+    }
     this.player.facing = spawn.x < W / 2 ? 1 : -1;
     this.player.canAttack = !room.noAttack;
     // a água morna do Vale e a que tomou as Minas são fundas de verdade (afunda, nada); a tinta da prisão,
@@ -767,6 +785,13 @@ export class GameScene extends Phaser.Scene {
       // trecho vencido e já descansado: as criaturas dali viraram cinza
       const key = `${room.id}:${s.tx}:${s.ty}`;
       if (progress.seen.has(`clear:${key}`)) continue;
+      // depois do fim: no I as criaturas eram gente e voltaram para casa; no II quem é gente fica de joelhos para o
+      // rei, parado, e os bichos somem
+      if (end === 'truth') continue;
+      if (end === 'absorb') {
+        if (KNEELERS.has(s.kind)) this.kneel(make(this, s.x, s.y));
+        continue;
+      }
       const e = make(this, s.x, s.y);
       this.enemies.push(e);
       this.tracks.push({ key, e, hx: s.x, hy: s.y - 16, f: progress.seen.has(`pass:${key}`) ? PASSED : 0 });
@@ -779,9 +804,10 @@ export class GameScene extends Phaser.Scene {
     this.physics.add.collider(this.player.zone, this.level.layer, undefined, this.oneWayFilter, this);
     for (const e of this.enemies) this.physics.add.collider(e.zone, this.level.layer);
     // prisão: a queda com as chaves dispara o alarme; a arena espera o cavaleiro passar da grade
-    if (room.id === 'fuga' && progress.seen.has('item:chaves') && !progress.seen.has('alarm:fuga')) this.startAlarm();
+    // (depois do fim não tem mais carcereiro nem condenado: o elo da arena fica no chão, esperando)
+    if (room.id === 'fuga' && !end && progress.seen.has('item:chaves') && !progress.seen.has('alarm:fuga')) this.startAlarm();
     if (room.id === 'arena') {
-      if (!progress.seen.has('arena:done')) this.arena = { wave: -1, foes: [], pending: 0, wait: 0, started: false };
+      if (!progress.seen.has('arena:done') && !end) this.arena = { wave: -1, foes: [], pending: 0, wait: 0, started: false };
       else if (!progress.seen.has('item:elo')) this.placeElo(false);
     }
     this.placeFinds();
@@ -792,8 +818,8 @@ export class GameScene extends Phaser.Scene {
     this.loot = new Loot(this);
     this.passed.clear();
     this.weather = new Weather(this, this.level, {
-      rain: room.rain,
-      lightning: room.lightning,
+      rain: room.rain && !this.dry,
+      lightning: room.lightning && !this.dry,
       drips: room.drips,
       petals: room.petals,
       motes: room.motes,
@@ -824,7 +850,9 @@ export class GameScene extends Phaser.Scene {
     // nos fundos lisos da Cidade-Catedral o grão é mais leve (o traço não some no ruído)
     this.fx.setGrain({ bridge: 0.09, catacomb: 0.09, memory: 0.035, city: 0.07, nave: 0.07, prison: 0.08, mine: 0.08, snow: 0.05, vale: 0.04, torres: 0.05 }[room.theme]);
     cam.setFollowOffset(-this.lookX, this.camY);
-    this.look = lookFor(room.theme, room.id, room.paint ?? PAINT[room.theme]);
+    // (ao ar livre: a sala mostra um céu)
+    const sky = backdropKeys(room.theme, room.id).find((k) => /-sky(-|$)/.test(k)) ?? null;
+    this.look = afterLook(lookFor(room.theme, room.id, room.paint ?? PAINT[room.theme]), ending(), room.theme, sky);
     this.xp = null;
     this.lighting = null;
     this.life = null;
@@ -844,9 +872,9 @@ export class GameScene extends Phaser.Scene {
 
     if (!this.scene.isActive('hud')) this.scene.launch('hud');
 
-    audio.music(room.music);
-    audio.ambience(room.ambience);
-    audio.stepKind = room.theme === 'bridge' ? 'wet' : room.theme === 'memory' || (room.theme === 'vale' && room.id !== 'gruta') ? 'grass' : room.theme === 'snow' ? 'snow' : 'stone';
+    audio.music(this.roomMusic());
+    audio.ambience(this.dry ? 'wind' : room.ambience);
+    audio.stepKind = room.theme === 'bridge' && !this.dry ? 'wet' : room.theme === 'bridge' ? 'stone' : room.theme === 'memory' || (room.theme === 'vale' && room.id !== 'gruta') ? 'grass' : room.theme === 'snow' ? 'snow' : 'stone';
     // a nave ecoa mais que tudo; a cidade aberta quase nada (a neve abafa); a gruta atrás da água ecoa, e
     // as torres por dentro ecoam como a nave
     const ECHO: Partial<Record<RoomId, number>> = { gruta: 0.5, arquivo: 0.5, experiencias: 0.45, engrenagens: 0.6, trono: 0.58, coroacao: 0.66 };
@@ -971,7 +999,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private rainFloor() {
-    if (!this.room.rain) return undefined;
+    if (!this.room.rain || this.dry) return undefined;
     const ys = this.level.skyFloors();
     const col = new Map(ys.map((s) => [s.x, s.y * TILE]));
     return (x: number) => col.get(Math.floor(x / TILE)) ?? null;
@@ -1253,7 +1281,7 @@ export class GameScene extends Phaser.Scene {
     this.exits();
     this.follow(dt);
     this.lighting?.update(this.cameras.main, { x: p.x, y: p.body.center.y }, dt);
-    if (this.room.rain && this.level.ceilingAbove(Math.floor(p.x / TILE), Math.floor(p.body.top / TILE)) < 0) {
+    if (this.room.rain && !this.dry && this.level.ceilingAbove(Math.floor(p.x / TILE), Math.floor(p.body.top / TILE)) < 0) {
       this.weather.splashOn(p.x, p.body.top - 6, dt);
     }
   }
@@ -2666,7 +2694,7 @@ export class GameScene extends Phaser.Scene {
     progress.seen.add('arena:done');
     progress.save();
     this.props.setGates(true, true);
-    audio.music(this.room.music, 2);
+    audio.music(this.roomMusic(), 2);
     this.sfx('chime');
     ui.thought('Ninguém mais desce na arena. No chão, um elo partido.', 4200);
     this.placeElo(true);
@@ -3019,6 +3047,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   talkTo(n: Npc) {
+    const e = ending();
+    if (e === 'absorb' && this.talkForgotten(n)) return;
+    if (e === 'truth' && this.talkAfter(n)) return;
     if (n.kind === 'smith') this.openForge(n);
     else if (n.kind === 'nun') this.talkNun(n);
     else if (n.kind === 'prisoner') this.talkPrisoner(n);
@@ -3169,13 +3200,18 @@ export class GameScene extends Phaser.Scene {
       });
       return;
     }
+    this.forge(n, SMITH.quotes[Math.floor(Math.random() * SMITH.quotes.length)]);
+  }
+
+  // a bancada da forja (quote: o que ele diz em cima)
+  private forge(n: Npc, quote: string) {
     if (ui.open || this.transitioning) return;
     ui.hint(null);
     this.npcs.talking(n, true);
     this.scene.pause();
     ui.forge({
       first: false,
-      quote: SMITH.quotes[Math.floor(Math.random() * SMITH.quotes.length)],
+      quote,
       upgrade: (w) => {
         const lv = progress.level(w);
         if (lv >= MAX_LEVEL) return false;
@@ -3303,7 +3339,7 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(4400, () => {
       p.frozen = false;
       this.cinematic = false;
-      audio.music(this.room.music);
+      audio.music(this.roomMusic());
       ui.thought(ui.format(info.how), 5200, true);
     });
   }
@@ -3503,8 +3539,12 @@ export class GameScene extends Phaser.Scene {
     const info = BOSSES[id];
     const done = progress.seen.has(`boss:${id}`);
     if (id === 'coroado' && done) {
+      // depois do fim ele não está mais lá; no final I fica o que o cavaleiro deixou no chão
+      if (ending()) {
+        if (ending() === 'truth') this.leftOnTerrace();
+        return;
+      }
       // vencido e ainda sem a escolha: ele continua de joelhos no meio do terraço, com a coroa estendida
-      if (ending()) return;
       const b = info.make(this, x, y) as Coroado;
       b.kneelStill();
       this.boss = b;
@@ -3546,6 +3586,25 @@ export class GameScene extends Phaser.Scene {
     if (w) this.dropWeapon(w, this.bossX(x + f * info.drop), y, false);
     if (info.item) this.finds.add(info.item.id, this.bossX(x + f * info.item.dx), y);
     if (info.note) (this.forest ?? this.records).addNote(info.note.id, this.bossX(x + f * info.note.dx), y);
+  }
+
+  // final I: o que ficou no chão do terraço, onde ele deixou. A coroa entre os dois, do lado em que ele estava; a
+  // máscara encostada nela; a foice deitada no lugar dele (se ele não pegou de volta: Save.scytheLeft)
+  private leftOnTerrace() {
+    const k = this.torres?.core;
+    if (!k) return;
+    const f = progress.seen.has('fim:coroa:-1') ? -1 : 1;
+    const cx = k.c + f * 23;
+    const floor = k.floorY;
+    hd(this.add.image(cx, floor - 1, CROWN)).setOrigin(0.5, 22 / 24).setDepth(DEPTH.prop);
+    // a máscara fica de pé, o alto apoiado na coroa (a imagem já vem inclinada para a esquerda)
+    if (this.textures.exists('mascara-chao')) hd(this.add.image(cx + f * 13, floor + 1, 'mascara-chao')).setOrigin(0.5, 1).setFlipX(f < 0).setDepth(DEPTH.prop + 0.1);
+    const scythe = !progress.hasWeapon('scythe');
+    if (scythe && this.textures.exists('foice-chao')) hd(this.add.image(cx + f * 51, floor, 'foice-chao')).setOrigin(0.5, 30 / 32).setFlipX(f < 0).setDepth(DEPTH.prop);
+    if (progress.seen.has('fim:terraco')) return;
+    progress.seen.add('fim:terraco');
+    progress.save();
+    this.time.delayedCall(1400, () => ui.thought(scythe ? 'A coroa continua no chão, onde eu deixei. A máscara e a foice também.' : 'A coroa continua no chão, onde eu deixei. A máscara também.', 4600));
   }
 
   // longe das paredes, para dar para pegar o que o chefe deixa
@@ -3699,13 +3758,133 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  // Vespera depois do fim, na primeira vez: o nome do lugar e o que ele pensa (o resto muda nas salas: AFTER_END)
+  // ---------- Vespera depois do fim ----------
+  // a ponte depois do final I: não chove mais (o resto do mundo segue o tempo de cada sala)
+  private get dry() {
+    return this.room.theme === 'bridge' && ending() === 'truth';
+  }
+
+  // a música da sala; depois do fim, a ponte e o terraço do I tocam a manhã, e o trono e o terraço do II, o rei
+  private roomMusic(): TrackId {
+    const e = ending();
+    const terrace = this.room.boss === 'coroado';
+    if (e === 'truth' && (this.room.theme === 'bridge' || terrace)) return 'aurora';
+    if (e === 'absorb' && (this.room.id === 'trono' || terrace)) return 'rei';
+    return this.room.music;
+  }
+
+  // na volta dos créditos: o nome do lugar e o que ele pensa (o resto muda nas salas, aqui embaixo e no cenário)
   private afterEnd() {
     const e = ending();
     if (!e || e === 'fragments') return;
     const a = AFTER_END[e];
     ui.banner(this.room.title, a.banner, 4200);
-    a.think.forEach((line, i) => this.time.delayedCall(4600 + i * 5000, () => ui.thought(fill(line, progress.knowsHerName), 4600)));
+    const think: string[] = [...a.think];
+    // sem arma de chefe ele pegou a foice de volta no terraço
+    if (e === 'truth' && progress.hasWeapon('scythe')) think[think.length - 1] = AFTER_END.truth.held;
+    think.forEach((line, i) => this.time.delayedCall(4600 + i * 5000, () => ui.thought(fill(line, progress.knowsHerName), 4600)));
+  }
+
+  // final II: quem era gente fica de joelhos, parado, virado para o rei (o desenho fica; o corpo sai do jogo). Os
+  // Arquivados sentados continuam sentados, virados para a mesa
+  private kneel(e: Enemy) {
+    const spr = e.vanish?.();
+    if (!spr) return;
+    const key = spr.texture.key;
+    let pose: [string, number] | undefined = KNEEL_POSE[key];
+    let seated = false;
+    if (key === 'archived') {
+      const cur = spr.anims.currentAnim?.key ?? 'archived-idle-0';
+      const v = cur.slice(-1);
+      seated = cur.includes('-sit-');
+      pose = seated ? [`sit-${v}`, 0] : [`death-${v}`, 5];
+    }
+    const a = pose ? this.anims.get(`${key}-${pose[0]}`) : null;
+    spr.anims.stop();
+    if (a && pose) spr.setFrame(a.frames[Math.min(pose[1], a.frames.length - 1)].textureFrame);
+    if (!seated) face(spr, this.player.x < spr.x);
+    spr.setTint(KNEEL_TINT);
+  }
+
+  // final I: cada um lembra o que tinha pago. Na primeira conversa depois do fim vem tudo; depois, uma fala por
+  // vez (o Brás abre a forja e o Agrimensor a banca na segunda vez, a irmã Luzia volta aos sinos enquanto faltar
+  // algum, e o mineiro ensina o Remendo antes, como sempre). Devolve se a conversa foi esta
+  private talkAfter(n: Npc): boolean {
+    const T = AFTER_TALK.truth;
+    const named = progress.knowsHerName;
+    if (n.kind === 'folk') {
+      const f = T.folk[`${this.room.id}:${n.i}`];
+      if (f) this.afterLines(n, `after:${this.room.id}:${n.i}`, f.name, f.lines);
+      else if (n.i >= CROWD) this.talk(female(n) ? 'Moradora' : 'Morador', [T.crowd[(n.i - CROWD) % T.crowd.length]], n);
+      else return false;
+      return true;
+    }
+    const first = (key: string) => !progress.seen.has(key);
+    if (n.kind === 'nun' && (first('after:nun') || progress.seen.has('quest:sinos:done'))) {
+      this.afterLines(n, 'after:nun', NUN.name, T.nun.map((l) => fill(l, named)));
+      return true;
+    }
+    if (n.kind === 'prisoner' && this.room.id !== 'celas') {
+      this.afterLines(n, 'after:prisoner', PRISONER.name, T.prisoner);
+      return true;
+    }
+    if (n.kind === 'miner' && progress.seen.has('oldminer:met') && progress.powers.has('remendo')) {
+      this.afterLines(n, 'after:miner', OLD_MINER.name, T.miner);
+      return true;
+    }
+    if (n.kind === 'smith' && progress.seen.has('smith:met') && first('after:smith')) {
+      this.afterLines(n, 'after:smith', SMITH.name, T.smith);
+      return true;
+    }
+    if (n.kind === 'surveyor' && progress.seen.has('agrimensor:met') && first('after:surveyor')) {
+      this.afterLines(n, 'after:surveyor', SURVEYOR.name, T.surveyor);
+      return true;
+    }
+    return false;
+  }
+
+  // a primeira conversa depois do fim diz tudo; as outras, uma fala por vez
+  private afterLines(n: Npc, key: string, name: string, lines: string[]) {
+    if (progress.seen.has(key)) {
+      this.talk(name, [lines[n.line++ % lines.length]], n);
+      return;
+    }
+    this.talk(name, lines, n, () => {
+      progress.seen.add(key);
+      progress.save();
+    });
+  }
+
+  // final II: ninguém lembra nem o próprio nome. A conversa é o silêncio, e ele pensa. A irmã Luzia lembra (nasceu
+  // cega: o eclipse não tem o que levar dela), o Brás não sabe quem é mas as mãos ainda lembram o ferro (a forja
+  // abre na segunda vez, em silêncio) e o Agrimensor ainda tem as medidas (a banca abre)
+  private talkForgotten(n: Npc): boolean {
+    const A = AFTER_TALK.absorb;
+    if (n.kind === 'nun') {
+      // (os sinos que faltarem ela ainda quer ouvir)
+      if (progress.seen.has('after:nun') && !progress.seen.has('quest:sinos:done')) return false;
+      this.afterLines(n, 'after:nun', NUN.name, A.nun);
+      return true;
+    }
+    if (n.kind === 'surveyor') {
+      progress.seen.add('agrimensor:met');
+      this.openSurveyor(n, A.surveyor[n.line++ % A.surveyor.length]);
+      return true;
+    }
+    if (n.kind === 'smith' && progress.seen.has('after:smith')) {
+      this.forge(n, '...');
+      return true;
+    }
+    const think =
+      n.kind === 'smith' ? A.smith : n.kind === 'miner' ? A.miner : A.think[n.line++ % A.think.length].replace('{P}', female(n) ? 'Ela' : 'Ele');
+    this.talk(female(n) ? 'Esquecida' : 'Esquecido', ['...'], n, () => {
+      if (n.kind === 'smith') {
+        progress.seen.add('after:smith');
+        progress.save();
+      }
+      ui.thought(think, 4200);
+    });
+    return true;
   }
 
   // o final escolhido: a cena no terraço (world/Finale.ts) e depois o filme pintado (scenes/EndingScene.ts)
@@ -3785,13 +3964,13 @@ export class GameScene extends Phaser.Scene {
         cam.shake(300, 0.004);
         pad.rumble(0.4, 0.7, 320);
         p.sprite.setTint(0x3b2457);
-        this.time.delayedCall(900, () => p.sprite.clearTint());
+        this.time.delayedCall(900, () => p.restoreTint());
         this.applyProgress();
         this.time.delayedCall(350, () => ui.banner(info.name, info.text, 4200));
         this.time.delayedCall(4400, () => {
           p.frozen = false;
           this.cinematic = false;
-          audio.music(this.room.music);
+          audio.music(this.roomMusic());
           ui.thought(ui.format(info.how), 5200, true);
           done();
         });
@@ -4166,9 +4345,11 @@ export class GameScene extends Phaser.Scene {
           show: (w) => !!WEAPONS[w].boss || progress.hasWeapon(w),
           title: 'Trocar arma',
           // save de antes da regra, com uma arma de chefe na mão: a primeira arma de começo usada fica
-          sub: progress.starter
-            ? 'A sua arma do começo e as que os chefes deixaram.'
-            : 'Escolha a sua arma do começo: ela fica com você até o fim e as outras três não voltam.',
+          sub: progress.scytheLeft && progress.starter === 'scythe'
+            ? 'A foice ficou no terraço, com a máscara. Estas são as que os chefes deixaram.'
+            : progress.starter
+              ? 'A sua arma do começo e as que os chefes deixaram.'
+              : 'Escolha a sua arma do começo: ela fica com você até o fim e as outras três não voltam.',
           confirmLabel: 'Usar esta arma',
           onConfirm: (w) => {
             if (!WEAPONS[w].boss) progress.setStarter(w);

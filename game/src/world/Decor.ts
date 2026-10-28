@@ -4,6 +4,7 @@ import { PLANK_H } from '../gfx/textures';
 import { rng } from '../gfx/raster';
 import type { Level } from './Level';
 import type { RoomDef } from './rooms';
+import { ending } from './story';
 
 interface Strand {
   img: Phaser.GameObjects.Image;
@@ -228,7 +229,8 @@ export class Decor {
     this.tufts();
     if (level.theme === 'bridge') {
       this.rails();
-      this.makePuddles();
+      // depois do final I não chove mais: a ponte secou
+      if (ending() !== 'truth') this.makePuddles();
     }
     // a água funda do Vale é pintada pelo próprio Vale (a cor pela profundidade, sem faixas)
     if (level.theme === 'memory' || level.theme === 'vale') {

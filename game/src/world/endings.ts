@@ -58,6 +58,9 @@ export interface Film {
 
 const L = (frame: string, s0: number, s1: number, dx = 0, dy = 0, add = false): FilmLayer => ({ frame, s0, s1, dx, dy, add });
 
+// o número de cada final: no cartão do fim do filme e no menu do título, junto do nome
+export const NUMERAL: Record<EndingId, string> = { truth: 'Final I', absorb: 'Final II', fragments: 'Final III' };
+
 export const FILMS: Record<EndingId, Film> = {
   // Final I: a verdade sem absolvição
   truth: {
@@ -255,14 +258,74 @@ export function credits(named: boolean): { head?: string; big?: boolean; lines: 
 }
 
 // Vespera depois do fim, na volta dos créditos (o III não volta): o que aparece embaixo do nome do lugar e o que
-// ele pensa. O que muda nas salas fica em GameScene (afterEndRoom) e no cenário de cada uma
+// ele pensa. O que muda nas salas fica em GameScene (Vespera depois do fim) e no cenário de cada uma
 export const AFTER_END = {
   truth: {
     banner: 'A primeira manhã',
-    think: ['Não chove. Pela primeira vez, a ponte está seca.', 'A máscara ficou no terraço. Tem gente lá embaixo que ainda precisa de ajuda.'],
+    think: ['Não chove. Pela primeira vez, a ponte está seca.', 'A máscara e a foice ficaram no terraço. Tem gente lá embaixo que ainda precisa de ajuda.'],
+    // sem nenhuma arma de chefe ele pegou a foice de volta (não dá para ajudar ninguém de mãos vazias)
+    held: 'A máscara ficou no terraço. A foice eu peguei de volta: tem gente lá embaixo que ainda precisa de ajuda.',
   },
   absorb: {
     banner: 'O rei',
     think: ['O trono é meu. Ninguém mais lembra de nada que doa.', 'Ninguém lembra de nada.'],
   },
 } as const;
+
+// O que o povo diz depois do fim. No I cada um lembra o que tinha pago: na primeira conversa depois do fim vem
+// tudo, depois uma fala por vez. Os esquecidos que falavam ganham o nome de volta (a sala e a ordem deles nela),
+// e quem voltou para a rua diz uma coisa só. No II ninguém lembra nem o próprio nome: a conversa é o silêncio e o
+// que ele pensa ({P}: Ela ou Ele). Só a irmã Luzia fala, porque nasceu cega e o eclipse não tem o que levar
+// dela; o Brás não sabe quem é, mas as mãos dele ainda lembram o ferro, e o Agrimensor ainda tem as medidas
+export const AFTER_TALK = {
+  truth: {
+    nun: [
+      'Passos de ferro, mas a voz vem sem nada na frente. Você tirou a máscara.',
+      'Os sinos tocaram sozinhos hoje cedo. A cidade inteira lembrou de uma vez. Tem gente chorando na praça, e tem gente rindo.',
+      'Aquele casamento em que eu cantei era o seu, sim. Agora você também lembra.',
+    ],
+    smith: [
+      'Então tem um rosto aí embaixo. Eu já estava achando que a máscara era você.',
+      'Tirei a minha também. Colei com ouro por anos e nunca perguntei o que ela tapava.',
+    ],
+    prisoner: [
+      'Agora eu lembro como foi aquele dia. As duas coisas: você desceu a foice, e depois cortou a minha corda.',
+      'Não vou dizer que está tudo bem. Mas eu estou aqui por causa da segunda.',
+    ],
+    miner: [
+      'Lembrei o meu nome. Otávio. Faz tanto tempo que ninguém chama que parece de outro.',
+      'Vou subir. Lá em cima agora alguém vai lembrar de mim.',
+    ],
+    surveyor: [
+      'As medidas fecharam. Pela primeira vez, o que eu desenhei é o que está lá.',
+      'O Eclipse apagava um pouco de cada sala toda noite. Esta noite não apagou nada.',
+    ],
+    folk: {
+      'praca:0': { name: 'Marta', lines: ['Marta. Eu me chamo Marta.', 'Eram os dois: uma filha e um cachorro. Ela se chama Lia e mora do outro lado da ponte. Hoje eu vou lá.'] },
+      'praca:1': { name: 'Bento', lines: ['Bento. Fui eu que preguei as tábuas do cadafalso. Agora eu lembro de cada uma.', 'Amanhã eu desmonto, tábua por tábua, do jeito que montei.'] },
+      'mercado:0': { name: 'Iara', lines: ['Davi. O meu irmão se chama Davi. A lembrança do mar era dele também: a gente ia junto.', 'Voltou tudo, até o sal. Eu sou a Iara. Fazia tempo que eu não precisava dizer.'] },
+      'rua:0': { name: 'Célia', lines: ['Lembrei o caminho de casa. São três ruas para lá, e eu passava na porta todo dia.', 'Me chamo Célia. Pode pisar nos incensários agora: apagaram.'] },
+      'claustro:0': { name: 'Joana', lines: ['As irmãs voltaram a cantar. A irmã Luzia vem reger à tarde, de olhos fechados como sempre.', 'Eu sou a Joana. Era a voz mais baixa do coro. Ainda sou.'] },
+    } as Record<string, { name: string; lines: string[] }>,
+    // quem voltou para a rua
+    crowd: [
+      'Bom dia. Fazia tempo que eu não dizia isso para ninguém.',
+      'Você viu a ponte? Está seca.',
+      'Lembrei a cara da minha mãe. Fiquei parado aqui o tempo todo, só olhando para ela.',
+      'Desculpe, eu estou chorando à toa. É que voltou tudo de uma vez.',
+      'Vou abrir a loja de novo. Não sei se alguém ainda tem moeda.',
+      'Meu pai morava naquela casa. Eu passava por ela todo dia e não sabia.',
+    ],
+  },
+  absorb: {
+    nun: [
+      'Passos de ferro, e o ouro de uma coroa batendo. Eu sei quem é.',
+      'A cidade esqueceu de novo, de uma vez só. O eclipse não tem o que levar de mim: eu continuo lembrando, por todos.',
+      'Pode ir. Alguém tem que lembrar, e vai ser eu.',
+    ],
+    think: ['Não lembra o próprio nome. Ninguém aqui lembra.', '{P} olha para mim e não vê ninguém.', 'Estão em paz. Era o que eu queria.'],
+    smith: 'Ele não sabe quem é. As mãos dele ainda lembram o ferro. Só as mãos.',
+    miner: 'Ele olha para a pedra como quem espera que ela diga o nome dele.',
+    surveyor: ['Quem é você? Tanto faz. A folha custa moedas.', 'O que tem medida não some. Eu não lembro de onde vim, mas sei quantos passos tem daqui até a parede.'],
+  },
+};

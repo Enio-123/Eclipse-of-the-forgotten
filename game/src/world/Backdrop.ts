@@ -4,6 +4,8 @@ import type { Level } from './Level';
 import { screenOrigin } from '../gfx/view';
 import { hd, hdScale } from '../gfx/flip';
 import { hdBackdrop, hdKey } from '../gfx/hdAssets';
+import { SKY_ECLIPSE, bigEclipse } from '../gfx/eclipse';
+import { ending } from './story';
 
 type Layer = Phaser.GameObjects.Image | Phaser.GameObjects.TileSprite;
 
@@ -21,16 +23,23 @@ export const HD_LAYERS: Record<string, string[]> = {
 // as salas das Torres que ficam dentro de uma torre (sem céu)
 export const TORRES_INSIDE = new Set(['arquivo', 'experiencias', 'engrenagens', 'trono', 'coroacao']);
 
+// depois do final I o eclipse acabou: os céus que mostravam ele amanhecem (o mesmo céu pintado, com o sol no
+// lugar do eclipse e sem as estrelas; art2/aurora.py). O do cais é a noite da lembrança e fica
+const DAWN = new Set(['bridge-sky', 'city-sky', 'vale-sky']);
+export const skyKey = (k: string) => (ending() === 'truth' && DAWN.has(k) ? `${k}-aurora` : k);
+// a cor do fundo da câmera quando a sala amanhece (a do pé de cada céu da manhã)
+const DAWN_BG: Record<string, number> = { bridge: 0xaab6c8, city: 0xa9b0c4, vale: 0xf3e4d4, torres: 0xf3e4d4 };
+
 // as imagens de fundo que a sala usa (vêm quando ela abre: gfx/roomAssets.ts); as nuvens ficam sempre,
 // a tela de título usa também
 export function backdropKeys(theme: string, room: string): string[] {
   switch (theme) {
     case 'bridge':
-      return ['bridge-sky', 'bridge-far', 'bridge-far-rim', 'bridge-mid', 'bridge-mid-rim', 'bridge-fg'];
+      return [skyKey('bridge-sky'), 'bridge-far', 'bridge-far-rim', 'bridge-mid', 'bridge-mid-rim', 'bridge-fg'];
     case 'catacomb':
       return ['cat-far', 'cat-mid'];
     case 'city':
-      return ['city-sky', 'city-far', room === 'claustro' ? 'claustro-mid' : 'city-mid'];
+      return [skyKey('city-sky'), 'city-far', room === 'claustro' ? 'claustro-mid' : 'city-mid'];
     case 'nave':
       return ['nave-far', 'nave-mid'];
     case 'prison':
@@ -44,13 +53,13 @@ export function backdropKeys(theme: string, room: string): string[] {
     case 'vale':
       // as Cachoeiras são uma garganta (o paredão molhado dos dois lados), a gruta é pedra por todo lado e
       // o cais é a noite de lua cheia da lembrança
-      if (room === 'cachoeiras') return ['vale-sky', 'cascata-far', 'cascata-mid'];
+      if (room === 'cachoeiras') return [skyKey('vale-sky'), 'cascata-far', 'cascata-mid'];
       if (room === 'gruta') return ['gruta-far', 'gruta-mid'];
       if (room === 'cais') return ['cais-sky', 'cais-far', 'cais-mid'];
-      return ['vale-sky', 'vale-far', 'vale-mid'];
+      return [skyKey('vale-sky'), 'vale-far', 'vale-mid'];
     case 'torres':
       // ao ar livre, o céu do eclipse por cima do mar de nuvens; por dentro das torres, só a pedra
-      return TORRES_INSIDE.has(room) ? [] : ['vale-sky'];
+      return TORRES_INSIDE.has(room) ? [] : [skyKey('vale-sky')];
     default:
       return ['mem-sky', 'mem-far', 'mem-mid'];
   }
@@ -67,6 +76,8 @@ export class Backdrop {
   private fgKey: string | null;
   private fg: Phaser.GameObjects.TileSprite | null = null;
   private fgA = 0.92;
+  // a sala amanheceu (final I): o céu dela é o da manhã
+  private dawn = false;
   // canto da tela na câmera com zoom: as camadas presas à tela começam aqui
   private so: { x: number; y: number };
 
@@ -87,7 +98,19 @@ export class Backdrop {
     else this.memory();
     const valeBg = room === 'gruta' ? 0x070b0d : room === 'cais' ? 0x0f1a36 : 0x8a7f9c;
     const torresBg = TORRES_INSIDE.has(room) ? 0x0b0908 : 0x6b4a32;
-    this.bg = { bridge: 0x161a2b, catacomb: 0x07080d, city: 0x0b1020, nave: 0x07080d, memory: 0x5c9a3e, prison: 0x08070b, mine: 0x0a0807, snow: 0x9fb3c8, vale: valeBg, torres: torresBg }[theme];
+    const dawn = this.dawn ? DAWN_BG[theme] : undefined;
+    this.bg = dawn ?? { bridge: 0x161a2b, catacomb: 0x07080d, city: 0x0b1020, nave: 0x07080d, memory: 0x5c9a3e, prison: 0x08070b, mine: 0x0a0807, snow: 0x9fb3c8, vale: valeBg, torres: torresBg }[theme];
+  }
+
+  // o céu da sala: o da manhã depois do final I (se ele veio), senão o de sempre
+  private sky(key: string) {
+    const k = skyKey(key);
+    const tm = this.scene.textures;
+    if (k !== key && tm.exists(k)) {
+      this.dawn = true;
+      return k;
+    }
+    return tm.exists(key) ? key : null;
   }
 
   private img(key: string, depth: number) {
@@ -172,7 +195,11 @@ export class Backdrop {
 
   private bridge() {
     const baseY = 125;
-    const sky = this.img('bridge-sky', BG.sky);
+    const sky = this.img(this.sky('bridge-sky') ?? 'bridge-sky', BG.sky);
+    const dawn = this.dawn;
+    // o novo Eclipse do final II, maior que o pintado (anda junto com o céu)
+    const E = SKY_ECLIPSE.bridge;
+    const ecl = ending() === 'absorb' ? bigEclipse(this.scene, 0, 0, E.r, BG.sky + 0.05).setScrollFactor(0) : null;
     const cf = this.tile('clouds-far', BG.cloudsFar, 200, 110);
     const far = this.img('bridge-far', BG.far);
     const farRim = this.img('bridge-far-rim', BG.far + 0.1).setAlpha(0);
@@ -181,6 +208,12 @@ export class Backdrop {
     const midRim = this.tile('bridge-mid-rim', BG.mid + 0.1, 420).setAlpha(0);
     const fog = this.tile('fog', BG.fog, 140, 236).setAlpha(0.55);
     const fg = this.tile('bridge-fg', FG_DEPTH, 420);
+    if (dawn) {
+      // a manhã: as nuvens e a névoa pegam a luz quente do sol (como na tela de título)
+      cf.setTint(0xffe2c6).setAlpha(0.6);
+      cn.setTint(0xf0d8c4).setAlpha(0.5);
+      fog.setTint(0xffe6d2);
+    }
     this.rims.push(farRim, midRim);
     this.layers.push(
       { o: cf, update: (sx, _sy, t) => this.tx(cf, sx * 0.04 + t * 0.003) },
@@ -192,6 +225,7 @@ export class Backdrop {
           const x = this.so.x + Math.round(-310 - (sx / this.maxX) * 150);
           const y = this.so.y + Math.round(-10 - (sy - baseY) * 0.08);
           sky.setPosition(x, y);
+          ecl?.setPosition(x + E.x, y + E.y);
           far.setPosition(x, y);
           farRim.setPosition(x, y);
         },
@@ -222,6 +256,12 @@ export class Backdrop {
     );
   }
 
+  // o novo Eclipse do final II por cima do pintado no céu preso na tela (e: o centro e o raio dele no céu)
+  private newEclipse(e: { x: number; y: number; r: number }) {
+    if (ending() !== 'absorb') return;
+    bigEclipse(this.scene, this.so.x + e.x, this.so.y + e.y, e.r, BG.sky + 0.05).setScrollFactor(0);
+  }
+
   private catacomb() {
     const far = this.tile('cat-far', BG.far);
     const mid = this.tile('cat-mid', BG.mid);
@@ -242,7 +282,9 @@ export class Backdrop {
   // Cidade-Catedral, de fora: céu do eclipse preso na tela, a cidade alta e a catedral ao longe,
   // casas mais perto e névoa na altura da rua (fundos no traço liso, terreno em pixel)
   private city() {
-    hd(this.img('city-sky', BG.sky));
+    const key = this.sky('city-sky');
+    if (key) hd(this.img(key, BG.sky));
+    this.newEclipse(SKY_ECLIPSE.city);
     const far = this.hdTile('city-far', BG.far, 400);
     // no claustro, a arcada do outro lado do jardim no lugar das casas
     const mid = this.hdTile(this.room === 'claustro' ? 'claustro-mid' : 'city-mid', BG.mid, 420);
@@ -461,7 +503,9 @@ export class Backdrop {
     // a gruta não tem céu: só as duas camadas de pedra
     const keys = backdropKeys('vale', room);
     const [farKey, midKey] = keys.slice(-2);
-    if (keys.length === 3 && has(keys[0])) hd(this.img(keys[0], BG.sky));
+    const skyImg = keys.length === 3 ? this.sky(keys[0].replace(/-aurora$/, '')) : null;
+    if (skyImg) hd(this.img(skyImg, BG.sky));
+    if (skyImg === 'vale-sky') this.newEclipse(SKY_ECLIPSE.vale);
     const far = has(farKey) ? this.hdTile(farKey, BG.far, VIEW_H) : null;
     const mid = has(midKey) ? this.hdTile(midKey, BG.mid, VIEW_H) : null;
     if (far) {
@@ -492,7 +536,7 @@ export class Backdrop {
       this.layers.push({ o: glow, update: (_sx, _sy, t) => void (glow.alpha = 0.08 + 0.03 * Math.sin(t * 0.0011) + 0.015 * Math.sin(t * 0.0037)) });
       return;
     }
-    const fog = this.tile('fog', BG.fog, 140, 236).setAlpha(night ? 0.2 : 0.26).setTint(night ? 0x8fa4cc : 0xffe6c4);
+    const fog = this.tile('fog', BG.fog, 140, 236).setAlpha(night ? 0.2 : 0.26).setTint(night ? 0x8fa4cc : this.dawn ? 0xfff4e6 : 0xffe6c4);
     this.layers.push({
       o: fog,
       update: (sx, sy, t) => {
@@ -500,7 +544,8 @@ export class Backdrop {
         fog.y = this.so.y + 236 + Math.round(this.lift(sy) * 0.4);
       },
     });
-    // a luz baixa entra de lado, em fachos dourados compridos (no cais, o luar fraco e frio)
+    // a luz baixa entra de lado, em fachos dourados compridos (no cais, o luar fraco e frio; de manhã, o sol,
+    // mais branco)
     const beams: readonly (readonly [number, number, number])[] = night
       ? [[140, 0.05, -0.32], [300, 0.035, -0.2]]
       : room === 'cachoeiras'
@@ -508,7 +553,7 @@ export class Backdrop {
         : [[60, 0.12, -0.62], [260, 0.08, -0.55], [470, 0.1, -0.68]];
     for (const [x, a, rot] of beams) {
       const beam = this.scene.add.image(x + this.so.x * 0.7, -40 + this.so.y * 0.9, 'beam').setOrigin(0.5, 0).setScale(night ? 2.0 : 2.6, 3.4).setRotation(rot).setAlpha(a)
-        .setTint(night ? 0xc8d8ff : 0xffd79a).setBlendMode(add).setScrollFactor(0.3, 0.1).setDepth(BG.beams);
+        .setTint(night ? 0xc8d8ff : this.dawn ? 0xfff0d2 : 0xffd79a).setBlendMode(add).setScrollFactor(0.3, 0.1).setDepth(BG.beams);
       this.layers.push({ o: beam, update: (_sx, _sy, t) => void (beam.alpha = a * (0.7 + 0.3 * Math.sin(t * 0.0004 + x))) });
     }
   }
@@ -517,16 +562,21 @@ export class Backdrop {
   private torres() {
     const room = this.room;
     if (TORRES_INSIDE.has(room)) return;
-    const has = (k: string) => this.scene.textures.exists(k);
-    if (has('vale-sky')) hd(this.img('vale-sky', BG.sky)).setTint(0xd8b48a);
+    const skyImg = this.sky('vale-sky');
+    if (skyImg) {
+      // a luz dourada de baixo, do mar de nuvens, esquenta o céu (de manhã bem menos: o sol está lá em cima)
+      hd(this.img(skyImg, BG.sky)).setTint(this.dawn ? 0xfff0e0 : 0xd8b48a);
+      this.newEclipse(SKY_ECLIPSE.vale);
+    }
     const add = Phaser.BlendModes.ADD;
-    const glow = this.scene.add.image(this.so.x + VIEW_W / 2, this.so.y + VIEW_H + 40, 'glow').setScale(26, 6).setTint(0xffc46a).setAlpha(0.22)
+    // o mar de nuvens devolve a luz: de manhã ela é a do sol, mais branca
+    const glow = this.scene.add.image(this.so.x + VIEW_W / 2, this.so.y + VIEW_H + 40, 'glow').setScale(26, 6).setTint(this.dawn ? 0xfff0d6 : 0xffc46a).setAlpha(0.22)
       .setBlendMode(add).setScrollFactor(0).setDepth(BG.fog);
     this.layers.push({ o: glow, update: (_sx, sy, t) => {
       glow.alpha = 0.2 + 0.03 * Math.sin(t * 0.0008);
       glow.y = this.so.y + VIEW_H + 40 + Math.round(this.lift(sy) * 0.3);
     } });
-    const fog = this.tile('fog', BG.fog, 160, 220).setAlpha(0.3).setTint(0xffd9a0);
+    const fog = this.tile('fog', BG.fog, 160, 220).setAlpha(0.3).setTint(this.dawn ? 0xfff2e2 : 0xffd9a0);
     this.layers.push({
       o: fog,
       update: (sx, sy, t) => {
