@@ -20,8 +20,9 @@ export const HD_LAYERS: Record<string, string[]> = {
   memory: ['mem-sky', 'mem-far', 'mem-mid'],
 };
 
-// as salas das Torres que ficam dentro de uma torre (sem céu)
-export const TORRES_INSIDE = new Set(['arquivo', 'experiencias', 'engrenagens', 'trono', 'coroacao']);
+// as salas das Torres que ficam dentro de uma torre (sem céu; a das Experiências tem a ponte coberta do lado de
+// fora, e o céu aparece só lá: a parede do fundo cobre o resto)
+export const TORRES_INSIDE = new Set(['arquivo', 'engrenagens', 'trono', 'coroacao']);
 
 // depois do final I o eclipse acabou: os céus que mostravam ele amanhecem (o mesmo céu pintado, com o sol no
 // lugar do eclipse e sem as estrelas; art2/aurora.py). O do cais é a noite da lembrança e fica

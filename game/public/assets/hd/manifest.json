@@ -1028,6 +1028,290 @@
      "h": 800.0
     }
    ]
+  },
+  "escada": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-escada-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 1408.0,
+     "h": 1344.0
+    },
+    {
+     "file": "t-escada-1.webp",
+     "x": 1408.0,
+     "y": 0.0,
+     "w": 1408.0,
+     "h": 1344.0
+    }
+   ]
+  },
+  "arquivo": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-arquivo-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 1280.0,
+     "h": 1536.0
+    }
+   ]
+  },
+  "arquivo-secret": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-arquivo-secret-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 1280.0,
+     "h": 1536.0
+    }
+   ]
+  },
+  "calha": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-calha-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 1920.0,
+     "h": 768.0
+    },
+    {
+     "file": "t-calha-1.webp",
+     "x": 1920.0,
+     "y": 0.0,
+     "w": 1920.0,
+     "h": 768.0
+    }
+   ]
+  },
+  "coroacao": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-coroacao-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 1024.0,
+     "h": 1984.0
+    }
+   ]
+  },
+  "engrenagens": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-engrenagens-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 1152.0,
+     "h": 1200.0
+    },
+    {
+     "file": "t-engrenagens-1.webp",
+     "x": 0.0,
+     "y": 1200.0,
+     "w": 1152.0,
+     "h": 1200.0
+    }
+   ]
+  },
+  "experiencias": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-experiencias-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 1440.0,
+     "h": 1152.0
+    }
+   ]
+  },
+  "nucleo": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-nucleo-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 2048.0,
+     "h": 1024.0
+    }
+   ]
+  },
+  "patio": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-patio-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 1200.0,
+     "h": 1024.0
+    },
+    {
+     "file": "t-patio-1.webp",
+     "x": 1200.0,
+     "y": 0.0,
+     "w": 1200.0,
+     "h": 1024.0
+    }
+   ]
+  },
+  "trono": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-trono-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 1600.0,
+     "h": 768.0
+    }
+   ]
+  },
+  "arquivo-parede": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-arquivo-parede-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 1280.0,
+     "h": 1536.0
+    }
+   ]
+  },
+  "calha-parede": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-calha-parede-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 1920.0,
+     "h": 768.0
+    },
+    {
+     "file": "t-calha-parede-1.webp",
+     "x": 1920.0,
+     "y": 0.0,
+     "w": 1920.0,
+     "h": 768.0
+    }
+   ]
+  },
+  "coroacao-parede": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-coroacao-parede-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 1024.0,
+     "h": 1984.0
+    }
+   ]
+  },
+  "engrenagens-parede": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-engrenagens-parede-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 1152.0,
+     "h": 1200.0
+    },
+    {
+     "file": "t-engrenagens-parede-1.webp",
+     "x": 0.0,
+     "y": 1200.0,
+     "w": 1152.0,
+     "h": 1200.0
+    }
+   ]
+  },
+  "escada-parede": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-escada-parede-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 1408.0,
+     "h": 1344.0
+    },
+    {
+     "file": "t-escada-parede-1.webp",
+     "x": 1408.0,
+     "y": 0.0,
+     "w": 1408.0,
+     "h": 1344.0
+    }
+   ]
+  },
+  "experiencias-parede": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-experiencias-parede-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 1440.0,
+     "h": 1152.0
+    }
+   ]
+  },
+  "nucleo-parede": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-nucleo-parede-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 2048.0,
+     "h": 1024.0
+    }
+   ]
+  },
+  "patio-parede": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-patio-parede-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 1200.0,
+     "h": 1024.0
+    },
+    {
+     "file": "t-patio-parede-1.webp",
+     "x": 1200.0,
+     "y": 0.0,
+     "w": 1200.0,
+     "h": 1024.0
+    }
+   ]
+  },
+  "trono-parede": {
+   "scale": 2.0,
+   "pieces": [
+    {
+     "file": "t-trono-parede-0.webp",
+     "x": 0.0,
+     "y": 0.0,
+     "w": 1600.0,
+     "h": 768.0
+    }
+   ]
   }
  },
  "backdrop": {

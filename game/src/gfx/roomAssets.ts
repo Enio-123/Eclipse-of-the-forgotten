@@ -23,6 +23,12 @@ const ROOM_IMAGES = new Set([
   'terrain-descida', 'terrain-prado', 'terrain-riacho', 'terrain-cachoeiras', 'terrain-gruta', 'terrain-prainha', 'terrain-rio', 'terrain-cais',
   'pinhos-descida', 'pinhos-prado', 'pinhos-riacho', 'pinhos-cachoeiras', 'pinhos-gruta', 'pinhos-prainha', 'pinhos-rio', 'pinhos-cais',
   'flores-prado-0', 'flores-prado-1',
+  // Torres Rúnicas (art2/torres.py)
+  'terrain-escada', 'terrain-calha', 'terrain-patio', 'terrain-arquivo', 'terrain-arquivo-secret', 'terrain-experiencias', 'terrain-engrenagens',
+  'terrain-trono', 'terrain-coroacao', 'terrain-nucleo',
+  // a parede do fundo de cada sala das Torres (art2/torres_parede.py)
+  'parede-escada', 'parede-calha', 'parede-patio', 'parede-arquivo', 'parede-experiencias', 'parede-engrenagens',
+  'parede-trono', 'parede-coroacao', 'parede-nucleo',
   'bridge-sky', 'bridge-sky-aurora', 'bridge-far', 'bridge-far-rim', 'bridge-mid', 'bridge-mid-rim', 'bridge-fg', 'cat-far', 'cat-mid', 'mem-sky', 'mem-far', 'mem-mid',
   'city-sky', 'city-sky-aurora', 'city-far', 'city-mid', 'claustro-mid', 'nave-far', 'nave-mid', 'prison-far', 'prison-mid', 'fosso-far', 'fosso-mid',
   'mine-far', 'mine-mid', 'snow-sky', 'snow-far', 'snow-mid', 'mata-far', 'mata-mid', 'serra-far', 'serra-mid',
@@ -35,7 +41,7 @@ const ROOM_IMAGES = new Set([
 export const ROOM_SHEETS = new Set(['sineiro', 'arcebispo', 'carcereira', 'sombra', 'capataz', 'cacador', 'barqueiro', 'vhalor', 'coroado']);
 
 export function roomImages(room: RoomDef) {
-  const keys = [`terrain-${room.id}`, `terrain-${room.id}-secret`, `pinhos-${room.id}`, `flores-${room.id}-0`, `flores-${room.id}-1`, ...backdropKeys(room.theme, room.id)];
+  const keys = [`terrain-${room.id}`, `terrain-${room.id}-secret`, `pinhos-${room.id}`, `parede-${room.id}`, `flores-${room.id}-0`, `flores-${room.id}-1`, ...backdropKeys(room.theme, room.id)];
   if (room.boss === 'coroado' && ending() === 'truth') keys.push('mascara-chao', 'foice-chao');
   return keys.filter((k) => ROOM_IMAGES.has(k));
 }

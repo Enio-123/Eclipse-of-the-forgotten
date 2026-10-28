@@ -13,7 +13,7 @@ from PIL import Image
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ART = os.path.join(HERE, 'art2')
 OUT = os.path.join(HERE, 'game', 'public', 'assets', 'hd')
-SRC_DIRS = [os.path.join(ART, d) for d in ('hd_x', 'hd', 'hd_prisao', 'hd_fosso', 'hd_minas', 'hd_extreme', 'hd_floresta', 'hd_vale')]
+SRC_DIRS = [os.path.join(ART, d) for d in ('hd_x', 'hd', 'hd_prisao', 'hd_fosso', 'hd_minas', 'hd_extreme', 'hd_floresta', 'hd_vale', 'hd_torres')]
 MAX = 4096
 Q = 88
 
@@ -76,7 +76,7 @@ def main():
     for f in os.listdir(OUT):
         if f.startswith('t-') and f.endswith('.webp'):
             room = f[2:f.rindex('-')]
-            if not only or room.replace('-secret', '').replace('-pinhos', '') in only:
+            if not only or room.replace('-secret', '').replace('-pinhos', '').replace('-parede', '') in only:
                 os.remove(os.path.join(OUT, f))
     for room in rooms:
         if only and room.replace('-secret', '') not in only:
@@ -103,6 +103,14 @@ def main():
             man['terrain'][f'{room}-pinhos'] = {'scale': scale, 'pieces': pieces}
             total += size
             print(f'{room + "-pinhos":18s} {len(pieces)} pedaços {size // 1024} KB')
+        # a parede do fundo das Torres (atrás de tudo o que não é céu)
+        src = find(f'parede-{room}-2x.png')
+        if src:
+            im = Image.open(src).convert('RGBA')
+            pieces, size = chunks(im, f't-{room}-parede', scale)
+            man['terrain'][f'{room}-parede'] = {'scale': scale, 'pieces': pieces}
+            total += size
+            print(f'{room + "-parede":18s} {len(pieces)} pedaços {size // 1024} KB')
     if not only:
         for key in BACKDROPS:
             src = find(f'{key}.png')

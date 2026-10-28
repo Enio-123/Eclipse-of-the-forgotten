@@ -18,6 +18,7 @@ GOLD = [hexc(0xb4702e), hexc(0xe7ad55), hexc(0xfff0c8)]
 WIN = [hexc(0xd9772e), hexc(0xffc46e)]
 FOREST = ['encosta', 'pinhal', 'lago', 'mata', 'cabana', 'serra', 'clareira']
 VALE = ['descida', 'prado', 'riacho', 'cachoeiras', 'gruta', 'prainha', 'rio', 'cais']
+TORRES = ['escada', 'calha', 'patio', 'arquivo', 'experiencias', 'engrenagens', 'trono', 'coroacao', 'nucleo']
 
 # tipo de cada camada: 'opaque' (sem transparência), 'soft' (alfa suave em 16 níveis), 'exact'
 # (já está em 1x com o alfa certo, como o terreno, que segue a física) ou 'veil' (já em 1x, alfa
@@ -115,6 +116,18 @@ THEMES = {
         accents=[hexc(0xffe6ef), hexc(0xf6b6cd), hexc(0xe48aac), hexc(0xd9e07c), hexc(0x79b04e), hexc(0xe9c99c), hexc(0xd8ecf2),
                  hexc(0xf6f9fd), hexc(0x24161a)],
         colors=160,
+    ),
+    # Torres Rúnicas: a cantaria escura com o bronze nas juntas (exato, segue a física), a estante falsa do
+    # Arquivo (véu) e as paredes do fundo de cada sala, com alfa suave
+    'torres': dict(
+        layers={**{f'terreno-{n}': 'exact' for n in TORRES}, 'terreno-arquivo-secret': 'veil',
+                **{f'parede-{n}': 'soft1x' for n in TORRES}},
+        rename={**{f'terreno-{n}': f'terrain-{n}' for n in TORRES}, 'terreno-arquivo-secret': 'terrain-arquivo-secret'},
+        accents=[hexc(0xf0cf88), hexc(0xb98442), hexc(0xffbe6a), hexc(0x6fa594), hexc(0x3d7064), hexc(0x9a92c0), hexc(0xffb04a),
+                 hexc(0x0c0b10)],
+        colors=144,
+        # a parede do fundo de cada sala tem as cores dela (madeira, azulejo, estandarte, vidro aceso)
+        own={f'parede-{n}': 112 for n in TORRES},
     ),
     'forest': dict(
         layers={'intro-back': 'opaque', 'intro-near': 'soft', 'intro-fore': 'soft', 'intro-beams': 'soft'},
