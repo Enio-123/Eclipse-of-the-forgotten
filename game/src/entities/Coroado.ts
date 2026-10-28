@@ -868,7 +868,9 @@ export class Coroado implements BossFoe {
     const hx = this.head.x;
     const hy = this.head.y - 60;
     picked.forEach((slot, i) => {
-      const x = this.x0 + 12 + slot * 30 + 15 + (Math.random() - 0.5) * 10;
+      // a primeira mira o cavaleiro mesmo (não o meio do pedaço onde ele está)
+      const aim = i === 0 && slot === mine;
+      const x = aim ? Phaser.Math.Clamp(p.x, this.x0 + 12, this.x1 - 12) : this.x0 + 12 + slot * 30 + 15 + (Math.random() - 0.5) * 10;
       const glint = s.add.image(x, this.floorY - 2, 'glow').setTint(0xffb040).setBlendMode(Phaser.BlendModes.ADD).setScale(0.2, 0.1).setAlpha(0).setDepth(DEPTH.enemy + 0.3);
       const img = hd(s.add.image(hx, hy, 'coroado', 'bead')).setDepth(DEPTH.enemy + 0.2).setVisible(false);
       this.beads.push({ x, y: hy, t: -i * C.beadStep, warn: C.beadWarn, falling: false, img, glint, done: false });

@@ -288,6 +288,60 @@ Feito na T5 (`game/src/world/story.ts`, `VERSIONS` e `ESSENTIAL` em `lore.ts`, a
   planos lidos e corrupção baixa (final I inteiro). `whole` = `truth` mais todas as memórias dele e dela
   guardadas e os 4 registros do núcleo (final III).
 
+## O Carrasco Coroado no jogo (T6)
+
+Feito na T6 (`game/src/entities/Coroado.ts`, os números em `COROADO` no `config.ts`, a arte em
+`art2/coroado.py`, a escolha em `ui.crown` e `GameScene.crownChoice`).
+
+- **A arena**: o terraço no alto do núcleo, de uma borda da torre à outra (x 736 a 1312, o meio em 1024,
+  o chão em 704), com o alçapão da escada no caminho e as duas agulhas rúnicas nas pontas. Ele dorme no
+  mar de nuvens. Quando o cavaleiro chega, o alçapão fecha, a câmera trava e ele sobe das nuvens (4,6 s na
+  primeira vez, 2,2 s nas outras) e fecha as mãos nas agulhas.
+- **Vida**: 112. Na metade do colosso (80) ele acelera: pensa menos entre os golpes, solta 13 contas em
+  vez de 9 e deixa o punho e a cabeça menos tempo no chão. Quando a vida chega a 48, o colosso cai.
+- **Fase 1, o colosso** (só o tronco, os braços e a cabeça acima do terraço). A máscara leva golpe o
+  tempo todo (pulando ou com a Capa de Luz); os punhos no chão levam três quartos do dano.
+  - O punho: o braço do lado do cavaleiro sobe e segue ele, trava no fim (a sombra no chão avisa) e cai
+    em cima dele. Do impacto sai uma onda rente ao chão para cada lado (pule). Às vezes o outro punho já
+    sobe na emenda.
+  - A foice por cima: pendurada no punho erguido, ela balança de uma ponta à outra. No meio passa rente
+    ao chão (pulando passa), nas pontas fica alta.
+  - A foice por baixo: a haste sobe de trás da borda do terraço, com a mão escondida embaixo da borda. No
+    meio ela passa por cima de quem fica em pé (pulando pega).
+  - A chuva de contas: as contas de Âmbar saltam do capuz e caem, cada uma com um brilho de aviso no
+    chão. A primeira mira o cavaleiro, e sempre sobra um vão sem nenhuma. A que acerta diz uma acusação
+    em voz baixa ("Trezentos e doze.", "Você não lia as ordens.", "Ela chamou. Você não se virou.", "A
+    ordem estava no outro bolso.", "Você subiu por último.", "O machado nunca falhou no tablado.").
+  - A cabeça desce: ele apoia as mãos no terraço, com os cotovelos para cima, e a cabeça desce até o
+    chão (machuca embaixo na descida, e uma onda sai para cada lado). No chão, a máscara leva golpe e meio.
+- **O colosso vira pó** de cima para baixo (a cabeça, os ombros e os braços, os antebraços e as mãos, o
+  peito), cada parte com um estouro de luz e poeira. A coroa grande cai no meio do terraço e o carrasco
+  dourado se forma nela, de coroa pequena.
+- **Fase 2, o espelho** (vida 48): o carrasco dourado, do tamanho dele, faz o que o cavaleiro fez, do outro
+  lado do meio e com atraso (0,55 s; 0,35 s depois da metade). Cada golpe que acerta trava ele um
+  instante. A cada 6 a 8 s ele investe dizendo uma justificativa ("Eles sabiam demais.", "Ela ia destruir
+  o reino.", "Você só cumpriu a ordem.", "Alguém tinha de descer o machado.", "Sem a Coroação, ninguém
+  dormiria em paz."). A investida aparada deixa ele tonto (1,6 s), e o golpe nele vale golpe e meio.
+- **Fase 3, a escolha**: vencido, ele se ajoelha no meio do terraço com a coroa estendida, e o alçapão
+  abre. A tela da coroa abre sozinha e lê o que ele já sabe da noite (`night()`):
+  - **Aceitar a verdade**: inteira com `truth`. Sem isso, apagada, com o que falta: memórias essenciais
+    (x de 9), "A noite ainda está na versão que dói menos", memórias de duas versões ainda sem prova, os
+    planos da Casa (x de 5) e "A máscara está rachada demais".
+  - **Absorver**: sempre.
+  - **Carregar os fragmentos**: só com `whole`.
+  - **Ainda não**: a tela fecha e ele continua de joelhos. Quem volta ao núcleo encontra ele lá, com o
+    alçapão aberto; perto dele, {up} abre a escolha de novo.
+- **Até a T7**: a escolha fica gravada no save (`ending:<id>`) e o jogo fecha com o cartão do final (o
+  nome e as primeiras linhas, `ENDINGS` em `lore.ts`). As cenas, os créditos e Vespera depois do fim são
+  da T7.
+- **Arte** (`coroado.png`, um atlas de 1024x800, e `coroado.json`): pintada com relevo, contorno e uma
+  borda fria do céu. O colosso vem em partes: capuz e máscara, peito, ombreiras, braço, antebraço, punho,
+  a mão que agarra a agulha, a foice, as contas, o núcleo de Âmbar e as duas coroas. A máscara é a mesma
+  do HUD. Os ombros ficam a 120 px do meio, e as mãos se fecham em volta das agulhas, onde há uma luva de
+  bronze para a pegada. O ombro e o braço ficam sempre atrás do terraço; só o antebraço e o punho vêm
+  para a frente quando ele bate. O carrasco dourado é a folha do cavaleiro com um filtro de ouro e brilho.
+- **Teste**: `tools/torres.cjs`, parte `carrasco`.
+
 ## Arte
 
 - A pintura a óleo inteira: pinceladas grossas e coloridas em espiral nas nuvens, na luz e no ouro (o
@@ -307,7 +361,8 @@ Feito na T5 (`game/src/world/story.ts`, `VERSIONS` e `ESSENTIAL` em `lore.ts`, a
 4. T4 chefe do meio: o Senhor de Vhalor e o Cetro. Feito.
 5. T5 sistema da história: versões confirmadas por prova, corrupção na máscara, aba A Noite, os registros
    e as memórias das Torres. Feito.
-6. T6 chefe final: o Carrasco Coroado (colosso e espelho) e a escolha.
+6. T6 chefe final: o Carrasco Coroado (colosso e espelho) e a escolha. Feito (as cenas dos finais ficam para
+   a T7).
 7. T7 finais: as três cenas, os créditos, Vespera depois do fim.
 8. T8 arte e áudio: terreno, fundos pintados, adereços, música do fim.
 9. T9 lore, testes, regressão e publicação (v20).

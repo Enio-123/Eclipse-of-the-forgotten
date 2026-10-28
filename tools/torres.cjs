@@ -145,7 +145,7 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
     await cross('trono', '1', 'up', 86, 'coroacao', 'trono pelo alçapão');
     await cross('coroacao', '1', 'down', 46, 'trono', 'escadaria pela boca de baixo');
     await cross('coroacao', '1', 'up', 31, 'nucleo', 'escadaria pelo alto');
-    await cross('nucleo', '1', 'down', 63, 'coroacao', 'núcleo pelo poço');
+    await cross('nucleo', '1', 'down', 51, 'coroacao', 'núcleo pelo poço');
   }
 
   if (part('portas')) {
@@ -1473,14 +1473,12 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
       for (let i = 0; i + 1 < all; i++) if (!slots.includes(i) && !slots.includes(i + 1)) gap = true;
       return { n: xs.length, first: Math.round(xs[0] - (C - 100)), gap };
     }, C);
-    await page.evaluate(() => { window.__scene.player.invuln = 0; });
-    await freeze("e.beads[0].falling && e.beads[0].y > e.floorY - 60");
+    // a conta cai rápido e o próprio jogo a quebra no cavaleiro: espera a primeira acabar e confere o golpe
+    await page.evaluate(() => { const p = window.__scene.player; window.__b0 = window.__foe.beads[0]; window.__hp0 = p.hp; p.invuln = 0; });
+    await freeze('window.__b0.done');
     const whisper = await page.evaluate(() => {
-      const e = window.__foe;
-      const b = e.beads[0];
-      const hit = e.harms(new Phaser.Geom.Rectangle(b.x - 7, e.floorY - 42, 14, 42), false);
       const t = document.querySelector('#thought');
-      return { hit, text: t.textContent, whisper: t.classList.contains('whisper') };
+      return { hit: window.__scene.player.hp < window.__hp0, text: t.textContent, whisper: t.classList.contains('whisper') };
     });
     await page.evaluate(() => { window.__scene.player.invuln = 99; });
     await shot('t6-contas');
@@ -1533,7 +1531,7 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
     // o espelho: ele faz o que o cavaleiro fez, do outro lado do meio e com atraso
     await page.evaluate((C) => { const p = window.__scene.player; p.teleport(C - 120, 702); p.body.setVelocity(0, 0); }, C);
     await freeze("e.state === 'mirror' && e.now > 1.5 && e.lungeT > 1", 20000);
-    await page.evaluate(() => { window.__foe.lungeT = 99; });
+    await page.evaluate(() => { window.__foe.lungeT = 99; window.__scene.sys.resume(); });
     await waitGame(1.4);
     await pause();
     const mm = await page.evaluate((C) => { const e = window.__foe; const p = window.__scene.player; return { want: Math.round(2 * C - p.x), x: Math.round(e.sprite.x), lag: e.lag }; }, C);

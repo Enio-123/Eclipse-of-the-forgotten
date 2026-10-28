@@ -705,6 +705,8 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
       const b = s.boss;
       b.toIdle = function () { this.go('idle', 'idle'); this.thinkT = 99; };
       b.toIdle();
+      // parado de pé no barco (se estava embaixo d'água, volta à tona: senão nenhum golpe pega)
+      b.sinkY = 0;
       b.waves = [];
       b.hook = null;
       s.player.tow = null;

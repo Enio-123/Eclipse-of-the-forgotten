@@ -118,7 +118,8 @@ O que o jogo só pode afirmar no fim: que ele matou Arielle, e por quê. Antes d
 - Pronto também (v17): a Floresta Nevada com os registros dela (4), as memórias (3), o nome de Arielle (depois de "O nome dela") e a Casa Vhalor no texto (livro da caça, bestiário). Os registros das Minas e da Floresta ficam no Diário, aba Registros.
 - Pronto também (v19): o Vale das Cachoeiras com os registros dele (4: a lista do que levar, a planta da casa, a ordem do aqueduto e o livro de bordo), as memórias (3) e a primeira menção escrita ao núcleo da Coroação (prova `nucleo`).
 - Pronto também (Torres, ainda no ramo `torres`, sai na v20): as salas, a Capa de Luz, os inimigos, o Senhor de Vhalor e o Cetro, os registros das Torres (5 mais o decreto), as memórias da noite ("As flores do arquivo", "A ordem", "A escada") e o sistema da história inteiro (seção 6.8): memórias essenciais, versões com prova que racham a falsa, corrupção na máscara, escolhas decisivas, o Cobrador devolvendo memórias e a aba A Noite.
-- Não existe ainda: registros nas 22 salas da Cidade e da Prisão (a integração L2), o Carrasco Coroado, os três finais e Vespera depois do fim, a memória "A noite" (nucleo:boss).
+- Pronto também (Torres T6, no mesmo ramo): o Carrasco Coroado no terraço do núcleo (o colosso, o pó, o carrasco dourado no espelho e a coroa estendida) e a tela da escolha do fim, que lê `night()`. As acusações das contas e as justificativas do espelho estão em `torres.md`. Por enquanto, a escolha grava o final e mostra só o cartão dele.
+- Não existe ainda: registros nas 22 salas da Cidade e da Prisão (a integração L2), as cenas dos três finais, os créditos e Vespera depois do fim, a memória "A noite" (nucleo:boss).
 
 
 ## 11. Salas novas da v18 (26/10/2026)
