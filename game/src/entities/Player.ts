@@ -68,6 +68,12 @@ export class Player {
   inWater = false;
   // pose fixa de cena (ajoelhado no começo, levantando)
   pose: 'kneel' | 'getup' | null = null;
+  // andando sozinho numa cena (o fim no terraço): até x, nessa velocidade, e vira para `face` quando chega
+  auto: { x: number; speed: number; face?: 1 | -1; done?: () => void } | null = null;
+  private backStep = false;
+  // levado no ar por uma cena, sem gravidade nem teclas: sobe a vy até os pés chegarem em `top` e vai
+  // chegando no x
+  drift: { x: number; top: number; vy: number } | null = null;
   // habilidades achadas no mapa
   // Esporas do Carrasco: o dash (e o deslize agachado) só depois de achar
   canDash = false;
@@ -337,6 +343,11 @@ export class Player {
     this.curAnim = '';
   }
 
+  // anda até x sozinho (as teclas não mexem nele enquanto isso)
+  walkTo(x: number, speed: number, face?: 1 | -1, done?: () => void) {
+    this.auto = { x, speed, face, done };
+  }
+
   getUp(done: () => void) {
     if (this.pose !== 'kneel') return;
     this.pose = 'getup';
@@ -384,6 +395,27 @@ export class Player {
       this.towUpdate(dt, input, onGround);
     } else if (this.dive && !this.dead) {
       this.diveUpdate(dt);
+    } else if (this.drift) {
+      const d = this.drift;
+      b.velocity.set(Phaser.Math.Clamp((d.x - this.zone.x) * 1.2, -40, 40), b.bottom > d.top ? d.vy : 0);
+      this.buffer = 0;
+    } else if (this.auto && !this.dead && !this.pose) {
+      const a = this.auto;
+      const dx = a.x - this.zone.x;
+      if (Math.abs(dx) <= Math.max(1.5, a.speed * dt)) {
+        b.velocity.x = 0;
+        this.zone.x = a.x;
+        this.auto = null;
+        this.backStep = false;
+        if (a.face) this.facing = a.face;
+        a.done?.();
+      } else {
+        // um passo para trás (pouco e devagar), sem virar as costas para quem está na frente
+        this.backStep = a.face !== undefined && Math.sign(dx) === -a.face && Math.abs(dx) < 28;
+        this.facing = this.backStep ? a.face! : dx > 0 ? 1 : -1;
+        b.velocity.x = Math.sign(dx) * a.speed * (this.backStep ? 0.55 : 1);
+      }
+      this.buffer = 0;
     } else if (this.frozen || this.dead) {
       if (this.hook) this.dropHook();
       b.velocity.x = approach(b.velocity.x, 0, C.groundDecel * dt);
@@ -1622,9 +1654,9 @@ export class Player {
     else if (vx > 25) anim = 'run';
     else anim = 'idle';
     if (air >= 0) this.holdFrame(anim, air);
-    else this.play(anim);
+    else this.play(anim, anim === 'run' && this.backStep);
     // as pernas acompanham a velocidade da arma (a animação foi feita para 192 px/s); na água, a de verdade
-    const pace = (this.swim || this.inWater ? Math.max(70, vx) : this.runSpeed) / RUN_ANIM_SPEED;
+    const pace = (this.swim || this.inWater ? Math.max(70, vx) : this.auto ? Math.max(40, vx) : this.runSpeed) / RUN_ANIM_SPEED;
     const swimPace = 0.55 + 0.75 * Math.min(1, Math.hypot(b.velocity.x, b.velocity.y) / C.swimSpeed);
     this.sprite.anims.timeScale = anim === 'run' ? pace : anim === 'swim' ? swimPace : 1;
     if ((anim === 'run' || anim === 'crouch_walk') && onGround) {
@@ -1682,11 +1714,13 @@ export class Player {
     return this.lantern && this.lantern.alpha > 0 ? { x: this.lantern.x, y: this.lantern.y } : null;
   }
 
-  play(name: string) {
+  play(name: string, reverse = false) {
     const key = `knight-${this.weapon.id}-${name}`;
-    if (this.curAnim === key) return;
-    this.curAnim = key;
-    this.sprite.play(key);
+    const tag = reverse ? `${key}<` : key;
+    if (this.curAnim === tag) return;
+    this.curAnim = tag;
+    if (reverse) this.sprite.playReverse(key);
+    else this.sprite.play(key);
   }
 
   // um quadro escolhido de uma animação, parado nele (o ar escolhe pela velocidade, não pelo relógio)

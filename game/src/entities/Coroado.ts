@@ -1405,7 +1405,9 @@ export class Coroado implements BossFoe {
     const x = this.c;
     const facing = s.player ? (s.player.x >= x ? 1 : -1) : -1;
     this.facing = facing as 1 | -1;
-    this.sprite.setFlipX(facing < 0).setOrigin(0.5, this.sprite.originY);
+    // os pés no chão: a mesma origem da folha do cavaleiro (de volta à sala, o espelho não passou por aqui)
+    const o = s.registry.get(`${tex}-origin`) as { x: number; y: number } | undefined;
+    this.sprite.setFlipX(facing < 0).setOrigin(o?.x ?? 0.5, o?.y ?? this.sprite.originY);
     const slide = () => {
       if (s.anims.exists(`${tex}-kneel`)) this.sprite.play(`${tex}-kneel`);
       this.crownS.setVisible(true);
@@ -1425,7 +1427,7 @@ export class Coroado implements BossFoe {
       if (a) this.sprite.setFrame(a.frames[a.frames.length - 1].textureFrame);
       return;
     }
-    s.tweens.add({ targets: this.sprite, x, duration: 600, ease: 'Quad.easeOut', onComplete: slide });
+    s.tweens.add({ targets: this.sprite, x, y: this.floorY, duration: 600, ease: 'Quad.easeOut', onComplete: slide });
   }
 
   // de volta à sala depois da luta (e antes da escolha): já de joelhos, com a coroa estendida
@@ -1449,6 +1451,54 @@ export class Coroado implements BossFoe {
   // o cavaleiro perto o bastante para pegar a coroa
   near(x: number) {
     return this.state === 'offer' && Math.abs(x - this.c) < 40;
+  }
+
+  // ---------- o fim (world/Finale.ts) ----------
+  // a coroa que ele estende (o cavaleiro deixa no chão ou põe na cabeça)
+  get crownImg() {
+    return this.crownS;
+  }
+
+  // onde ele está ajoelhado (o x) e para que lado olha
+  get kneelAt() {
+    return { x: this.sprite.x, facing: this.facing };
+  }
+
+  // a coroa sai das mãos dele e vai até (x, y)
+  crownTo(x: number, y: number, dur: number, done?: () => void) {
+    this.scene.tweens.add({ targets: this.crownS, x, y, duration: dur, ease: 'Sine.easeInOut', onComplete: () => done?.() });
+  }
+
+  // ele se desfaz em pó de ouro, de cima para baixo; com `to`, o pó corre para lá (para dentro do cavaleiro)
+  dissolve(dur: number, to?: () => { x: number; y: number }, done?: () => void) {
+    const s = this.scene;
+    this.go('kneel');
+    const spr = this.sprite;
+    const k = { v: 0 };
+    s.sfx('glass', 0.6, 0.6);
+    s.glowBurst(spr.x, this.floorY - 20, GOLD, 2.4);
+    s.tweens.add({
+      targets: k,
+      v: 1,
+      duration: dur,
+      ease: 'Sine.easeIn',
+      onUpdate: () => {
+        spr.setAlpha(1 - k.v);
+        this.aura.setAlpha(0.22 * (1 - k.v));
+        const b = spr.getBounds();
+        if (Math.random() < 0.9) this.dust.emitParticle(2, b.x + Math.random() * b.width, b.y + b.height * (0.15 + 0.85 * Math.random() * (1 - k.v * 0.5)));
+        if (to && Math.random() < 0.55) {
+          const t = to();
+          const d = s.add.image(b.x + Math.random() * b.width, b.y + Math.random() * b.height, 'px').setTint(0xffd27a).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.enemy + 0.3).setScale(1.4);
+          s.tweens.add({ targets: d, x: t.x, y: t.y, alpha: 0.3, duration: 520 + Math.random() * 300, ease: 'Quad.easeIn', onComplete: () => d.destroy() });
+        }
+      },
+      onComplete: () => {
+        spr.setVisible(false);
+        this.aura.setAlpha(0);
+        done?.();
+      },
+    });
   }
 
   // ---------- o que machuca ----------

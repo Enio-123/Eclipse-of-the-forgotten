@@ -1282,12 +1282,111 @@ export class Torres {
     }
   }
 
-  // o núcleo pulsa devagar (na luta, o colosso puxa a luz dele)
+  // o núcleo pulsa devagar (na luta, o colosso puxa a luz dele). No fim: boost acende (as memórias saindo ou
+  // entrando), dim apaga (o final III)
+  private coreBoost = 0;
+  private coreDim = 0;
+  // o clarão grande do fim: um brilho liso (o 'glow' das luzes é pontilhado, e aumentado tanto fica quadriculado)
+  private halo: Phaser.GameObjects.Image | null = null;
   private updateCore() {
     const k = this.core?.core;
     if (!k) return;
-    const p = 0.5 + 0.5 * Math.sin(this.time * 1.7);
-    k.glow.setAlpha(0.38 + p * 0.18).setScale(2.4 + p * 0.35);
+    const p = 0.5 + 0.5 * Math.sin(this.time * (1.7 + this.coreBoost * 2.5));
+    const live = 1 - this.coreDim;
+    k.glow.setAlpha((0.38 + p * 0.18) * live + this.coreBoost * 0.25).setScale((2.4 + p * 0.35) * (1 + this.coreBoost * 0.3) * (0.4 + 0.6 * live));
+    this.halo?.setAlpha(this.coreBoost * (0.55 + 0.2 * p)).setScale(3.2 + this.coreBoost * 2.2 + p * 0.3);
+    const g = Math.round(255 - this.coreDim * 170);
+    k.img.setTint(Phaser.Display.Color.GetColor(g, Math.round(g * (0.94 - this.coreDim * 0.1)), Math.round(g * (0.86 - this.coreDim * 0.1))));
+  }
+
+  // ---------- o núcleo no fim (world/Finale.ts) ----------
+  private coreTween(to: { boost?: number; dim?: number }, dur: number) {
+    const k = this.core?.core;
+    if (k && !this.halo) {
+      if (!this.s.textures.exists('core-halo')) {
+        const c = this.s.textures.createCanvas('core-halo', 128, 128);
+        if (c) {
+          const ctx = c.getContext();
+          const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+          g.addColorStop(0, 'rgba(255,255,255,1)');
+          g.addColorStop(0.25, 'rgba(255,255,255,0.55)');
+          g.addColorStop(0.6, 'rgba(255,255,255,0.14)');
+          g.addColorStop(1, 'rgba(255,255,255,0)');
+          ctx.fillStyle = g;
+          ctx.fillRect(0, 0, 128, 128);
+          c.refresh();
+          c.setFilter(Phaser.Textures.FilterMode.LINEAR);
+        }
+      }
+      this.halo = this.s.add.image(k.x, k.y, 'core-halo').setTint(0xffd890).setBlendMode(Phaser.BlendModes.ADD).setDepth(CORE_DEPTH.core + 0.05).setAlpha(0);
+    }
+    const o = { b: this.coreBoost, d: this.coreDim };
+    this.s.tweens.add({
+      targets: o,
+      b: to.boost ?? o.b,
+      d: to.dim ?? o.d,
+      duration: dur,
+      ease: 'Sine.easeInOut',
+      onUpdate: () => {
+        this.coreBoost = o.b;
+        this.coreDim = o.d;
+      },
+    });
+  }
+
+  // as memórias presas saem do núcleo: a luz cresce e os fios de luz partem para todos os lados, a maior parte
+  // descendo para a cidade lá embaixo
+  coreRelease(dur: number) {
+    const k = this.core?.core;
+    if (!k) return;
+    const s = this.s;
+    this.coreTween({ boost: 1 }, dur * 0.3);
+    const e = s.add.particles(k.x, k.y, 'glow', {
+      lifespan: { min: 2200, max: 3800 },
+      speed: { min: 50, max: 170 },
+      angle: { min: 0, max: 360 },
+      gravityY: 26,
+      scale: { start: 0.11, end: 0.03 },
+      alpha: { start: 0.95, end: 0 },
+      tint: [0xffe6a6, 0xffd27a, 0xfff4dc],
+      blendMode: Phaser.BlendModes.ADD,
+      frequency: 22,
+    }).setDepth(DEPTH.front - 0.5);
+    s.time.delayedCall(dur, () => {
+      e.stop();
+      this.coreTween({ boost: 0.15 }, 1800);
+      s.time.delayedCall(4000, () => e.destroy());
+    });
+  }
+
+  // as memórias vêm do núcleo e de longe até (x, y): ele junta tudo em si (finais II e III). tint: a cor da luz
+  coreGather(at: () => { x: number; y: number }, dur: number, tint: number) {
+    const k = this.core?.core;
+    if (!k) return;
+    const s = this.s;
+    this.coreTween({ boost: 0.8 }, dur * 0.4);
+    const cam = s.cameras.main;
+    const ev = s.time.addEvent({
+      delay: 45,
+      repeat: Math.floor(dur / 45),
+      callback: () => {
+        const t = at();
+        // metade sai do núcleo, metade chega das bordas da tela
+        const v = cam.worldView;
+        const from = Math.random() < 0.5 ? { x: k.x + (Math.random() - 0.5) * 30, y: k.y + (Math.random() - 0.5) * 30 } : { x: v.x + Math.random() * v.width, y: Math.random() < 0.5 ? v.y - 10 : v.y + Math.random() * v.height * 0.6 };
+        const d = s.add.image(from.x, from.y, 'glow').setTint(tint).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.front - 0.5).setScale(0.05 + Math.random() * 0.06).setAlpha(0.95);
+        s.tweens.add({ targets: d, x: t.x, y: t.y, scale: 0.02, alpha: 0.4, duration: 900 + Math.random() * 700, ease: 'Cubic.easeIn', onComplete: () => d.destroy() });
+      },
+    });
+    s.time.delayedCall(dur, () => {
+      ev.remove();
+      this.coreTween({ boost: 0 }, 1500);
+    });
+  }
+
+  // o núcleo apaga (o fio cortado)
+  coreDark(dur: number) {
+    this.coreTween({ boost: 0, dim: 1 }, dur);
   }
 
   private addThrone() {

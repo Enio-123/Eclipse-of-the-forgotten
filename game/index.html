@@ -64,8 +64,10 @@
     <section id="screen-menu" class="screen">
       <div class="menu-wrap">
         <h1 class="logo">Eclipse <span>of the</span> Forgotten</h1>
+        <p class="ended" hidden></p>
         <nav class="list">
           <button data-cmd="continue">Continuar</button>
+          <button data-cmd="film" hidden>Rever o final</button>
           <button data-cmd="new">Novo jogo</button>
           <button data-cmd="settings">Configurações</button>
           <button data-cmd="erase">Apagar progresso</button>
@@ -361,6 +363,15 @@
         <p class="choice-lead">Ele está de joelhos e estende a coroa. Em cima de vocês, o núcleo pulsa com a luz de milhares de memórias.</p>
         <nav class="choice-opts crown-opts"></nav>
       </div>
+    </section>
+
+    <section id="screen-film" class="screen" aria-live="polite">
+      <div class="film-voices"></div>
+      <p class="film-last"></p>
+      <div class="film-card"><p class="film-kicker"></p><h2 class="film-title"></h2><span class="rule"></span></div>
+      <div class="film-credits"><div class="film-roll"></div></div>
+      <p class="film-line"></p>
+      <p class="film-hint"><span class="kbd-only">Segure qualquer tecla para acelerar</span><span class="touch-only">Segure a tela para acelerar</span><span class="pad-only">Segure qualquer botão para acelerar</span></p>
     </section>
 
     <section id="screen-end" class="screen dim">

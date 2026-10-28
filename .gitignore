@@ -25,3 +25,8 @@ wt18/
 dbg/
 prev_vale/
 regdist-v17/
+
+# os planos dos finais em 3D: o raymarcher compilado, o cache das camadas e as saídas
+art2/fim/*.so
+art2/fim/cache/
+art2/fim/out/

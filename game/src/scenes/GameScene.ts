@@ -55,8 +55,10 @@ import { Mine } from '../world/Mine';
 import { Finds, hasFind, isSlotFind, type FindId } from '../world/Finds';
 import type { Breakable } from '../world/secrets';
 import { Loot } from '../world/Loot';
-import { ARENA_WAVES, BELLS, DECISIVE, ELO, ENDINGS, FORGE, FOUND_THOUGHTS, LEVERS, MATERIALS, MEMORIES, MEMORY_ECHO, NAME_MEMORY, NUN, OFFERS, OLD_MINER, PAGES, PRISONER, RECORDS, SLOT_FINDS, SMITH, SURVEYOR, VERSIONS, memoryInfo, recordInfo, relicInfo } from '../world/lore';
+import { ARENA_WAVES, BELLS, DECISIVE, ELO, FORGE, FOUND_THOUGHTS, LEVERS, MATERIALS, MEMORIES, MEMORY_ECHO, NAME_MEMORY, NUN, OFFERS, OLD_MINER, PAGES, PRISONER, RECORDS, SLOT_FINDS, SMITH, SURVEYOR, VERSIONS, memoryInfo, recordInfo, relicInfo } from '../world/lore';
 import { choose, chosen, confirm, confirmed, ending, holds, night, pendingConfirmations, type EndingId } from '../world/story';
+import { Finale } from '../world/Finale';
+import { AFTER_END, FILMS, fill } from '../world/endings';
 import { REGION_BY_ID, sheetsFor, surveyorRegion } from '../world/regions';
 import { TILE_ONEWAY, smoothGlow } from '../gfx/textures';
 import { ui } from '../ui/ui';
@@ -77,7 +79,7 @@ import { MemoryWave } from '../gfx/memoryWave';
 import type { GfxFlags } from '../systems/Graphics';
 import type { Theme } from '../world/Level';
 
-export type Arrival = 'new' | 'continue' | 'door' | 'mirror' | 'memory' | 'death';
+export type Arrival = 'new' | 'continue' | 'door' | 'mirror' | 'memory' | 'death' | 'end';
 
 export interface GameInit {
   room: RoomId;
@@ -449,7 +451,7 @@ export class GameScene extends Phaser.Scene {
   private life: Life | null = null;
   private mist: Mist | null = null;
   private shafts: Shafts | null = null;
-  private memWave: MemoryWave | null = null;
+  memWave: MemoryWave | null = null;
   private figure: Phaser.GameObjects.Sprite | null = null;
   private figureState: 'idle' | 'turned' | 'done' = 'idle';
   private hitstopT = 0;
@@ -908,6 +910,12 @@ export class GameScene extends Phaser.Scene {
       });
     } else if (from === 'mirror') {
       this.time.delayedCall(1600, showBanner);
+    } else if (from === 'end') {
+      // depois dos créditos: a tela sai da cor do final e Vespera continua, mudada
+      const e = ending();
+      const [r, g, b] = e ? FILMS[e].fade : [0, 0, 0];
+      cam.fadeIn(2600, r, g, b);
+      this.time.delayedCall(2200, () => this.afterEnd());
     } else if (from === 'memory') {
       this.cinematic = true;
       this.player.frozen = true;
@@ -3691,34 +3699,19 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  // o final escolhido (as cenas de cada um, os créditos e Vespera depois do fim vêm na T7): por enquanto grava a
-  // escolha e fecha com o cartão do fim
+  // Vespera depois do fim, na primeira vez: o nome do lugar e o que ele pensa (o resto muda nas salas: AFTER_END)
+  private afterEnd() {
+    const e = ending();
+    if (!e || e === 'fragments') return;
+    const a = AFTER_END[e];
+    ui.banner(this.room.title, a.banner, 4200);
+    a.think.forEach((line, i) => this.time.delayedCall(4600 + i * 5000, () => ui.thought(fill(line, progress.knowsHerName), 4600)));
+  }
+
+  // o final escolhido: a cena no terraço (world/Finale.ts) e depois o filme pintado (scenes/EndingScene.ts)
   private ending(kind: EndingId) {
-    progress.seen.add(`ending:${kind}`);
-    progress.save();
-    this.cinematic = true;
-    this.player.frozen = true;
-    audio.music('none', 2);
-    const cam = this.cameras.main;
-    cam.fadeOut(2600, 255, 244, 220);
-    cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-      this.scene.pause();
-      const e = ENDINGS[kind];
-      ui.end({
-        title: e.title,
-        text: e.text,
-        onExplore: () => {
-          ui.closeAll();
-          this.scene.resume();
-          this.toTitle();
-        },
-        onTitle: () => {
-          ui.closeAll();
-          this.scene.resume();
-          this.toTitle();
-        },
-      });
-    });
+    if (!(this.boss instanceof Coroado)) return;
+    new Finale(this, this.boss, kind).run();
   }
 
   // a Sombra vencida: a tinta da poça salta num fio até o cavaleiro e entra nele (vira o Véu)

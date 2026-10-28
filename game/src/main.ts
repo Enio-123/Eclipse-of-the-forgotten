@@ -8,11 +8,14 @@ import { IntroScene } from './scenes/IntroScene';
 import { GameScene } from './scenes/GameScene';
 import { HudScene } from './scenes/HudScene';
 import { FxScene } from './scenes/FxScene';
+import { EndingScene } from './scenes/EndingScene';
 import { ui } from './ui/ui';
 import { pad } from './systems/Pad';
 import { settings } from './systems/Settings';
 import { applyFpsLimit } from './systems/Graphics';
 import { MAP_POS, ROOMS } from './world/rooms';
+import { MEMORIES, NIGHT, RECORDS, VERSIONS } from './world/lore';
+import { night } from './world/story';
 import './systems/Audio';
 
 pad.vibration = settings.data.vibration;
@@ -32,7 +35,7 @@ const game = new Phaser.Game({
     default: 'arcade',
     arcade: { gravity: { x: 0, y: PLAYER.gravity }, fps: 120, tileBias: 20 },
   },
-  scene: [BootScene, TitleScene, IntroScene, GameScene, HudScene, FxScene],
+  scene: [BootScene, TitleScene, IntroScene, GameScene, HudScene, FxScene, EndingScene],
 });
 
 ui.init(game);
@@ -43,4 +46,4 @@ watchSpeed(game, () => {
   return !!g && g.scene.isActive() && g.live;
 });
 // acesso para os testes automatizados
-Object.assign(window as object, { __game: game, __ui: ui, __progress: progress, __settings: settings, __res: () => RES, __rooms: ROOMS, __mappos: MAP_POS });
+Object.assign(window as object, { __game: game, __ui: ui, __progress: progress, __settings: settings, __res: () => RES, __rooms: ROOMS, __mappos: MAP_POS, __lore: { MEMORIES, RECORDS, VERSIONS, NIGHT, night } });

@@ -1,6 +1,7 @@
 import type { Upgrade } from '../systems/Save';
 import type { Ability, RoomId } from './rooms';
 import type { EchoKind, WaveMode } from '../gfx/memoryWave';
+import { NIGHT_MEMORY, fill } from './endings';
 
 // Memórias espalhadas pelo mapa. O id é sala:ordem no mapa ("boss" é a do Sineiro).
 // named: como a memória fica depois que ele lembra o nome dela (ver NAME_MEMORY)
@@ -47,11 +48,17 @@ export const MEMORIES: Record<string, MemoryInfo> = {
   // O Arquivo Proibido (Torres): na mesa dela, entre as fichas
   'arquivo:0': { title: 'As flores do arquivo', text: 'Ela abre um registro na mesa e me mostra as flores prensadas entre as folhas, uma para cada nome. "Para alguém lembrar deles com carinho, e não só pela sentença." Eu fico olhando as mãos dela, e não as flores.' },
   // A Escadaria da Coroação (Torres): a noite, ela subindo na frente
+  // O Coração do Eclipse (Torres): a noite inteira, que só volta no fim, depois da escolha (o texto muda com o final)
+  'nucleo:boss': { title: NIGHT_MEMORY.title, text: fill(NIGHT_MEMORY.truth, false), named: { text: fill(NIGHT_MEMORY.truth, true) } },
   'coroacao:0': { title: 'A escada', text: 'A escada da Coroação, de noite. Ela sobe na frente, com as cópias dos registros apertadas no peito, e não olha para trás. Numa versão eu subo atrás dela para salvá-la. Na outra, para cumprir a ordem.' },
 };
 export const MEMORY_TOTAL = Object.keys(MEMORIES).length;
+// a memória da noite (a do Carrasco Coroado)
+export const NIGHT = 'nucleo:boss';
 
-export function memoryInfo(id: string, knowsName: boolean): MemoryInfo | undefined {
+// end: o final escolhido (a noite volta torta no final II)
+export function memoryInfo(id: string, knowsName: boolean, end?: string | null): MemoryInfo | undefined {
+  if (id === NIGHT && end === 'absorb') return { title: NIGHT_MEMORY.title, text: fill(NIGHT_MEMORY.absorb, knowsName) };
   const m = MEMORIES[id];
   if (!m) return undefined;
   return knowsName && m.named ? { ...m, title: m.named.title ?? m.title, text: m.named.text } : m;

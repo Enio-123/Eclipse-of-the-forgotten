@@ -198,6 +198,61 @@ span.key { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 2px;
 .story p.on { opacity: 1; transform: none; }
 .skip { position: absolute; bottom: calc(26px + env(safe-area-inset-bottom, 0px)); margin: 0; color: #5d6276; font-size: 13px; letter-spacing: 0.08em; }
 
+/* ---------- os finais: o filme pintado (scenes/EndingScene.ts) ---------- */
+/* --k: a velocidade (segurar uma tecla acelera), as transições encurtam junto */
+#screen-film { display: block; padding: 0; --k: 1; background: linear-gradient(to top, rgba(3, 5, 10, 0.55), rgba(3, 5, 10, 0) 32%); }
+.film-line {
+  position: absolute; left: 50%; bottom: calc(50px + env(safe-area-inset-bottom, 0px)); width: min(92vw, 960px); margin: 0;
+  transform: translate(-50%, 6px); text-align: center; text-wrap: balance;
+  font-family: var(--italic); font-style: italic; font-size: clamp(18px, 2.4vw, 27px); line-height: 1.42; color: #eef0f2;
+  text-shadow: 0 1px 2px #000, 0 2px 16px rgba(0, 0, 0, 0.85);
+  opacity: 0; transition: opacity calc(1.2s / var(--k)) ease, transform calc(1.2s / var(--k)) ease;
+}
+.film-line.on { opacity: 1; transform: translate(-50%, 0); }
+/* as vozes: frases soltas em volta, que aparecem e somem */
+.film-voices span {
+  position: absolute; transform: translate(-50%, -50%); white-space: nowrap;
+  font-family: var(--italic); font-style: italic; font-size: clamp(14px, 1.8vw, 20px); letter-spacing: 0.04em; color: #e3c48a;
+  text-shadow: 0 1px 2px #000, 0 0 14px rgba(0, 0, 0, 0.9); opacity: 0; transition: opacity calc(1.6s / var(--k)) ease;
+}
+.film-voices span.on { opacity: 0.88; }
+.film-last {
+  position: absolute; left: 50%; top: 50%; width: min(90vw, 900px); margin: 0; transform: translate(-50%, -50%);
+  text-align: center; text-wrap: balance; font-family: var(--italic); font-style: italic; font-size: clamp(22px, 3.2vw, 38px); line-height: 1.35;
+  color: #efe6d6; text-shadow: 0 2px 18px rgba(0, 0, 0, 0.7); opacity: 0; transition: opacity calc(2.2s / var(--k)) ease;
+}
+.film-last.on { opacity: 1; }
+.film-card {
+  position: absolute; left: 50%; top: 50%; width: min(92vw, 900px); transform: translate(-50%, -50%); text-align: center;
+  opacity: 0; transition: opacity calc(1.8s / var(--k)) ease;
+}
+.film-card.on { opacity: 1; }
+.film-kicker { margin: 0 0 16px; font-family: var(--display); font-size: clamp(13px, 1.4vw, 16px); letter-spacing: 0.5em; text-transform: uppercase; color: var(--gold); }
+.film-title { margin: 0; font-family: var(--display); font-weight: 400; font-size: clamp(34px, 5.6vw, 66px); line-height: 1.05; letter-spacing: 0.03em; color: #f2ede2; }
+.film-card .rule { width: 190px; margin-top: 20px; }
+/* os créditos sobem devagar (a cena move a faixa); some nas bordas de cima e de baixo */
+.film-credits {
+  position: absolute; inset: 0; overflow: hidden; opacity: 0; transition: opacity 1.4s ease;
+  -webkit-mask-image: linear-gradient(transparent, #000 16%, #000 84%, transparent); mask-image: linear-gradient(transparent, #000 16%, #000 84%, transparent);
+}
+.film-credits.on { opacity: 1; }
+.film-roll { position: absolute; left: 0; right: 0; top: 100%; padding: 0 20px; text-align: center; will-change: transform; }
+.film-roll h3 { margin: 52px 0 10px; font-family: var(--display); font-weight: 400; font-size: clamp(13px, 1.4vw, 16px); letter-spacing: 0.32em; text-transform: uppercase; color: var(--gold); }
+.film-roll h3.big { margin: 0 0 6px; font-size: clamp(32px, 4.8vw, 56px); letter-spacing: 0.03em; text-transform: none; color: #f2ede2; }
+.film-roll p { margin: 5px 0; font-family: var(--italic); font-style: italic; font-size: clamp(16px, 2vw, 22px); color: #ddd6c8; }
+.film-roll .end-thanks { margin-top: 70px; }
+.film-hint {
+  position: absolute; right: 22px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); margin: 0;
+  color: #7a7f93; font-size: 12px; letter-spacing: 0.08em; opacity: 0; transition: opacity 1s ease;
+}
+.film-hint.on { opacity: 1; }
+/* o fim claro (final I): a tela fica cor de aurora, e a letra escura */
+#screen-film.light .film-last, #screen-film.light .film-title, #screen-film.light .film-roll p, #screen-film.light .film-roll h3.big { color: #2c2219; text-shadow: 0 1px 12px rgba(255, 248, 232, 0.8); }
+#screen-film.light .film-roll h3, #screen-film.light .film-kicker { color: #8c5a18; }
+#screen-film.light .film-hint { color: #8a7a64; }
+.menu-wrap .ended { margin: 18px 0 0; font-family: var(--italic); font-style: italic; font-size: 17px; color: var(--gold); letter-spacing: 0.02em; }
+.menu-wrap .ended[hidden] { display: none; }
+
 /* menu principal sobre a cena do título */
 #screen-menu {
   justify-content: flex-start; align-items: center; padding-left: clamp(24px, 9vw, 150px);
@@ -456,7 +511,7 @@ span.key { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 2px;
 @media (max-width: 520px) { .slider { grid-template-columns: 1fr; gap: 6px; } .key { min-width: 104px; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .screen, .story p, #banner, #thought, #hint { transition: none; }
+  .screen, .story p, #banner, #thought, #hint, .film-line, .film-voices span, .film-last, .film-card, .film-credits { transition: none; }
   .key.wait { animation: none; }
 }
 

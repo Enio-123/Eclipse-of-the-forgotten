@@ -6,7 +6,7 @@ import { audio } from '../systems/Audio';
 import { BRAND_LABEL, BTN, buttonGlyph, buttonName, pad, stickGlyph, type PadBrand } from '../systems/Pad';
 import { ABILITIES, BUYBACK_COST, LEVEL_MUL, MAX_LEVEL, SLOT_IDS, progress, type SlotFind, type Upgrade } from '../systems/Save';
 import { BESTIARY, ELO, FORGE, MATERIALS, MEMORY_TOTAL, OFFERS, PAGES, PAGE_IDS, RECORD_IDS, SLOT_FINDS, VERSIONS, memoryInfo, recordInfo, relicInfo } from '../world/lore';
-import { night, regionName, versionState } from '../world/story';
+import { ending, night, regionName, versionState } from '../world/story';
 import { REGIONS } from '../world/regions';
 import { MAP_POS, ROOMS, type RoomId } from '../world/rooms';
 import { MapView, regionThumb, type MapHere } from './mapview';
@@ -18,7 +18,7 @@ import { FORCED_PRESET, PRESETS, PRESET_LABEL, applyFpsLimit, presetOf, type Fps
 const MAP_PAN: Record<string, [number, number]> = {
   ArrowUp: [0, 1], ArrowDown: [0, -1], ArrowLeft: [1, 0], ArrowRight: [-1, 0], KeyW: [0, 1], KeyS: [0, -1], KeyA: [1, 0], KeyD: [-1, 0],
 };
-type ScreenId = 'loading' | 'intro' | 'menu' | 'erase' | 'path' | 'mages' | 'weapons' | 'settings' | 'pause' | 'end' | 'map' | 'shop' | 'surveyor' | 'inventory' | 'talk' | 'forge' | 'journal' | 'choice' | 'crown';
+type ScreenId = 'loading' | 'intro' | 'menu' | 'erase' | 'path' | 'mages' | 'weapons' | 'settings' | 'pause' | 'end' | 'map' | 'shop' | 'surveyor' | 'inventory' | 'talk' | 'forge' | 'journal' | 'choice' | 'crown' | 'film';
 
 const COBRADOR_LINES = [
   'Voltou. Sempre voltam.',
@@ -179,7 +179,7 @@ class UI {
       this.back();
       return;
     }
-    if (this.top === 'intro') return;
+    if (this.top === 'intro' || this.top === 'film') return;
     // no mapa: setas ou WASD arrastam (segurando, continua), Q e E (ou - e +) aproximam, C volta para ele
     if (this.top === 'map' && this.mapView) {
       if (MAP_PAN[e.code]) {
@@ -313,6 +313,9 @@ class UI {
     if (!now.slice(0, 4).some(Boolean)) this.padRepeat = 0;
     if (this.top === 'intro') {
       if (now.slice(4).some((v, k) => v && !this.padPrev[k + 4])) this.back();
+    } else if (this.top === 'film') {
+      // no filme os botões aceleram (a cena lê o controle); só o Start volta, quando dá para voltar
+      if (edge(6)) this.back();
     } else if (this.top === 'map' && this.mapView) {
       // no mapa o direcional e o analógico arrastam (no laço do mapa), L1 e R1 aproximam, Y volta para
       // ele e X mostra tudo
@@ -388,12 +391,20 @@ class UI {
 
   // ---------- menu principal ----------
   // notice: aviso curto embaixo do menu (por exemplo, depois de apagar o progresso)
-  menu(o: { hasSave: boolean; onContinue: () => void; onNew: () => void; onErase: () => void; notice?: string }) {
+  // ended: a linha do final que o save guarda (embaixo do nome do jogo); onFilm: Rever o final. continueOk: o
+  // Continuar some no final III (ele não volta), mas Apagar progresso continua
+  menu(o: { hasSave: boolean; onContinue: () => void; onNew: () => void; onErase: () => void; notice?: string; ended?: string; onFilm?: () => void; continueOk?: boolean }) {
     const s = $('#screen-menu');
+    const ended = $('.ended', s);
+    ended.hidden = !o.ended;
+    ended.textContent = o.ended ?? '';
+    const film = $<HTMLButtonElement>('[data-cmd="film"]', s);
+    film.hidden = !o.onFilm;
+    film.onclick = () => o.onFilm?.();
     const cont = $<HTMLButtonElement>('[data-cmd="continue"]', s);
     const erase = $<HTMLButtonElement>('[data-cmd="erase"]', s);
     const confirm = $('.confirm', s);
-    cont.hidden = !o.hasSave;
+    cont.hidden = !o.hasSave || o.continueOk === false;
     erase.hidden = !o.hasSave;
     confirm.hidden = !o.notice;
     confirm.textContent = o.notice ?? '';
@@ -936,6 +947,101 @@ class UI {
     this.push('end', o.onExplore);
   }
 
+  // ---------- os finais: o filme pintado ----------
+  // A cena (scenes/EndingScene.ts) conduz o tempo e chama estes a cada mudança: a frase de baixo, as vozes
+  // soltas, a última frase, o cartão do nome do final e os créditos. back: o que Esc (ou Start) faz
+  film(open: boolean, back?: () => void) {
+    const s = $('#screen-film');
+    if (!open) {
+      this.stack = this.stack.filter((e) => e.id !== 'film');
+      this.refresh();
+      return;
+    }
+    this.clearTexts();
+    s.classList.remove('light');
+    for (const q of ['.film-line', '.film-last', '.film-card', '.film-credits', '.film-hint']) $(q, s).classList.remove('on');
+    $('.film-voices', s).replaceChildren();
+    $('.film-roll', s).replaceChildren();
+    $<HTMLElement>('.film-roll', s).style.transform = '';
+    this.filmSpeed(1);
+    this.stack = [];
+    this.push('film', back ?? (() => {}));
+  }
+
+  // a velocidade do filme (segurando uma tecla): as transições do texto encurtam junto
+  filmSpeed(k: number) {
+    $('#screen-film').style.setProperty('--k', String(k));
+  }
+
+  // o fim claro do final I: a tela cor de aurora pede letra escura
+  filmLight(on: boolean) {
+    $('#screen-film').classList.toggle('light', on);
+  }
+
+  filmLine(text: string | null) {
+    const p = $('#screen-film .film-line');
+    if (text) p.textContent = text;
+    p.classList.toggle('on', !!text);
+  }
+
+  // as vozes de um plano, já nos lugares (x e y em % da tela), todas apagadas; filmVoice acende ou apaga uma
+  filmVoices(list: { text: string; x: number; y: number }[]) {
+    $('#screen-film .film-voices').replaceChildren(
+      ...list.map((v) => {
+        const e = el('span', '', v.text);
+        e.style.left = `${v.x}%`;
+        e.style.top = `${v.y}%`;
+        return e;
+      }),
+    );
+  }
+
+  filmVoice(i: number, on: boolean) {
+    $('#screen-film .film-voices').children[i]?.classList.toggle('on', on);
+  }
+
+  filmLast(text: string | null) {
+    const p = $('#screen-film .film-last');
+    if (text) p.textContent = text;
+    p.classList.toggle('on', !!text);
+  }
+
+  filmCard(kicker: string | null, title = '') {
+    const s = $('#screen-film');
+    if (kicker !== null) {
+      $('.film-kicker', s).textContent = kicker;
+      $('.film-title', s).textContent = title;
+    }
+    $('.film-card', s).classList.toggle('on', kicker !== null);
+  }
+
+  // monta os créditos embaixo da tela e devolve a altura deles (a cena sobe a faixa com filmRoll)
+  filmCredits(blocks: { head?: string; big?: boolean; lines: string[]; last?: boolean }[]) {
+    const roll = $('#screen-film .film-roll');
+    roll.replaceChildren(
+      ...blocks.map((b) => {
+        const d = el('div', b.last ? 'end-thanks' : '');
+        if (b.head) d.append(el('h3', b.big ? 'big' : '', b.head));
+        for (const l of b.lines) d.append(el('p', '', l));
+        return d;
+      }),
+    );
+    $('#screen-film .film-credits').classList.add('on');
+    return { height: roll.offsetHeight, screen: $('#screen-film').clientHeight };
+  }
+
+  filmRoll(px: number) {
+    $<HTMLElement>('#screen-film .film-roll').style.transform = `translateY(${(-px).toFixed(1)}px)`;
+  }
+
+  filmCreditsOff() {
+    $('#screen-film .film-credits').classList.remove('on');
+  }
+
+  filmHint(on: boolean) {
+    $('#screen-film .film-hint').classList.toggle('on', on);
+  }
+
   // uma memória decisiva acabou de voltar: como guardar. Não tem voltar (tem de escolher)
   choice(o: { title: string; lead: string; versions: [string, string]; soft: string; onPick: (soft: boolean) => void }) {
     this.clearTexts();
@@ -1023,7 +1129,7 @@ class UI {
     const mem = $('.map-memories', s);
     mem.replaceChildren();
     for (const id of progress.memories) {
-      const info = memoryInfo(id, progress.knowsHerName);
+      const info = memoryInfo(id, progress.knowsHerName, ending());
       if (!info) continue;
       const li = el('li', progress.traded.has(id) ? 'forgotten' : '');
       if (progress.traded.has(id)) li.append(el('b', '', info.title), el('span', 'how', 'Trocada com o Cobrador. Esquecida.'));
@@ -1355,7 +1461,7 @@ class UI {
         col.append(el('h3', 'offer-group', 'Comprar de volta'));
         const row = el('div', 'back-row');
         for (const id of progress.traded) {
-          const info = memoryInfo(id, progress.knowsHerName);
+          const info = memoryInfo(id, progress.knowsHerName, ending());
           if (!info) continue;
           const b = el('button', 'offer');
           b.dataset.id = id;
@@ -1614,7 +1720,7 @@ class UI {
     const head = (t: string) => out.push(el('h3', 'j-head', t));
     // uma memória: o texto inteiro, ou (se tem duas versões) o que as duas contam e cada versão
     const memory = (id: string) => {
-      const info = memoryInfo(id, progress.knowsHerName)!;
+      const info = memoryInfo(id, progress.knowsHerName, ending())!;
       const v = VERSIONS[id];
       const st = versionState(id);
       if (st === 'missing') return entry('Memória não encontrada', undefined, where(id), undefined, true);

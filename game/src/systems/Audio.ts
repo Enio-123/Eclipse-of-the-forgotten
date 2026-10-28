@@ -12,7 +12,7 @@ export type SfxName =
   | 'howl' | 'hoot' | 'horn' | 'gust' | 'flap' | 'crunch' | 'ice-crack' | 'ice-break' | 'freeze' | 'growl' | 'yelp' | 'lantern'
   | 'plop' | 'leap' | 'flop' | 'heron' | 'buzz' | 'gurgle' | 'creak' | 'rope'
   | 'beam' | 'sap';
-export type TrackId = 'title' | 'bridge' | 'crypt' | 'memory' | 'boss' | 'city' | 'nave' | 'boss2' | 'boss3' | 'mine' | 'mirror' | 'boss4' | 'forest' | 'cabin' | 'boss5' | 'boss6' | 'boss7' | 'vale' | 'cais' | FileTrackId | 'none';
+export type TrackId = 'title' | 'bridge' | 'crypt' | 'memory' | 'boss' | 'city' | 'nave' | 'boss2' | 'boss3' | 'mine' | 'mirror' | 'boss4' | 'forest' | 'cabin' | 'boss5' | 'boss6' | 'boss7' | 'vale' | 'cais' | 'aurora' | 'rei' | 'silencio' | FileTrackId | 'none';
 export type AmbienceId = 'rain' | 'crypt' | 'wind' | 'city' | 'nave' | 'prison' | 'mine' | 'snow' | 'hearth' | 'river' | 'falls' | 'night' | 'none';
 // faixas gravadas, em arquivo (as trilhas que o Enio escolheu)
 type FileTrackId = 'prison' | 'fosso' | 'shadow';
@@ -484,6 +484,75 @@ const TRACKS: Record<SynthTrackId, TrackDef> = {
         else e.choir(p.bus, t, m, d * 3.5, 0.02);
       }
       if (i === 0 && bar % 8 === 3) e.choir(p.bus, t, ch[1] + 12, d * 12, 0.022);
+    },
+  },
+  // Final I, A Aurora das Memórias: ré maior a 64. Primeiro só o piano em arpejo subindo e o pad, como a luz
+  // chegando; na segunda volta a cantiga dela na flauta, inteira; na terceira, no coro, com os sinos da cidade
+  aurora: {
+    bpm: 64,
+    start(e, p) {
+      p.stop.push(e.drone(p.bus, 38, 0.022));
+    },
+    step(e, p, s, t, d) {
+      const prog = [DMAJ, GMAJ, BMIN, AMAJ, DMAJ, GMAJ, BMIN, AMAJ];
+      const bar = Math.floor(s / 8);
+      const ch = prog[bar % 8];
+      const i = s % 8;
+      const round = Math.floor(bar / 8);
+      if (i === 0) e.pad(p.bus, t, ch.map((n) => n + 12), d * 8, 0.024, 900 + Math.min(round, 3) * 200);
+      if (i === 0) e.piano(p.bus, t, ch[0] - 12, 0.08, d * 8);
+      const arp = [ch[0], ch[1], ch[2], ch[0] + 12, ch[1] + 12, ch[2] + 12, ch[0] + 24, ch[2] + 12];
+      if (i % 2 === 0 || chance(0.5)) e.piano(p.bus, t, arp[i] + 12, 0.028 + i * 0.002, d * 3);
+      const m = CANTIGA[bar % 8][i];
+      if (m && round % 3 === 1) e.flute(p.bus, t, m - 12, d * 2.4, 0.03);
+      if (m && round % 3 === 2) e.choir(p.bus, t, m - 12, d * 2.6, 0.018);
+      if (round % 3 === 2 && i === 0 && bar % 2 === 0) e.bell(p.bus, t, ch[0] + 24, 0.024);
+      if (s % 64 === 56) e.choir(p.bus, t, ch[2] + 12, d * 10, 0.014);
+    },
+  },
+  // Final II, O Rei do Eclipse: o hino da Coroação em sol menor, devagar, no coro grave e na trompa, sobre um
+  // bordão que não muda; o sino bate longe e, de vez em quando, a caixinha toca uma nota da cantiga dela meio
+  // tom abaixo, e some
+  rei: {
+    bpm: 54,
+    start(e, p) {
+      p.stop.push(e.drone(p.bus, 31, 0.045), e.drone(p.bus, 38, 0.02));
+    },
+    step(e, p, s, t, d) {
+      const bar = Math.floor(s / 8);
+      const i = s % 8;
+      const ch = [GMIN7, GMIN7, EBMAJ7, CMIN7, GMIN7, ABMAJ7, DMAJ7, GMIN7][bar % 8];
+      if (i === 0) e.pad(p.bus, t, ch.map((n) => n + 12), d * 8, 0.032, 700);
+      if (i === 0) e.piano(p.bus, t, ch[0] - 12, 0.09, d * 8);
+      if (i === 0 && bar % 2 === 0) e.drum(p.bus, t, 0.1);
+      if (i === 0 && bar % 4 === 0) e.bell(p.bus, t, ch[0] + 12, 0.04);
+      const m = HINO[bar % 8][i];
+      if (m) {
+        if (Math.floor(bar / 8) % 2 === 0) e.choir(p.bus, t, m - 12, d * 3.5, 0.022);
+        else e.horn(p.bus, t, m - 24, d * 3, 0.04);
+      }
+      if (chance(0.03)) e.musicbox(p.bus, t, pick(CANTIGA[bar % 8].filter(Boolean)) - 1, 0.012);
+      if ((i === 3 || i === 7) && chance(0.25)) e.metal(p.bus, t, 45, 0.012, 0.6);
+    },
+  },
+  // Final III, O Último Silêncio: quase nada. O bordão grave e o piano em notas soltas, em ré menor; da segunda
+  // volta em diante o acorde abre em ré maior (o céu clareando) e a cantiga dela volta na caixinha, devagar
+  silencio: {
+    bpm: 60,
+    start(e, p) {
+      p.stop.push(e.drone(p.bus, 38, 0.026));
+    },
+    step(e, p, s, t, d) {
+      const bar = Math.floor(s / 8);
+      const i = s % 8;
+      const round = Math.floor(bar / 8);
+      const ch = round === 0 ? [DM, DM, BB, BB, GM, GM, AM, AM][bar % 8] : [DMAJ, GMAJ, BMIN, AMAJ, DMAJ, GMAJ, BMIN, AMAJ][bar % 8];
+      if (i === 0 && bar % 2 === 0) e.pad(p.bus, t, ch.map((n) => n + 12), d * 16, round === 0 ? 0.016 : 0.022, round === 0 ? 600 : 1000);
+      if (i === 0) e.piano(p.bus, t, ch[0] - 12, 0.07, d * 8);
+      if (round === 0 && (i === 3 || i === 6) && chance(0.5)) e.piano(p.bus, t, pick(ch) + 12, 0.03, d * 4);
+      const m = CANTIGA[bar % 8][i];
+      if (round >= 1 && m && chance(0.9)) e.musicbox(p.bus, t, m - 12, 0.04);
+      if (round >= 2 && i === 0 && bar % 4 === 0) e.choir(p.bus, t, ch[2] + 12, d * 14, 0.014);
     },
   },
   // Memória: ré maior, caixinha de música, pad quente e uma flauta
