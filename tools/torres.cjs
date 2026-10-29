@@ -1469,7 +1469,8 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
       return { stand: e.harms(R(sw.px + 30, F), false), jump: e.harms(R(sw.px + 30, F - 30), false), hand: Math.round(Math.hypot(e.arms[0].x - sw.px, e.arms[0].y - sw.py)) };
     }, F);
     await shot('t6-foice-u');
-    await freeze("e.state === 'sweep' && e.t > 0.97");
+    // perto do fim (a janela tem que caber dois quadros de 50 ms: em 0,88 a ponta já está 95% do caminho)
+    await freeze("e.state === 'sweep' && e.t > 0.88");
     const end = await page.evaluate((F) => {
       const e = window.__foe;
       const sw = e.sweep;
