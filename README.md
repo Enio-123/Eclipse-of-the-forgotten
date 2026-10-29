@@ -38,6 +38,9 @@ da região) e Esc pausa. Tudo pode ser trocado em Configurações. O jogo també
 - `art2/` o motor de pintura (`brush.py`) e os pintores do terreno e dos fundos de cada área;
   `finaliza.py` passa cada tema pela paleta final.
 - `tools/` `rooms.py` gera os mapas das salas, os testes `*.cjs` jogam o jogo de verdade com Playwright,
-  `hdpack.py` corta o terreno do EXTREME e `pack.py` empacota a versão do claude.ai.
+  `hdpack.py` corta o terreno do EXTREME e `pack.py` empacota a versão do claude.ai. `atlas.py` junta as
+  imagens do começo do jogo em duas folhas (`public/assets/pack-*.png`): no build o jogo carrega as folhas e
+  as soltas saem de `dist/` (a versão do claude.ai aceita no máximo 511 arquivos). Rode de novo quando uma
+  dessas imagens mudar; se esquecer, o build avisa e a imagem que mudou vai solta.
 - `lore/` a lore oficial, o registro de continuidade e o plano de cada área.
 - `LEIAME.md` notas de desenvolvimento das primeiras versões.

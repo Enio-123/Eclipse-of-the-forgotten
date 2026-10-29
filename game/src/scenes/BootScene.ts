@@ -66,6 +66,14 @@ const IMAGES = [
   // a coroa pequena do Carrasco Coroado: no final II ele anda com ela na cabeça (art2/coroa_rei.py)
   'crown-rei',
 ];
+// No build as imagens de IMAGES vêm juntas em poucas folhas (tools/atlas.py, vite.config.ts): em qual folha e
+// em que retângulo cada uma está. Em desenvolvimento é null e cada imagem carrega sozinha.
+declare const __BOOT_PACK__: BootPack | null;
+interface BootPack {
+  sheets: string[];
+  images: Record<string, [number, number, number, number, number]>;
+}
+const PACK = __BOOT_PACK__;
 // tiras de quadros pequenos: [largura, altura] de cada quadro
 const STRIPS: Record<string, [number, number]> = {
   'deco-candles': [16, 14],
@@ -96,11 +104,13 @@ export class BootScene extends Phaser.Scene {
     this.load.once('filecomplete-json-slashes', (_k: string, _t: string, meta: Record<string, SlashMeta>) => {
       for (const [key, m] of Object.entries(meta)) this.load.spritesheet(key, `assets/${key}.png`, { frameWidth: m.w, frameHeight: m.h });
     });
-    for (const key of IMAGES) this.load.image(key, `assets/${key}.png`);
+    for (const key of IMAGES) if (!PACK?.images[key]) this.load.image(key, `assets/${key}.png`);
+    PACK?.sheets.forEach((file, i) => this.load.image(`pack-${i}`, `assets/${file}`));
     for (const [key, [w, h]] of Object.entries(STRIPS)) this.load.spritesheet(key, `assets/${key}.png`, { frameWidth: w, frameHeight: h });
   }
 
   create() {
+    if (PACK) unpack(this, PACK);
     buildTextures(this);
     buildVeilTextures(this);
     buildMagicTextures(this);
@@ -133,4 +143,18 @@ export class BootScene extends Phaser.Scene {
     this.scene.launch('fx');
     this.scene.start('title');
   }
+}
+
+// cada imagem da folha volta a ser uma textura sozinha, com o nome de sempre (o resto do jogo não muda); a
+// tela guarda os pixels na memória comum, como uma imagem carregada
+function unpack(scene: Phaser.Scene, pack: BootPack) {
+  const sheets = pack.sheets.map((_, i) => scene.textures.get(`pack-${i}`).getSourceImage() as HTMLImageElement);
+  for (const [key, [n, x, y, w, h]] of Object.entries(pack.images)) {
+    const c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    c.getContext('2d', { willReadFrequently: true })!.drawImage(sheets[n], x, y, w, h, 0, 0, w, h);
+    scene.textures.addImage(key, c as unknown as HTMLImageElement);
+  }
+  pack.sheets.forEach((_, i) => scene.textures.remove(`pack-${i}`));
 }
