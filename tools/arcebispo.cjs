@@ -411,7 +411,8 @@ const FLOOR = 28; // linha do chão do altar (os pés ficam em 29 * 16)
   await page.click('#screen-pause [data-cmd="weapon"]').catch(() => {});
   await page.waitForTimeout(500);
   const cards = await page.evaluate(() => [...document.querySelectorAll('#screen-weapons .card')].map((c) => c.dataset.w + (c.classList.contains('locked') ? ':x' : '')));
-  check(cards.length === 9 && cards.includes('incensario'), `nove armas, o Incensário liberado (${cards.join(' ')})`);
+  // as onze armas do cavaleiro (as do mago ficam na tela do mago)
+  check(cards.length === 11 && cards.includes('incensario'), `onze armas, o Incensário liberado (${cards.join(' ')})`);
   await shot('a15-armas');
 
   console.log(errs.length ? errs.join('\n') : 'sem erros no console');

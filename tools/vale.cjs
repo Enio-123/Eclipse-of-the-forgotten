@@ -193,6 +193,16 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
       surface: w ? w.surface : null, ground: b.blocked.down, room: s.room.id, fall: p.fall, current: p.current, gliding: p.gliding, frozen: p.frozen };
   });
   const put = (x, y, vx = 0, vy = 0) => page.evaluate(([x, y, vx, vy]) => { const p = window.__scene.player; p.teleport(x * 16 + 8, y * 16); p.body.setVelocity(vx, vy); p.invuln = 99; }, [x, y, vx, vy]);
+  // de pé no meio do tronco do meio do cais (ele boia indo e voltando uns 20 px em volta do lugar dele: na
+  // ponta, o cavaleiro escorrega para a água)
+  const putOnLog = () => page.evaluate(() => {
+    const s = window.__scene;
+    const l = s.vale.logs.find((k) => Math.abs(k.home - (38 * 16 + 8)) < 2);
+    const p = s.player;
+    p.teleport(l.body.center.x, l.body.top - 1);
+    p.body.setVelocity(0, 0);
+    p.invuln = 99;
+  });
   const give = (a) => page.evaluate((a) => { window.__progress.abilities.add(a); window.__scene.applyProgress(); }, a);
 
   if (part('nado')) {
@@ -748,11 +758,11 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
     const R = () => page.evaluate(() => window.__rec);
     const ready = (inv = 0) => page.evaluate((inv) => { const p = window.__scene.player; p.invuln = inv; p.hp = 5; }, inv);
     // a altura da vara onde o cavaleiro está, com ela de lado (px acima dos pés dele)
-    const POLEY = 'if (b.state !== "sweep") return null; const v = b.geo(); if (!v || v.pf < 0.9 || (v.tx - v.bx) * b.facing <= 0) return null; const k = (p.x - v.bx) / (v.tx - v.bx); if (k < 0 || k > 1) return { miss: true, tip: v.tx / 16 }; return { above: +(p.body.bottom - (v.by + (v.ty - v.by) * k)).toFixed(1), feet: +(p.body.bottom / 16).toFixed(2) };';
+    const POLEY = 'if (b.state !== "sweep") return null; const v = b.geo(); if (!v || v.pf < 0.9 || (v.tx - v.bx) * b.facing <= 0) return null; const k = (p.x - v.bx) / (v.tx - v.bx); if (k < 0 || k > 1) return { miss: true, tip: v.tx / 16 }; return { above: +(p.body.bottom - (v.by + (v.ty - v.by) * k)).toFixed(1), feet: +(p.body.bottom / 16).toFixed(2), band: b.band, sup: b.support, gy: +(b.groundY / 16).toFixed(2), ground: p.onGround };';
 
     // 1. varrida baixa num tronco: mira a canela dele; parado, apanha
     await hush(31, 1);
-    await put(38, 32);
+    await putOnLog();
     await until(() => window.__scene.player.body.blocked.down, null, 5000).catch(() => null);
     await waitGame(0.3);
     await ready();
@@ -764,7 +774,7 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
     await idle();
     // 2. varrida alta no mesmo tronco: na altura da cabeça; agachado, passa por cima
     await hush(31, 1);
-    await put(38, 32);
+    await putOnLog();
     await waitGame(0.4);
     await ready();
     await page.keyboard.down('KeyS');
@@ -872,7 +882,7 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
     await idle();
     // 8. o casco por cima de um tronco afunda o tronco e quem estava de pé cai na água
     await hush(30, 1);
-    await put(38, 32);
+    await putOnLog();
     await until(() => window.__scene.player.body.blocked.down, null, 5000).catch(() => null);
     await waitGame(0.3);
     await page.evaluate(() => { const b = window.__scene.boss; b.goal = 38 * 16 + 8; b.go('pole', 'pole'); });
@@ -979,7 +989,7 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
     check(Math.abs(a1.x - a0.x) < 0.8 && a2.x - a1.x > 4, `nadando, a remada leva o cavaleiro (parado ${(a1.x - a0.x).toFixed(2)}, remando ${(a2.x - a1.x).toFixed(2)})`);
     // de pé no tronco do meio: três remadas para a direita levam o tronco junto, com ele em cima
     const LG = () => page.evaluate(() => { const s = window.__scene; const l = s.vale.logs.find((k) => Math.abs(k.home - (38 * 16 + 8)) < 2); return { x: +(l.body.center.x / 16).toFixed(2), shift: Math.round(l.shift), top: l.body.top / 16 }; });
-    await put(38, 32);
+    await putOnLog();
     await until(() => window.__scene.player.body.blocked.down, null, 5000).catch(() => null);
     await waitGame(0.4);
     const l0 = await LG();

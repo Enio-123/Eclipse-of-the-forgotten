@@ -300,17 +300,30 @@ const URL = process.argv[3] || 'http://localhost:8765/index.html';
   });
   await tap('KeyJ');
   await waitGame(0.8);
-  await shot('p04-eco');
   const hits = await page.evaluate(() => window.__hits);
   st = await S();
   check(hits.length === 2 && Math.abs(hits[1] - hits[0] * 0.6) < 0.02, `a cópia repete o golpe com 60% (${hits})`);
   check(Math.abs(st.amber - 2.2) < 0.01, `só o golpe dele enche as contas (${st.amber})`);
-  // a flecha também
+  // a flecha também. Colado no mineiro, num quadro lento a flecha da cópia sai e acerta no mesmo quadro
+  // (nunca fica na lista de flechas entre um quadro e outro): conta pela cena
+  await page.evaluate(() => {
+    const s = window.__scene;
+    window.__echoShots = [];
+    window.__hits = [];
+    const orig = s.echoArrow.bind(s);
+    s.echoArrow = (x, y, dx, dy, dmg) => { window.__echoShots.push(+dmg.toFixed(2)); return orig(x, y, dx, dy, dmg); };
+  });
   await page.evaluate(() => window.__scene.player.setWeapon('bow'));
   await waitGame(0.3);
   await tap('KeyJ');
-  await until(() => window.__scene.arrows.some((a) => a.echo), null, 10000);
-  check(true, 'a cópia atira a flecha dela também');
+  await until(() => window.__echoShots.length > 0, null, 10000);
+  await waitGame(0.3);
+  const eh = await page.evaluate(() => ({ shots: window.__echoShots, hits: window.__hits }));
+  // a primeira flecha que acertou o mineiro é a dele: a da cópia leva 60% dela
+  check(eh.shots.length === 1 && (!eh.hits.length || Math.abs(eh.shots[0] - eh.hits[0] * 0.6) < 0.02), `a cópia atira a flecha dela também, com 60% (${JSON.stringify(eh)})`);
+  // a foto só agora: ela demora, e com a cena de volta o jogo anda uns segundos até o teste seguir (a cópia
+  // acabaria antes da flecha)
+  await shot('p04-eco');
   await page.evaluate(() => window.__scene.player.setWeapon('scythe'));
   await until(() => !window.__scene.memEcho, null, 20000);
   check(true, 'a cópia some sozinha no fim');
