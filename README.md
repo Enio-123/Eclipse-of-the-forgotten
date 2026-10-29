@@ -42,5 +42,9 @@ da região) e Esc pausa. Tudo pode ser trocado em Configurações. O jogo també
   imagens do começo do jogo em duas folhas (`public/assets/pack-*.png`): no build o jogo carrega as folhas e
   as soltas saem de `dist/` (a versão do claude.ai aceita no máximo 511 arquivos). Rode de novo quando uma
   dessas imagens mudar; se esquecer, o build avisa e a imagem que mudou vai solta.
+- `tools/video/` o vídeo "como zerar", gravado quadro a quadro num relógio virtual: `plan.js` é o roteiro
+  dos 23 trechos (com os bots que jogam cada um), `capture.cjs` grava (com `GL=mesa` num Xvfb fica umas 3
+  vezes mais rápido), `audio.cjs` refaz o som pelo motor do jogo e `montar.sh` junta tudo (`CRF=23` para um
+  arquivo menor).
 - `lore/` a lore oficial, o registro de continuidade e o plano de cada área.
 - `LEIAME.md` notas de desenvolvimento das primeiras versões.
