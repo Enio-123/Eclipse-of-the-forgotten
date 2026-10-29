@@ -359,8 +359,20 @@ export class Coroado implements BossFoe {
 
   // ---------- o que a cena lê ----------
   get rect() {
-    if (this.inMirror && this.cur) return rectOf(this.cur.body);
-    return NOWHERE;
+    if (!this.inMirror || !this.cur) return NOWHERE;
+    // na investida, tonto (depois de aparado) e na volta escorregando ele está onde o corpo foi, não onde o
+    // reflexo ficou
+    if (this.offMirror) return this.bodyRect();
+    return rectOf(this.cur.body);
+  }
+
+  private get offMirror() {
+    return this.state === 'lunge' || this.state === 'stagger' || this.state === 'lungeback';
+  }
+
+  private bodyRect() {
+    const b = this.body;
+    return new Phaser.Geom.Rectangle(b.x, b.y, b.width, b.height);
   }
 
   get sleeping() {
@@ -1554,12 +1566,15 @@ export class Coroado implements BossFoe {
     }
     if ((this.state === 'mirror' || this.state === 'lungeback') && this.cur) {
       const r = this.cur;
-      if (r.atk && overlap(pr, rectOf(r.atk))) {
+      // na volta ele escorrega até o reflexo: o golpe do reflexo só vale com ele lá (no caminho o corte nem
+      // aparece), e o encontrão é onde ele está
+      if (this.state === 'mirror' && r.atk && overlap(pr, rectOf(r.atk))) {
         this.harmFrom = r.body[0] + r.body[2] / 2;
         return true;
       }
-      if (!sliding && overlap(pr, rectOf(r.body))) {
-        this.harmFrom = r.body[0] + r.body[2] / 2;
+      const body = this.state === 'mirror' ? rectOf(r.body) : this.bodyRect();
+      if (!sliding && overlap(pr, body)) {
+        this.harmFrom = body.centerX;
         return true;
       }
     }

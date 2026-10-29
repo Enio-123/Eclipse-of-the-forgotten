@@ -1576,16 +1576,32 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
 
     // a investida: aparada, ele fica tonto e leva golpe e meio
     await page.evaluate(() => { const e = window.__foe; e.lungeT = 0; });
-    await freeze("e.state === 'lunge'");
+    // aparada no meio do caminho (longe de onde ela saiu)
+    await freeze("e.state === 'lunge' && Math.abs(e.lunge.x - e.lunge.from) > 80");
     const pr = await page.evaluate(() => {
       const e = window.__foe;
       const ok = e.parry(e.lungeBox(), e.lunge.x - e.lunge.dir * 20);
       const st = e.state;
       const hp0 = e.hp;
+      // o golpe da cena acerta pelo rect: tonto, ele está onde a investida parou (não no lugar do reflexo)
+      const r = e.rect;
       e.hit(e.lunge.x, 4, 'side');
-      return { ok, st, dmg: hp0 - e.hp };
+      return { ok, st, dmg: hp0 - e.hp, rx: Math.round(r.centerX), lx: Math.round(e.lunge.x), from: Math.round(e.lunge.from) };
     });
-    check(pr.ok && pr.st === 'stagger' && Math.abs(pr.dmg - 6) < 0.01, `a investida aparada deixa ele tonto, e o golpe nele vale golpe e meio (${JSON.stringify(pr)})`);
+    check(pr.ok && pr.st === 'stagger' && Math.abs(pr.dmg - 6) < 0.01 && Math.abs(pr.rx - pr.lx) < 4, `a investida aparada deixa ele tonto, onde ele está, e o golpe nele vale golpe e meio (${JSON.stringify(pr)})`);
+
+    // a volta escorregando até o reflexo: o golpe e o encontrão são onde ele aparece, não onde o reflexo está
+    await freeze("e.state === 'lungeback' && e.t > 0.12");
+    const lb = await page.evaluate(() => {
+      const e = window.__foe;
+      const r = e.rect;
+      const sb = e.sprite.getBounds();
+      const refX = e.cur.body[0] + e.cur.body[2] / 2;
+      const at = (x) => new r.constructor(x - 7, r.y, 14, r.height);
+      const far = Math.abs(refX - r.centerX) > 30;
+      return { rx: Math.round(r.centerX), sx: [Math.round(sb.x), Math.round(sb.right)], refX: Math.round(refX), far, here: e.harms(at(r.centerX), false), ref: far ? e.harms(at(refX), false) : null };
+    });
+    check(lb.rx > lb.sx[0] && lb.rx < lb.sx[1] && lb.far && lb.here && lb.ref === false, `na volta da investida ele leva golpe e machuca onde aparece, não no lugar do reflexo (${JSON.stringify(lb)})`);
 
     // vencido: ajoelha no meio do terraço, a coroa nas mãos; a escolha abre sozinha
     await page.evaluate(() => { const e = window.__foe; e.damage(e.hp); });
