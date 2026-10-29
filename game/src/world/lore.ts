@@ -177,7 +177,7 @@ export const CORRUPTION_LOW = 2;
 export type Proof = 'vhalor' | 'inocentes' | 'ambar' | 'nucleo' | 'arielle';
 
 // Registros: documentos, livros e fichas espalhados pelas salas (sala:ordem no mapa). Ficam no Diário,
-// aba Registros. Por enquanto nas Minas e na Floresta; as outras regiões entram com a integração da lore.
+// aba Registros. Há registros em todas as regiões (os das salas antigas entraram com a integração da lore).
 // named: como o registro fica depois que ele lembra o nome dela (ver NAME_MEMORY)
 export interface RecordInfo {
   title: string;
@@ -225,6 +225,26 @@ export const RECORDS: Record<string, RecordInfo> = {
     ],
     proofs: ['vhalor'],
   },
+  // O Claustro (L2): o caderno que a noiva deixou com a irmã Luzia na manhã do casamento, no alto da arcada
+  'claustro:0': {
+    title: 'O caderno guardado',
+    region: 'Cidade-Catedral',
+    lines: [
+      'Um registro do arquivo da Casa, copiado à mão e escondido entre os livros de oração da arcada. Os nomes de quem pagou o Dízimo inteiro, um por linha, com a data e o que cada um fazia.',
+      'Entre as folhas, uma flor prensada para cada nome. Na primeira, um bilhete: "Irmã, guarde até eu voltar. A senhora não precisa ler. Basta não esquecer que está aqui."',
+    ],
+    proofs: ['arielle', 'inocentes'],
+  },
+  // O Altar do Dízimo (L2): o livro grande que o Arcebispo deixa cair quando a conta fecha
+  'altar:0': {
+    title: 'O livro do Dízimo',
+    region: 'Cidade-Catedral',
+    lines: [
+      'O livro grande do Arcebispo, caído aberto nos degraus do altar. Cada linha é uma remessa: tantos frascos de lembrança, pesados, selados e mandados para a Casa Vhalor "pela porta de baixo". Nenhuma linha diz para quê.',
+      'Na última folha, a letra dele treme: "A Casa pede a conta inteira desta lua. Não o décimo: tudo. Eu conto, e só. Não sou eu quem escolhe o que se cobra."',
+    ],
+    proofs: ['vhalor'],
+  },
   'solitarias:0': {
     title: 'O livro das sentenças',
     region: 'Prisão Subterrânea',
@@ -242,6 +262,26 @@ export const RECORDS: Record<string, RecordInfo> = {
       'Mais embaixo, fundo na pedra: "enquanto eu contar, eu lembro de quando começou". Depois, um nome que a unha começou e não terminou de riscar, e a mesma mão apagando por cima.',
     ],
     proofs: ['inocentes'],
+  },
+  // A Sala da Máscara (L2): o livro de ofício que a Carcereira deixa cair quando é vencida
+  'mascara:0': {
+    title: 'O livro das máscaras',
+    region: 'Prisão Subterrânea',
+    lines: [
+      'O livro de ofício da Carcereira: o desenho de cada máscara que ela forjou, a medida do rosto e quem mandou fechar. Quase todas as páginas dizem a mesma casa.',
+      'Na última, a medida mais larga e a ordem colada por cima: "Para o carrasco da Casa. Fechar sem chave. Que ele não lembre do que fez, nem de quem mandou." Embaixo, na letra dela: "a ordem não diz o crime. Li o que estava escrito."',
+    ],
+    proofs: ['vhalor'],
+  },
+  // O Fosso dos Esquecidos (L2): a folha que ela enfiou numa fresta da pedra, longe da tinta
+  'fosso:0': {
+    title: 'A lista de A.',
+    region: 'Fosso dos Esquecidos',
+    lines: [
+      'Uma folha dobrada em quatro, enfiada numa fresta da pedra, longe da tinta. Uma coluna de nomes, cada um com o ofício ao lado: arquivista, parteira, copista, o menino que contava as badaladas.',
+      '"São os nomes dos papéis que ele guarda no bolso sem ler. Alguém tem que lembrar deles inteiros, e não só pela sentença. Um dia eu leio para ele. A."',
+    ],
+    proofs: ['inocentes', 'arielle'],
   },
   // A Margem da Tinta (v18): a calha das sentenças, entre o Fosso e o Leito do Abismo
   'margem:0': {
@@ -575,7 +615,7 @@ export const PAGES: Record<string, { title: string; text: string }> = {
   'praca:0': { title: 'O cadafalso', text: 'Penduram ali quem lembra demais. A vela de cima nunca apaga: o Arcebispo diz que é para ninguém esquecer de ter medo.' },
   'rua:0': { title: 'O dízimo', text: 'Um décimo de tudo: do pão, do sono, do nome. Quem não paga desce para a prisão, embaixo da cidade.' },
   'telhados:0': { title: 'O sino da torre', text: 'O sino da torre chamava as irmãs para cantar. Depois do eclipse ninguém subiu mais para tocá-lo.' },
-  'nave:0': { title: 'O Arcebispo', text: 'Ele não era mau. Era só contador. Um dia achou que dava para cobrar o tempo também, e o céu escureceu.' },
+  'nave:0': { title: 'O Arcebispo', text: 'Ele não era mau. Era só contador. A cidade diz que um dia ele quis cobrar o tempo também, e o céu escureceu. Mas quem pediu a conta inteira, na última lua, foi a Casa Vhalor.' },
   'claustro:0': { title: 'As irmãs', text: 'Éramos doze no claustro. Onze esqueceram a oração e depois o caminho. Eu fiquei, porque nunca vi o eclipse.' },
   'galeria:0': { title: 'Os vitrais', text: 'Cada vitral tem o rosto de alguém que pagou tudo. A luz ainda passa por eles. Eles não sabem.' },
   'poco:0': { title: 'O poço', text: 'Embaixo do cadafalso há um poço. Quem lembra demais desce por ele, e ninguém conta mais deles. Eu conto.' },
@@ -758,6 +798,7 @@ export const NUN = {
     'E isto também. Eu cantei num casamento, há muito tempo. Acho que era o seu.',
   ],
   after: [
+    'Na manhã do seu casamento a noiva passou correndo pela porta do claustro, antes do sino. Não era passo de noiva: era passo de quem leva papel apertado no peito. Ela me deixou um caderno para guardar e não voltou para buscar.',
     'O Arcebispo conta moedas no altar, lá no alto da galeria. Ele não erra a conta.',
     'Se precisar descansar, a vela do cadafalso nunca apaga.',
     'Embaixo da cidade tem uma prisão. Ouço correntes quando chove.',
@@ -819,7 +860,7 @@ export const BESTIARY: { kind: string; name: string; text: string; tip: string }
   },
   {
     kind: 'boss:arcebispo', name: 'O Arcebispo do Dízimo',
-    text: 'Contava tudo o que a cidade pagava. Um dia quis cobrar o tempo, e o céu escureceu.',
+    text: 'Contava tudo o que a cidade pagava e mandava a conta para a Casa Vhalor. A cidade diz que um dia ele quis cobrar o tempo, e o céu escureceu.',
     tip: 'O incensário dele também se apara. Quando o vitral cair, fuja dos fachos de luz.',
   },
   {

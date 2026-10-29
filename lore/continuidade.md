@@ -2,7 +2,7 @@
 
 Eclipse of the Forgotten. Quem manda é a [lore oficial](lore-oficial.md), escrita pelo Enio. Este registro é a ponte entre ela e o jogo: o que é fato, o que o jogo já conta, o que contradiz, o que falta e onde cada coisa vai entrar. Antes de escrever qualquer texto de história (memória, página, fala, pensamento, cena, nome de chefe), confira aqui e atualize aqui.
 
-Estado em 26/10/2026, 00:50: análise feita sobre o código (`jogo/src/world/lore.ts`, `rooms.ts`, `Npcs.ts`, `scenes/IntroScene.ts`, `scenes/GameScene.ts`). Nada da lore nova foi implementado ainda no jogo. A integração completa entra depois das áreas novas e antes dos testes finais e do vídeo de zerar; as áreas novas já nascem seguindo a lore.
+Estado em 29/10/2026: a lore está no jogo inteiro. As áreas novas nasceram seguindo ela, e a integração nas salas antigas (L2) entrou depois da última área nova e antes dos testes finais e do vídeo de zerar: as correções da seção 5 e os registros da seção 9. A primeira análise (26/10/2026, sobre `lore.ts`, `rooms.ts`, `Npcs.ts`, `IntroScene.ts` e `GameScene.ts`) continua abaixo como registro do que mudou.
 
 ## 1. Fatos fixos (cânone)
 
@@ -49,14 +49,14 @@ O que o jogo só pode afirmar no fim: que ele matou Arielle, e por quê. Antes d
 
 | Região | O que a lore pede | O que o jogo já conta | O que falta |
 |---|---|---|---|
-| Ponte do Castelo (abertura) | O despertar nas ruínas | "A chuva sabe o meu nome. Eu não." | Abertura: trocar "o carrasco do rei" por "o último carrasco de Vespera" (5.3). |
-| Catacumbas, Sinos, Cripta | Registros de pessoas apagadas; criaturas de morte e abandono | "Os que dormem", o Sineiro | Registros: lápides sem nome e o livro dos apagados. |
-| Cidade-Catedral | Propaganda da nobreza; primeiras provas do roubo | O Dízimo, os esquecidos ("Eu tinha uma filha. Ou um cachorro. Paguei os dois.") | A Casa Vhalor e o Âmbar nunca são nomeados. Faltam os éditos da Casa (propaganda) e o livro do altar (prova). |
-| Prisão Subterrânea, Fosso, Abismo | Registros das execuções; provas de inocência | Os nomes no bolso, o machado, a máscara, Tomé | O Livro das Sentenças (quem eram as vítimas: arquivistas, pesquisadores, testemunhas) e a prova de qual versão do machado é a verdadeira. |
-| Minas Abandonadas (nova) | Exploração dos trabalhadores; origem industrial do Âmbar | Só o gancho do fim do capítulo 3 | Tudo (seção 8). |
-| Floresta Nevada (nova) | Memórias de Arielle; a calma contra a violência dele | A abertura já se passa numa floresta de neve com a figura de capa vermelha | Tudo. |
-| Vale das Cachoeiras (nova) | Os planos de largar Vespera | A Lembrança "O vale, antes do eclipse" | Tudo. |
-| Torres Rúnicas (nova, final) | Mecanismos da Coroação; registros das experiências; o núcleo | Nada | Tudo, mais os três finais. |
+| Ponte do Castelo (abertura) | O despertar nas ruínas | "A chuva sabe o meu nome. Eu não." | Nada: a abertura diz "o último carrasco de Vespera" (5.3, feito na v20). |
+| Catacumbas, Sinos, Cripta | Registros de pessoas apagadas; criaturas de morte e abandono | "Os que dormem", o Sineiro | Nada: as lápides raspadas da Galeria dos Nichos (v18). |
+| Cidade-Catedral | Propaganda da nobreza; primeiras provas do roubo | O Dízimo, os esquecidos ("Eu tinha uma filha. Ou um cachorro. Paguei os dois.") | Nada: o édito da Casa no Mercado do Dízimo (v18); o caderno guardado no claustro, o livro do Dízimo que cai com o Arcebispo e a Casa Vhalor na página da irmã Luzia e no bestiário (v20). |
+| Prisão Subterrânea, Fosso, Abismo | Registros das execuções; provas de inocência | Os nomes no bolso, o machado, a máscara, Tomé | Nada: o livro das sentenças das Solitárias (v18), o livro das máscaras que cai com a Carcereira e a lista de A. no Fosso (v20). A versão do machado se decide pela ficha do carrasco, nas Torres. |
+| Minas Abandonadas (nova) | Exploração dos trabalhadores; origem industrial do Âmbar | Só o gancho do fim do capítulo 3 | Nada: pronta na v15 (seção 8). |
+| Floresta Nevada (nova) | Memórias de Arielle; a calma contra a violência dele | A abertura já se passa numa floresta de neve com a figura de capa vermelha | Nada: pronta na v17 (7.6). |
+| Vale das Cachoeiras (nova) | Os planos de largar Vespera | A Lembrança "O vale, antes do eclipse" | Nada: pronto na v19 (7.7). |
+| Torres Rúnicas (nova, final) | Mecanismos da Coroação; registros das experiências; o núcleo | Nada | Nada: prontas na v20, com os três finais (seção 10 e `torres.md`). |
 
 ## 5. Contradições e como ficam
 
@@ -84,8 +84,8 @@ O que o jogo só pode afirmar no fim: que ele matou Arielle, e por quê. Antes d
 
 1. Ponte: a capa dividida na chuva (já existe).
 2. Catacumbas: a figura de capa vermelha na Lembrança do vale (já existe).
-3. Cidade: as alianças, a irmã que cantou no casamento (já existe); um registro do arquivo com flores prensadas, sem nome.
-4. Prisão: ela anotava os nomes dos condenados para que alguém lembrasse (registro assinado só "A.").
+3. Cidade: as alianças, a irmã que cantou no casamento (já existe); um registro do arquivo com flores prensadas, sem nome. No jogo desde a v20: o caderno guardado, no alto da arcada do claustro (a cópia que a noiva deixou com a irmã Luzia, uma flor prensada para cada nome e o bilhete "Irmã, guarde até eu voltar"), e a fala da irmã Luzia depois dos sinos: na manhã do casamento a noiva passou correndo pela porta do claustro, antes do sino, e deixou com ela um caderno para guardar. A irmã é cega: conta pelo passo, e o bilhete diz que ela não precisa ler.
+4. Prisão: ela anotava os nomes dos condenados para que alguém lembrasse (registro assinado só "A."). No jogo desde a v20: a lista de A., dobrada numa fresta da laje de pouso do Fosso, longe da tinta (os nomes dos papéis que ele guarda no bolso sem ler, cada um com o ofício). Continua assinada só A., mesmo depois de `cabana:0`: é a letra dela.
 5. Minas: ela investigava as minas; ficha assinada "A.", primeira prova do Âmbar.
 6. Floresta Nevada: o nome dela volta. A calma ao lado dela contra a violência dele. No jogo desde a v17: o bilhete das fitas, o herbário (o nome escorrega antes da memória e fica parado depois), a carta da cabana, o livro da caça, as memórias "O lago congelado", "O nome dela" (primeira vez que o nome aparece) e "A trilha na neve" (duas versões). Ver `floresta.md`. Na v18 entrou **A Mata Fechada**, entre o lago e a cabana: o caderno do mateiro (as covas de caça, a medida que não era de bicho), a lista do cercado (vinte e três traços e o nome raspado; o aviso de que os cães não descem mais do lago, que casa com o bilhete das fitas) e a memória "O cercado da espera", em duas versões — abrir o portão antes da corneta, ou contar até dez e soltar os cães. O nome dela continua sem aparecer antes de `cabana:0`.
 7. Vale das Cachoeiras: o plano de partir; o nome na areia termina de aparecer. No jogo desde a v19: a lista do que levar (a caixa de lata na gruta, a palavra "ele" riscada e escrita de novo), a planta da casa (dois cômodos e a prateleira "para os nomes que ninguém mais vai pagar"; a conta das tábuas na letra dele), a ordem do aqueduto (a Casa desvia o rio para esfriar o núcleo da Coroação; a nota a lápis dela), o livro de bordo do Barqueiro e as memórias "A água fria" (ela ensinando ele a boiar), "O nome na areia" (o nome dela só fica parado depois de `cabana:0`; o dele a água sempre leva) e "As duas passagens" (duas versões). Ver `vale.md`.
@@ -102,14 +102,21 @@ O que o jogo só pode afirmar no fim: que ele matou Arielle, e por quê. Antes d
 - Registros: o livro do Capataz (turnos pagos com esquecimento), a ordem da Casa Vhalor para as prensas, a ficha de "A.".
 - Memória essencial: uma das versões de "Arielle fugindo".
 
-## 9. Mudanças nas 22 salas atuais (quando a integração começar)
+## 9. Mudanças nas 22 salas antigas (feitas na v20, a integração L2, 29/10/2026)
 
-- Abertura: terceira frase.
-- Irmã Luzia: página "O Arcebispo" e uma fala nova depois dos sinos (a pista do casamento).
-- Bestiário: texto do Arcebispo.
-- Fim do capítulo 2: dito como lembrança dele.
-- Registros novos: catacumbas (lápides sem nome), praça (édito da Casa Vhalor), altar (livro do Dízimo com as remessas para a Casa), celas ou correntes (Livro das Sentenças), fosso (registro de "A.").
-- "O machado" e "A máscara de ferro" ganham a prova que decide a versão.
+- Abertura: a terceira frase é "O último carrasco de Vespera pagou tudo."
+- Irmã Luzia: a página "O Arcebispo" diz que é a cidade que conta que ele quis cobrar o tempo, e que quem pediu a conta inteira, na última lua, foi a Casa Vhalor. Depois dos sinos ela conta a manhã do casamento (7.3).
+- Bestiário: o Arcebispo contava tudo o que a cidade pagava e mandava a conta para a Casa Vhalor; o céu escuro é o que a cidade diz.
+- Fim do capítulo 2: "A conta do Arcebispo fechou. É assim que ele lembra: ..." A versão distorcida fica como lembrança dele, e a carta da cabana desmente (5.1).
+- Registros novos nas salas antigas, cada um com o desenho no lugar e a aba Registros do Diário:
+  - **O caderno guardado** (`claustro:0`): na estante do alto da arcada da esquerda. Provas `arielle` e `inocentes`.
+  - **O livro do Dízimo** (`altar:0`): cai aberto nos degraus quando o Arcebispo é vencido. As remessas de frascos de lembrança para a Casa Vhalor "pela porta de baixo" e a última folha: a Casa pediu a conta inteira desta lua. Prova `vhalor`.
+  - **O livro das máscaras** (`mascara:0`): cai quando a Carcereira é vencida. A ordem da máscara dele, colada na última página ("Fechar sem chave. Que ele não lembre do que fez, nem de quem mandou."), e a nota dela: a ordem não diz o crime. Casa com a memória "A máscara de ferro" ("Não ouvi o crime"). Prova `vhalor`.
+  - **A lista de A.** (`fosso:0`): na laje de pouso do Fosso, contra a parede da direita. Provas `inocentes` e `arielle`; casa com a memória "Os nomes no bolso".
+- Os registros das catacumbas, da praça e das celas entraram antes, nas salas novas da v18 (seção 11).
+- "O machado", "A máscara de ferro" e "A tinta nas mãos" se decidem pela ficha do carrasco, nas Torres (`arquivo:1`, desde a T5).
+- Nenhum registro novo é prova `nucleo` e nenhuma memória foi acrescentada: os requisitos dos três finais não mudam.
+- Teste: `tools/lore2.cjs` (na regressão).
 
 ## 10. O que está pronto e o que não está
 
@@ -120,7 +127,7 @@ O que o jogo só pode afirmar no fim: que ele matou Arielle, e por quê. Antes d
 - Pronto também (Torres, ainda no ramo `torres`, sai na v20): as salas, a Capa de Luz, os inimigos, o Senhor de Vhalor e o Cetro, os registros das Torres (5 mais o decreto), as memórias da noite ("As flores do arquivo", "A ordem", "A escada") e o sistema da história inteiro (seção 6.8): memórias essenciais, versões com prova que racham a falsa, corrupção na máscara, escolhas decisivas, o Cobrador devolvendo memórias e a aba A Noite.
 - Pronto também (Torres T6, no mesmo ramo): o Carrasco Coroado no terraço do núcleo (o colosso, o pó, o carrasco dourado no espelho e a coroa estendida) e a tela da escolha do fim, que lê `night()`. As acusações das contas e as justificativas do espelho estão em `torres.md`.
 - Pronto também (Torres T7, no mesmo ramo): os três finais. A memória "A noite" (`nucleo:boss`) só volta no terraço, inteira nos finais I e III e torta no II; depois vêm o que acontece no terraço, o filme pintado de cada final com a última frase, o nome do final e os créditos (o jogo do Enio, e quem estava em Vespera), Vespera depois do fim e o título que lembra o final. No I ele acorda na Ponte sem a máscara, numa manhã sem eclipse, e o povo lembra o próprio nome (a Marta, o Bento, a Iara, a Célia, a Joana e o mineiro Otávio, que ganharam nome agora); no terraço ficam a coroa, a máscara e a foice. No II ele acorda no Trono de coroa e dourado, o Eclipse no céu está maior, quem era gente fica de joelhos e ninguém lembra o nome, só a irmã Luzia. O III não volta: o título fica com o penhasco vazio. Os detalhes estão em `torres.md` (Os finais no jogo).
-- Não existe ainda: registros nas 22 salas da Cidade e da Prisão (a integração L2).
+- Pronto também (v20, a integração L2): os textos antigos acertados com a lore e os quatro registros novos nas salas antigas (seção 9). Agora toda região tem registros.
 
 
 ## 11. Salas novas da v18 (26/10/2026)

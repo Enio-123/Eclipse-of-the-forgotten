@@ -190,6 +190,8 @@ const BOSSES: Record<BossId, BossInfo> = {
     corpse: 'corpse',
     corpseFacing: -1,
     after: ['As moedas pararam de cair. Pela primeira vez, ninguém conta.', 'O que ele cobrou não ficou aqui. Desceu para algum lugar embaixo da cidade.'],
+    // o livro grande da conta cai com ele (para onde ia o Dízimo)
+    note: { id: 'altar:0', dx: 56 },
   },
   carcereira: {
     make: (s, x, y) => new Carcereira(s, x, y),
@@ -204,6 +206,8 @@ const BOSSES: Record<BossId, BossInfo> = {
     corpse: 'death',
     corpseFacing: -1,
     after: ['As correntes caíram no chão. Pela primeira vez, ninguém vigia.', 'Embaixo da bigorna, a pedra rachou. Lá de baixo vem um eco.'],
+    // o livro de ofício dela, com a ordem da máscara dele colada na última página
+    note: { id: 'mascara:0', dx: -90 },
   },
   sombra: {
     make: (s, x, y) => new Sombra(s, x, y),
@@ -325,7 +329,7 @@ const CHAPTERS: Record<string, { title: string; text: string }> = {
   },
   'altar:boss': {
     title: 'Fim do segundo capítulo',
-    text: 'A conta do Arcebispo fechou. Ele cobrou a memória dela antes da cerimônia, e ela o esqueceu no caminho do altar. O que foi cobrado desceu para a prisão, embaixo da cidade.',
+    text: 'A conta do Arcebispo fechou. É assim que ele lembra: o Arcebispo cobrou a memória dela antes da cerimônia, e ela o esqueceu no caminho do altar. O que foi cobrado desceu para a prisão, embaixo da cidade.',
   },
   'capataz:boss': {
     title: 'Fim do quarto capítulo',

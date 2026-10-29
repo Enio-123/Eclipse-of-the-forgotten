@@ -10,7 +10,7 @@ import type { GameInit } from './GameScene';
 export const STORY = [
   'Em Vespera, as memórias pagam impostos.',
   'Quem paga demais esquece o próprio nome.',
-  'O carrasco do rei pagou tudo.',
+  'O último carrasco de Vespera pagou tudo.',
 ];
 
 const DURATION = 15000;

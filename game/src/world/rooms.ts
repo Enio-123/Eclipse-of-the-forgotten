@@ -1570,5 +1570,5 @@ export const MAP_POS: Partial<Record<RoomId, { x: number; y: number }>> = {
   experiencias: { x: 3900, y: 6 },
   trono: { x: 3854, y: -120 },
   coroacao: { x: 3894, y: -244 },
-  nucleo: { x: 3862, y: -308 },
+  nucleo: { x: 3874, y: -308 },
 };

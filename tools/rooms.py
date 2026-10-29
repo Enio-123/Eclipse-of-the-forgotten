@@ -644,6 +644,9 @@ def claustro():
     g.put(16, 24, 'c')
     g.put(45, 12, 'v')
     g.put(70, 24, 'C')
+    # no alto da arcada da esquerda, a estante dos livros de oração: o caderno que a noiva deixou com a
+    # irmã Luzia (registro claustro:0)
+    g.put(11, 24, 'r')
     return g.rows()
 
 
@@ -1080,6 +1083,8 @@ def fosso():
     g.put(34, 77, 'c')
     g.put(22, 24, 'v')
     g.put(46, 50, 'v')
+    # na laje de pouso, contra a parede da direita (longe da tinta): a folha na fresta (registro fosso:0)
+    g.put(50, 27, 'r')
     return g.rows()
 
 

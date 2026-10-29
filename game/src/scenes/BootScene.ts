@@ -65,6 +65,8 @@ const IMAGES = [
   'relic-swim', 'barqueiro-pole', 'barqueiro-fist',
   // a coroa pequena do Carrasco Coroado: no final II ele anda com ela na cabeça (art2/coroa_rei.py)
   'crown-rei',
+  // os registros das salas antigas da Cidade e da Prisão (art/lore2_props.py)
+  'deco-record-claustro-0', 'deco-record-altar-0', 'deco-record-mascara-0', 'deco-record-fosso-0',
 ];
 // No build as imagens de IMAGES vêm juntas em poucas folhas (tools/atlas.py, vite.config.ts): em qual folha e
 // em que retângulo cada uma está. Em desenvolvimento é null e cada imagem carrega sozinha.
