@@ -5,13 +5,13 @@
 // o mar de nuvens, os frascos do Arquivo e a máquina da Torre das Engrenagens (T2); o Guarda da Coroação,
 // a Vigia Rúnica e os Arquivados (T3); o Senhor de Vhalor (T4b) e o Cetro de Vhalor (T4a); a história (T5); o
 // Carrasco Coroado, do terraço à escolha da coroa (T6); os três finais, do terraço ao filme, a Vespera depois do fim
-// e a tela de título (T7).
+// e a tela de título (T7); a música de cada sala e da luta final (T8).
 // uso: node torres.cjs <pasta-saida> [url]
 const { chromium } = require('playwright');
 const OUT = process.argv[2] || '.';
 const URL = process.argv[3] || 'http://localhost:8780/index.html';
 // ONLY=links,portao roda só essas partes (portao, links, portas, agrimensor, fotos, voo, runas, nuvens,
-// frascos, maquina, inimigos, cadeiras, vhalor, cetro, historia, carrasco, finais)
+// frascos, maquina, inimigos, cadeiras, vhalor, cetro, historia, carrasco, finais, musica)
 const ONLY = (process.env.ONLY || '').split(',').filter(Boolean);
 const part = (k) => !ONLY.length || ONLY.includes(k);
 (async () => {
@@ -222,6 +222,35 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
       await shot(`t1${String(i++).padStart(2, '0')}-${room}`);
     }
     check(true, `fotos das salas em ${OUT}`);
+  }
+
+  // a faixa que está tocando (ou a que vai tocar quando o som abrir) e em que colcheia ela está
+  const track = () => page.evaluate(() => {
+    const a = window.__audio;
+    const p = a.playing.find((q) => q.alive);
+    return p ? { id: p.id, step: p.step, ctx: a.ctx && a.ctx.state } : { id: a.wantTrack, step: -1, ctx: a.ctx && a.ctx.state };
+  });
+  if (part('musica')) {
+    // ---------- a música das Torres (T8) ----------
+    await setProgress([...VALE, 'runas:patio', 'short:torre', 'boss:vhalor']);
+    const want = { escada: 'torres', calha: 'torres', patio: 'torres', arquivo: 'torres-arquivo', experiencias: 'torres-dentro', engrenagens: 'torres-engrenagens', trono: 'torres-dentro', coroacao: 'torres-noite', nucleo: 'torres' };
+    const got = {};
+    for (const [room, entry] of [['escada', '1'], ['calha', '1'], ['patio', '1'], ['arquivo', 'O0'], ['experiencias', 'O0'], ['engrenagens', '1'], ['trono', '1'], ['coroacao', '1'], ['nucleo', '1']]) {
+      await start(room, entry);
+      got[room] = (await track()).id;
+    }
+    check(Object.entries(want).every(([r, id]) => got[r] === id), `cada sala das Torres toca a sua versão da música (${JSON.stringify(got)})`);
+    // trocar de sala dentro da família continua do compasso em que estava; fora dela, a outra música começa do zero
+    await page.keyboard.press('ArrowLeft');
+    await start('patio', '1');
+    await waitGame(3);
+    const a = await track();
+    await start('arquivo', 'O0');
+    const b = await track();
+    await start('cais', '1');
+    const c = await track();
+    check(a.ctx === 'running' && a.id === 'torres' && a.step > 4 && b.id === 'torres-arquivo' && b.step >= a.step && c.id === 'cais' && c.step < a.step,
+      `do pátio para o Arquivo a música das Torres segue do mesmo compasso, e o cais começa a dele do zero (${JSON.stringify({ a, b, c })})`);
   }
 
   if (part('voo')) {
@@ -1374,6 +1403,8 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
     await freeze("e.state === 'rise'");
     const woke = await page.evaluate(() => { const s = window.__scene; return { trap: s.fixtures.trapdoors.map((t) => t.open), lock: s.camLock, frozen: s.player.frozen }; });
     check(woke.trap.join() === 'false' && woke.lock && woke.frozen, `ele acorda: o alçapão fecha, a câmera trava e o cavaleiro espera a subida (${JSON.stringify(woke)})`);
+    const m8 = await track();
+    check(m8.id === 'boss8', `a luta com o colosso toca o hino no tom do título (${JSON.stringify(m8)})`);
     await freeze("e.state === 'idle'", 20000);
     const held = await page.evaluate(() => {
       const s = window.__scene;
@@ -1496,8 +1527,9 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
       const R = new Phaser.Geom.Rectangle(C - 7, F - 42, 14, 42);
       window.__leanHit = false;
       const h = () => {
-        if (e.state === 'leandrop' && e.harms(R, false)) window.__leanHit = true;
-        if (e.state === 'leanrest') s.events.off('postupdate', h);
+        // na descida e no instante do impacto (no quadro em que a cabeça chega ao chão)
+        if ((e.state === 'leandrop' || (e.state === 'leanrest' && e.headHot)) && e.harms(R, false)) window.__leanHit = true;
+        if (e.state === 'leanrest' && !e.headHot) s.events.off('postupdate', h);
       };
       s.events.on('postupdate', h);
     }, [C, F]);
@@ -1528,6 +1560,8 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
     }, C);
     check(rg.rage && rg.hp === 79 && mir.hp === 48 && mir.gone && mir.crown && !mir.big && !mir.chest && Math.abs(mir.x - C) < 4 && mir.gold,
       `na metade ele acelera; o colosso vira pó, e o carrasco dourado nasce da coroa, no meio, de coroa pequena (${JSON.stringify({ rg, mir })})`);
+    const m9 = await track();
+    check(m9.id === 'boss9', `o espelho toca o hino de cabeça para baixo (${JSON.stringify(m9)})`);
 
     // o espelho: ele faz o que o cavaleiro fez, do outro lado do meio e com atraso
     await page.evaluate((C) => { const p = window.__scene.player; p.teleport(C - 120, 702); p.body.setVelocity(0, 0); }, C);

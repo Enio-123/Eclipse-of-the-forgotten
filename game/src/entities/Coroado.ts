@@ -177,9 +177,14 @@ interface Sweep {
 interface Bead {
   x: number;
   y: number;
+  // a altura no quadro anterior: o golpe confere o caminho todo do quadro (no fim da queda ela anda mais que a altura
+  // do cavaleiro num quadro de 30 por segundo, e passaria por ele)
+  py: number;
   t: number;
   warn: number;
   falling: boolean;
+  // chegou ao chão: quebra no quadro seguinte, depois de o golpe conferir o último pedaço da queda
+  landed: boolean;
   img: Phaser.GameObjects.Image;
   glint: Phaser.GameObjects.Image;
   done: boolean;
@@ -465,6 +470,9 @@ export class Coroado implements BossFoe {
         break;
       }
       case 'leanrest':
+        // o impacto ainda machuca um instante: no quadro em que ela chega ao chão o golpe confere a cabeça lá embaixo
+        // (a 30 quadros por segundo o último pedaço da descida passaria por cima do cavaleiro)
+        if (this.headHot && this.t >= 0.1) this.headHot = false;
         if (this.t >= (this.rage ? C.leanRest2 : C.leanRest)) this.leanUp();
         break;
       case 'leanrise': {
@@ -873,7 +881,7 @@ export class Coroado implements BossFoe {
       const x = aim ? Phaser.Math.Clamp(p.x, this.x0 + 12, this.x1 - 12) : this.x0 + 12 + slot * 30 + 15 + (Math.random() - 0.5) * 10;
       const glint = s.add.image(x, this.floorY - 2, 'glow').setTint(0xffb040).setBlendMode(Phaser.BlendModes.ADD).setScale(0.2, 0.1).setAlpha(0).setDepth(DEPTH.enemy + 0.3);
       const img = hd(s.add.image(hx, hy, 'coroado', 'bead')).setDepth(DEPTH.enemy + 0.2).setVisible(false);
-      this.beads.push({ x, y: hy, t: -i * C.beadStep, warn: C.beadWarn, falling: false, img, glint, done: false });
+      this.beads.push({ x, y: hy, py: hy, t: -i * C.beadStep, warn: C.beadWarn, falling: false, landed: false, img, glint, done: false });
     });
     // as contas saltam do capuz para o alto antes de cair
     for (let i = 0; i < 14; i++) {
@@ -895,20 +903,27 @@ export class Coroado implements BossFoe {
         b.glint.setAlpha(0.4 + 0.55 * k + Math.sin(this.time * 30) * 0.1).setScale(0.26 + 0.3 * k, 0.1 + 0.08 * k);
         continue;
       }
+      if (b.landed) {
+        this.breakBead(b, false);
+        continue;
+      }
       const k = Math.min(1, (b.t - b.warn) / C.beadFall);
+      const y = Phaser.Math.Linear(top, this.floorY - 5, k * k);
+      b.py = b.falling ? b.y : y;
       if (!b.falling) {
         b.falling = true;
         b.img.setVisible(true);
       }
-      b.y = Phaser.Math.Linear(top, this.floorY - 5, k * k);
+      b.y = y;
       b.img.setPosition(b.x, b.y).setRotation(this.time * 8);
-      if (k >= 1) this.breakBead(b, false);
+      if (k >= 1) b.landed = true;
     }
     this.beads = this.beads.filter((b) => !b.done || b.img.active);
   }
 
   private beadBox(b: Bead) {
-    return new Phaser.Geom.Rectangle(b.x - 5, b.y - 5, 10, 10);
+    const y0 = Math.min(b.py, b.y);
+    return new Phaser.Geom.Rectangle(b.x - 5, y0 - 5, 10, Math.abs(b.y - b.py) + 10);
   }
 
   private breakBead(b: Bead, onPlayer: boolean) {
@@ -952,7 +967,6 @@ export class Coroado implements BossFoe {
   private leanLand() {
     const s = this.scene;
     this.go('leanrest');
-    this.headHot = false;
     for (const a of this.arms) {
       a.st = 'brace';
       a.x = a.tx;
@@ -1160,7 +1174,7 @@ export class Coroado implements BossFoe {
       this.lag = C.delay + 0.4;
       this.lungeT = Phaser.Math.FloatBetween(C.lungeEvery[0], C.lungeEvery[1]);
       this.go('mirror');
-      audio.music('mirror', 0.6);
+      audio.music('boss9', 0.6);
       ui.say('O Carrasco Coroado', 'Tudo o que eu fiz, você fez. Só que eu não esqueci.', 5200);
     }
   }

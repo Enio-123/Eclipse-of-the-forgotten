@@ -152,10 +152,16 @@ def keep(c, b, a, grow=0.3):
     c.crisp[y0:y1, x0:x1] = np.maximum(c.crisp[y0:y1, x0:x1], sub)
 
 
+# no jogo a sala ainda escurece por cima (o véu das salas fechadas): as de dentro ganham um pouco de luz aqui para a
+# parede não sumir no preto (as fotos do jogo mostraram o Arquivo, as Engrenagens e a Coroação quase pretos)
+GAIN = {'arquivo': 1.3, 'engrenagens': 1.4, 'coroacao': 1.3, 'trono': 1.2, 'experiencias': 1.15}
+
+
 def finish(c, Lt, alpha_mask=None, strokes=True):
     """A cor vezes a luz, as pinceladas por cima (a parede de longe fica mais mole que o terreno) e o que brilha."""
     L = c.L
-    L.P *= Lt
+    L.P *= Lt * GAIN.get(c.name, 1.0)
+    np.clip(L.P, 0, None, out=L.P)
     if strokes and c.crisp is not None:
         P0, A0 = L.P.copy(), L.A.copy()
     if strokes:

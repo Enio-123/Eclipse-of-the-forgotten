@@ -415,6 +415,47 @@ em `GameScene` (a seção Vespera depois do fim), `Npcs.ts`, `Backdrop.ts` e `gf
 - Tudo apoiado: os arcos da calha descem até o fundo das nuvens, as estantes vão do chão ao teto, as
   engrenagens giram em eixos presos na parede.
 
+## Arte e som no jogo (T8)
+
+- **O terreno** das nove salas (`art2/torres.py`): a pedra escura da Casa em fiadas, o bronze nas juntas e nas
+  bordas, os degraus e as plataformas com apoio de verdade.
+- **A parede do fundo** das salas de dentro (`art2/torres_parede.py`, uma paleta própria para cada sala): no
+  Arquivo, as estantes do chão ao teto com livros e frascos de Âmbar acesos; nas Experiências, a pedra fria; nas
+  Engrenagens, o trem de engrenagens e os canos presos na parede; no Trono, as pilastras e o disco de bronze das
+  runas, no meio do estrado; na Coroação, as frestas das runas acesas ao longo da escada. Cada sala tem um ganho
+  de luz para a pedra ler no jogo sem perder o escuro.
+- **O céu de fora** (`art2/fundos_torres.py`): o céu do eclipse visto de mais alto que o do vale (o mesmo eclipse,
+  no mesmo lugar), o mar de nuvens até o horizonte e, mais perto, as outras torres da Casa em penhascos saindo
+  das nuvens, com janelas acesas e a ponte em arco entre duas delas; as torres de longe andam devagar com a
+  câmera. Depois do Final I o céu é a manhã (`art2/aurora.py`). O brilho que sobe das nuvens ficou fraco de
+  propósito: a pintura já traz a luz dele.
+- **A música** (`game/src/systems/Audio.ts`), toda sintetizada como o resto. As Torres têm dezesseis compassos:
+  a metade A em sol menor, a da Casa, por onde o começo do hino da Coroação passa de vez em quando; a metade B no
+  si bemol maior relativo, a luz do mar de nuvens, com a melodia das Torres (o acorde subindo, como as torres
+  saindo das nuvens). Ela vem em cinco versões da mesma música, e trocar de sala entre elas segue do compasso em
+  que estava, sem cortar:
+  - de fora (escada, calha, pátio, núcleo): a flauta, os brilhos do piano no alto e a trompa longe;
+  - de dentro (Experiências, Trono): o órgão grave, o coro baixo e o piano;
+  - o Arquivo, o lugar dela: uma volta sim, outra não, a cantiga dela na caixinha (inteira, quatro semitons
+    abaixo, cabe na metade B) e o brilho dos frascos;
+  - as Engrenagens: o tique-taque do escapo e o dente da roda grande;
+  - a escadaria da Coroação, a noite: o coro do hino em toda volta e, uma volta sim, outra não, só a primeira
+    metade da cantiga (ela subindo na frente, até onde ele ainda a via).
+- **A luta final**: o colosso toca o hino da Coroação no ré menor do título, com o mi bemol napolitano no meio
+  da harmonia do título; quatro compassos só de sinos enquanto ele sobe, depois o passo dele no bumbo e no piano
+  grave, e o hino na trompa grave, no coro, na chuva de contas da caixinha e em tudo junto. O espelho toca o
+  mesmo hino de cabeça para baixo (cada passo da escala virado em volta do ré, a sensível trocada com o
+  napolitano), que cai em sol menor, o tom da Casa, com a caixinha do Reflexo subindo e voltando pelo acorde.
+  O Senhor de Vhalor continua com a marcha dele.
+- **O estalo**: o ruído dos efeitos (o ferro, as correntes, o trovão, a fumaça) às vezes passava uma amostra com
+  o volume máximo antes de começar, e estalava. Os ganhos agora nascem zerados.
+- **A luta final a 30 quadros por segundo**: no fim da queda, uma conta anda mais que a altura do cavaleiro num
+  quadro, e passava por ele sem acertar; o golpe agora confere o caminho todo do quadro, e ela só quebra no chão
+  um quadro depois. A cabeça do colosso fazia o mesmo no último pedaço da descida: agora o impacto ainda machuca
+  por um instante (0,1 s) quando ela chega ao chão.
+- **Ouvir sem o jogo**: `tools/musica.cjs` toca as faixas num OfflineAudioContext do Chromium e mede o volume
+  (as Torres ficam no nível do vale, a luta final um pouco acima da do Vhalor), o pico e as notas fora da escala.
+
 ## Marcos
 
 1. T1 salas: mapas em `tools/rooms.py`, portão do cais, região no mapa, agrimensor. Feito.
@@ -425,5 +466,5 @@ em `GameScene` (a seção Vespera depois do fim), `Npcs.ts`, `Backdrop.ts` e `gf
    e as memórias das Torres. Feito.
 6. T6 chefe final: o Carrasco Coroado (colosso e espelho) e a escolha. Feito.
 7. T7 finais: o terraço, os três filmes, os créditos, Vespera depois do fim e o título de cada final. Feito.
-8. T8 arte e áudio: terreno, fundos pintados, adereços, música do fim.
+8. T8 arte e áudio: terreno, fundos pintados, adereços, música das Torres e da luta final. Feito.
 9. T9 lore, testes, regressão e publicação (v20).

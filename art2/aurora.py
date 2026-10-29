@@ -26,6 +26,8 @@ SKIES = {
 }
 FLAT = {
     'vale-sky': (967.5, 111.5, 29.6),
+    # o céu das Torres é o mesmo céu do vale, visto de mais alto (o eclipse no mesmo lugar)
+    'torres-sky': (967.5, 111.5, 29.6),
 }
 LUMA = np.array([0.3, 0.55, 0.15], np.float32)
 

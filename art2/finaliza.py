@@ -214,7 +214,9 @@ def main():
     samples = []
     rng = np.random.default_rng(0)
     if keep:
-        done = [os.path.join(ASSETS, cfg.get('rename', {}).get(n, os.path.basename(n)) + '.png') for n in cfg['layers'] if n not in keep]
+        # as camadas com paleta própria não entram na paleta das prontas
+        done = [os.path.join(ASSETS, cfg.get('rename', {}).get(n, os.path.basename(n)) + '.png') for n in cfg['layers']
+                if n not in keep and n not in cfg.get('own', {})]
         pal, k = palette_of([f for f in done if os.path.exists(f)])
         print('paleta das imagens prontas:', k, 'cores')
     for name, kind in cfg['layers'].items():

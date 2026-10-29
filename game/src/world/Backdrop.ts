@@ -26,7 +26,7 @@ export const TORRES_INSIDE = new Set(['arquivo', 'engrenagens', 'trono', 'coroac
 
 // depois do final I o eclipse acabou: os céus que mostravam ele amanhecem (o mesmo céu pintado, com o sol no
 // lugar do eclipse e sem as estrelas; art2/aurora.py). O do cais é a noite da lembrança e fica
-const DAWN = new Set(['bridge-sky', 'city-sky', 'vale-sky']);
+const DAWN = new Set(['bridge-sky', 'city-sky', 'vale-sky', 'torres-sky']);
 export const skyKey = (k: string) => (ending() === 'truth' && DAWN.has(k) ? `${k}-aurora` : k);
 // a cor do fundo da câmera quando a sala amanhece (a do pé de cada céu da manhã)
 const DAWN_BG: Record<string, number> = { bridge: 0xaab6c8, city: 0xa9b0c4, vale: 0xf3e4d4, torres: 0xf3e4d4 };
@@ -59,8 +59,9 @@ export function backdropKeys(theme: string, room: string): string[] {
       if (room === 'cais') return ['cais-sky', 'cais-far', 'cais-mid'];
       return [skyKey('vale-sky'), 'vale-far', 'vale-mid'];
     case 'torres':
-      // ao ar livre, o céu do eclipse por cima do mar de nuvens; por dentro das torres, só a pedra
-      return TORRES_INSIDE.has(room) ? [] : [skyKey('vale-sky')];
+      // ao ar livre, o céu do eclipse por cima do mar de nuvens e as outras torres da Casa; por dentro das
+      // torres, só a pedra
+      return TORRES_INSIDE.has(room) ? [] : [skyKey('torres-sky'), 'torres-far'];
     default:
       return ['mem-sky', 'mem-far', 'mem-mid'];
   }
@@ -558,26 +559,39 @@ export class Backdrop {
       this.layers.push({ o: beam, update: (_sx, _sy, t) => void (beam.alpha = a * (0.7 + 0.3 * Math.sin(t * 0.0004 + x))) });
     }
   }
-  // Torres Rúnicas (provisório até a pintura das Torres): o céu do eclipse e o brilho dourado do mar de
-  // nuvens subindo de baixo; por dentro das torres, só a escuridão da pedra
+  // Torres Rúnicas, de fora: o céu do eclipse (o mesmo do vale, visto de mais alto: o mar de nuvens até o
+  // horizonte) e, mais perto, as outras torres da Casa em penhascos saindo das nuvens (art2/fundos_torres.py);
+  // o brilho dourado do mar de nuvens sobe de baixo. Por dentro das torres, só a escuridão da pedra (a parede
+  // do fundo de cada sala cobre o resto)
   private torres() {
     const room = this.room;
     if (TORRES_INSIDE.has(room)) return;
-    const skyImg = this.sky('vale-sky');
+    const skyImg = this.sky('torres-sky');
     if (skyImg) {
-      // a luz dourada de baixo, do mar de nuvens, esquenta o céu (de manhã bem menos: o sol está lá em cima)
-      hd(this.img(skyImg, BG.sky)).setTint(this.dawn ? 0xfff0e0 : 0xd8b48a);
+      hd(this.img(skyImg, BG.sky));
       this.newEclipse(SKY_ECLIPSE.vale);
     }
+    if (this.scene.textures.exists('torres-far')) {
+      // de manhã as torres de longe esfriam um pouco (a luz é a do sol, não a do mar de nuvens)
+      const far = this.hdTile('torres-far', BG.far, VIEW_H);
+      if (this.dawn) far.setTint(0xf2eef4);
+      this.layers.push({
+        o: far,
+        update: (sx, sy) => {
+          far.tilePositionX = (sx * 0.1) / far.tileScaleX;
+          far.y = this.so.y + Math.round(this.lift(sy) * 0.05);
+        },
+      });
+    }
     const add = Phaser.BlendModes.ADD;
-    // o mar de nuvens devolve a luz: de manhã ela é a do sol, mais branca
-    const glow = this.scene.add.image(this.so.x + VIEW_W / 2, this.so.y + VIEW_H + 40, 'glow').setScale(26, 6).setTint(this.dawn ? 0xfff0d6 : 0xffc46a).setAlpha(0.22)
+    // o mar de nuvens devolve a luz (pouca: a pintura já traz o brilho dele): de manhã ela é a do sol, mais branca
+    const glow = this.scene.add.image(this.so.x + VIEW_W / 2, this.so.y + VIEW_H + 40, 'glow').setScale(26, 6).setTint(this.dawn ? 0xfff0d6 : 0xffc46a).setAlpha(0.1)
       .setBlendMode(add).setScrollFactor(0).setDepth(BG.fog);
     this.layers.push({ o: glow, update: (_sx, sy, t) => {
-      glow.alpha = 0.2 + 0.03 * Math.sin(t * 0.0008);
+      glow.alpha = 0.09 + 0.02 * Math.sin(t * 0.0008);
       glow.y = this.so.y + VIEW_H + 40 + Math.round(this.lift(sy) * 0.3);
     } });
-    const fog = this.tile('fog', BG.fog, 160, 220).setAlpha(0.3).setTint(this.dawn ? 0xfff2e2 : 0xffd9a0);
+    const fog = this.tile('fog', BG.fog, 160, 220).setAlpha(0.14).setTint(this.dawn ? 0xfff2e2 : 0xffd9a0);
     this.layers.push({
       o: fog,
       update: (sx, sy, t) => {

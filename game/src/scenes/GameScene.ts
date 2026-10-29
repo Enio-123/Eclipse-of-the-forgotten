@@ -303,7 +303,7 @@ const BOSSES: Record<BossId, BossInfo> = {
     sheet: 'coroado',
     name: 'O Carrasco Coroado',
     title: 'Tudo foi necessário',
-    music: 'boss7',
+    music: 'boss8',
     memory: 'nucleo:boss',
     wakeX: 61,
     orb: 0,

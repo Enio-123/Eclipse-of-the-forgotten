@@ -16,7 +16,7 @@ import { applyFpsLimit } from './systems/Graphics';
 import { MAP_POS, ROOMS } from './world/rooms';
 import { MEMORIES, NIGHT, RECORDS, VERSIONS } from './world/lore';
 import { night } from './world/story';
-import './systems/Audio';
+import { audio } from './systems/Audio';
 
 pad.vibration = settings.data.vibration;
 settings.onChange((d) => (pad.vibration = d.vibration));
@@ -46,4 +46,4 @@ watchSpeed(game, () => {
   return !!g && g.scene.isActive() && g.live;
 });
 // acesso para os testes automatizados
-Object.assign(window as object, { __game: game, __ui: ui, __progress: progress, __settings: settings, __res: () => RES, __rooms: ROOMS, __mappos: MAP_POS, __lore: { MEMORIES, RECORDS, VERSIONS, NIGHT, night } });
+Object.assign(window as object, { __game: game, __ui: ui, __progress: progress, __settings: settings, __res: () => RES, __rooms: ROOMS, __mappos: MAP_POS, __lore: { MEMORIES, RECORDS, VERSIONS, NIGHT, night }, __audio: audio });

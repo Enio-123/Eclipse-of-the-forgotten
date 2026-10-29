@@ -12,7 +12,8 @@ export type SfxName =
   | 'howl' | 'hoot' | 'horn' | 'gust' | 'flap' | 'crunch' | 'ice-crack' | 'ice-break' | 'freeze' | 'growl' | 'yelp' | 'lantern'
   | 'plop' | 'leap' | 'flop' | 'heron' | 'buzz' | 'gurgle' | 'creak' | 'rope'
   | 'beam' | 'sap';
-export type TrackId = 'title' | 'bridge' | 'crypt' | 'memory' | 'boss' | 'city' | 'nave' | 'boss2' | 'boss3' | 'mine' | 'mirror' | 'boss4' | 'forest' | 'cabin' | 'boss5' | 'boss6' | 'boss7' | 'vale' | 'cais' | 'aurora' | 'rei' | 'silencio' | FileTrackId | 'none';
+export type TrackId = 'title' | 'bridge' | 'crypt' | 'memory' | 'boss' | 'city' | 'nave' | 'boss2' | 'boss3' | 'mine' | 'mirror' | 'boss4' | 'forest' | 'cabin' | 'boss5' | 'boss6' | 'boss7' | 'vale' | 'cais' | 'aurora' | 'rei' | 'silencio'
+  | 'torres' | 'torres-dentro' | 'torres-arquivo' | 'torres-engrenagens' | 'torres-noite' | 'boss8' | 'boss9' | FileTrackId | 'none';
 export type AmbienceId = 'rain' | 'crypt' | 'wind' | 'city' | 'nave' | 'prison' | 'mine' | 'snow' | 'hearth' | 'river' | 'falls' | 'night' | 'none';
 // faixas gravadas, em arquivo (as trilhas que o Enio escolheu)
 type FileTrackId = 'prison' | 'fosso' | 'shadow';
@@ -34,6 +35,9 @@ interface Playing {
 
 interface TrackDef {
   bpm: number;
+  // as faixas de uma família são a mesma música com outros instrumentos (as salas de fora e as de dentro): de uma
+  // para a outra, a nova continua do compasso em que a outra estava
+  family?: string;
   start?: (e: AudioEngine, p: Playing) => void;
   // chamado a cada colcheia (8 por compasso)
   step: (e: AudioEngine, p: Playing, step: number, t: number, dur: number) => void;
@@ -71,6 +75,117 @@ const CANTIGA = [
   [78, 0, 81, 0, 78, 0, 74, 0], [79, 0, 83, 0, 81, 0, 79, 0], [78, 0, 74, 0, 71, 0, 74, 0], [76, 0, 0, 0, 69, 0, 0, 0],
   [78, 0, 81, 0, 86, 0, 81, 0], [83, 0, 81, 0, 79, 0, 76, 0], [78, 0, 76, 0, 74, 0, 71, 0], [73, 0, 76, 0, 74, 0, 0, 0],
 ];
+// as Torres Rúnicas: dezesseis compassos. A metade A em sol menor, a da Casa (o começo do hino passa por ela de
+// vez em quando); a metade B no si bemol maior relativo, a luz do mar de nuvens, com a melodia das Torres. A
+// cantiga dela cabe inteira na metade B, quatro semitons abaixo; no último compasso o acorde entorta para o ré
+// maior e a volta cai de novo no sol menor da Casa
+const BBMAJ7 = [46, 50, 53], FMAJ7 = [41, 45, 48];
+const TORRES_PROG = [GMIN7, GMIN7, EBMAJ7, CMIN7, GMIN7, EBMAJ7, CMIN7, DMAJ7, BBMAJ7, EBMAJ7, GMIN7, FMAJ7, BBMAJ7, EBMAJ7, CMIN7, DMAJ7];
+// a melodia das Torres (oito compassos de colcheias; 0 é pausa): o acorde subindo, como as torres saindo das nuvens
+const SUBIDA = [
+  [74, 0, 0, 77, 0, 0, 82, 0], [79, 0, 0, 0, 77, 0, 75, 0], [74, 0, 0, 0, 0, 0, 70, 0], [72, 0, 0, 0, 0, 0, 0, 0],
+  [74, 0, 0, 77, 0, 0, 84, 0], [82, 0, 0, 0, 79, 0, 82, 0], [84, 0, 0, 0, 79, 0, 75, 0], [78, 0, 0, 0, 81, 0, 0, 0],
+];
+// o Carrasco Coroado, o colosso: o hino da Coroação no tom dele, o ré menor do título (cinco semitons abaixo); o
+// lá bemol napolitano vira o mi bemol, e a harmonia é a do título com ele no meio
+const HINO_D = HINO.map((bar) => bar.map((n) => (n ? n - 5 : 0)));
+// o espelho: o mesmo hino de cabeça para baixo (cada passo da escala virado ao contrário em volta do ré; o
+// napolitano vira a sensível e a sensível vira o napolitano). Ele cai em sol menor, o tom da Casa, e o acorde do
+// sexto compasso vira o fá aumentado
+const ESPELHO = [
+  [74, 0, 0, 0, 70, 0, 67, 0], [62, 0, 0, 0, 64, 0, 65, 0], [67, 0, 0, 0, 65, 0, 70, 0], [69, 0, 0, 0, 0, 0, 0, 0],
+  [70, 0, 69, 0, 67, 0, 62, 0], [65, 0, 0, 0, 69, 0, 73, 0], [75, 0, 0, 0, 72, 0, 69, 0], [67, 0, 0, 0, 0, 0, 0, 0],
+];
+const FAUG7 = [41, 45, 49];
+
+// quanto dura a nota da melodia na posição i do compasso: até a próxima (ou o fim do compasso), em colcheias
+const span = (bar: number[], i: number) => {
+  let k = i + 1;
+  while (k < bar.length && !bar[k]) k++;
+  return k - i;
+};
+
+// As Torres, em cinco jeitos (todos da mesma família, então trocar de sala não corta a música): de fora, com o
+// vento (a flauta, os brilhos do piano no alto, a trompa longe); de dentro, na pedra (o órgão grave, o coro baixo,
+// o piano); o Arquivo, o lugar dela (a cantiga na caixinha e o brilho dos frascos); as Engrenagens (o relógio e
+// o dente da roda grande); e a escadaria da Coroação, a noite (o coro do hino em toda volta, e ela na frente)
+type TorresKind = 'fora' | 'dentro' | 'arquivo' | 'engrenagens' | 'noite';
+const TORRES_BPM = 66;
+function torres(kind: TorresKind): TrackDef {
+  const out = kind === 'fora';
+  const cut = out ? 1300 : kind === 'arquivo' ? 1000 : 800;
+  const pad = (e: AudioEngine, p: Playing, t: number, ch: number[], len: number) =>
+    e.pad(p.bus, t, out ? ch.map((n) => n + 12) : [ch[0], ...ch.map((n) => n + 12)], len, out ? 0.022 : 0.02, cut);
+  return {
+    bpm: TORRES_BPM,
+    family: 'torres',
+    start(e, p) {
+      p.stop.push(e.drone(p.bus, 31, out ? 0.024 : 0.032), e.drone(p.bus, 38, out ? 0.01 : 0.014));
+      // chegando de outra sala no meio do compasso: o acorde que soava lá continua até o próximo
+      const k = p.step % 8;
+      if (k) pad(e, p, p.next, TORRES_PROG[Math.floor(p.step / 8) % 16], (8 - k) * (30 / TORRES_BPM));
+    },
+    step(e, p, s, t, d) {
+      const bar = Math.floor(s / 8);
+      const i = s % 8;
+      const b = bar % 16;
+      const round = Math.floor(bar / 16);
+      const ch = TORRES_PROG[b];
+      const light = b >= 8;
+      if (i === 0) pad(e, p, t, ch, d * 8);
+      if (i === 0) e.piano(p.bus, t, ch[0] - 12, out ? 0.075 : 0.08, d * 8);
+      if (!out && i === 4 && chance(0.5)) e.piano(p.bus, t, ch[2] - 12, 0.04, d * 4);
+      // o relógio da Casa: duas badaladas no começo de cada volta, e uma quando a luz abre
+      if (b === 0 && i === 0) e.bell(p.bus, t, out ? 67 : 55, out ? 0.036 : 0.022);
+      if (b === 0 && i === 3) e.bell(p.bus, t, out ? 62 : 50, out ? 0.026 : 0.016);
+      if (b === 8 && i === 0) e.bell(p.bus, t, out ? 70 : 58, out ? 0.026 : 0.016);
+      if (b === 7 && i === 4) e.bell(p.bus, t, out ? 69 : 57, out ? 0.02 : 0.013);
+      // a luz nas nuvens (de fora) ou o eco na pedra (de dentro): notas soltas do acorde, lá em cima
+      const glint = [0.32, 0.06, 0.18, 0.06, 0.26, 0.06, 0.16, 0.06][i] * (out ? 1 : 0.45) * (light ? 0.6 : 1);
+      if (chance(glint)) e.piano(p.bus, t, pick([ch[0] + 24, ch[1] + 24, ch[2] + 24, ch[0] + 36]), 0.018 + Math.random() * 0.012, d * 5);
+      if (!light) {
+        // o começo do hino: a trompa longe, lá fora; o coro baixo, aqui dentro (na escadaria, em toda volta)
+        const m = b < 4 ? HINO[b][i] : 0;
+        if (m && (round % 2 === 1 || kind === 'noite')) {
+          const len = Math.min(b === 3 ? 7 : 3, span(HINO[b], i));
+          if (out) e.horn(p.bus, t, m - 12, d * len, 0.028);
+          else e.choir(p.bus, t, m - 12, d * (len + 0.5), 0.015);
+        }
+        if (b === 4 && i === 0) e.choir(p.bus, t, ch[1] + 12, d * 14, out ? 0.012 : 0.014);
+        if (!out && round % 2 === 0 && kind !== 'noite' && (i === 3 || i === 6) && chance(0.25)) {
+          e.piano(p.bus, t, pick([ch[0] + 12, ch[1] + 12, ch[2] + 12]), 0.035, d * 6);
+        }
+      } else {
+        const sub = SUBIDA[b - 8];
+        const m = sub[i];
+        if ((kind === 'arquivo' || kind === 'noite') && round % 2 === 1) {
+          // a cantiga dela, uma volta sim, outra não: no Arquivo inteira; na escadaria só a primeira metade (ela
+          // subindo na frente, até onde ele ainda a via), e depois só o acorde
+          const c = kind === 'arquivo' || b < 12 ? CANTIGA[b - 8][i] : 0;
+          if (c) e.musicbox(p.bus, t, c - 4, 0.034);
+        } else if (round % 3 === 2) {
+          // a volta sem melodia: o coro segura a luz
+          if (i === 0 && (b === 8 || b === 12)) e.choir(p.bus, t, ch[1] + 12, d * 14, out ? 0.013 : 0.012);
+        } else if (m) {
+          const len = Math.min(6, span(sub, i));
+          if (out && round % 3 === 0) e.flute(p.bus, t, m, d * (len * 0.92 + 0.4), 0.026);
+          else if (out) {
+            e.piano(p.bus, t, m, 0.045, d * (len + 2));
+            if (i === 0) e.musicbox(p.bus, t, m + 12, 0.012);
+          } else e.piano(p.bus, t, m - 12, 0.04, d * (len + 2));
+        }
+      }
+      if (kind === 'arquivo' && chance(0.05)) e.musicbox(p.bus, t, pick([ch[0] + 36, ch[2] + 36, ch[1] + 36]), 0.01);
+      if (kind === 'engrenagens') {
+        // o escapo do relógio (tique e taque) e, a cada dois compassos, o dente da roda grande; a corrente dos baldes
+        // passa de vez em quando
+        if (i % 2 === 0) e.metal(p.bus, t, i % 4 === 0 ? 86 : 81, 0.0045, 0.07);
+        if (i === 0 && bar % 2 === 0) e.metal(p.bus, t, 43, 0.012, 0.9);
+        if (i === 5 && chance(0.05)) e.chain(p.bus, t, 0.012);
+      }
+    },
+  };
+}
 
 // Trilha gravada: o arquivo toca uma vez a partir de 'from' e depois repete o trecho [início, fim]
 // (em segundos), cruzando 'xf' segundos na emenda. Os dois pontos caem no mesmo tempo do compasso,
@@ -486,6 +601,107 @@ const TRACKS: Record<SynthTrackId, TrackDef> = {
       if (i === 0 && bar % 8 === 3) e.choir(p.bus, t, ch[1] + 12, d * 12, 0.022);
     },
   },
+  // as Torres: de fora, de dentro, o Arquivo, as Engrenagens e a escadaria da Coroação
+  torres: torres('fora'),
+  'torres-dentro': torres('dentro'),
+  'torres-arquivo': torres('arquivo'),
+  'torres-engrenagens': torres('engrenagens'),
+  'torres-noite': torres('noite'),
+  // O Carrasco Coroado, o colosso: quatro compassos só de sinos enquanto ele sobe das nuvens; depois o passo dele no
+  // bumbo e no piano grave, e o hino da Coroação no ré menor do título, na trompa grave (primeira volta), no coro
+  // com a trompa embaixo (segunda), a chuva de contas na caixinha (terceira) e tudo junto (quarta). O último
+  // compasso de cada volta rufa e sobe
+  boss8: {
+    bpm: 84,
+    start(e, p) {
+      p.stop.push(e.drone(p.bus, 26, 0.045), e.drone(p.bus, 33, 0.02));
+    },
+    step(e, p, s, t, d) {
+      const intro = s < 32;
+      const k = intro ? s : s - 32;
+      const bar = Math.floor(k / 8);
+      const i = k % 8;
+      const ch = [DM, DM, BB, GM, DM, EBMAJ7, AM, AM][bar % 8];
+      const r = ch[0] - 12;
+      if (i === 0) e.pad(p.bus, t, ch.map((n) => n + 12), d * 8, intro ? 0.018 + bar * 0.004 : 0.03, intro ? 700 : 1100);
+      if (i === 0) e.bell(p.bus, t, ch[0] + 12, intro ? 0.05 : bar % 4 === 0 ? 0.045 : 0.03);
+      if (intro) {
+        // ele subindo: o sino, a quinta e o bumbo que vem chegando
+        if (i === 4) e.bell(p.bus, t, ch[2] + 12, 0.032);
+        if (i === 0) e.piano(p.bus, t, r, 0.1, d * 8);
+        if (bar >= 2 && (i === 0 || i === 4)) e.drum(p.bus, t, 0.08 + (bar - 2) * 0.05 + i * 0.005);
+        return;
+      }
+      const round = Math.floor(bar / 8) % 4;
+      const last = bar % 8 === 7;
+      // o passo do colosso: TUM . ta TUM TUM . ta ta
+      if (!last) {
+        if (i === 0 || i === 4) e.drum(p.bus, t, i === 0 ? 0.22 : 0.15);
+        if (i === 3) e.drum(p.bus, t, 0.08);
+        if (round >= 2 && i === 7) e.drum(p.bus, t, 0.07);
+      } else e.drum(p.bus, t, 0.07 + i * 0.02);
+      const bass = [r, 0, r + 12, r, r, 0, ch[2] - 12, r + 12][i];
+      if (bass) e.piano(p.bus, t, bass, i === 0 || i === 4 ? 0.12 : 0.07, d * (i === 0 ? 4 : 2));
+      // o ouro da armadura batendo no contratempo e, no fim da volta, o repique descendo pelo acorde
+      if (i === 6 && bar % 2 === 1) e.metal(p.bus, t, 47, 0.022, 0.8);
+      if (last && i % 2 === 0) e.bell(p.bus, t, [ch[2] + 24, ch[1] + 24, ch[0] + 24, ch[2] + 12][i / 2], 0.03);
+      const row = HINO_D[bar % 8];
+      const m = row[i];
+      if (m) {
+        const len = span(row, i);
+        if (round === 0) e.horn(p.bus, t, m - 12, d * Math.min(len, 4), 0.05);
+        if (round === 1 || round === 3) e.choir(p.bus, t, m, d * (Math.min(len, 6) + 0.5), round === 3 ? 0.024 : 0.021);
+        if (round === 1) e.horn(p.bus, t, m - 24, d * Math.min(len, 4), 0.034);
+        if (round === 3) {
+          e.horn(p.bus, t, m - 12, d * Math.min(len, 4), 0.046);
+          e.flute(p.bus, t, m + 12, d * Math.min(len, 4), 0.02);
+        }
+      }
+      if (round === 2) {
+        // as contas de Âmbar caindo pelo acorde, do alto para baixo, e o coro das acusações em voz baixa
+        if (chance([0.75, 0.4, 0.6, 0.4, 0.75, 0.4, 0.6, 0.4][i])) {
+          e.musicbox(p.bus, t, [ch[0] + 36, ch[2] + 24, ch[1] + 24, ch[0] + 24, ch[2] + 12, ch[1] + 12, ch[0] + 12, ch[2]][i] + 12, 0.03);
+        }
+        if (i === 0 && bar % 2 === 0) e.choir(p.bus, t, ch[1] + 12, d * 14, 0.02);
+      }
+      if (i === 0 && bar % 8 === 3 && round !== 2) e.choir(p.bus, t, ch[2] + 12, d * 12, 0.02);
+    },
+  },
+  // O Carrasco Coroado, o espelho: o hino de cabeça para baixo, em sol menor. A caixinha do Reflexo sobe e volta
+  // pelo acorde, o bumbo bate em todo tempo, o piano grave anda em oitavas e o hino virado passa do coro (primeira
+  // volta) para a trompa com o coro em cima (segunda)
+  boss9: {
+    bpm: 120,
+    start(e, p) {
+      p.stop.push(e.drone(p.bus, 31, 0.04), e.drone(p.bus, 38, 0.018));
+    },
+    step(e, p, s, t, d) {
+      const bar = Math.floor(s / 8);
+      const i = s % 8;
+      const ch = [GMIN7, GMIN7, BBMAJ7, DM, GMIN7, FAUG7, CMIN7, CMIN7][bar % 8];
+      const r = ch[0] - 12;
+      const round = Math.floor(bar / 8) % 2;
+      if (i % 2 === 0) e.drum(p.bus, t, i === 0 ? 0.2 : i === 4 ? 0.14 : 0.08);
+      if (i === 7 && bar % 2 === 1) e.drum(p.bus, t, 0.07);
+      e.piano(p.bus, t, i % 2 === 0 ? r : r + 12, i % 2 === 0 ? 0.1 : 0.055, d * 2);
+      const up = [ch[0] + 24, ch[1] + 24, ch[2] + 24, ch[0] + 36];
+      e.musicbox(p.bus, t, [...up, ...up.slice().reverse()][i], 0.034);
+      if (i === 0) e.pad(p.bus, t, ch.map((n) => n + 12), d * 8, 0.028, 1300);
+      if (i === 0 && bar % 2 === 0) e.bell(p.bus, t, ch[0] + 24, 0.03);
+      if (s === 0) e.choir(p.bus, t, ch[1] + 12, d * 16, 0.024);
+      const row = ESPELHO[bar % 8];
+      const m = row[i];
+      if (m) {
+        const len = Math.min(6, span(row, i));
+        if (round === 0) e.choir(p.bus, t, m, d * (len + 0.5), 0.022);
+        else {
+          e.horn(p.bus, t, m - 12, d * len, 0.046);
+          e.choir(p.bus, t, m + 12, d * (len + 0.5), 0.016);
+        }
+      }
+      if ((i === 3 || i === 7) && chance(0.4)) e.metal(p.bus, t, 50, 0.016, 0.5);
+    },
+  },
   // Final I, A Aurora das Memórias: ré maior a 64. Primeiro só o piano em arpejo subindo e o pad, como a luz
   // chegando; na segunda volta a cantiga dela na flauta, inteira; na terceira, no coro, com os sinos da cidade
   aurora: {
@@ -671,6 +887,9 @@ class AudioEngine {
     const cur = this.playing.find((p) => p.alive);
     if (cur?.id === id) return;
     const t = this.ctx.currentTime;
+    // a mesma música com outros instrumentos (a mesma família): a nova continua do compasso em que a outra estava
+    const family = (x: TrackId) => (isFile(x) || x === 'none' ? undefined : TRACKS[x].family);
+    const keep = cur && !cur.synth && family(id) && family(cur.id) === family(id) ? { step: cur.step, next: Math.max(cur.next, t + 0.05) } : null;
     for (const p of this.playing) {
       if (!p.alive) continue;
       p.alive = false;
@@ -691,7 +910,7 @@ class AudioEngine {
     const send = this.ctx.createGain();
     send.gain.value = 0.55;
     bus.connect(send).connect(this.reverb);
-    const p: Playing = { id, bus, step: 0, next: t + 0.1, stop: [], alive: true };
+    const p: Playing = { id, bus, step: keep?.step ?? 0, next: keep?.next ?? t + 0.1, stop: [], alive: true };
     if (!isFile(id)) TRACKS[id].start?.(this, p);
     this.playing.push(p);
   }
@@ -835,8 +1054,10 @@ class AudioEngine {
     return o;
   }
 
+  // o ganho nasce em 1: zerado antes, para a primeira amostra (que às vezes sai um quadro antes do evento) não estalar
   private env(t: number, a: number, peak: number, dest: AudioNode) {
     const g = this.ctx!.createGain();
+    g.gain.value = 0;
     g.gain.setValueAtTime(0, t);
     g.gain.linearRampToValueAtTime(peak, t + a);
     g.connect(dest);
@@ -1446,6 +1667,7 @@ class AudioEngine {
         lp.frequency.setValueAtTime(900, t);
         lp.frequency.exponentialRampToValueAtTime(110, t + 3);
         const g = ctx.createGain();
+        g.gain.value = 0;
         g.gain.setValueAtTime(0, t);
         g.gain.linearRampToValueAtTime(0.75, t + 0.08);
         g.gain.setTargetAtTime(0.35, t + 0.3, 0.4);
@@ -1642,6 +1864,7 @@ class AudioEngine {
           lp.frequency.setValueAtTime(500 * r, t);
           lp.frequency.exponentialRampToValueAtTime(180, t + 0.8);
           const g = ctx.createGain();
+          g.gain.value = 0;
           g.gain.setValueAtTime(0, t);
           g.gain.linearRampToValueAtTime(0.3, t + 0.12);
           g.gain.exponentialRampToValueAtTime(0.001, t + 0.9);
@@ -1868,6 +2091,7 @@ class AudioEngine {
     o.type = type;
     o.frequency.setValueAtTime(f0, t);
     o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+    g.gain.value = 0;
     g.gain.setValueAtTime(vol, t);
     g.gain.exponentialRampToValueAtTime(0.001, t + dur);
     o.connect(g).connect(dest);
@@ -1885,6 +2109,8 @@ class AudioEngine {
     f.frequency.setValueAtTime(f0, t);
     f.frequency.exponentialRampToValueAtTime(Math.max(40, f1), t + dur);
     const g = ctx.createGain();
+    // sem isto o ruído passa um quadro com o ganho 1 (o padrão) antes do evento, e estala
+    g.gain.value = 0;
     g.gain.setValueAtTime(vol, t);
     g.gain.exponentialRampToValueAtTime(0.001, t + dur);
     src.connect(f).connect(g).connect(dest);

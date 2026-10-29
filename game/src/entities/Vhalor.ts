@@ -96,10 +96,15 @@ interface Wave {
 interface Rock {
   x: number;
   y: number;
+  // a altura no quadro anterior: o golpe confere o caminho todo do quadro (a 30 quadros por segundo ela anda quase
+  // a altura dela inteira de um quadro para o outro)
+  py: number;
   vy: number;
   t: number;
   land: number;
   falling: boolean;
+  // chegou ao chão: quebra no quadro seguinte, depois de o golpe conferir o último pedaço da queda
+  landed: boolean;
   img: Phaser.GameObjects.Image;
   shadow: Phaser.GameObjects.Ellipse;
   done: boolean;
@@ -1011,7 +1016,7 @@ export class Vhalor implements BossFoe {
     const img = s.add.image(x, top, 'torres-rock').setDepth(DEPTH.enemy + 0.5).setVisible(false);
     const shadow = s.add.ellipse(x, this.hall.floorY - 1, 20, 6, 0x050403, 0).setStrokeStyle(1, 0xd8c0a0, 0).setDepth(DEPTH.enemy - 0.4);
     s.tweens.add({ targets: shadow, fillAlpha: 0.7, strokeAlpha: 0.55, duration: C.debrisWarn * 1000 });
-    this.rocks.push({ x, y: top, vy: 220, t: 0, land, falling: false, img, shadow, done: false });
+    this.rocks.push({ x, y: top, py: top, vy: 220, t: 0, land, falling: false, landed: false, img, shadow, done: false });
   }
 
   private updateRocks(dt: number) {
@@ -1026,22 +1031,26 @@ export class Vhalor implements BossFoe {
         }
         continue;
       }
-      r.vy += 1500 * dt;
-      r.y = Math.min(r.land, r.y + r.vy * dt);
-      r.img.setPosition(r.x, r.y).setRotation(r.t * 5);
-      if (r.y >= r.land) {
+      if (r.landed) {
         r.done = true;
         s.sfx('thud', 0.6, 1.1);
         s.debris(r.x, this.hall.floorY - 4, 'rock', 6);
         r.shadow.destroy();
         s.tweens.add({ targets: r.img, alpha: 0, delay: 300, duration: 400, onComplete: () => r.img.destroy() });
+        continue;
       }
+      r.vy += 1500 * dt;
+      r.py = r.y;
+      r.y = Math.min(r.land, r.y + r.vy * dt);
+      r.img.setPosition(r.x, r.y).setRotation(r.t * 5);
+      if (r.y >= r.land) r.landed = true;
     }
     this.rocks = this.rocks.filter((r) => !r.done);
   }
 
   private rockRect(r: Rock) {
-    return new Phaser.Geom.Rectangle(r.x - 7, r.y - 6, 14, 12);
+    const y0 = Math.min(r.py, r.y);
+    return new Phaser.Geom.Rectangle(r.x - 7, y0 - 6, 14, Math.abs(r.y - r.py) + 12);
   }
 
   // embaixo do trono caindo

@@ -33,6 +33,7 @@ const ROOM_IMAGES = new Set([
   'city-sky', 'city-sky-aurora', 'city-far', 'city-mid', 'claustro-mid', 'nave-far', 'nave-mid', 'prison-far', 'prison-mid', 'fosso-far', 'fosso-mid',
   'mine-far', 'mine-mid', 'snow-sky', 'snow-far', 'snow-mid', 'mata-far', 'mata-mid', 'serra-far', 'serra-mid',
   'vale-sky', 'vale-sky-aurora', 'vale-far', 'vale-mid', 'cascata-far', 'cascata-mid', 'gruta-far', 'gruta-mid', 'cais-sky', 'cais-far', 'cais-mid',
+  'torres-sky', 'torres-sky-aurora', 'torres-far',
   // o que ficou no chão do terraço depois do final I (art2/terraco_fim.py)
   'mascara-chao', 'foice-chao',
 ]);
