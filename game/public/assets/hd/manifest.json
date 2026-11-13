@@ -2584,6 +2584,34 @@
    "w": 3072,
    "h": 1080
   },
+  "city-far": {
+   "pack": "f-city",
+   "id": "city-far",
+   "scale": 3,
+   "w": 3072,
+   "h": 1200
+  },
+  "city-mid": {
+   "pack": "f-city",
+   "id": "city-mid",
+   "scale": 3,
+   "w": 3072,
+   "h": 1260
+  },
+  "city-sky": {
+   "pack": "f-city",
+   "id": "city-sky",
+   "scale": 3,
+   "w": 1920,
+   "h": 1080
+  },
+  "claustro-mid": {
+   "pack": "f-claustro",
+   "id": "claustro-mid",
+   "scale": 3,
+   "w": 3072,
+   "h": 1260
+  },
   "prison-far": {
    "pack": "f-prison",
    "id": "prison-far",

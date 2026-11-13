@@ -23,13 +23,16 @@ OUT = os.path.join(HERE, 'game', 'public', 'assets', 'hd3')
 MAN = os.path.join(HERE, 'game', 'public', 'assets', 'hd', 'manifest.json')
 FUNDOS = os.environ.get('FUNDOS') or os.path.join(HERE, 'art2', 'hd_eclipse_fundos')
 MAX_MB = 2.6
-# as camadas de fundo de cada área (as que tiverem PNG em FUNDOS entram no pacote f-<área>)
+# as camadas de fundo de cada área (as que tiverem PNG em FUNDOS entram no pacote f-<área>); as que só uma
+# sala usa ficam num pacote à parte, para as outras não baixarem
 BACK = {
     'bridge': ['bridge-sky', 'bridge-far', 'bridge-mid'],
     'catacomb': ['cat-far', 'cat-mid'],
-    'city': ['city-sky', 'city-far', 'city-mid', 'claustro-mid'],
+    'city': ['city-sky', 'city-far', 'city-mid'],
+    'claustro': ['claustro-mid'],
     'nave': ['nave-far', 'nave-mid'],
-    'prison': ['prison-far', 'prison-mid', 'fosso-far', 'fosso-mid'],
+    'prison': ['prison-far', 'prison-mid'],
+    'fosso': ['fosso-far', 'fosso-mid'],
     'mine': ['mine-far', 'mine-mid'],
 }
 Q_FUNDO = 92

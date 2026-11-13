@@ -253,12 +253,13 @@ class Light:
         self.x, self.y, self.z, self.radius, self.color, self.power = x, y, z, radius, np.asarray(color, np.float32), power
 
 
-def shade(alb, h, yy, xx, TW, ambient, sun=None, lights=(), k=1.0, spec=0.0, gloss=18.0, ao=True, wrap=True, wet=None, sun_k=None):
+def shade(alb, h, yy, xx, TW, ambient, sun=None, lights=(), k=1.0, spec=0.0, gloss=18.0, ao=True, wrap=True, wet=None, sun_k=None, sun2=None):
     """Cor final: alb x (luz de fundo + luz de direção + tochas), com o relevo de h.
 
     ambient: cor da luz de fundo; sun: (direção (x, y, z), cor); spec: brilho molhado (wet: máscara 0..1
     de onde a pedra está molhada, senão em tudo); sun_k: quanto da luz de direção chega em cada ponto
-    (0 = na sombra de alguma coisa)."""
+    (0 = na sombra de alguma coisa); sun2: (direção, cor, de_raspão) uma segunda luz de direção; de raspão,
+    ela só pega o que está virado para ela (a parede lisa não recebe nada: contraluz)."""
     nx, ny, nz = normals(h, k, wrap)
     occ = ambient_occlusion(h, wrap=wrap) if ao else 1.0
     light = np.zeros(alb.shape, np.float32) + np.asarray(ambient, np.float32) * (occ[..., None] if ao else 1.0)
@@ -271,6 +272,12 @@ def shade(alb, h, yy, xx, TW, ambient, sun=None, lights=(), k=1.0, spec=0.0, glo
         if sun_k is not None:
             ndl = ndl * sun_k
         light += ndl[..., None] * np.asarray(c, np.float32) * (0.6 + 0.4 * occ[..., None] if ao else 1.0)
+    if sun2 is not None:
+        d, c, graze = sun2
+        d = np.asarray(d, np.float32)
+        d = d / np.linalg.norm(d)
+        ndl = nx * d[0] + ny * d[1] + nz * d[2] - (d[2] if graze else 0.0)
+        light += np.clip(ndl, 0, 1)[..., None] * np.asarray(c, np.float32)
     for L in lights:
         dx = -wdx(xx, L.x, TW) if wrap else L.x - xx
         dy = L.y - yy
