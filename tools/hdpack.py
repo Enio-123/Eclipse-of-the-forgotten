@@ -3,6 +3,8 @@ em pedaços de no máximo 4096 px (toda placa de vídeo com WebGL aguenta; menos
 quando a sala abre. Escreve game/public/assets/hd/*.webp e game/public/assets/hd/manifest.json.
 
 uso: python3 tools/hdpack.py [salas...]
+     python3 tools/hdpack.py --parede [salas...]   só a camada 'parede' (a parede do fundo das Torres e os
+                                                   apoios de art2/apoio.py), sem mexer no terreno das salas
 """
 import json
 import os
@@ -13,7 +15,7 @@ from PIL import Image
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ART = os.path.join(HERE, 'art2')
 OUT = os.path.join(HERE, 'game', 'public', 'assets', 'hd')
-SRC_DIRS = [os.path.join(ART, d) for d in ('hd_x', 'hd', 'hd_prisao', 'hd_fosso', 'hd_minas', 'hd_extreme', 'hd_floresta', 'hd_vale', 'hd_torres')]
+SRC_DIRS = [os.path.join(ART, d) for d in ('hd_x', 'hd', 'hd_prisao', 'hd_fosso', 'hd_minas', 'hd_extreme', 'hd_floresta', 'hd_vale', 'hd_torres', 'hd_apoio')]
 MAX = 4096
 Q = 88
 
@@ -38,9 +40,10 @@ def save(im, name):
     return os.path.getsize(path)
 
 
-def chunks(im, prefix, scale):
+def chunks(im, prefix, scale, tight=False):
     """Corta a imagem (scale px por px do mundo) em pedaços e devolve a lista em px do mundo.
-    Pedaços sem nada (transparentes) ficam de fora."""
+    Pedaços sem nada (transparentes) ficam de fora; com tight, cada pedaço encolhe até o que tem pintura
+    (os apoios ocupam um canto da sala: o resto seria placa de vídeo gasta com nada)."""
     W, H = im.size
     nx = -(-W // MAX)
     ny = -(-H // MAX)
@@ -57,16 +60,25 @@ def chunks(im, prefix, scale):
             h = min(ch, H - y)
             if a[y:y + h, x:x + w].max() < 4:
                 continue
+            if tight:
+                # encolhe para a caixa do que foi pintado, em múltiplos de 8 px (4 px do mundo em 2x)
+                ys, xs = np.nonzero(a[y:y + h, x:x + w] >= 4)
+                bx0, by0 = x + int(xs.min()) // 8 * 8, y + int(ys.min()) // 8 * 8
+                bx1, by1 = min(x + w, x + -(-(int(xs.max()) + 1) // 8) * 8), min(y + h, y + -(-(int(ys.max()) + 1) // 8) * 8)
+                x_, y_, w_, h_ = bx0, by0, bx1 - bx0, by1 - by0
+            else:
+                x_, y_, w_, h_ = x, y, w, h
             name = f'{prefix}-{i}.webp'
-            size += save(im.crop((x, y, x + w, y + h)), name)
-            out.append({'file': name, 'x': x / scale, 'y': y / scale, 'w': w / scale, 'h': h / scale})
+            size += save(im.crop((x_, y_, x_ + w_, y_ + h_)), name)
+            out.append({'file': name, 'x': x_ / scale, 'y': y_ / scale, 'w': w_ / scale, 'h': h_ / scale})
             i += 1
     return out, size
 
 
 def main():
     os.makedirs(OUT, exist_ok=True)
-    only = set(sys.argv[1:])
+    only = set(a for a in sys.argv[1:] if not a.startswith('--'))
+    wall_only = '--parede' in sys.argv
     man_path = os.path.join(OUT, 'manifest.json')
     man = json.load(open(man_path)) if os.path.exists(man_path) else {'terrain': {}, 'backdrop': {}}
     rooms = sorted(f[len('terrain-'):-4] for f in os.listdir(os.path.join(HERE, 'game', 'public', 'assets'))
@@ -76,10 +88,24 @@ def main():
     for f in os.listdir(OUT):
         if f.startswith('t-') and f.endswith('.webp'):
             room = f[2:f.rindex('-')]
+            if wall_only and not room.endswith('-parede'):
+                continue
             if not only or room.replace('-secret', '').replace('-pinhos', '').replace('-parede', '') in only:
                 os.remove(os.path.join(OUT, f))
     for room in rooms:
         if only and room.replace('-secret', '') not in only:
+            continue
+        if wall_only:
+            # só a camada 'parede': a escala vem do tamanho da sala (a pintura cobre a sala inteira)
+            src = find(f'parede-{room}-2x.png')
+            if src:
+                im = Image.open(src).convert('RGBA')
+                small = Image.open(os.path.join(HERE, 'game', 'public', 'assets', f'terrain-{room}.png'))
+                scale = im.size[0] / small.size[0]
+                pieces, size = chunks(im, f't-{room}-parede', scale, tight=os.path.dirname(src).endswith('hd_apoio'))
+                man['terrain'][f'{room}-parede'] = {'scale': scale, 'pieces': pieces}
+                total += size
+                print(f'{room + "-parede":18s} {len(pieces)} pedaços {size // 1024} KB')
             continue
         src = find(f'terreno-{room}-2x.png')
         if not src:
@@ -107,11 +133,11 @@ def main():
         src = find(f'parede-{room}-2x.png')
         if src:
             im = Image.open(src).convert('RGBA')
-            pieces, size = chunks(im, f't-{room}-parede', scale)
+            pieces, size = chunks(im, f't-{room}-parede', scale, tight=os.path.dirname(src).endswith('hd_apoio'))
             man['terrain'][f'{room}-parede'] = {'scale': scale, 'pieces': pieces}
             total += size
             print(f'{room + "-parede":18s} {len(pieces)} pedaços {size // 1024} KB')
-    if not only:
+    if not only and not wall_only:
         for key in BACKDROPS:
             src = find(f'{key}.png')
             if not src:
@@ -127,7 +153,7 @@ def main():
             man['backdrop'][key] = {'file': f'b-{key}.webp', 'scale': scale}
             total += size
             print(f'{key:18s} {im.size} {size // 1024} KB')
-    for key in EXTRA if (not only or 'extra' in only) else []:
+    for key in EXTRA if ((not only and not wall_only) or 'extra' in only) else []:
         src = find(f'{key}.png')
         if not src:
             print('sem camada:', key)

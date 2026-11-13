@@ -29,6 +29,10 @@ const ROOM_IMAGES = new Set([
   // a parede do fundo de cada sala das Torres (art2/torres_parede.py)
   'parede-escada', 'parede-calha', 'parede-patio', 'parede-arquivo', 'parede-experiencias', 'parede-engrenagens',
   'parede-trono', 'parede-coroacao', 'parede-nucleo',
+  // os apoios do que ficava solto no ar, na mesma camada (art2/apoio.py): os pés do portão e a passagem da
+  // torre na ponte, os pilares do campanário, a passagem coberta do mercado, os pilares de rocha das minas,
+  // as pernas da ilha da descida e os arcos do aqueduto do rio
+  'parede-ponte', 'parede-telhados', 'parede-mercado', 'parede-boca', 'parede-veio', 'parede-descida', 'parede-rio',
   'bridge-sky', 'bridge-sky-aurora', 'bridge-far', 'bridge-far-rim', 'bridge-mid', 'bridge-mid-rim', 'bridge-fg', 'cat-far', 'cat-mid', 'mem-sky', 'mem-far', 'mem-mid',
   'city-sky', 'city-sky-aurora', 'city-far', 'city-mid', 'claustro-mid', 'nave-far', 'nave-mid', 'prison-far', 'prison-mid', 'fosso-far', 'fosso-mid',
   'mine-far', 'mine-mid', 'snow-sky', 'snow-far', 'snow-mid', 'mata-far', 'mata-mid', 'serra-far', 'serra-mid',

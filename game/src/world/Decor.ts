@@ -270,7 +270,7 @@ export class Decor {
       });
       if (near) {
         const cols = r.x1 - r.x0 >= 6 ? [r.x0, Math.round((r.x0 + r.x1) / 2), r.x1] : ends;
-        for (const x of cols) this.postAt(x, r, yBot);
+        this.trestle(cols.map((x) => this.postAt(x, r, yBot)), yBot);
         continue;
       }
       const ceil = ends.map((x) => L.ceilingAbove(x, r.y - 1));
@@ -279,20 +279,54 @@ export class Decor {
         this.chain((r.x1 + 1) * TILE - 3, (ceil[1] + 1) * TILE, yTop + 2);
         continue;
       }
-      for (const x of ends) this.postAt(x, r, yBot);
+      this.trestle(ends.map((x) => this.postAt(x, r, yBot)), yBot);
+    }
+  }
+
+  // andaime de verdade: entre dois postes vizinhos vão escoras em ziguezague e uma travessa a cada lance
+  // (dois paus e uma tábua, sem travamento, não param de pé)
+  private trestle(posts: ({ x: number; bottom: number } | null)[], top: number) {
+    const s = this.scene;
+    const board = (x0: number, y0: number, x1: number, y1: number, w: number) => {
+      const len = Math.hypot(x1 - x0, y1 - y0);
+      s.add
+        .tileSprite(x0, y0, w, len, 'deco-post')
+        .setOrigin(0.5, 0)
+        .setRotation(Math.atan2(y1 - y0, x1 - x0) - Math.PI / 2)
+        .setTint(0xb9b2aa)
+        .setDepth(DEPTH.support - 0.05);
+    };
+    for (let i = 0; i + 1 < posts.length; i++) {
+      const a = posts[i];
+      const b = posts[i + 1];
+      if (!a || !b) continue;
+      const w = b.x - a.x;
+      const h = Math.min(a.bottom, b.bottom) - top;
+      if (w < 20 || h < 34) continue;
+      // lances mais ou menos quadrados, de 40 a 72 px de altura
+      const bays = Math.max(1, Math.round(h / Math.min(Math.max(w, 40), 72)));
+      const bh = h / bays;
+      for (let k = 0; k < bays; k++) {
+        const y0 = top + k * bh + 3;
+        const y1 = top + (k + 1) * bh - 3;
+        const fwd = k % 2 === 0;
+        board(fwd ? a.x : b.x, y0, fwd ? b.x : a.x, y1, 3);
+        if (k > 0) board(a.x - 2, top + k * bh, b.x + 2, top + k * bh, 4);
+      }
     }
   }
 
   private postAt(x: number, r: { x0: number; x1: number; y: number }, yBot: number) {
     const g = this.level.groundBelow(x, r.y + 1);
-    if (g < 0) return;
+    if (g < 0) return null;
     const px = x === r.x0 ? x * TILE + 4 : x === r.x1 ? (x + 1) * TILE - 4 : x * TILE + 8;
     // o poste desce até a primeira pedra (passa por trás de espinhos)
     let gy = g;
     while (gy < this.level.h && !this.level.solidCell(x, gy)) gy++;
     const h = gy * TILE - yBot;
-    if (h <= 0) return;
+    if (h <= 0) return null;
     this.scene.add.tileSprite(px, yBot, 6, h, 'deco-post').setOrigin(0.5, 0).setDepth(DEPTH.support);
+    return { x: px, bottom: gy * TILE };
   }
 
   private chain(x: number, y0: number, y1: number) {

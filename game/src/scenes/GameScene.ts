@@ -48,6 +48,7 @@ import { Vale } from '../world/Vale';
 import { Torres } from '../world/Torres';
 import { Records } from '../world/Records';
 import { CapeFx } from '../gfx/cape';
+import { APOIO_AT } from '../gfx/apoios';
 import { Props, type MemoryOrb, type Relic, type Shrine } from '../world/Props';
 import { Fixtures, type Door, type Ring } from '../world/Fixtures';
 import { CROWD, Npcs, female, type Npc } from '../world/Npcs';
@@ -462,8 +463,8 @@ export class GameScene extends Phaser.Scene {
   // a camada dos pinheiros da floresta (e a pintura dela em 2x no EXTREME)
   private pinesImg: Phaser.GameObjects.Image | null = null;
   private hdPines: Phaser.GameObjects.Image[] = [];
-  // a parede do fundo das Torres (a pedra de dentro, os arcos da calha, as fachadas do pátio): presa à
-  // sala, atrás de tudo o que não é o céu
+  // a parede do fundo das Torres (a pedra de dentro, os arcos da calha, as fachadas do pátio) e, nas outras
+  // áreas, os apoios do que ficaria solto no ar (art2/apoio.py): presa à sala, atrás de tudo o que não é o céu
   private wallImg: Phaser.GameObjects.Image | null = null;
   private hdWall: Phaser.GameObjects.Image[] = [];
   private hdGen = 0;
@@ -729,7 +730,11 @@ export class GameScene extends Phaser.Scene {
     }
     // a floresta: os pinheiros, a espera de caça e a cabana por dentro, numa camada atrás de tudo que tem física
     if (this.textures.exists(`pinhos-${room.id}`)) this.pinesImg = this.add.image(0, 0, `pinhos-${room.id}`).setOrigin(0).setDepth(DEPTH.prop - 0.5);
-    if (this.textures.exists(`parede-${room.id}`)) this.wallImg = this.add.image(0, 0, `parede-${room.id}`).setOrigin(0).setDepth(BG.beams + 1);
+    if (this.textures.exists(`parede-${room.id}`)) {
+      // a parede das Torres cobre a sala inteira; a pintura dos apoios é só o recorte deles, no lugar certo
+      const at = APOIO_AT[room.id] ?? [0, 0];
+      this.wallImg = this.add.image(at[0], at[1], `parede-${room.id}`).setOrigin(0).setDepth(BG.beams + 1);
+    }
     this.backdrop = new Backdrop(this, this.level, room.id);
     this.decor = new Decor(this, this.level, room);
     // na volta da memória o ouro novo só aparece depois do efeito (e a grade abre na frente do jogador)

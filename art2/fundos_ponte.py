@@ -321,7 +321,7 @@ def clouds_near(rng):
 
 
 # ======================================================================================
-# silhuetas da frente (Limbo): entulho, coluna quebrada, poste torto, galho seco, corrente
+# silhuetas da frente (Limbo): entulho, coluna quebrada, poste torto, galho seco
 # ======================================================================================
 def fg_layer(rng):
     TW, PAD, H = 3072, 384, 840
@@ -357,15 +357,7 @@ def fg_layer(rng):
                 branch(ex, ey, ang + rng.normal(0, 0.55), ln * rng.uniform(0.5, 0.72), max(1.4, w * 0.6), depth - 1)
     branch(1180, -20, math.pi / 2 + 0.5, 150, 13, 4)
     branch(1240, -20, math.pi / 2 - 0.3, 110, 9, 3)
-    # corrente com peso
-    x0 = 2300
-    for i in range(14):
-        y = -10 + i * 13
-        if i % 2 == 0:
-            m.ellipse(x0, y, 5.5, 9)
-        else:
-            m.ellipse(x0, y, 2.6, 9)
-    m.poly([(x0 - 12, 176), (x0 + 12, 176), (x0 + 8, 204), (x0 - 8, 204)])
+    # (a corrente com peso que descia do alto saiu: na ponte, a céu aberto, ela não tinha onde estar presa)
     a = blur(m.array(), 1.3)
     L = Layer(W, H)
     L.fill(INK, np.clip(a, 0, 1) * 0.96)
