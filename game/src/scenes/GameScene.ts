@@ -71,7 +71,7 @@ import { RES, screenOrigin } from '../gfx/view';
 import { extremeCamera, type ExtremePipeline, type Look } from '../gfx/extreme';
 import { RoomLighting, type ShadowBody, type TerrainPiece } from '../gfx/lighting';
 import { afterLook, lookFor } from '../gfx/looks';
-import { ensure, hdKey, hdTerrain, hdTerrain3, prefetch, release, roomFiles } from '../gfx/hdAssets';
+import { ensure, hdBackdrop, hdBackdrop3, hdKey, hdTerrain, hdTerrain3, prefetch, release, roomFiles } from '../gfx/hdAssets';
 import { queueRoom, settleRoom } from '../gfx/roomAssets';
 import { HD_LAYERS, backdropKeys } from '../world/Backdrop';
 import { Life } from '../world/Life';
@@ -663,9 +663,21 @@ export class GameScene extends Phaser.Scene {
     const files = roomFiles(room.id, layers, eclipse);
     void ensure(this.game, files).then((ok) => {
       if (!live()) return;
-      if (!t3 || t3.pieces.every((p) => ok.has(p.file))) return done(ok, files, !!t3, eclipse);
-      const plain = roomFiles(room.id, layers);
-      return ensure(this.game, plain).then((ok2) => done(ok2, plain, false, false));
+      if (t3 && !t3.pieces.every((p) => ok.has(p.file))) {
+        const plain = roomFiles(room.id, layers);
+        return ensure(this.game, plain).then((ok2) => done(ok2, plain, false, false));
+      }
+      // um fundo em 3x que não chegou: entra a pintura em 2x dele (a do EXTREME), se tiver
+      const lost: string[] = [];
+      if (eclipse) {
+        for (const k of layers) {
+          const b3 = hdBackdrop3(k);
+          const b2 = hdBackdrop(k);
+          if (b3 && b2 && !ok.has(b3.file)) lost.push(b2.file);
+        }
+      }
+      if (!lost.length) return done(ok, files, !!t3, eclipse);
+      return ensure(this.game, lost).then((ok2) => done(new Set([...ok, ...ok2]), [...files, ...lost], !!t3, eclipse));
     });
   }
 

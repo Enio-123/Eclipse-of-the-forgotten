@@ -2570,6 +2570,20 @@
   }
  },
  "backdrop3": {
+  "cat-far": {
+   "pack": "f-catacomb",
+   "id": "cat-far",
+   "scale": 3,
+   "w": 3072,
+   "h": 1080
+  },
+  "cat-mid": {
+   "pack": "f-catacomb",
+   "id": "cat-mid",
+   "scale": 3,
+   "w": 3072,
+   "h": 1080
+  },
   "prison-far": {
    "pack": "f-prison",
    "id": "prison-far",

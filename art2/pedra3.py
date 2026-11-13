@@ -131,6 +131,100 @@ class Ring:
         self.keystone = (up & (np.abs(ta - stones / 2) < 0.5)).astype(np.float32) * self.m
 
 
+class ArchRow:
+    """Arcos redondos em fila: o anel de aduelas em volta de cada vão. dxa = distância até o meio do vão
+    mais perto; cell = o número do vão (para cada arco ter as suas pedras); raio interno r, espessura t,
+    `stones` pedras por volta e `lanes` voltas (tijolo em pé: 2).
+    rd: px para fora do intradorso; m: máscara do anel; f: 0 na junta, 1 na face; dj: px até a junta
+    entre duas aduelas; key: um número por pedra; th: 0..1 ao longo do arco; keystone: a pedra de fecho."""
+
+    def __init__(self, yy, dxa, cell, spring, r, t, stones, lanes=1, mortar=1.2, bevel=2.0):
+        dy = yy - spring
+        up = dy < 0
+        rad = np.hypot(dxa, dy)
+        self.rd = rd = rad - r
+        self.m = (np.clip(rd + 0.5, 0, 1) * np.clip(t - rd + 0.5, 0, 1) * up).astype(np.float32)
+        self.th = th = np.clip(np.arctan2(-dy, dxa) / math.pi, 0, 1)
+        lt = t / lanes
+        lane = np.clip(np.floor(rd / lt), 0, lanes - 1)
+        ta = th * stones + (lane % 2) * 0.5
+        ia = np.floor(ta)
+        fa = ta - ia
+        arc = math.pi * (r + t * 0.5) / stones
+        self.dj = np.minimum(fa, 1 - fa) * arc
+        # a beira de dentro (o intradorso) não tem junta: é a quina do vão
+        d_in = np.where(lane == 0, 99.0, rd - lane * lt)
+        d_out = (lane + 1) * lt - rd
+        self.dist = np.minimum(self.dj, np.maximum(np.minimum(d_in, d_out), 0))
+        self.f = sstep(mortar * 0.5, mortar * 0.5 + bevel, self.dist)
+        self.key = (ia.astype(np.int64) * 131 + lane.astype(np.int64) * 977 + cell.astype(np.int64) * 3571) % 8192
+        if stones % 2:
+            self.keystone = ((ia == stones // 2) & up).astype(np.float32) * self.m
+        else:
+            self.keystone = np.zeros_like(self.m)
+
+
+def knobs(yy, xx, TW, pitch, rowh, rng, rmin=0.6, rmax=1.0, y0=0.0, jitter=0.16):
+    """Pontas de osso empilhadas (ou seixos): calotas em fiadas desencontradas que emendam em TW.
+    Devolve (h 0..1 de cada calota, key por calota, sorteios [5, 8192])."""
+    n = max(1, int(round(TW / pitch)))
+    p = TW / n
+    row = np.floor((yy - y0) / rowh).astype(np.int64)
+    xo = xx + (row % 2) * p * 0.5
+    ci = np.floor(xo / p)
+    key = ((row - int(row.min())) * 7919 + (ci.astype(np.int64) % n) * 104729 + int(rng.integers(0, 1 << 20))) % 8192
+    rnd = rng.random((5, 8192)).astype(np.float32)
+    cx = (ci + 0.5 + (rnd[0][key] - 0.5) * jitter) * p
+    cy = (row + 0.5 + (rnd[1][key] - 0.5) * jitter) * rowh + y0
+    R = (rmin + (rmax - rmin) * rnd[2][key]) * min(p, rowh) * 0.5
+    d = np.hypot(xo - cx, yy - cy) / R
+    return np.sqrt(np.clip(1 - d * d, 0, 1)).astype(np.float32), key, rnd
+
+
+def skull(size, s=1.0, ang=0.0, jaw=True):
+    """Um crânio visto de frente numa janela size x size (o meio da janela é o meio do rosto).
+    Devolve (h em px, tom 0..1 que multiplica a cor do osso, a): a abóbada redonda, as órbitas e o nariz
+    fundos, os dentes."""
+    c = size / 2
+    yy, xx = grid(size, size)
+    u0, v0 = (xx - c) / s, (yy - c) / s
+    ca, sa = math.cos(ang), math.sin(ang)
+    u = u0 * ca + v0 * sa
+    v = -u0 * sa + v0 * ca
+    e = (u / 8.4) ** 2 + ((v + 1.8) / 8.8) ** 2
+    dome = np.sqrt(np.clip(1 - e, 0, 1))
+    a_dome = np.clip((1 - e) * 5.0, 0, 1)
+    jb = 11.4 if jaw else 8.4
+    wj = 5.7 - np.clip(v - 4.5, 0, 8) * 0.34
+    fj = np.clip((wj - np.abs(u)) * s + 0.5, 0, 1) * np.clip((v - 1.0) * s, 0, 1) * np.clip((jb - v) * s + 0.5, 0, 1)
+    hj = 4.4 * np.sqrt(np.clip(1 - (u / (wj + 0.8)) ** 2, 0, 1))
+    a = np.maximum(a_dome, fj)
+    h = np.maximum(dome * 7.6, hj * fj)
+    tone = np.ones_like(h)
+    # as maçãs do rosto saltam um pouco e a têmpora afunda
+    h += np.exp(-((np.abs(u) - 5.2) / 1.6) ** 2 - ((v - 3.4) / 1.6) ** 2) * 1.2 * a
+    pit = np.zeros_like(h)
+    for sx in (-1, 1):
+        eo = ((u - sx * 3.5) / 2.7) ** 2 + ((v - 1.3 - np.abs(u - sx * 3.5) * 0.12) / 2.5) ** 2
+        pit = np.maximum(pit, np.clip((1 - eo) * 2.6, 0, 1))
+    # o nariz: um coração de ponta para cima
+    nn = np.clip(1.0 - (np.abs(u) * 0.95 + np.clip(4.2 - v, 0, 9) * 0.9 + np.clip(v - 6.2, 0, 9) * 2.0) * 0.8, 0, 1) * (v > 3.2) * (v < 6.8)
+    pit = np.maximum(pit, np.clip(nn * 2.4, 0, 1))
+    h -= pit * 6.0
+    tone *= 1 - 0.93 * pit
+    # os dentes: uma faixa mais clara com riscos, e o escuro entre a arcada de cima e a de baixo
+    tb = np.clip(1 - np.abs(v - 8.3) / 1.2, 0, 1) * (np.abs(u) < wj - 0.4)
+    gap = (np.abs(((u + 0.85) % 1.7) - 0.85) < 0.36) * tb
+    tone *= 1 - 0.6 * gap
+    if jaw:
+        bite = np.clip(1 - np.abs(v - 9.3) / 0.55, 0, 1) * (np.abs(u) < wj - 0.2)
+        tone *= 1 - 0.75 * bite
+        h -= bite * 1.6
+    # mais escuro para baixo e nas beiras (osso velho)
+    tone *= 0.82 + 0.18 * np.clip(dome * 1.4, 0, 1)
+    return (h * s).astype(np.float32), tone.astype(np.float32), a.astype(np.float32)
+
+
 def normals(h, k=1.0, wrap=True):
     """Normais da altura (px): k aumenta o relevo."""
     gy = np.gradient(h, axis=0)
@@ -159,11 +253,12 @@ class Light:
         self.x, self.y, self.z, self.radius, self.color, self.power = x, y, z, radius, np.asarray(color, np.float32), power
 
 
-def shade(alb, h, yy, xx, TW, ambient, sun=None, lights=(), k=1.0, spec=0.0, gloss=18.0, ao=True, wrap=True, wet=None):
+def shade(alb, h, yy, xx, TW, ambient, sun=None, lights=(), k=1.0, spec=0.0, gloss=18.0, ao=True, wrap=True, wet=None, sun_k=None):
     """Cor final: alb x (luz de fundo + luz de direção + tochas), com o relevo de h.
 
     ambient: cor da luz de fundo; sun: (direção (x, y, z), cor); spec: brilho molhado (wet: máscara 0..1
-    de onde a pedra está molhada, senão em tudo)."""
+    de onde a pedra está molhada, senão em tudo); sun_k: quanto da luz de direção chega em cada ponto
+    (0 = na sombra de alguma coisa)."""
     nx, ny, nz = normals(h, k, wrap)
     occ = ambient_occlusion(h, wrap=wrap) if ao else 1.0
     light = np.zeros(alb.shape, np.float32) + np.asarray(ambient, np.float32) * (occ[..., None] if ao else 1.0)
@@ -173,6 +268,8 @@ def shade(alb, h, yy, xx, TW, ambient, sun=None, lights=(), k=1.0, spec=0.0, glo
         d = np.asarray(d, np.float32)
         d = d / np.linalg.norm(d)
         ndl = np.clip(nx * d[0] + ny * d[1] + nz * d[2], 0, 1)
+        if sun_k is not None:
+            ndl = ndl * sun_k
         light += ndl[..., None] * np.asarray(c, np.float32) * (0.6 + 0.4 * occ[..., None] if ao else 1.0)
     for L in lights:
         dx = -wdx(xx, L.x, TW) if wrap else L.x - xx
