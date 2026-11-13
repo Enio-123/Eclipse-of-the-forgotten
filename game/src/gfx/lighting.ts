@@ -193,6 +193,11 @@ export class RoomLighting {
     this.feed.reflections = f.reflections;
     this.feed.post = f.post;
     this.feed.eclipse = f.cast;
+    // com a sala parada (a pausa) ninguém refaz a conta das sombras vivas: desligadas, elas somem já
+    if (!f.cast || !f.light) {
+      this.feed.occCount = 0;
+      this.feed.castCount = 0;
+    }
     if (rebake) this.ready = false;
   }
 

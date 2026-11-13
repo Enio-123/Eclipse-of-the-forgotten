@@ -2,7 +2,8 @@
 // névoa, brilho e vida no cenário), EXTREME (o cenário reconstruído: terreno e fundos em alta
 // resolução, sombras suaves, fachos de luz, camadas de profundidade e tudo o que se mexe) e ECLIPSE
 // (tudo do EXTREME e mais: o terreno de todas as salas repintado em 3x, com a pedra saindo da linha
-// da grade, neve em montes, pingentes de gelo, estalactites e raízes, e a sombra dos personagens no
+// da grade, neve em montes, pingentes de gelo, estalactites e raízes; os fundos da Prisão, das
+// Catacumbas e da Cidade repintados em 3x, com a pedra em relevo; e a sombra dos personagens no
 // chão e nas paredes conforme as luzes da sala).
 // Cada ajuste pode ser trocado à parte em Configurações > Imagem; aí a predefinição vira "personalizado".
 
@@ -27,7 +28,7 @@ export interface GfxFlags {
   life: Level3;
   // quantidade de partículas
   particles: Level3;
-  // ECLIPSE: o terreno repintado em 3x (precisa de hd; sem ele, ou se a pintura não chegar, fica a 2x)
+  // ECLIPSE: o terreno e os fundos repintados em 3x (precisa de hd; sem ele, ou se a pintura não chegar, fica a de antes)
   hd3: boolean;
   // ECLIPSE: os personagens fazem sombra (no chão embaixo deles e para longe das luzes; precisa de light)
   cast: boolean;

@@ -649,7 +649,8 @@ export class GameScene extends Phaser.Scene {
     const eclipse = gfx().hd3;
     const layers = this.backdrop.hdKeys(eclipse);
     const near = new Set([...room.exits.map((e) => e.to), ...(room.doors ?? []).map((d) => d.to)]);
-    const live = () => gen === this.hdGen && this.sys.isActive() && this.room === room;
+    // a sala parada conta (a pausa com as Configurações abertas: a troca de nível aparece na hora, atrás do painel)
+    const live = () => gen === this.hdGen && (this.sys.isActive() || this.sys.isPaused()) && this.room === room;
     const done = (ok: Set<string>, files: string[], scale3: boolean, back3: boolean) => {
       if (!live()) return;
       this.hdOn(ok, scale3, back3);
