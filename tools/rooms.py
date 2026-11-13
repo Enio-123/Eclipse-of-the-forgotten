@@ -669,10 +669,12 @@ def galeria():
     g.fill(8, 11, 13, 14, '.')
     for y in range(11, 15):
         g.put(14, y, 'V')
+    # (o vitral fica na face do bloco, como o da esquerda: uma coluna para dentro ele ficava atrás da pedra
+    # e o nicho das moedas não abria nunca)
     g.fill(100, 2, 107, 13, '#')
-    g.fill(102, 9, 106, 12, '.')
+    g.fill(101, 9, 106, 12, '.')
     for y in range(9, 13):
-        g.put(101, y, 'V')
+        g.put(100, y, 'V')
     r = 26
     g.put(4, r, 'O')
     g.put(116, r, '2')
@@ -878,13 +880,21 @@ def celas():
 def correntes():
     """Sala das Correntes: correntes enormes descem do teto escuro. O gancho de corrente fica no
     pedestal do meio. A saída é a laje alta da direita: a parede de ferro embaixo dela não segura as
-    garras, então só se chega lá de argola em argola."""
+    garras, então só se chega lá de argola em argola.
+
+    A chegada: uma passarela de tábuas sai da beira da laje (presa nela de um lado, a ponta solta
+    pendurada do teto por corrente, como Decor.supports desenha) e a última argola fica em cima da
+    passarela. A puxada atravessa as tábuas por baixo e o impulso de soltar larga o cavaleiro em cima
+    delas, sem depender de acerto fino. Antes a última argola ficava solta à esquerda da laje, na linha
+    12: o pulo duplo do fim ficava 4 px curto, e quem segurava a direita ia parar embaixo da laje e
+    batia nela na puxada."""
     W, H = 60, 44
     g = Grid(W, H, '#')
     g.fill(1, 3, 58, 40, '.')
     g.fill(0, 37, 0, 40, '.')
-    # laje da saída e a parede de ferro embaixo dela
+    # laje da saída, a passarela na beira dela e a parede de ferro embaixo
     g.fill(45, 8, 58, 9, '#')
+    plank(g, 40, 44, 8)
     g.fill(59, 4, 59, 7, '.')
     for y in range(10, 41):
         g.put(59, y, '+')
@@ -895,10 +905,12 @@ def correntes():
     g.put(2, r, '1')
     g.put(56, 7, '2')
     g.put(20, 38, 'w')
+    # as quatro argolas: cada puxada tem uns 150 px (o gancho alcança 180) e a última sobe para a direita
     g.put(30, 32, 'o')
-    g.put(37, 25, 'o')
-    g.put(44, 18, 'o')
-    g.put(41, 12, 'o')
+    g.put(33, 25, 'o')
+    g.put(36, 18, 'o')
+    g.put(39, 12, 'o')
+    g.put(42, 6, 'o')
     g.put(8, 35, 'p')
     g.put(34, r, 'c')
     g.put(50, r, 'c')
@@ -2232,8 +2244,9 @@ def patio():
     descanso. No fundo, as portas das torres: a do Arquivo (esquerda, aberta), a grande porta da torre do
     meio (fechada por dentro) e a da torre das Experiências, no terraço da direita, trancada pelas runas:
     quatro pedras gravadas, uma no chão da esplanada, uma em cima do pedestal baixo, uma no terraço e uma
-    no alto da coluna do terraço (sobe-se pelos degraus de ferro presos entre a coluna e a parede da
-    torre); acesas juntas, a porta abre. O registro da ordem de subida fica no pé da grande porta."""
+    no alto da coluna do terraço (sobe-se pelos degraus de ferro presos na face da coluna que dá para o
+    terraço; do outro lado, entre a coluna e a parede da torre, outros degraus descem para o vão); acesas
+    juntas, a porta abre. O registro da ordem de subida fica no pé da grande porta."""
     W, H = 150, 64
     g = Grid(W, H, '.')
     g.fill(0, 50, W - 1, H - 1, '#')
@@ -2252,6 +2265,10 @@ def patio():
     g.fill(146, 0, W - 1, 39, '#')
     for (x0, x1, y) in ((143, 145, 35), (140, 142, 30), (143, 145, 25), (140, 142, 20)):
         g.fill(x0, y, x1, y, '-')
+    # os degraus da face da coluna que dá para o terraço: sem eles a coluna, que desce até o chão, fechava o
+    # vão dos outros e a runa do alto não tinha subida (nem o voo da capa chega: 22 linhas contra 24)
+    for y in (35, 30, 25, 20):
+        g.fill(133, y, 135, y, '-')
     g.put(1, 49, '1')
     g.put(20, 49, 'R')
     g.put(36, 49, 'O')

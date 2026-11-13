@@ -1202,9 +1202,12 @@ const CHAPTER6: Record<'descida' | 'prado' | 'riacho' | 'cachoeiras' | 'gruta' |
       { x0: 38, x1: 40, y0: 0, y1: 101 },
       { x0: 49, x1: 51, y0: 0, y1: 8 },
     ],
+    // (a da queda da direita sobe até a saliência de cima da torre: parando na linha 60, quem descia para
+    // as saliências de baixo, a do baú entre elas, ou caía no poço não tinha mais como sair de lá)
     drafts: [
       { x0: 11, x1: 13, y0: 70, y1: 100 },
       { x0: 35, x1: 37, y0: 60, y1: 100 },
+      { x0: 36, x1: 37, y0: 22, y1: 59 },
       { x0: 41, x1: 42, y0: 5, y1: 20 },
     ],
     thoughts: [
