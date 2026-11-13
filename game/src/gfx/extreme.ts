@@ -121,6 +121,8 @@ uniform float uOccN;
 uniform vec4 uCastL[${MAX_CAST}];
 uniform float uCastN;
 uniform float uLightSh;
+uniform float uEclipse;
+uniform float uSpec;
 
 float lum(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -184,6 +186,13 @@ float lightReach(vec2 world, vec2 lp) {
   return 1.0 - smoothstep(1.5, 7.0, thick * len / ${SH_STEPS}.0);
 }
 
+// ECLIPSE: o brilho da pedra molhada. Só acende o que está virado para a luz mais do que uma parede lisa
+// estaria (a quina de uma pedra, a beira de uma poça): a parede lisa embaixo da lâmpada não vira espelho
+float glint(vec3 n, vec3 ld) {
+  vec3 hv = normalize(ld + vec3(0.0, 0.0, 1.0));
+  return max(pow(max(dot(n, hv), 0.0), 20.0) - pow(hv.z, 20.0), 0.0);
+}
+
 void main() {
   vec2 uv = outTexCoord;
   // pixel da tela de cima para baixo, ponto do mundo e ponto da sala (0 a 1)
@@ -223,9 +232,12 @@ void main() {
   float l0 = lum(col);
   vec3 dyn = vec3(0.0);
   vec3 stat = vec3(0.0);
+  vec3 shine = vec3(0.0);
   if (uUseLight > 0.5) {
     // relevo: o brilho da imagem vira altura; nas bordas da rocha, o chanfro da pedra
     vec3 n = vec3(0.0, 0.0, 1.0);
+    // a mesma superfície, mais marcada, para o brilho da pedra molhada (ECLIPSE)
+    vec3 ng = n;
     if (uRelief > 0.001) {
       float dx = uRes / uResolution.x;
       float dy = uRes / uResolution.y;
@@ -240,6 +252,7 @@ void main() {
       float md = texture2D(uMask, muv + vec2(0.0, mt.y)).r;
       vec2 g = vec2(hr - hl, hd - hu) * uRelief * 6.0 + vec2(mr - ml, md - mu) * 1.6 * mask.r;
       n = normalize(vec3(-g, 1.0));
+      ng = normalize(vec3(-g * 2.2, 1.0));
     }
     // ECLIPSE: as primeiras luzes da lista (a do cavaleiro e as mais fortes que se mexem) param na rocha
     // e nos corpos, e a sombra anda com a luz. Duas luzes no mesmo lugar medem o caminho uma vez só
@@ -268,6 +281,7 @@ void main() {
       }
       vec3 ld = normalize(vec3(d / L.z, 0.45));
       dyn += uLightCol[i] * (L.w * att * (0.4 + 0.6 * max(dot(n, ld), 0.0)));
+      if (uSpec > 0.001 && L.w > 0.0 && float(i) < uLightSh) shine += uLightCol[i] * (L.w * att * glint(ng, ld));
     }
     stat = texture2D(uLight, muv).rgb * uLightGain;
     if (uFlicker > 0.001) {
@@ -303,16 +317,39 @@ void main() {
       }
       stat *= 1.0 - lost * 0.82;
     }
-    float top = 0.78 + 0.44 * max(dot(n, normalize(vec3(-0.25, -0.85, 0.55))), 0.0);
+    // de onde vem a luz fixa neste ponto: de cima e da esquerda, como na pintura. No ECLIPSE o próprio mapa
+    // de luz diz (ele clareia na direção da lâmpada): o relevo da pedra e a quina do terreno acendem do
+    // lado da lâmpada e apagam do outro
+    vec3 sdir = normalize(vec3(-0.25, -0.85, 0.55));
+    if (uEclipse > 0.5) {
+      vec2 lt = 8.0 / uRoom;
+      float gx = lum(texture2D(uLight, muv + vec2(lt.x, 0.0)).rgb) - lum(texture2D(uLight, muv - vec2(lt.x, 0.0)).rgb);
+      float gy = lum(texture2D(uLight, muv + vec2(0.0, lt.y)).rgb) - lum(texture2D(uLight, muv - vec2(0.0, lt.y)).rgb);
+      float gl = length(vec2(gx, gy));
+      sdir = normalize(mix(sdir, vec3(vec2(gx, gy) / max(gl, 0.0001) * 0.9, 0.5), smoothstep(0.004, 0.05, gl)));
+    }
+    float top = 0.78 + 0.44 * max(dot(n, sdir), 0.0);
+    if (uSpec > 0.001) shine += stat * (glint(ng, sdir) * 0.55);
     float ao = mix(1.0, mask.g, uAO * (1.0 - mask.r));
     vec3 light = uAmbient * ao * (1.0 - contact * 0.42) + stat * top * (1.0 - contact * 0.62) + dyn;
     // o que já é luz (chama, janela acesa, brilho) não escurece
     float keep = smoothstep(0.62, 0.95, max(col.r, max(col.g, col.b)));
     col = mix(col * light, max(col, col * light), keep);
+    // o brilho molhado soma por cima (não depende da cor da pedra): inteiro na rocha, pouco no resto
+    col += shine * (uSpec * mix(0.22, 1.0, mask.r) * (1.0 - mask.b));
   }
 
   // a luz espalhando no ar em volta das lâmpadas (a névoa em si são camadas no cenário, Mist.ts)
-  if (uUseFog > 0.5) col += (stat * 0.06 + dyn * 0.045) * (1.0 - mask.r);
+  // ECLIPSE: o ar tem poeira que anda devagar, e a luz acende essa poeira (mais perto das lâmpadas)
+  if (uUseFog > 0.5) {
+    float air = 1.0 - mask.r;
+    if (uEclipse > 0.5) {
+      float d1 = noise(world * 0.03 + vec2(uTime * 0.1, -uTime * 0.045));
+      float d2 = noise(world * 0.085 + vec2(-uTime * 0.16, uTime * 0.07));
+      float dust = 0.5 + 1.1 * d1 * d1 + 0.35 * d2;
+      col += (stat * 0.1 + dyn * 0.06) * dust * air;
+    } else col += (stat * 0.06 + dyn * 0.045) * air;
+  }
 
   // memória passando pelo cenário: por dentro da onda a sala volta a ter a cor de antes, com veios de
   // ouro na pedra (como a máscara do cavaleiro); a memória corrompida drena a cor e acende veios roxos
@@ -438,6 +475,8 @@ export interface Look {
   oil: number;
   // as chamas tremem (só a luz quente do mapa de luz)
   flicker: number;
+  // ECLIPSE: quanto a pedra brilha molhada quando a luz passa (0 = seca)
+  spec: number;
 }
 
 // O que o filtro precisa da sala a cada quadro (GameScene + iluminação)
@@ -476,6 +515,8 @@ export interface ExtremeFeed {
   castCount: number;
   // quantas das primeiras luzes de `lights` param na rocha e nos corpos (0 fora do ECLIPSE)
   lightShadow: number;
+  // ECLIPSE ligado (sombras vivas): o relevo segue a direção de cada lâmpada
+  eclipse: boolean;
 }
 
 export const EXTREME = 'ExtremeGraphics';
@@ -581,6 +622,8 @@ export class ExtremePipeline extends Phaser.Renderer.WebGL.Pipelines.PostFXPipel
     this.set4fv('uCastL', f.castLights, comp);
     this.set1f('uCastN', f.castCount, comp);
     this.set1f('uLightSh', f.light ? f.lightShadow : 0, comp);
+    this.set1f('uEclipse', f.eclipse ? 1 : 0, comp);
+    this.set1f('uSpec', f.eclipse && f.light ? L.spec : 0, comp);
 
     if (f.post) this.bindTexture(half1.texture, 1);
     const glOf = (tex: Phaser.Textures.Texture | null) => (tex ? tex.source[0].glTexture : null);

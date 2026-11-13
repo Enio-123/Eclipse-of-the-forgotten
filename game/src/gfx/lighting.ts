@@ -98,6 +98,13 @@ function blur(a: Float32Array, w: number, h: number, r: number, passes = 2) {
   }
 }
 
+// A máscara e o mapa de luz são lidos entre um texel e outro (4 e 8 px do mundo). O jogo é pixelArt, e aí
+// cada refresh() de uma textura de canvas manda a imagem de novo com o filtro do vizinho mais próximo: sem
+// repor o filtro liso depois, a luz aparecia em quadrados de 8 px
+function smooth(tex: Phaser.Textures.CanvasTexture) {
+  tex.setFilter(Phaser.Textures.FilterMode.LINEAR);
+}
+
 const isGlow = (o: Phaser.GameObjects.GameObject): o is Phaser.GameObjects.Image =>
   o instanceof Phaser.GameObjects.Image && o.texture?.key === 'glow' && o.blendMode === Phaser.BlendModes.ADD && o.scrollFactorX === 1;
 // a sombra dos Vaga-lumes do Eclipse: uma luz ao contrário (apaga a luz em volta)
@@ -171,6 +178,7 @@ export class RoomLighting {
       castLights: new Float32Array(MAX_CAST * 4),
       castCount: 0,
       lightShadow: 0,
+      eclipse: flags.cast,
     };
     this.findWater(look);
     this.buildMask();
@@ -184,6 +192,7 @@ export class RoomLighting {
     this.feed.fog = f.fog;
     this.feed.reflections = f.reflections;
     this.feed.post = f.post;
+    this.feed.eclipse = f.cast;
     if (rebake) this.ready = false;
   }
 
@@ -267,6 +276,7 @@ export class RoomLighting {
     }
     ctx.putImageData(img, 0, 0);
     tex.refresh();
+    smooth(tex);
     this.feed.maskTex = tex;
   }
 
@@ -402,6 +412,7 @@ export class RoomLighting {
       }
       ctx.putImageData(img, 0, 0);
       tex.refresh();
+      smooth(tex);
       this.feed.lightTex = tex;
     }
     this.ready = true;
@@ -505,7 +516,9 @@ export class RoomLighting {
     };
     const look = f.look;
     if (f.light && player && look.knight > 0) {
-      put({ x: player.x, y: player.y, r: look.knightR, i: look.knight, c: [1, 0.94, 0.84] });
+      // ECLIPSE: a luz dele para nas paredes, então pode ir um pouco mais longe e mais forte
+      const far = this.flags.cast ? 1.2 : 1;
+      put({ x: player.x, y: player.y, r: look.knightR * far, i: look.knight * far, c: [1, 0.94, 0.84] });
       // nas salas escuras, um núcleo pequeno a mais: o próprio cavaleiro continua legível no breu
       const a = look.ambient;
       const dark = 1 - (a[0] * 0.3 + a[1] * 0.59 + a[2] * 0.11);

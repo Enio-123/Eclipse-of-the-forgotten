@@ -10,6 +10,7 @@ import Phaser from 'phaser';
 // em WebP escrito em base64); um pacote baixa quando o cavaleiro chega perto de uma sala dele. Aqui
 // dentro um pedaço desses tem nome "3:<pacote>/<id>" e segue o mesmo caminho dos outros. Se o pacote
 // não baixar, a sala fica com a pintura 2x do EXTREME.
+// Os fundos repintados em 3x (art2/ecl_*.py) vêm do mesmo jeito, um pacote por área (f-<área>).
 
 export interface HdPiece {
   file: string;
@@ -24,12 +25,15 @@ interface Manifest {
   backdrop: Record<string, { file: string; scale: number }>;
   // ECLIPSE: o pacote de cada sala e os pedaços dela (id dentro do pacote)
   terrain3?: Record<string, { scale: number; pack: string; pieces: { id: string; x: number; y: number; w: number; h: number }[] }>;
+  // ECLIPSE: os fundos repintados em 3x (pacote e id dentro dele)
+  backdrop3?: Record<string, { pack: string; id: string; scale: number }>;
 }
 
 const BASE = 'assets/hd/';
 const BASE3 = 'assets/hd3/';
 let manifest: Manifest | null = null;
 const terrain3 = new Map<string, { scale: number; pieces: HdPiece[] }>();
+const backdrop3 = new Map<string, { file: string; scale: number }>();
 const blobs = new Map<string, Promise<Blob | null>>();
 const packs = new Map<string, Promise<Map<string, Blob> | null>>();
 const uploads = new Map<string, Promise<boolean>>();
@@ -44,6 +48,11 @@ export function setHdManifest(m: unknown) {
   for (const [id, t] of Object.entries(manifest.terrain3 ?? {})) {
     if (!t || !t.pack || !Array.isArray(t.pieces) || !t.pieces.length) continue;
     terrain3.set(id, { scale: t.scale, pieces: t.pieces.map((p) => ({ file: `3:${t.pack}/${p.id}`, x: p.x, y: p.y, w: p.w, h: p.h })) });
+  }
+  backdrop3.clear();
+  for (const [key, b] of Object.entries(manifest.backdrop3 ?? {})) {
+    if (!b || !b.pack || !b.id || !(b.scale > 0)) continue;
+    backdrop3.set(key, { file: `3:${b.pack}/${b.id}`, scale: b.scale });
   }
 }
 
@@ -60,15 +69,21 @@ export function hdBackdrop(key: string) {
   return manifest?.backdrop[key] ?? null;
 }
 
+// ECLIPSE: o fundo repintado em 3x (null se esta camada não tem)
+export function hdBackdrop3(key: string) {
+  return backdrop3.get(key) ?? null;
+}
+
 // arquivos de uma sala (terreno, parede falsa, pinheiros da floresta e os fundos que ela usa);
-// com eclipse, o terreno é o de 3x quando a sala tem (os véus, os pinheiros e a parede continuam em 2x)
+// com eclipse, o terreno e os fundos são os de 3x quando existem (os véus, os pinheiros e a parede
+// continuam em 2x)
 export function roomFiles(room: string, backdrops: string[], eclipse = false) {
   const files: string[] = [];
   const t3 = eclipse ? hdTerrain3(room) : null;
   for (const p of (t3 ?? hdTerrain(room))?.pieces ?? []) files.push(p.file);
   for (const id of [`${room}-secret`, `${room}-pinhos`, `${room}-parede`]) for (const p of hdTerrain(id)?.pieces ?? []) files.push(p.file);
   for (const k of backdrops) {
-    const b = hdBackdrop(k);
+    const b = (eclipse ? hdBackdrop3(k) : null) ?? hdBackdrop(k);
     if (b) files.push(b.file);
   }
   return files;

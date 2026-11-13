@@ -2568,5 +2568,21 @@
     }
    ]
   }
+ },
+ "backdrop3": {
+  "prison-far": {
+   "pack": "f-prison",
+   "id": "prison-far",
+   "scale": 3,
+   "w": 3072,
+   "h": 1200
+  },
+  "prison-mid": {
+   "pack": "f-prison",
+   "id": "prison-mid",
+   "scale": 3,
+   "w": 3072,
+   "h": 1260
+  }
  }
 }

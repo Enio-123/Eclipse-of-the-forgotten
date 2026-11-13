@@ -647,26 +647,29 @@ export class GameScene extends Phaser.Scene {
     }
     const room = this.room;
     const eclipse = gfx().hd3;
-    const layers = this.backdrop.hdKeys();
+    const layers = this.backdrop.hdKeys(eclipse);
     const near = new Set([...room.exits.map((e) => e.to), ...(room.doors ?? []).map((d) => d.to)]);
     const live = () => gen === this.hdGen && this.sys.isActive() && this.room === room;
-    const done = (ok: Set<string>, files: string[], scale3: boolean) => {
+    const done = (ok: Set<string>, files: string[], scale3: boolean, back3: boolean) => {
       if (!live()) return;
-      this.hdOn(ok, scale3);
+      this.hdOn(ok, scale3, back3);
       release(this.game, files);
-      for (const id of near) prefetch(roomFiles(id, HD_LAYERS[ROOMS[id].theme] ?? [], eclipse));
+      for (const id of near) {
+        const th = ROOMS[id].theme;
+        prefetch(roomFiles(id, eclipse ? [...(HD_LAYERS[th] ?? []), ...backdropKeys(th, id)] : HD_LAYERS[th] ?? [], eclipse));
+      }
     };
     const t3 = eclipse ? hdTerrain3(room.id) : null;
     const files = roomFiles(room.id, layers, eclipse);
     void ensure(this.game, files).then((ok) => {
       if (!live()) return;
-      if (!t3 || t3.pieces.every((p) => ok.has(p.file))) return done(ok, files, !!t3);
+      if (!t3 || t3.pieces.every((p) => ok.has(p.file))) return done(ok, files, !!t3, eclipse);
       const plain = roomFiles(room.id, layers);
-      return ensure(this.game, plain).then((ok2) => done(ok2, plain, false));
+      return ensure(this.game, plain).then((ok2) => done(ok2, plain, false, false));
     });
   }
 
-  private hdOn(ok: Set<string>, eclipse = false) {
+  private hdOn(ok: Set<string>, eclipse = false, back3 = false) {
     const t = (eclipse ? hdTerrain3(this.room.id) : null) ?? hdTerrain(this.room.id);
     // a pintura que está na tela é de outra escala (o ajuste mudou com a sala aberta): sai antes
     if (this.hdImgs.length && this.hdScale !== (t?.scale ?? 0)) {
@@ -688,7 +691,7 @@ export class GameScene extends Phaser.Scene {
       for (const p of pw.pieces) this.hdWall.push(this.add.image(p.x, p.y, hdKey(p.file)).setOrigin(0).setScale(1 / pw.scale).setDepth(this.wallImg.depth));
       this.wallImg.setVisible(false);
     }
-    this.backdrop.useHd(true);
+    this.backdrop.useHd(true, back3);
     const sec = hdTerrain(`${this.room.id}-secret`);
     if (sec && sec.pieces.every((p) => ok.has(p.file))) this.fixtures.useHdVeils(sec.pieces, sec.scale);
   }

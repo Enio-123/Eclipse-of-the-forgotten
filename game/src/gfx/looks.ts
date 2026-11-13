@@ -40,11 +40,13 @@ const BASE: Look = {
   highTint: [1.03, 1.0, 0.97],
   oil: 0,
   flicker: 0,
+  spec: 0.4,
 };
 
 const THEMES: Record<Theme, Partial<Look>> = {
   // ponte na chuva, de noite: os lampiões fazem poças de luz, o tabuleiro molhado reflete
   bridge: {
+    spec: 0.85,
     ambient: [0.96, 0.97, 1.0],
     sky: [0.06, 0.07, 0.08],
     knight: 0.2,
@@ -60,6 +62,7 @@ const THEMES: Record<Theme, Partial<Look>> = {
   },
   // catacumbas: pedra quente, velas, escuro fundo entre uma luz e outra
   catacomb: {
+    spec: 0.5,
     ambient: [0.42, 0.41, 0.47],
     knight: 0.5,
     knightR: 118,
@@ -78,6 +81,7 @@ const THEMES: Record<Theme, Partial<Look>> = {
   },
   // o vale da memória: dia claro, sol baixo, névoa leve e água que reflete
   memory: {
+    spec: 0.12,
     sky: [0.05, 0.05, 0.045],
     knight: 0,
     ao: 0.2,
@@ -96,6 +100,7 @@ const THEMES: Record<Theme, Partial<Look>> = {
   },
   // Cidade-Catedral: fim de tarde do eclipse sobre pedra cinza, lampiões e janelas acesas
   city: {
+    spec: 0.3,
     sky: [0.05, 0.045, 0.04],
     knight: 0.18,
     ao: 0.26,
@@ -110,6 +115,7 @@ const THEMES: Record<Theme, Partial<Look>> = {
   },
   // a catedral por dentro: vitrais, incenso no ar, fachos de luz (mais clara que a cripta: as janelas)
   nave: {
+    spec: 0.5,
     ambient: [0.64, 0.62, 0.66],
     knight: 0.34,
     knightR: 108,
@@ -128,6 +134,7 @@ const THEMES: Record<Theme, Partial<Look>> = {
   },
   // prisão: ferro frio, tochas, umidade
   prison: {
+    spec: 0.8,
     ambient: [0.44, 0.46, 0.52],
     knight: 0.5,
     knightR: 118,
@@ -148,6 +155,7 @@ const THEMES: Record<Theme, Partial<Look>> = {
   },
   // minas: rocha quente de poeira, só a luz do Âmbar (cristais e veios) e dos lampiões dos mineiros
   mine: {
+    spec: 0.5,
     ambient: [0.4, 0.38, 0.38],
     // a luz em volta do cavaleiro um pouco maior que na prisão: a rocha é escura e o chão precisa ler
     knight: 0.54,
@@ -171,6 +179,7 @@ const THEMES: Record<Theme, Partial<Look>> = {
   // Floresta Nevada: dia branco de neve, luz fria entre os troncos (fachos fortes, como na abertura),
   // névoa clara no chão; a neve reflete o céu e as sombras puxam para o azul
   snow: {
+    spec: 0.55,
     sky: [0.1, 0.11, 0.12],
     knight: 0.12,
     ao: 0.24,
@@ -192,6 +201,7 @@ const THEMES: Record<Theme, Partial<Look>> = {
   // Vale das Cachoeiras: a primeira área clara de verdade. Sol baixo e dourado do eclipse atravessando
   // a névoa das quedas, água que reflete o céu, sombras puxando para o verde; a pintura mais grossa
   vale: {
+    spec: 0.35,
     sky: [0.06, 0.06, 0.05],
     knight: 0.06,
     ao: 0.22,
@@ -214,6 +224,7 @@ const THEMES: Record<Theme, Partial<Look>> = {
   // Torres Rúnicas: acima das nuvens. A luz vem de baixo, dourada, do mar de nuvens, e o céu do eclipse
   // fica em cima; sombras puxando para o violeta, o ouro e o Âmbar brilhando; a pintura no máximo
   torres: {
+    spec: 0.45,
     sky: [0.08, 0.06, 0.05],
     knight: 0.1,
     ao: 0.3,
@@ -240,9 +251,10 @@ const ROOMS: Partial<Record<RoomId, Partial<Look>>> = {
   // a escadaria sobe para a praça: a luz da cidade entra pela boca lá em cima e some descendo
   escadaria: { sky: [0.42, 0.38, 0.34], skyDepth: 26, rays: 0.42 },
   // o poço: a luz da cidade cai lá de cima pela boca estreita e vai sumindo até o fundo
-  poco: { sky: [0.5, 0.5, 0.54], skyDepth: 30, rays: 0.5 },
+  poco: { spec: 0.9, sky: [0.5, 0.5, 0.54], skyDepth: 30, rays: 0.5 },
   // fosso e abismo: a tinta da sombra no ar, roxo e preto, o lugar mais escuro até aqui
   fosso: {
+    spec: 0.9,
     ambient: [0.36, 0.32, 0.43],
     reflTint: [1.0, 0.7, 1.1],
     mistColor: [0.42, 0.28, 0.56],
@@ -253,6 +265,7 @@ const ROOMS: Partial<Record<RoomId, Partial<Look>>> = {
   },
   // a Margem da Tinta: a calha entre o Fosso e o Leito do Abismo; a tinta corrente reflete em roxo
   margem: {
+    spec: 0.9,
     ambient: [0.35, 0.31, 0.43],
     water: 0.4,
     reflTint: [1.0, 0.7, 1.1],
@@ -263,15 +276,16 @@ const ROOMS: Partial<Record<RoomId, Partial<Look>>> = {
     oil: 0.2,
   },
   // a Galeria Alagada: a bacia parada reflete o Âmbar das paredes, esverdeada
-  alagada: { water: 0.42, reflTint: [0.8, 1.05, 0.98], wet: 0.12 },
+  alagada: { spec: 0.75, water: 0.42, reflTint: [0.8, 1.05, 0.98], wet: 0.12 },
   // a cabana: lá fora o dia de neve; debaixo do telhado só a lareira esquenta (e ilumina) por dentro
   cabana: { ambient: [0.46, 0.47, 0.52], sky: [0.58, 0.6, 0.62], knightR: 110, knight: 0.36, lightGain: 1.6, reach: 1.25, highTint: [1.05, 1.0, 0.94], flicker: 0.14 },
   // a fenda da serra: mais fria e mais funda; a luz do céu desce pela fenda e a gruta do lado fica no escuro
   serra: { ambient: [0.5, 0.53, 0.6], sky: [0.5, 0.54, 0.58], skyDepth: 40, knight: 0.4, knightR: 112, lightGain: 1.5, reach: 1.2, mist: 0.36, shadowTint: [0.95, 0.99, 1.08] },
   // o lago congelado reflete
-  lago: { wet: 0.14 },
+  lago: { spec: 0.8, wet: 0.14 },
   // a gruta atrás da água: escura, fria, e a luz do dia entra esverdeada através da cachoeira
   gruta: {
+    spec: 0.85,
     ambient: [0.4, 0.46, 0.46],
     sky: [0.3, 0.38, 0.36],
     knight: 0.38,
@@ -288,7 +302,7 @@ const ROOMS: Partial<Record<RoomId, Partial<Look>>> = {
     oil: 0.22,
   },
   // as cachoeiras: a névoa das quedas fica no ar o tempo todo
-  cachoeiras: { mist: 0.56, mistFront: 0.16, wet: 0.18 },
+  cachoeiras: { spec: 0.6, mist: 0.56, mistFront: 0.16, wet: 0.18 },
   // as Torres por dentro: escuras, só as runas, o Âmbar e as janelas acendem. O Arquivo em âmbar quente
   // (os frascos), as Experiências frias e azuladas, as Engrenagens no vapor, o trono e a escadaria no
   // escuro com a luz do núcleo subindo pelo meio
@@ -337,6 +351,7 @@ const ROOMS: Partial<Record<RoomId, Partial<Look>>> = {
     highTint: [1.04, 1.01, 0.95],
   },
   abismo: {
+    spec: 0.9,
     ambient: [0.34, 0.3, 0.42],
     reflTint: [1.0, 0.7, 1.1],
     // o lago de tinta reflete

@@ -1,13 +1,23 @@
 import Phaser from 'phaser';
 import { VIEW_H, VIEW_W } from '../config';
 import type { Level } from './Level';
-import { screenOrigin } from '../gfx/view';
+import { RES, screenOrigin } from '../gfx/view';
 import { hd, hdScale } from '../gfx/flip';
-import { hdBackdrop, hdKey } from '../gfx/hdAssets';
+import { hdBackdrop, hdBackdrop3, hdKey } from '../gfx/hdAssets';
 import { SKY_ECLIPSE, bigEclipse } from '../gfx/eclipse';
 import { ending } from './story';
 
 type Layer = Phaser.GameObjects.Image | Phaser.GameObjects.TileSprite;
+// uma camada pintada: a imagem normal dela, a medida com essa imagem (k0) e, no ECLIPSE, as imagens em 3x
+// que ficam no lugar de uma camada que repete (m)
+interface Part {
+  o: Layer;
+  key: string;
+  k0?: number;
+  m?: Phaser.GameObjects.Image[];
+}
+// a pintura de uma camada que repete (a textura do TileSprite em si é a tela interna do Phaser)
+const painted = (t: Phaser.GameObjects.TileSprite) => t as unknown as { displayFrame: Phaser.Textures.Frame; displayTexture: Phaser.Textures.Texture };
 
 // Profundidades do fundo (tudo atrás dos tiles)
 export const BG = { sky: -20, bolt: -19, cloudsFar: -18, far: -17, cloudsNear: -16.5, mid: -16, fog: -15, beams: -14 } as const;
@@ -73,7 +83,7 @@ export class Backdrop {
   readonly bg: number;
   private layers: { o: Layer; update: (sx: number, sy: number, t: number) => void }[] = [];
   // camadas pintadas e a imagem de cada uma (o EXTREME troca pela pintura em 2x)
-  private parts: { o: Layer; key: string }[] = [];
+  private parts: Part[] = [];
   // EXTREME: primeiro plano fora de foco nas bordas da tela (só existe em 2x)
   private fgKey: string | null;
   private fg: Phaser.GameObjects.TileSprite | null = null;
@@ -132,9 +142,9 @@ export class Backdrop {
     t.tilePositionX = v / t.tileScaleX;
   }
 
-  // imagens das camadas que têm pintura em 2x
-  hdKeys() {
-    const keys = this.parts.map((p) => p.key).filter((k) => hdBackdrop(k));
+  // imagens das camadas que têm pintura em 2x (ou, no ECLIPSE, em 3x)
+  hdKeys(eclipse = false) {
+    const keys = this.parts.map((p) => p.key).filter((k) => hdBackdrop(k) || (eclipse && hdBackdrop3(k)));
     if (this.fgKey && hdBackdrop(this.fgKey)) keys.push(this.fgKey);
     return [...new Set(keys)];
   }
@@ -147,8 +157,9 @@ export class Backdrop {
     this.fg.setAlpha(this.fgA);
   }
 
-  // troca para a pintura em 2x as camadas que já chegaram (ou volta para a normal)
-  useHd(on: boolean) {
+  // troca para a pintura em 2x as camadas que já chegaram (ou volta para a normal). ECLIPSE: as camadas
+  // repintadas em 3x usam essa pintura
+  useHd(on: boolean, eclipse = false) {
     const fb = this.fgKey ? hdBackdrop(this.fgKey) : null;
     if (on && fb && !this.fg && this.scene.textures.exists(hdKey(fb.file))) {
       const fg = this.scene.add.tileSprite(this.so.x, this.so.y, VIEW_W, VIEW_H, hdKey(fb.file)).setOrigin(0).setScrollFactor(0).setDepth(FG_DEPTH - 0.2);
@@ -161,17 +172,70 @@ export class Backdrop {
       fg.destroy();
       this.fg = null;
     }
+    const tm = this.scene.textures;
     for (const p of this.parts) {
-      const b = hdBackdrop(p.key);
-      if (!b) continue;
-      const key = on && this.scene.textures.exists(hdKey(b.file)) ? hdKey(b.file) : p.key;
-      if (p.o.texture.key === key) continue;
-      const k = key === p.key ? 1 : 1 / b.scale;
-      if (p.o instanceof Phaser.GameObjects.TileSprite) {
-        const x = p.o.tilePositionX * p.o.tileScaleX;
-        p.o.setTexture(key).setTileScale(k, k);
-        p.o.tilePositionX = x / k;
+      const b2 = hdBackdrop(p.key);
+      const b3 = hdBackdrop3(p.key);
+      if (!b2 && !b3) continue;
+      const tile = p.o instanceof Phaser.GameObjects.TileSprite ? p.o : null;
+      // a medida da camada com a pintura normal (antes de qualquer troca)
+      p.k0 ??= tile ? tile.tileScaleX : p.o.scaleX;
+      const use3 = on && eclipse && b3 && tm.exists(hdKey(b3.file)) ? b3 : null;
+      if (tile && this.mirror(p, tile, use3)) continue;
+      const b = use3 ?? (on && b2 && tm.exists(hdKey(b2.file)) ? b2 : null);
+      const key = b ? hdKey(b.file) : p.key;
+      if ((tile ? painted(tile).displayTexture.key : p.o.texture.key) === key) continue;
+      const k = b ? 1 / b.scale : p.k0;
+      if (tile) {
+        const x = tile.tilePositionX * tile.tileScaleX;
+        const y = tile.tilePositionY * tile.tileScaleY;
+        tile.setTexture(key).setTileScale(k, k);
+        tile.tilePositionX = x / k;
+        tile.tilePositionY = y / k;
       } else p.o.setTexture(key).setScale(k);
+    }
+  }
+
+  // ECLIPSE: uma camada que repete mostrada com a pintura em 3x. O TileSprite do Phaser estica a imagem
+  // para uma potência de 2 e lê sem filtro, o que borra a pintura; aqui a camada some e, no lugar dela,
+  // ficam imagens inteiras lado a lado (duas; quatro se ela repete também na vertical), cada pixel da
+  // pintura num pixel da tela. A camada continua recebendo a rolagem de sempre e as imagens copiam dela
+  private mirror(p: Part, t: Phaser.GameObjects.TileSprite, b3: { file: string; scale: number } | null) {
+    if (!b3) {
+      if (p.m) {
+        for (const i of p.m) i.destroy();
+        p.m = undefined;
+        t.setVisible(true);
+      }
+      return false;
+    }
+    if (p.m) return true;
+    // a pintura tem que caber na altura da camada, ou a camada cobrir a tela toda (o resto fica fora dela)
+    const fits = painted(t).displayFrame.height * t.tileScaleY <= t.height + 0.5;
+    if (!fits && t.height < VIEW_H) return false;
+    const key = hdKey(b3.file);
+    p.m = [];
+    for (let i = 0; i < (fits ? 2 : 4); i++) p.m.push(this.scene.add.image(0, 0, key).setOrigin(0).setScrollFactor(0).setScale(1 / b3.scale).setDepth(t.depth));
+    t.setVisible(false);
+    this.sync(t, p.m);
+    return true;
+  }
+
+  private sync(t: Phaser.GameObjects.TileSprite, m: Phaser.GameObjects.Image[]) {
+    const px = painted(t).displayFrame.width * t.tileScaleX;
+    const py = painted(t).displayFrame.height * t.tileScaleY;
+    let ox = (t.tilePositionX * t.tileScaleX) % px;
+    if (ox < 0) ox += px;
+    let oy = (t.tilePositionY * t.tileScaleY) % py;
+    if (oy < 0) oy += py;
+    // no pixel da tela: a pintura não é lida entre um pixel e outro
+    const x0 = Math.round((t.x - ox) * RES) / RES;
+    const y0 = Math.round((t.y - oy) * RES) / RES;
+    for (let i = 0; i < m.length; i++) {
+      const im = m[i];
+      im.setPosition(x0 + (i & 1) * px, y0 + (i >> 1) * py).setAlpha(t.alpha);
+      if (t.isTinted) im.setTint(t.tintTopLeft);
+      else if (im.isTinted) im.clearTint();
     }
   }
 
@@ -664,5 +728,6 @@ export class Backdrop {
     // as contas usam o canto de cima da vista (com zoom, o scrollX da câmera fica antes dele)
     const cam = this.scene.cameras.main;
     for (const l of this.layers) l.update(cam.scrollX + this.so.x, cam.scrollY + this.so.y, time);
+    for (const p of this.parts) if (p.m) this.sync(p.o as Phaser.GameObjects.TileSprite, p.m);
   }
 }
