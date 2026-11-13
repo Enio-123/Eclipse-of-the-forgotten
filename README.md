@@ -36,12 +36,22 @@ da região) e Esc pausa. Tudo pode ser trocado em Configurações. O jogo també
   personagens, terrenos, fundos e música). Os mapas das salas ficam em `game/src/world/maps.ts`.
 - `art/` scripts Python (numpy + Pillow) dos personagens, inimigos, chefes, armas e enfeites.
 - `art2/` o motor de pintura (`brush.py`) e os pintores do terreno e dos fundos de cada área;
-  `finaliza.py` passa cada tema pela paleta final.
+  `finaliza.py` passa cada tema pela paleta final. `apoio.py` pinta o que segura as construções que
+  ficavam soltas no ar (pilares, arcos, pernas de rocha), na camada `parede-<sala>` atrás do terreno;
+  `tools/hdpack.py --parede` corta essa camada para o EXTREME.
 - `tools/` `rooms.py` gera os mapas das salas, os testes `*.cjs` jogam o jogo de verdade com Playwright,
   `hdpack.py` corta o terreno do EXTREME e `pack.py` empacota a versão do claude.ai. `atlas.py` junta as
   imagens do começo do jogo em duas folhas (`public/assets/pack-*.png`): no build o jogo carrega as folhas e
   as soltas saem de `dist/` (a versão do claude.ai aceita no máximo 511 arquivos). Rode de novo quando uma
   dessas imagens mudar; se esquecer, o build avisa e a imagem que mudou vai solta.
+- `tools/revisao/` a revisão das salas. `salas.cjs` fotografa cada sala inteira e `mosaico.py` junta as
+  fotos em folhas; `foco.cjs` fotografa um ponto escolhido. `alcance.cjs` é a varredura de alcance: joga
+  cada sala com a física de verdade (todos os movimentos de `alcance-page.js`, de cada ponto de apoio
+  achado) com as habilidades que o cavaleiro tem ao chegar nela (`passes.txt`; `rodar.sh` roda um passe) e
+  `analisa.py` mostra o que ficou de fora: chão nunca pisado, objeto nunca tocado, saída que uma entrada
+  não alcança e ponto de onde não se sai. `rota.cjs` joga de verdade um caminho achado pela varredura (e
+  mede o tempo), `um.cjs` roda um movimento só de um ponto, com o rastro, e `mapa.py` mostra um trecho do
+  mapa com régua.
 - `tools/video/` o vídeo "como zerar", gravado quadro a quadro num relógio virtual: `plan.js` é o roteiro
   dos 23 trechos (com os bots que jogam cada um), `capture.cjs` grava (com `GL=mesa` num Xvfb fica umas 3
   vezes mais rápido), `audio.cjs` refaz o som pelo motor do jogo e `montar.sh` junta tudo (`CRF=23` para um
