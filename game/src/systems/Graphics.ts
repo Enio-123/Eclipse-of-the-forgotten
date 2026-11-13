@@ -1,10 +1,13 @@
 // Predefinições gráficas: PERFORMANCE (leve, fiel ao visual original), HIGH (o visual original com luz,
-// névoa, brilho e vida no cenário) e EXTREME (o cenário reconstruído: terreno e fundos em alta
-// resolução, sombras suaves, fachos de luz, camadas de profundidade e tudo o que se mexe).
+// névoa, brilho e vida no cenário), EXTREME (o cenário reconstruído: terreno e fundos em alta
+// resolução, sombras suaves, fachos de luz, camadas de profundidade e tudo o que se mexe) e ECLIPSE
+// (tudo do EXTREME e mais: o terreno de todas as salas repintado em 3x, com a pedra saindo da linha
+// da grade, neve em montes, pingentes de gelo, estalactites e raízes, e a sombra dos personagens no
+// chão e nas paredes conforme as luzes da sala).
 // Cada ajuste pode ser trocado à parte em Configurações > Imagem; aí a predefinição vira "personalizado".
 
-export type Preset = 'performance' | 'high' | 'extreme';
-export const PRESET_IDS: Preset[] = ['performance', 'high', 'extreme'];
+export type Preset = 'performance' | 'high' | 'extreme' | 'eclipse';
+export const PRESET_IDS: Preset[] = ['performance', 'high', 'extreme', 'eclipse'];
 export type Level3 = 0 | 1 | 2;
 
 export interface GfxFlags {
@@ -24,17 +27,22 @@ export interface GfxFlags {
   life: Level3;
   // quantidade de partículas
   particles: Level3;
+  // ECLIPSE: o terreno repintado em 3x (precisa de hd; sem ele, ou se a pintura não chegar, fica a 2x)
+  hd3: boolean;
+  // ECLIPSE: os personagens fazem sombra (no chão embaixo deles e para longe das luzes; precisa de light)
+  cast: boolean;
 }
 
 export const PRESETS: Record<Preset, GfxFlags> = {
-  performance: { hd: false, light: false, shadows: false, fog: false, reflections: false, post: false, life: 0, particles: 0 },
-  high: { hd: false, light: true, shadows: false, fog: true, reflections: true, post: true, life: 1, particles: 1 },
-  extreme: { hd: true, light: true, shadows: true, fog: true, reflections: true, post: true, life: 2, particles: 2 },
+  performance: { hd: false, light: false, shadows: false, fog: false, reflections: false, post: false, life: 0, particles: 0, hd3: false, cast: false },
+  high: { hd: false, light: true, shadows: false, fog: true, reflections: true, post: true, life: 1, particles: 1, hd3: false, cast: false },
+  extreme: { hd: true, light: true, shadows: true, fog: true, reflections: true, post: true, life: 2, particles: 2, hd3: false, cast: false },
+  eclipse: { hd: true, light: true, shadows: true, fog: true, reflections: true, post: true, life: 2, particles: 2, hd3: true, cast: true },
 };
 
-export const PRESET_LABEL: Record<Preset, string> = { performance: 'Performance', high: 'High', extreme: 'EXTREME GRAPHICS' };
+export const PRESET_LABEL: Record<Preset, string> = { performance: 'Performance', high: 'High', extreme: 'EXTREME GRAPHICS', eclipse: 'ECLIPSE GRAPHICS' };
 
-export const FLAG_KEYS: (keyof GfxFlags)[] = ['hd', 'light', 'shadows', 'fog', 'reflections', 'post', 'life', 'particles'];
+export const FLAG_KEYS: (keyof GfxFlags)[] = ['hd', 'light', 'shadows', 'fog', 'reflections', 'post', 'life', 'particles', 'hd3', 'cast'];
 
 export function sameFlags(a: GfxFlags, b: GfxFlags) {
   return FLAG_KEYS.every((k) => a[k] === b[k]);
@@ -67,7 +75,7 @@ export function defaultPreset(): Preset {
   return touch ? 'high' : 'extreme';
 }
 
-// ?gfx=performance|high|extreme no endereço fixa a predefinição (testes e fotos)
+// ?gfx=performance|high|extreme|eclipse no endereço fixa a predefinição (testes e fotos)
 export const FORCED_PRESET: Preset | null = (() => {
   if (typeof window === 'undefined') return null;
   const v = new URLSearchParams(window.location.search).get('gfx');
@@ -87,6 +95,8 @@ export function cleanFlags(raw: unknown, fallback: GfxFlags): GfxFlags {
     post: b('post'),
     life: l('life'),
     particles: l('particles'),
+    hd3: b('hd3'),
+    cast: b('cast'),
   };
 }
 

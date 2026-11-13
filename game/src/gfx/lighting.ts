@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { TILE } from '../config';
 import type { GfxFlags } from '../systems/Graphics';
 import type { Level } from '../world/Level';
-import { LIGHT_SCALE, MAX_LIGHTS, MAX_WATER, type ExtremeFeed, type Look } from './extreme';
+import { LIGHT_SCALE, MAX_CAST, MAX_LIGHTS, MAX_LIGHT_SH, MAX_OCC, MAX_WATER, type ExtremeFeed, type Look } from './extreme';
 
 // Luz de cada sala no High e no EXTREME.
 // - Máscara (1 texel a cada 4 px do mundo): R = rocha (vem da transparência do terreno pintado),
@@ -43,6 +43,16 @@ interface WaterRect {
   y0: number;
   y1: number;
   k: number;
+}
+
+// ECLIPSE: um corpo que faz sombra (o cavaleiro, um inimigo): o meio, as meias medidas, os pés e se está no chão
+export interface ShadowBody {
+  x: number;
+  y: number;
+  hw: number;
+  hh: number;
+  feet: number;
+  grounded: boolean;
 }
 
 // fonte de terreno para a máscara: imagem e o retângulo do mundo que ela cobre
@@ -105,6 +115,8 @@ export class RoomLighting {
   private solid: Float32Array;
   private occ: Uint8Array;
   private baked: Baked[] = [];
+  // as luzes fixas do mapa, já juntadas (para a sombra dos personagens)
+  private fixed: Src[] = [];
   private bakedSet = new Set<Phaser.GameObjects.Image>();
   private glows: Phaser.GameObjects.Image[] = [];
   private umbras: Phaser.GameObjects.Image[] = [];
@@ -153,6 +165,12 @@ export class RoomLighting {
       mem: new Float32Array(4),
       memMode: 0,
       pres: new Float32Array(4),
+      occ: new Float32Array(MAX_OCC * 4),
+      occG: new Float32Array(MAX_OCC * 4),
+      occCount: 0,
+      castLights: new Float32Array(MAX_CAST * 4),
+      castCount: 0,
+      lightShadow: 0,
     };
     this.findWater(look);
     this.buildMask();
@@ -312,6 +330,7 @@ export class RoomLighting {
     const t0 = performance.now();
     this.scan();
     this.baked = [];
+    this.fixed = [];
     this.bakedSet.clear();
     const look = this.feed.look;
     const { lw, lh } = this;
@@ -333,6 +352,7 @@ export class RoomLighting {
         } else srcs.push(s);
       }
       for (const s of srcs) this.splat(s, R, G, B);
+      this.fixed = srcs;
       if (look.bounce > 0 && this.flags.shadows) {
         // luz rebatida: a direta bem borrada, um pouco mais quente (pedra)
         const r2 = Float32Array.from(R);
@@ -440,7 +460,7 @@ export class RoomLighting {
   }
 
   // ---------- a cada quadro ----------
-  update(cam: Phaser.Cameras.Scene2D.Camera, player: { x: number; y: number } | null, dt: number) {
+  update(cam: Phaser.Cameras.Scene2D.Camera, player: { x: number; y: number } | null, dt: number, bodies: ShadowBody[] | null = null) {
     if (!this.ready) this.bake();
     const f = this.feed;
     const v = cam.worldView;
@@ -491,6 +511,13 @@ export class RoomLighting {
       const dark = 1 - (a[0] * 0.3 + a[1] * 0.59 + a[2] * 0.11);
       if (dark > 0.2) put({ x: player.x, y: player.y - 3, r: 42, i: Math.min(0.48, dark * 0.75), c: [1, 0.97, 0.92] });
     }
+    // ECLIPSE: a luz do cavaleiro e as mais fortes das que se mexem vão na frente da lista: são as que
+    // param na rocha e nos corpos (a sombra anda com elas)
+    let first = 0;
+    if (f.light && this.flags.cast) {
+      while (first < cand.length && n < MAX_LIGHT_SH) put(cand[first++]);
+      f.lightShadow = n;
+    } else f.lightShadow = 0;
     // as sombras vivas vêm antes das luzes pequenas: o escuro delas tem que aparecer
     if (f.light) {
       let k = 0;
@@ -503,12 +530,13 @@ export class RoomLighting {
         k++;
       }
     }
-    for (const s of cand) {
+    for (let i = first; i < cand.length; i++) {
       if (n >= MAX_LIGHTS) break;
-      put(s);
+      put(cand[i]);
     }
     f.lightCount = n;
 
+    this.updateShadows(v, bodies);
     this.updateRays(v, cand, dt);
 
     // água e chão molhado na tela
@@ -526,6 +554,70 @@ export class RoomLighting {
       }
     }
     f.waterCount = w;
+  }
+
+  // ECLIPSE: quem faz sombra nesta tela e de quais luzes fixas (as que mais iluminam esses corpos)
+  private updateShadows(v: Phaser.Geom.Rectangle, bodies: ShadowBody[] | null) {
+    const f = this.feed;
+    f.occCount = 0;
+    f.castCount = 0;
+    if (!f.light || !this.flags.cast || !bodies || !bodies.length) return;
+    const look = f.look;
+    const L = this.level;
+    // ao ar livre a luz do céu vem um pouco de lado: a mancha do chão estica para a direita
+    const open = look.sky[0] + look.sky[1] + look.sky[2] > 0.05 ? 1 : 0;
+    const m = 48;
+    let n = 0;
+    for (const b of bodies) {
+      if (n >= MAX_OCC) break;
+      if (b.x + b.hw < v.x - m || b.x - b.hw > v.right + m || b.y + b.hh < v.y - m || b.y - b.hh > v.bottom + m) continue;
+      // o chão embaixo dele: onde pisa, ou o primeiro chão descendo (até 6 tiles)
+      let gy = b.feet;
+      let k = 1;
+      if (!b.grounded) {
+        const tx = Math.floor(b.x / TILE);
+        const ty = Math.max(0, Math.floor((b.feet - 1) / TILE));
+        const row = tx >= 0 && tx < L.w ? L.groundBelow(tx, ty) : -1;
+        const drop = row < 0 ? 999 : row * TILE - b.feet;
+        gy = b.feet + Math.max(0, drop);
+        k = Math.max(0, 1 - drop / (6 * TILE));
+      }
+      const o = n * 4;
+      f.occ[o] = b.x;
+      f.occ[o + 1] = b.y;
+      f.occ[o + 2] = Math.max(3, b.hw);
+      f.occ[o + 3] = Math.max(3, b.hh);
+      f.occG[o] = gy;
+      f.occG[o + 1] = k;
+      f.occG[o + 2] = 1;
+      f.occG[o + 3] = open * (2 + Math.min(40, gy - b.feet) * 0.35);
+      n++;
+    }
+    f.occCount = n;
+    if (!n) return;
+    // a força de cada luz fixa no primeiro corpo (o cavaleiro) e no mais iluminado dos outros
+    const fall = (s: Src, x: number, y: number) => {
+      const q = ((x - s.x) ** 2 + (y - s.y) ** 2) / (s.r * s.r);
+      if (q >= 1) return 0;
+      const t = 1 - q;
+      return ((t * t) / (1 + 6 * q)) * s.i;
+    };
+    const scored: { s: Src; k: number }[] = [];
+    for (const s of this.fixed) {
+      let k = 0;
+      for (let i = 0; i < n; i++) k = Math.max(k, fall(s, f.occ[i * 4], f.occ[i * 4 + 1]) * (i === 0 ? 1.5 : 1));
+      if (k > 0.012) scored.push({ s, k });
+    }
+    scored.sort((a, b) => b.k - a.k);
+    const c = Math.min(MAX_CAST, scored.length);
+    for (let j = 0; j < c; j++) {
+      const s = scored[j].s;
+      f.castLights[j * 4] = s.x;
+      f.castLights[j * 4 + 1] = s.y;
+      f.castLights[j * 4 + 2] = s.r;
+      f.castLights[j * 4 + 3] = s.i * (s.c[0] * 0.299 + s.c[1] * 0.587 + s.c[2] * 0.114) * look.lightGain;
+    }
+    f.castCount = c;
   }
 
   // fachos de luz: das duas luzes mais fortes na tela, entrando e saindo devagar

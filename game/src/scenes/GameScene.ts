@@ -69,9 +69,9 @@ import type { FxScene } from './FxScene';
 import { face, hd } from '../gfx/flip';
 import { RES, screenOrigin } from '../gfx/view';
 import { extremeCamera, type ExtremePipeline, type Look } from '../gfx/extreme';
-import { RoomLighting, type TerrainPiece } from '../gfx/lighting';
+import { RoomLighting, type ShadowBody, type TerrainPiece } from '../gfx/lighting';
 import { afterLook, lookFor } from '../gfx/looks';
-import { ensure, hdKey, hdTerrain, prefetch, release, roomFiles } from '../gfx/hdAssets';
+import { ensure, hdKey, hdTerrain, hdTerrain3, prefetch, release, roomFiles } from '../gfx/hdAssets';
 import { queueRoom, settleRoom } from '../gfx/roomAssets';
 import { HD_LAYERS, backdropKeys } from '../world/Backdrop';
 import { Life } from '../world/Life';
@@ -460,6 +460,8 @@ export class GameScene extends Phaser.Scene {
   // terreno pintado normal e os pedaços em 2x do EXTREME por cima dele
   private terrainImg: Phaser.GameObjects.Image | null = null;
   private hdImgs: Phaser.GameObjects.Image[] = [];
+  // quantos px da pintura por px do mundo no terreno que está na tela (2 EXTREME, 3 ECLIPSE, 0 nenhum)
+  hdScale = 0;
   // a camada dos pinheiros da floresta (e a pintura dela em 2x no EXTREME)
   private pinesImg: Phaser.GameObjects.Image | null = null;
   private hdPines: Phaser.GameObjects.Image[] = [];
@@ -614,8 +616,29 @@ export class GameScene extends Phaser.Scene {
     this.xp.feed = this.lighting.feed;
   }
 
+  // ECLIPSE: quem faz sombra agora (o cavaleiro primeiro, depois os inimigos mais perto dele); o que não
+  // tem corpo (fantasmas, vaga-lumes, ecos) fica de fora
+  private shadowList: ShadowBody[] = [];
+  private shadowBodies() {
+    const out = this.shadowList;
+    out.length = 0;
+    const add = (b: Phaser.Physics.Arcade.Body) =>
+      out.push({ x: b.center.x, y: b.center.y, hw: b.halfWidth, hh: b.halfHeight, feet: b.bottom, grounded: b.blocked.down || b.touching.down });
+    const p = this.player;
+    if (p.sprite.visible && p.sprite.alpha > 0.5) add(p.body);
+    const px = p.x;
+    const foes: Enemy[] = [];
+    for (const e of this.enemies) if (e.alive && e.body.enable && e.kind !== 'wisp' && e.kind !== 'motes' && e.kind !== 'echo') foes.push(e);
+    for (const e of this.summons) if (e.alive && e.body.enable) foes.push(e);
+    foes.sort((a, b) => Math.abs(a.body.center.x - px) - Math.abs(b.body.center.x - px));
+    for (const e of foes) add(e.body);
+    return out;
+  }
+
   // EXTREME: troca o terreno, os fundos e os véus das paredes falsas pela pintura em 2x quando ela
-  // chega (até lá fica a normal); as salas vizinhas já começam a baixar
+  // chega (até lá fica a normal); as salas vizinhas já começam a baixar.
+  // ECLIPSE: o terreno vem da pintura em 3x; se o pacote dela não chegar (ou a placa de vídeo não
+  // aguentar o tamanho), a sala fica com a 2x do EXTREME
   private hdRoom() {
     const gen = ++this.hdGen;
     if (!gfx().hd) {
@@ -623,22 +646,38 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     const room = this.room;
-    const files = roomFiles(room.id, this.backdrop.hdKeys());
+    const eclipse = gfx().hd3;
+    const layers = this.backdrop.hdKeys();
     const near = new Set([...room.exits.map((e) => e.to), ...(room.doors ?? []).map((d) => d.to)]);
-    void ensure(this.game, files).then((ok) => {
-      if (gen !== this.hdGen || !this.sys.isActive() || this.room !== room) return;
-      this.hdOn(ok);
+    const live = () => gen === this.hdGen && this.sys.isActive() && this.room === room;
+    const done = (ok: Set<string>, files: string[], scale3: boolean) => {
+      if (!live()) return;
+      this.hdOn(ok, scale3);
       release(this.game, files);
-      for (const id of near) prefetch(roomFiles(id, HD_LAYERS[ROOMS[id].theme] ?? []));
+      for (const id of near) prefetch(roomFiles(id, HD_LAYERS[ROOMS[id].theme] ?? [], eclipse));
+    };
+    const t3 = eclipse ? hdTerrain3(room.id) : null;
+    const files = roomFiles(room.id, layers, eclipse);
+    void ensure(this.game, files).then((ok) => {
+      if (!live()) return;
+      if (!t3 || t3.pieces.every((p) => ok.has(p.file))) return done(ok, files, !!t3);
+      const plain = roomFiles(room.id, layers);
+      return ensure(this.game, plain).then((ok2) => done(ok2, plain, false));
     });
   }
 
-  private hdOn(ok: Set<string>) {
-    const t = hdTerrain(this.room.id);
+  private hdOn(ok: Set<string>, eclipse = false) {
+    const t = (eclipse ? hdTerrain3(this.room.id) : null) ?? hdTerrain(this.room.id);
+    // a pintura que está na tela é de outra escala (o ajuste mudou com a sala aberta): sai antes
+    if (this.hdImgs.length && this.hdScale !== (t?.scale ?? 0)) {
+      for (const i of this.hdImgs) i.destroy();
+      this.hdImgs = [];
+    }
     if (t && this.terrainImg && !this.hdImgs.length && t.pieces.every((p) => ok.has(p.file))) {
       for (const p of t.pieces) this.hdImgs.push(this.add.image(p.x, p.y, hdKey(p.file)).setOrigin(0).setScale(1 / t.scale).setDepth(DEPTH.tiles));
+      this.hdScale = t.scale;
       this.terrainImg.setVisible(false);
-    }
+    } else if (!this.hdImgs.length) this.terrainImg?.setVisible(true);
     const pn = hdTerrain(`${this.room.id}-pinhos`);
     if (pn && this.pinesImg && !this.hdPines.length && pn.pieces.every((p) => ok.has(p.file))) {
       for (const p of pn.pieces) this.hdPines.push(this.add.image(p.x, p.y, hdKey(p.file)).setOrigin(0).setScale(1 / pn.scale).setDepth(this.pinesImg.depth));
@@ -657,6 +696,7 @@ export class GameScene extends Phaser.Scene {
   private hdOff() {
     for (const i of this.hdImgs) i.destroy();
     this.hdImgs = [];
+    this.hdScale = 0;
     this.terrainImg?.setVisible(true);
     for (const i of this.hdPines) i.destroy();
     this.hdPines = [];
@@ -720,6 +760,7 @@ export class GameScene extends Phaser.Scene {
     const terrain = `terrain-${room.id}`;
     this.terrainImg = null;
     this.hdImgs = [];
+    this.hdScale = 0;
     this.pinesImg = null;
     this.hdPines = [];
     this.wallImg = null;
@@ -889,7 +930,7 @@ export class GameScene extends Phaser.Scene {
     const offGfx = settings.onChange(() => {
       const f = gfx();
       if (this.gfxOn && Object.keys(f).every((k) => f[k as keyof GfxFlags] === this.gfxOn![k as keyof GfxFlags])) return;
-      const hdChanged = !this.gfxOn || this.gfxOn.hd !== f.hd;
+      const hdChanged = !this.gfxOn || this.gfxOn.hd !== f.hd || this.gfxOn.hd3 !== f.hd3;
       this.applyGraphics();
       if (hdChanged) this.hdRoom();
     });
@@ -1304,7 +1345,7 @@ export class GameScene extends Phaser.Scene {
     this.story();
     this.exits();
     this.follow(dt);
-    this.lighting?.update(this.cameras.main, { x: p.x, y: p.body.center.y }, dt);
+    this.lighting?.update(this.cameras.main, { x: p.x, y: p.body.center.y }, dt, gfx().cast ? this.shadowBodies() : null);
     if (this.room.rain && !this.dry && this.level.ceilingAbove(Math.floor(p.x / TILE), Math.floor(p.body.top / TILE)) < 0) {
       this.weather.splashOn(p.x, p.body.top - 6, dt);
     }

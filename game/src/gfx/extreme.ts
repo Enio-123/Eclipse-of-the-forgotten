@@ -65,6 +65,13 @@ void main() {
 
 export const MAX_LIGHTS = 16;
 export const MAX_WATER = 4;
+// ECLIPSE: quantos personagens fazem sombra numa tela e de quantas luzes fixas
+export const MAX_OCC = 6;
+export const MAX_CAST = 3;
+// ECLIPSE: quantas das luzes que se mexem param na rocha (a do cavaleiro e as mais fortes) e em quantos
+// passos o caminho da luz é medido
+export const MAX_LIGHT_SH = 4;
+const SH_STEPS = 20;
 // o mapa de luz guarda até esta quantidade de luz (255 = LIGHT_SCALE)
 export const LIGHT_SCALE = 2;
 
@@ -108,6 +115,12 @@ uniform float uPost;
 uniform vec4 uMem;
 uniform float uMemMode;
 uniform vec4 uPres;
+uniform vec4 uOcc[${MAX_OCC}];
+uniform vec4 uOccG[${MAX_OCC}];
+uniform float uOccN;
+uniform vec4 uCastL[${MAX_CAST}];
+uniform float uCastN;
+uniform float uLightSh;
 
 float lum(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -135,6 +148,40 @@ float cracks(vec2 world) {
   crack = max(crack, (1.0 - smoothstep(0.15, 0.65, d2)) * seg * smoothstep(0.55, 0.8, noise(q * 0.09 + 8.0)) * 0.7);
   float halo = (exp(-d1 * 0.45) * seg) * 0.22;
   return crack + halo;
+}
+
+// ECLIPSE: a sombra de um corpo (a elipse o: meio e meias medidas) para longe de uma luz em lp. 0 = sem
+// sombra, 1 = sombra cheia; estica e fica mais difusa com a distância, e o próprio corpo não escurece
+float bodyShade(vec2 world, vec4 o, vec2 lp) {
+  vec2 pl = (world - o.xy) / o.zw;
+  float far = length(pl);
+  if (far > 16.0) return 0.0;
+  vec2 d = (lp - o.xy) / o.zw - pl;
+  float t = clamp(dot(-pl, d) / max(dot(d, d), 0.0001), 0.0, 1.0);
+  float dm = length(pl + d * t);
+  float pen = 0.2 + 0.16 * far;
+  float s = (1.0 - smoothstep(1.0 - pen * 0.5, 1.0 + pen, dm)) * smoothstep(0.9, 1.7, far) * exp(-max(far - 1.0, 0.0) * 0.14);
+  return s * smoothstep(0.0, 0.15, t) * (1.0 - smoothstep(0.85, 1.0, t));
+}
+
+// ECLIPSE: quanto da luz que está em lp chega neste ponto. O caminho é medido na máscara da sala: a
+// rocha que ele atravessa segura a luz (uma tábua fina segura só um pouco). Não contam a rocha em que a
+// própria luz está presa (até o caminho sair para o ar) nem os últimos pixels antes do ponto: a face da
+// pedra virada para a luz fica acesa e o miolo dela, não
+float lightReach(vec2 world, vec2 lp) {
+  vec2 d = world - lp;
+  float len = length(d);
+  if (len < 8.0) return 1.0;
+  float thick = 0.0;
+  float open = 0.0;
+  float jit = hash(floor(world * uRes) + 0.37);
+  for (int k = 0; k < ${SH_STEPS}; k++) {
+    float t = (float(k) + 0.25 + 0.5 * jit) / ${SH_STEPS}.0;
+    float m = texture2D(uMask, (lp + d * t) / uRoom).r;
+    open = max(open, 1.0 - smoothstep(0.25, 0.6, m));
+    thick += m * open * smoothstep(5.0, 11.0, len * (1.0 - t));
+  }
+  return 1.0 - smoothstep(1.5, 7.0, thick * len / ${SH_STEPS}.0);
 }
 
 void main() {
@@ -194,12 +241,31 @@ void main() {
       vec2 g = vec2(hr - hl, hd - hu) * uRelief * 6.0 + vec2(mr - ml, md - mu) * 1.6 * mask.r;
       n = normalize(vec3(-g, 1.0));
     }
+    // ECLIPSE: as primeiras luzes da lista (a do cavaleiro e as mais fortes que se mexem) param na rocha
+    // e nos corpos, e a sombra anda com a luz. Duas luzes no mesmo lugar medem o caminho uma vez só
+    float shLast = 1.0;
+    vec2 shAt = vec2(-99999.0);
     for (int i = 0; i < ${MAX_LIGHTS}; i++) {
       if (float(i) >= uLightN) break;
       vec4 L = uLights[i];
       vec2 d = L.xy - world;
       float att = clamp(1.0 - length(d) / L.z, 0.0, 1.0);
       att *= att;
+      if (float(i) < uLightSh && L.w > 0.0 && att > 0.003) {
+        vec2 same = L.xy - shAt;
+        if (dot(same, same) > 36.0) {
+          shLast = lightReach(world, L.xy);
+          for (int b = 0; b < ${MAX_OCC}; b++) {
+            if (float(b) >= uOccN) break;
+            vec4 o = uOcc[b];
+            // quem carrega a luz não faz sombra dela
+            vec2 in0 = (L.xy - o.xy) / o.zw;
+            if (dot(in0, in0) > 1.6) shLast *= 1.0 - bodyShade(world, o, L.xy) * 0.85 * uOccG[b].z;
+          }
+          shAt = L.xy;
+        }
+        att *= shLast;
+      }
       vec3 ld = normalize(vec3(d / L.z, 0.45));
       dyn += uLightCol[i] * (L.w * att * (0.4 + 0.6 * max(dot(n, ld), 0.0)));
     }
@@ -210,9 +276,36 @@ void main() {
       float fl = noise(world * 0.05 + vec2(uTime * 2.3, uTime * 1.7)) * 0.6 + noise(world * 0.11 - vec2(uTime * 3.7, 0.0)) * 0.4;
       stat *= 1.0 + uFlicker * warm * (fl - 0.5) * 2.0;
     }
+    // ECLIPSE: a sombra dos personagens. No chão embaixo de cada um, uma mancha deitada (some quando ele
+    // sobe); e, para longe de cada luz fixa, a sombra do corpo (uma elipse) esticada e mais difusa com a
+    // distância, tirando só a parte da luz que vinha daquela lâmpada
+    float contact = 0.0;
+    if (uOccN > 0.5) {
+      float lost = 0.0;
+      float sl = lum(stat) + 0.03;
+      for (int i = 0; i < ${MAX_OCC}; i++) {
+        if (float(i) >= uOccN) break;
+        vec4 o = uOcc[i];
+        vec4 og = uOccG[i];
+        vec2 e = (world - vec2(o.x + og.w, og.x)) / vec2(o.z * 1.9 + 2.0, o.z * 0.6 + 1.5);
+        contact = max(contact, exp(-dot(e, e) * 1.5) * og.y * smoothstep(-1.0, 1.0, world.y - og.x));
+        vec2 pl = (world - o.xy) / o.zw;
+        if (dot(pl, pl) < 256.0) {
+          for (int j = 0; j < ${MAX_CAST}; j++) {
+            if (float(j) >= uCastN) break;
+            vec4 L = uCastL[j];
+            float q = dot(world - L.xy, world - L.xy) / (L.z * L.z);
+            float fall = max(1.0 - q, 0.0);
+            fall = fall * fall / (1.0 + 6.0 * q) * L.w;
+            lost = max(lost, bodyShade(world, o, L.xy) * clamp(fall / sl, 0.0, 1.0) * og.z);
+          }
+        }
+      }
+      stat *= 1.0 - lost * 0.82;
+    }
     float top = 0.78 + 0.44 * max(dot(n, normalize(vec3(-0.25, -0.85, 0.55))), 0.0);
     float ao = mix(1.0, mask.g, uAO * (1.0 - mask.r));
-    vec3 light = uAmbient * ao + stat * top + dyn;
+    vec3 light = uAmbient * ao * (1.0 - contact * 0.42) + stat * top * (1.0 - contact * 0.62) + dyn;
     // o que já é luz (chama, janela acesa, brilho) não escurece
     float keep = smoothstep(0.62, 0.95, max(col.r, max(col.g, col.b)));
     col = mix(col * light, max(col, col * light), keep);
@@ -373,6 +466,16 @@ export interface ExtremeFeed {
   memMode: number;
   // o presente cinzento do vale em volta dele: [x, y, raio, força] no mundo
   pres: Float32Array;
+  // ECLIPSE: quem faz sombra nesta tela: [x, y do meio, meia largura, meia altura] e
+  // [chão embaixo dele, força da mancha no chão, força da sombra das luzes, desvio da mancha (luz do céu de lado)]
+  occ: Float32Array;
+  occG: Float32Array;
+  occCount: number;
+  // as luzes fixas que fazem essas sombras: [x, y, raio, força já na medida do mapa de luz]
+  castLights: Float32Array;
+  castCount: number;
+  // quantas das primeiras luzes de `lights` param na rocha e nos corpos (0 fora do ECLIPSE)
+  lightShadow: number;
 }
 
 export const EXTREME = 'ExtremeGraphics';
@@ -472,6 +575,12 @@ export class ExtremePipeline extends Phaser.Renderer.WebGL.Pipelines.PostFXPipel
     this.set4f('uMem', f.mem[0], f.mem[1], f.mem[2], f.mem[3], comp);
     this.set1f('uMemMode', f.memMode, comp);
     this.set4f('uPres', f.pres[0], f.pres[1], f.pres[2], f.pres[3], comp);
+    this.set4fv('uOcc', f.occ, comp);
+    this.set4fv('uOccG', f.occG, comp);
+    this.set1f('uOccN', f.light ? f.occCount : 0, comp);
+    this.set4fv('uCastL', f.castLights, comp);
+    this.set1f('uCastN', f.castCount, comp);
+    this.set1f('uLightSh', f.light ? f.lightShadow : 0, comp);
 
     if (f.post) this.bindTexture(half1.texture, 1);
     const glOf = (tex: Phaser.Textures.Texture | null) => (tex ? tex.source[0].glTexture : null);

@@ -152,17 +152,28 @@ const URL = process.argv[3] || 'http://localhost:8765/index.html';
   await tp(22, 34);
   await face(1);
   await page.evaluate(() => { const e = window.__e; e.body.reset(26 * 16, 34 * 16 + 16 - 25); e.facing = -1; e.state = 'chase'; e.atkCd = 0; });
-  await page.waitForFunction(() => window.__e.clouds.length > 0, null, { timeout: 15000 });
-  const cloud = await page.evaluate(() => { const c = window.__e.clouds[0]; return { x: Math.round(c.x), y: Math.round(c.y) }; });
+  await page.waitForFunction(() => window.__e.clouds.length > 0, null, { timeout: 15000, polling: 'raf' });
+  // com o dano de verdade: entrar na nuvem machuca. Tudo na mesma chamada, assim que ela aparece: a nuvem
+  // só queima por 1,3 s, e com a máquina ocupada a foto demorava mais que isso (a foto vem depois)
+  const cloud = await page.evaluate(() => {
+    const s = window.__scene;
+    const c = window.__e.clouds[0];
+    const p = s.player;
+    delete p.hurt;
+    p.invuln = 0;
+    const hp0 = p.hp;
+    p.teleport(c.x, c.y);
+    p.body.setVelocity(0, 0);
+    window.__e.state = 'recover';
+    window.__e.t = -5;
+    return { x: Math.round(c.x), y: Math.round(c.y), hp0 };
+  });
   check(Math.abs(cloud.x - 26 * 16 + 42) < 20, `o incensário bate no chão na frente e deixa a nuvem (x ${cloud.x})`);
-  await shot('p3-nuvem');
-  // com o dano de verdade: entrar na nuvem machuca
-  await page.evaluate(() => { const p = window.__scene.player; delete p.hurt; p.invuln = 0; });
-  const hp0 = await page.evaluate(() => window.__scene.player.hp);
-  await page.evaluate(([x, y]) => { const s = window.__scene; s.player.teleport(x, y); s.player.body.setVelocity(0, 0); window.__e.state = 'recover'; window.__e.t = -5; }, [cloud.x, cloud.y]);
+  const hp0 = cloud.hp0;
   await waitGame(0.25);
   const hp1 = await page.evaluate(() => window.__scene.player.hp);
   check(hp1 < hp0, `a nuvem de incenso machuca (${hp0} -> ${hp1})`);
+  await shot('p3-nuvem');
   await waitGame(2);
   check(await page.evaluate(() => window.__e.clouds.length === 0), 'a nuvem some sozinha');
 
