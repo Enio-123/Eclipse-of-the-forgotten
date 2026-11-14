@@ -11,9 +11,11 @@ Toda a arte é original e feita por código. O terreno e os fundos são pintados
 óleo (`art2/`) e reduzidos para a pixel art do jogo; personagens, chefes, bichos e armas são desenhados
 em traço liso de tinta (`art/`). O gráfico EXTREME usa o terreno pintado em 2x, luz com sombras, névoa,
 reflexos na água e um filtro de óleo por cima. O ECLIPSE GRAPHICS fica um nível acima: o terreno das 57
-salas e os fundos da Prisão, das Catacumbas e da Cidade são repintados em 3x (um pixel da pintura em cada
-pixel de uma tela 1080p cheia), com a pedra em relevo iluminada pelas tochas, e os personagens fazem
-sombra. Ele se escolhe em Configurações > Imagem (`?gfx=eclipse` no fim do endereço fixa o nível).
+salas e os fundos da Prisão, do Fosso, das Catacumbas, da Cidade, da Catedral e das Minas são repintados
+em 3x (um pixel da pintura em cada pixel de uma tela 1080p cheia), com a pedra em relevo iluminada pelas
+tochas; os personagens fazem sombra; e o eclipse do céu fica vivo, com a coroa se mexendo devagar por cima
+da pintura (`src/gfx/eclipse.ts`). Ele se escolhe em Configurações > Imagem (`?gfx=eclipse` no fim do
+endereço fixa o nível).
 
 ## Rodar no computador
 
@@ -43,8 +45,9 @@ da região) e Esc pausa. Tudo pode ser trocado em Configurações. O jogo també
   ficavam soltas no ar (pilares, arcos, pernas de rocha), na camada `parede-<sala>` atrás do terreno;
   `tools/hdpack.py --parede` corta essa camada para o EXTREME. Para o ECLIPSE, `eclipse.py` repinta o
   terreno em 3x e os `ecl_<área>.py` repintam os fundos no mesmo desenho dos antigos (`cidade_plano.py`
-  repete o sorteio do pintor antigo da cidade para as casas caírem no mesmo lugar), com o kit de pedra em
-  relevo de `pedra3.py`; `tools/eclipsepack.py` junta tudo em poucos pacotes (`public/assets/hd3/`).
+  e `poco_plano.py` repetem o sorteio dos pintores antigos para cada peça cair no mesmo lugar; `poco3.py`
+  tem as peças das camadas que emendam nas duas direções, as dos poços), com o kit de pedra em relevo de
+  `pedra3.py`; `tools/eclipsepack.py` junta tudo em poucos pacotes (`public/assets/hd3/`).
 - `tools/` `rooms.py` gera os mapas das salas, os testes `*.cjs` jogam o jogo de verdade com Playwright
   (`regress.sh` roda os principais em fila; `eclipse.cjs` confere o nível ECLIPSE),
   `hdpack.py` corta o terreno do EXTREME e `pack.py` empacota a versão do claude.ai. `atlas.py` junta as

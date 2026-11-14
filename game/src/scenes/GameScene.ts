@@ -585,6 +585,7 @@ export class GameScene extends Phaser.Scene {
       this.life?.destroy();
       this.life = new Life(this, this.level, f.life, f.particles);
     }
+    if (!prev || prev.sky !== f.sky) this.backdrop.liveSky(f.sky);
     if (!prev || prev.fog !== f.fog) {
       this.mist?.destroy();
       this.mist = f.fog ? new Mist(this, this.look.mistColor, this.look.mist, this.look.mistFront) : null;

@@ -2612,6 +2612,34 @@
    "w": 3072,
    "h": 1260
   },
+  "fosso-far": {
+   "pack": "f-fosso",
+   "id": "fosso-far",
+   "scale": 3,
+   "w": 1536,
+   "h": 1536
+  },
+  "fosso-mid": {
+   "pack": "f-fosso",
+   "id": "fosso-mid",
+   "scale": 3,
+   "w": 1536,
+   "h": 1536
+  },
+  "mine-far": {
+   "pack": "f-mine",
+   "id": "mine-far",
+   "scale": 3,
+   "w": 1536,
+   "h": 1536
+  },
+  "mine-mid": {
+   "pack": "f-mine",
+   "id": "mine-mid",
+   "scale": 3,
+   "w": 1536,
+   "h": 1536
+  },
   "nave-far": {
    "pack": "f-nave",
    "id": "nave-far",

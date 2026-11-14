@@ -2,9 +2,10 @@
 // névoa, brilho e vida no cenário), EXTREME (o cenário reconstruído: terreno e fundos em alta
 // resolução, sombras suaves, fachos de luz, camadas de profundidade e tudo o que se mexe) e ECLIPSE
 // (tudo do EXTREME e mais: o terreno de todas as salas repintado em 3x, com a pedra saindo da linha
-// da grade, neve em montes, pingentes de gelo, estalactites e raízes; os fundos da Prisão, das
-// Catacumbas e da Cidade repintados em 3x, com a pedra em relevo; e a sombra dos personagens no
-// chão e nas paredes conforme as luzes da sala).
+// da grade, neve em montes, pingentes de gelo, estalactites e raízes; os fundos da Prisão, do Fosso,
+// das Catacumbas, da Cidade, da Catedral e das Minas repintados em 3x, com a pedra em relevo; a sombra
+// dos personagens no chão e nas paredes conforme as luzes da sala; e o eclipse vivo no céu, com a coroa
+// se mexendo devagar).
 // Cada ajuste pode ser trocado à parte em Configurações > Imagem; aí a predefinição vira "personalizado".
 
 export type Preset = 'performance' | 'high' | 'extreme' | 'eclipse';
@@ -32,18 +33,20 @@ export interface GfxFlags {
   hd3: boolean;
   // ECLIPSE: os personagens fazem sombra (no chão embaixo deles e para longe das luzes; precisa de light)
   cast: boolean;
+  // ECLIPSE: o eclipse vivo (a coroa se mexe devagar em todo céu que mostra ele, e na tela de título)
+  sky: boolean;
 }
 
 export const PRESETS: Record<Preset, GfxFlags> = {
-  performance: { hd: false, light: false, shadows: false, fog: false, reflections: false, post: false, life: 0, particles: 0, hd3: false, cast: false },
-  high: { hd: false, light: true, shadows: false, fog: true, reflections: true, post: true, life: 1, particles: 1, hd3: false, cast: false },
-  extreme: { hd: true, light: true, shadows: true, fog: true, reflections: true, post: true, life: 2, particles: 2, hd3: false, cast: false },
-  eclipse: { hd: true, light: true, shadows: true, fog: true, reflections: true, post: true, life: 2, particles: 2, hd3: true, cast: true },
+  performance: { hd: false, light: false, shadows: false, fog: false, reflections: false, post: false, life: 0, particles: 0, hd3: false, cast: false, sky: false },
+  high: { hd: false, light: true, shadows: false, fog: true, reflections: true, post: true, life: 1, particles: 1, hd3: false, cast: false, sky: false },
+  extreme: { hd: true, light: true, shadows: true, fog: true, reflections: true, post: true, life: 2, particles: 2, hd3: false, cast: false, sky: false },
+  eclipse: { hd: true, light: true, shadows: true, fog: true, reflections: true, post: true, life: 2, particles: 2, hd3: true, cast: true, sky: true },
 };
 
 export const PRESET_LABEL: Record<Preset, string> = { performance: 'Performance', high: 'High', extreme: 'EXTREME GRAPHICS', eclipse: 'ECLIPSE GRAPHICS' };
 
-export const FLAG_KEYS: (keyof GfxFlags)[] = ['hd', 'light', 'shadows', 'fog', 'reflections', 'post', 'life', 'particles', 'hd3', 'cast'];
+export const FLAG_KEYS: (keyof GfxFlags)[] = ['hd', 'light', 'shadows', 'fog', 'reflections', 'post', 'life', 'particles', 'hd3', 'cast', 'sky'];
 
 export function sameFlags(a: GfxFlags, b: GfxFlags) {
   return FLAG_KEYS.every((k) => a[k] === b[k]);
@@ -98,6 +101,8 @@ export function cleanFlags(raw: unknown, fallback: GfxFlags): GfxFlags {
     particles: l('particles'),
     hd3: b('hd3'),
     cast: b('cast'),
+    // ajuste gravado antes do eclipse vivo existir: quem estava no ECLIPSE inteiro continua nele
+    sky: typeof r.sky === 'boolean' ? r.sky : r.hd3 === true && r.cast === true,
   };
 }
 

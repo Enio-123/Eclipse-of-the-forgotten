@@ -4,7 +4,7 @@ import type { Level } from './Level';
 import { RES, screenOrigin } from '../gfx/view';
 import { hd, hdScale } from '../gfx/flip';
 import { hdBackdrop, hdBackdrop3, hdKey } from '../gfx/hdAssets';
-import { SKY_ECLIPSE, bigEclipse } from '../gfx/eclipse';
+import { LivingEclipse, SKY_ECLIPSE, bigEclipse, type SkyEclipse } from '../gfx/eclipse';
 import { ending } from './story';
 
 type Layer = Phaser.GameObjects.Image | Phaser.GameObjects.TileSprite;
@@ -92,6 +92,11 @@ export class Backdrop {
   private fgA = 0.92;
   // a sala amanheceu (final I): o céu dela é o da manhã
   private dawn = false;
+  // o eclipse pintado no céu desta sala (null: sala sem céu, ou de manhã) e o centro dele na tela
+  private skyE: SkyEclipse | null = null;
+  private skyAt = { x: 0, y: 0 };
+  // ECLIPSE: a luz viva por cima dele
+  private live: LivingEclipse | null = null;
   // canto da tela na câmera com zoom: as camadas presas à tela começam aqui
   private so: { x: number; y: number };
 
@@ -275,6 +280,10 @@ export class Backdrop {
     // o novo Eclipse do final II, maior que o pintado (anda junto com o céu)
     const E = SKY_ECLIPSE.bridge;
     const ecl = ending() === 'absorb' ? bigEclipse(this.scene, 0, 0, E.r, BG.sky + 0.05).setScrollFactor(0) : null;
+    if (!dawn) {
+      this.skyE = E;
+      this.skyAt = { x: this.so.x - 310 + E.x, y: this.so.y - 10 + E.y };
+    }
     const cf = this.tile('clouds-far', BG.cloudsFar, 200, 110);
     const far = this.img('bridge-far', BG.far);
     const farRim = this.img('bridge-far-rim', BG.far + 0.1).setAlpha(0);
@@ -301,6 +310,9 @@ export class Backdrop {
           const y = this.so.y + Math.round(-10 - (sy - baseY) * 0.08);
           sky.setPosition(x, y);
           ecl?.setPosition(x + E.x, y + E.y);
+          this.skyAt.x = x + E.x;
+          this.skyAt.y = y + E.y;
+          this.placeLive();
           far.setPosition(x, y);
           farRim.setPosition(x, y);
         },
@@ -331,10 +343,32 @@ export class Backdrop {
     );
   }
 
-  // o novo Eclipse do final II por cima do pintado no céu preso na tela (e: o centro e o raio dele no céu)
-  private newEclipse(e: { x: number; y: number; r: number }) {
+  // o eclipse de um céu preso na tela (e: o centro e o raio dele na pintura): fica guardado para a luz viva
+  // do ECLIPSE e, depois do final II, ganha por cima o novo Eclipse, maior. De manhã não tem eclipse
+  private newEclipse(e: SkyEclipse) {
+    if (this.dawn) return;
+    this.skyE = e;
+    this.skyAt = { x: this.so.x + e.x, y: this.so.y + e.y };
     if (ending() !== 'absorb') return;
-    bigEclipse(this.scene, this.so.x + e.x, this.so.y + e.y, e.r, BG.sky + 0.05).setScrollFactor(0);
+    bigEclipse(this.scene, this.skyAt.x, this.skyAt.y, e.r, BG.sky + 0.05).setScrollFactor(0);
+  }
+
+  // ECLIPSE: liga ou desliga a luz viva do eclipse (só existe nas salas em que o céu mostra ele)
+  liveSky(on: boolean) {
+    if (on && this.skyE && !this.live) {
+      this.live = new LivingEclipse(this.scene, this.skyE, BG.sky + 0.06, ending() === 'absorb');
+      this.placeLive();
+    } else if (!on && this.live) {
+      this.live.destroy();
+      this.live = null;
+    }
+  }
+
+  // o novo Eclipse é uma imagem solta, desenhada no pixel inteiro do mundo: com ele, a luz viva vai junto
+  private placeLive() {
+    if (!this.live) return;
+    const snap = ending() === 'absorb';
+    this.live.setPosition(snap ? Math.floor(this.skyAt.x) : this.skyAt.x, snap ? Math.floor(this.skyAt.y) : this.skyAt.y);
   }
 
   private catacomb() {
@@ -358,8 +392,10 @@ export class Backdrop {
   // casas mais perto e névoa na altura da rua (fundos no traço liso, terreno em pixel)
   private city() {
     const key = this.sky('city-sky');
-    if (key) hd(this.img(key, BG.sky));
-    this.newEclipse(SKY_ECLIPSE.city);
+    if (key) {
+      hd(this.img(key, BG.sky));
+      this.newEclipse(SKY_ECLIPSE.city);
+    }
     const far = this.hdTile('city-far', BG.far, 400);
     // no claustro, a arcada do outro lado do jardim no lugar das casas
     const mid = this.hdTile(this.room === 'claustro' ? 'claustro-mid' : 'city-mid', BG.mid, 420);
@@ -737,6 +773,7 @@ export class Backdrop {
     // as contas usam o canto de cima da vista (com zoom, o scrollX da câmera fica antes dele)
     const cam = this.scene.cameras.main;
     for (const l of this.layers) l.update(cam.scrollX + this.so.x, cam.scrollY + this.so.y, time);
+    this.live?.update(time);
     for (const p of this.parts) if (p.m) this.sync(p.o as Phaser.GameObjects.TileSprite, p.m, p.mc ?? 2);
   }
 }

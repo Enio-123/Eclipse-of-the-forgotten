@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import type { FxScene } from './FxScene';
 import { MAGE_IDS, VIEW_W, WEAPONS, type MageId, type WeaponId } from '../config';
-import { settings } from '../systems/Settings';
+import { gfx, settings } from '../systems/Settings';
 import { audio } from '../systems/Audio';
 import { loadSave, progress, type SaveData } from '../systems/Save';
 import { Weather } from '../world/Weather';
@@ -11,7 +11,7 @@ import { ui } from '../ui/ui';
 import { fixedCamera } from '../gfx/view';
 import { hd } from '../gfx/flip';
 import { unmasked } from '../gfx/unmask';
-import { SKY_ECLIPSE, bigEclipse } from '../gfx/eclipse';
+import { LivingEclipse, SKY_ECLIPSE, bigEclipse } from '../gfx/eclipse';
 import { HeadCrown, KING_TINT } from '../gfx/crown';
 import type { GameInit } from './GameScene';
 import type { PathId } from '../ui/ui';
@@ -31,6 +31,8 @@ export class TitleScene extends Phaser.Scene {
   private knight!: Phaser.GameObjects.Sprite;
   private leaving = false;
   private ended: EndingId | null = null;
+  // ECLIPSE: a luz viva por cima do eclipse pintado
+  private live: LivingEclipse | null = null;
   // o que ficou escolhido nas telas do jogo novo (voltar e ir de novo mantém)
   private pathSel: PathId | null = null;
   private mageSel: MageId | null = null;
@@ -57,6 +59,22 @@ export class TitleScene extends Phaser.Scene {
     add.image(0, 0, dawn ? 'title-sky-aurora' : 'title-sky').setOrigin(0).setDepth(-20);
     // o novo Eclipse, maior que o de antes
     if (e === 'absorb') bigEclipse(this, SKY_ECLIPSE.title.x, SKY_ECLIPSE.title.y, SKY_ECLIPSE.title.r, -19.5);
+    // ECLIPSE: a coroa se mexe (de manhã não tem eclipse); o ajuste vale na hora, com as Configurações abertas
+    this.live = null;
+    const liveSky = () => {
+      const on = gfx().sky && !dawn;
+      if (on && !this.live) {
+        const E = SKY_ECLIPSE.title;
+        // o novo Eclipse é uma imagem solta, desenhada no pixel inteiro do mundo: a luz viva vai junto
+        const cold = e === 'absorb';
+        this.live = new LivingEclipse(this, E, -19.4, cold).setPosition(cold ? Math.floor(E.x) : E.x, cold ? Math.floor(E.y) : E.y);
+      } else if (!on && this.live) {
+        this.live.destroy();
+        this.live = null;
+      }
+    };
+    liveSky();
+    this.events.once('shutdown', settings.onChange(liveSky));
     this.cloudsFar = add.tileSprite(0, 150, VIEW_W, 170, 'clouds-far').setOrigin(0).setDepth(-18);
     add.image(0, 0, 'title-land').setOrigin(0).setDepth(-17);
     const rim = add.image(0, 0, 'title-rim').setOrigin(0).setDepth(-16.9).setAlpha(0);
@@ -235,6 +253,7 @@ export class TitleScene extends Phaser.Scene {
     this.cloudsNear.tilePositionX = time * 0.009;
     this.fog.tilePositionX = time * 0.008;
     this.fogFront.tilePositionX = time * 0.016;
+    this.live?.update(time);
     this.weather.update(dt);
   }
 }

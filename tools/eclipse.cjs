@@ -1,6 +1,7 @@
 // ECLIPSE GRAPHICS, o nível acima do EXTREME: a predefinição nas Configurações, o terreno e os fundos
-// pintados em 3x (Prisão, Catacumbas, Cidade e Claustro), a troca EXTREME <-> ECLIPSE com a sala aberta
-// (na pausa), a volta para a pintura de antes quando um pacote não chega e as sombras vivas.
+// pintados em 3x (Prisão, Fosso, Catacumbas, Cidade, Claustro, Catedral e Minas), a troca EXTREME <->
+// ECLIPSE com a sala aberta (na pausa), a volta para a pintura de antes quando um pacote não chega, as
+// sombras vivas e o eclipse vivo (a luz que se mexe por cima do eclipse pintado no céu e no título).
 // Uso: node eclipse.cjs <pasta das fotos> [url]
 //   GL=mesa (com DISPLAY apontando para um Xvfb) desenha pela placa ou pelo llvmpipe, bem mais rápido
 //   que o swiftshader; RES=1..3 muda quantos pixels da tela cada pixel do jogo ocupa (padrão 2)
@@ -105,8 +106,19 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
       }
       return o;
     });
+    const lv = s.backdrop.live;
+    const sky = s.backdrop.parts.find((p) => /-sky/.test(p.key));
+    const live = lv ? {
+      x: lv.box.x, y: lv.box.y, depth: lv.box.depth, r: lv.r, sf: lv.box.scrollFactorX,
+      keys: lv.box.list.map((o) => o.texture.key), add: lv.box.list.every((o) => o.blendMode === 1),
+      rot: [lv.a.rotation, lv.b.rotation], alpha: [lv.a.alpha, lv.b.alpha, lv.ring.alpha], tint: lv.a.tintTopLeft,
+      linear: lv.box.list.every((o) => o.texture.source[0].scaleMode === 0),
+    } : null;
     return {
       room: s.room.id,
+      live,
+      skyAt: sky ? [sky.o.x, sky.o.y] : null,
+      ending: [...window.__progress.seen].filter((k) => k.startsWith('ending:')).join(','),
       hdScale: s.hdScale,
       hd: s.hdImgs.map((i) => i.texture.key),
       terrainVis: s.terrainImg ? s.terrainImg.visible : null,
@@ -149,6 +161,16 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
     check(p.tex === tex && p.vis && !p.m, `${i.room}: ${key} ${what} (${p.tex}${p.m ? ', ainda com as imagens em 3x' : ''})`);
   };
   const terrain = (i, scale, what) => check(i.hdScale === scale && i.hd.length > 0 && i.hd.every((k) => (scale === 3 ? k.startsWith('hd:3:') : !k.startsWith('hd:3:'))) && i.terrainVis === false, `${i.room}: terreno em ${scale}x ${what} (${i.hd.length} pedaços)`);
+  // o eclipse vivo: a luz por cima do eclipse pintado no céu (at: onde ele está na pintura; r: o raio do disco)
+  const LIVE = ['eclipse-live-b', 'eclipse-live-a', 'eclipse-live-ring', 'eclipse-live-bead', 'eclipse-live-bead', 'eclipse-live-bead'];
+  const liveOn = (i, at, r, what) => {
+    const l = i.live;
+    if (!l) return check(false, `${i.room}: o eclipse vivo está no céu ${what}`);
+    const made = l.keys.join(',') === LIVE.join(',') && l.add && l.linear && l.sf === 0 && l.depth > -20 && l.depth < -18;
+    const base = i.skyAt || i.so;
+    const placed = near(l.x - base[0], at[0], 0.011) && near(l.y - base[1], at[1], 0.011) && near(l.r, r, 0.05);
+    check(made && placed, `${i.room}: o eclipse vivo ${what} (raios, plumas, clarão e três contas, somados, atrás das nuvens; centro ${(l.x - base[0]).toFixed(2)}, ${(l.y - base[1]).toFixed(2)}, raio ${l.r.toFixed(1)})`);
+  };
   const tp = async (page, tx, ty) => {
     await page.evaluate(([x, y]) => { const p = window.__scene.player; p.teleport(x, y); p.body.setVelocity(0, 0); }, [tx * 16 + 8, (ty + 1) * 16]);
     await page.waitForTimeout(900);
@@ -163,7 +185,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   const radios = await page.$$eval('#screen-settings input[name="gfx"]', (rs) => rs.map((r) => ({ v: r.value, text: r.parentElement.textContent.trim() })));
   check(radios.map((r) => r.v).join(',') === 'performance,high,extreme,eclipse', `Configurações > Imagem: quatro níveis, o ECLIPSE por último (${radios.map((r) => r.v).join(', ')})`);
   const ecl = radios.find((r) => r.v === 'eclipse');
-  check(!!ecl && /^ECLIPSE GRAPHICS/.test(ecl.text) && /EXTREME/.test(ecl.text) && /fundos/.test(ecl.text), `o texto do ECLIPSE diz o que ele traz a mais ("${ecl ? ecl.text.slice(0, 70) : ''}...")`);
+  check(!!ecl && /^ECLIPSE GRAPHICS/.test(ecl.text) && /EXTREME/.test(ecl.text) && /fundos/.test(ecl.text) && /Catedral/.test(ecl.text) && /Minas/.test(ecl.text) && /eclipse vivo/.test(ecl.text), `o texto do ECLIPSE diz o que ele traz a mais ("${ecl ? ecl.text.slice(0, 70) : ''}...")`);
   await page.click('#screen-settings input[name="gfx"][value="eclipse"]');
   const st = () => page.evaluate(() => ({
     gfx: { ...window.__settings.data.gfx },
@@ -173,8 +195,25 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   }));
   let u = await st();
   const all = (g) => g.hd && g.light && g.shadows && g.fog && g.reflections && g.post && g.life === 2 && g.particles === 2;
-  check(all(u.gfx) && u.gfx.hd3 && u.gfx.cast, 'escolher ECLIPSE liga tudo do EXTREME e mais a pintura em 3x e as sombras vivas');
-  check(/Em uso: ECLIPSE GRAPHICS\./.test(u.note) && u.radio === 'eclipse' && u.boxes.hd3 && u.boxes.cast, `a nota e as caixas acompanham ("${u.note.trim()}")`);
+  check(all(u.gfx) && u.gfx.hd3 && u.gfx.cast && u.gfx.sky, 'escolher ECLIPSE liga tudo do EXTREME e mais a pintura em 3x, as sombras vivas e o eclipse vivo');
+  check(/Em uso: ECLIPSE GRAPHICS\./.test(u.note) && u.radio === 'eclipse' && u.boxes.hd3 && u.boxes.cast && u.boxes.sky, `a nota e as caixas acompanham ("${u.note.trim()}")`);
+  // a tela de título atrás das Configurações: o eclipse dela ganha a luz viva na hora
+  const title = () => page.evaluate(() => {
+    const t = window.__game.scene.getScene('title');
+    const l = t.live;
+    return l ? { x: l.box.x, y: l.box.y, r: l.r, rot: l.a.rotation, n: l.box.list.length, depth: l.box.depth } : null;
+  });
+  let tl = await title();
+  check(!!tl && near(tl.x, 469.8, 0.011) && near(tl.y, 84.8, 0.011) && near(tl.r, 25.7, 0.05) && tl.n === 6 && tl.depth > -20 && tl.depth < -18, `no título o eclipse vivo entra na hora, em cima do pintado (${tl ? `${tl.x.toFixed(1)}, ${tl.y.toFixed(1)}, raio ${tl.r}` : 'não entrou'})`);
+  await page.waitForTimeout(1200);
+  const tl2 = await title();
+  check(!!tl && !!tl2 && tl2.rot > tl.rot, `a coroa gira devagar (${tl ? tl.rot.toFixed(4) : '-'} -> ${tl2 ? tl2.rot.toFixed(4) : '-'} rad)`);
+  await page.click('#screen-settings input[data-gfx="sky"]');
+  u = await st();
+  check(!u.gfx.sky && u.radio === '' && /personalizados/.test(u.note) && (await title()) === null, 'desligar o eclipse vivo à parte vira "ajustes personalizados" e tira a luz do título');
+  await page.click('#screen-settings input[data-gfx="sky"]');
+  u = await st();
+  check(u.gfx.sky && u.radio === 'eclipse' && (await title()) !== null, 'ligar de novo volta para o ECLIPSE, com a luz no título');
   await page.click('#screen-settings input[data-gfx="cast"]');
   u = await st();
   check(!u.gfx.cast && u.radio === '' && /personalizados/.test(u.note), 'desligar as sombras vivas à parte vira "ajustes personalizados"');
@@ -183,13 +222,29 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   check(u.gfx.cast && u.radio === 'eclipse', 'ligar de novo volta para o ECLIPSE');
   await page.click('#screen-settings input[name="gfx"][value="extreme"]');
   u = await st();
-  check(all(u.gfx) && !u.gfx.hd3 && !u.gfx.cast && u.radio === 'extreme', 'o EXTREME continua sem a pintura em 3x e sem as sombras vivas');
+  check(all(u.gfx) && !u.gfx.hd3 && !u.gfx.cast && !u.gfx.sky && u.radio === 'extreme' && (await title()) === null, 'o EXTREME continua sem a pintura em 3x, sem as sombras vivas e sem o eclipse vivo');
   await page.click('#screen-settings input[name="gfx"][value="eclipse"]');
   await page.click('#screen-settings [data-cmd="back"]');
   await page.reload();
   await page.waitForSelector('#screen-menu.show', { timeout: 120000 });
   u = await page.evaluate(() => ({ ...window.__settings.data.gfx }));
-  check(u.hd3 && u.cast, 'a escolha fica guardada (abrindo o jogo de novo ele vem no ECLIPSE)');
+  check(u.hd3 && u.cast && u.sky, 'a escolha fica guardada (abrindo o jogo de novo ele vem no ECLIPSE)');
+  // um ajuste gravado pela versão 21, de antes do eclipse vivo: o ECLIPSE inteiro continua ECLIPSE, o EXTREME continua EXTREME
+  const old = async (preset) => {
+    await page.evaluate((preset) => {
+      const d = JSON.parse(localStorage.getItem('eclipse-ajustes-v1'));
+      const all = { hd: true, light: true, shadows: true, fog: true, reflections: true, post: true, life: 2, particles: 2 };
+      d.gfx = preset === 'eclipse' ? { ...all, hd3: true, cast: true } : { ...all, hd3: false, cast: false };
+      localStorage.setItem('eclipse-ajustes-v1', JSON.stringify(d));
+    }, preset);
+    await page.reload();
+    await page.waitForSelector('#screen-menu.show', { timeout: 120000 });
+    return page.evaluate(() => ({ ...window.__settings.data.gfx }));
+  };
+  u = await old('extreme');
+  check(u.sky === false && !u.hd3, 'um ajuste antigo no EXTREME abre no EXTREME, sem o eclipse vivo');
+  u = await old('eclipse');
+  check(u.sky === true && u.hd3 && u.cast, 'um ajuste antigo no ECLIPSE abre no ECLIPSE, já com o eclipse vivo');
 
   // ---------- 2. as salas com fundo repintado ----------
   await fresh(page);
@@ -200,7 +255,9 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   layer3(i, 'city-far', 'f-city/city-far');
   layer3(i, 'city-mid', 'f-city/city-mid');
   check(i.eclipse === true && i.occ >= 1, `sombras vivas ligadas, com o cavaleiro fazendo sombra (${i.occ} corpo(s), ${i.cast} luz(es) fixa(s))`);
+  liveOn({ ...i, skyAt: i.so }, [464.75, 74.75], 19.9, 'no céu da cidade');
   await shot(page, 'praca-eclipse');
+  const rot0 = i.live ? i.live.rot : [0, 0];
   // anda a câmera: as imagens em 3x seguem a camada escondida
   const before = i.parts.find((q) => q.key === 'city-mid').m[0].x;
   const wid = await page.evaluate(() => window.__scene.level.w);
@@ -210,6 +267,8 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   i = await info(page);
   const after = i.parts.find((q) => q.key === 'city-mid').m[0].x;
   check(!near(before, after, 0.5), `as casas andam com a câmera (x ${before.toFixed(1)} -> ${after.toFixed(1)})`);
+  check(!!i.live && i.live.rot[0] > rot0[0] && i.live.rot[1] < rot0[1], `os raios e as plumas giram um contra o outro (${rot0[0].toFixed(4)} -> ${i.live ? i.live.rot[0].toFixed(4) : '-'} e ${rot0[1].toFixed(4)} -> ${i.live ? i.live.rot[1].toFixed(4) : '-'} rad)`);
+  liveOn({ ...i, skyAt: i.so }, [464.75, 74.75], 19.9, 'continua preso no céu quando a câmera anda');
   layer3(i, 'city-far', 'f-city/city-far');
   layer3(i, 'city-mid', 'f-city/city-mid');
   await page.evaluate(() => window.__scene.player.body.setAllowGravity(true));
@@ -227,16 +286,24 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
     terrain(i, 3, '');
     for (const [key, file] of layers) layer3(i, key, file);
     if (room === 'catacumbas') check(i.cast >= 1, `nas Catacumbas as luzes fixas fazem a sombra do cavaleiro (${i.cast} luz(es))`);
+    if (room === 'claustro') liveOn({ ...i, skyAt: i.so }, [464.75, 74.75], 19.9, 'no céu do claustro');
+    else check(i.live === null, `${room}: sala sem céu, sem eclipse vivo`);
     await shot(page, `${room}-eclipse`);
   }
 
   // ---------- 3. as outras áreas (fundo em 3x ainda não pintado): terreno em 3x e o fundo de sempre ----------
+  // (e o eclipse vivo em todo céu que mostra o eclipse: na Ponte ele anda junto com o céu; no Vale e nas Torres
+  // fica preso na tela; na neve, na memória e dentro das torres não tem eclipse no céu)
+  const SKY = { ponte: [[819.8, 94.8], 25.7], prado: [[483.75, 55.75], 14.8], patio: [[483.75, 55.75], 14.8] };
   for (const room of ['ponte', 'pinhal', 'prado', 'patio', 'arquivo', 'memoria']) {
     const n = errs.length;
     await start(page, room, 3);
     i = await info(page);
     const mirrors = i.parts.filter((q) => q.m).length;
     check(i.hdScale === 3 && i.hd.length > 0 && mirrors === 0 && i.parts.every((q) => q.vis) && errs.length === n, `${room}: terreno em 3x (${i.hd.length} pedaços), fundo de sempre (${i.parts.length} camadas), sem erro`);
+    if (SKY[room]) liveOn(room === 'ponte' ? i : { ...i, skyAt: i.so }, SKY[room][0], SKY[room][1], room === 'ponte' ? 'acompanha o céu da Ponte' : 'no céu');
+    else check(i.live === null, `${room}: sem eclipse no céu, sem eclipse vivo`);
+    if (SKY[room]) await shot(page, `${room}-eclipse`);
   }
 
   // ---------- 4. a troca com a sala aberta, pela pausa ----------
@@ -262,7 +329,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   layerOld(i, 'city-far', 'city-far', 'volta a ser a camada que repete');
   layerOld(i, 'city-mid', 'city-mid', 'volta a ser a camada que repete');
   const back = i.parts.filter((q) => q.k0 !== undefined).every((q) => near(q.k, q.k0, 0.0005));
-  check(back && i.eclipse === false && i.occ === 0, 'as camadas voltam para a medida de antes e as sombras vivas desligam');
+  check(back && i.eclipse === false && i.occ === 0 && i.live === null, 'as camadas voltam para a medida de antes, as sombras vivas desligam e o eclipse vivo sai do céu');
   i = await info(page);
   check(i.active && i.hdScale === 2, 'saindo da pausa o jogo continua no EXTREME');
   await shot(page, 'praca-extreme');
@@ -271,8 +338,34 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   layer3(i, 'city-sky', 'f-city/city-sky');
   layer3(i, 'city-far', 'f-city/city-far');
   layer3(i, 'city-mid', 'f-city/city-mid');
+  liveOn({ ...i, skyAt: i.so }, [464.75, 74.75], 19.9, 'volta ainda na pausa');
   i = await info(page);
-  check(i.active && i.hdScale === 3 && i.eclipse === true, 'saindo da pausa o jogo continua no ECLIPSE');
+  check(i.active && i.hdScale === 3 && i.eclipse === true && i.live !== null, 'saindo da pausa o jogo continua no ECLIPSE');
+
+  // ---------- 4b. o eclipse vivo depois dos finais ----------
+  // final II: o novo Eclipse, maior e frio, cobre o pintado; a luz viva vai por cima dele (no pixel inteiro do
+  // mundo, como a imagem dele) e fica lilás
+  const end = async (kind, room) => {
+    await page.evaluate((kind) => {
+      const p = window.__progress;
+      for (const k of [...p.seen]) if (k.startsWith('ending:')) p.seen.delete(k);
+      if (kind) p.seen.add('ending:' + kind);
+    }, kind);
+    await start(page, room, 3);
+    return info(page);
+  };
+  i = await end('absorb', 'praca');
+  const lv = i.live;
+  check(!!lv && near(lv.r, 19.9 * 1.7, 0.05) && lv.x === Math.floor(i.so[0] + 464.75) && lv.y === Math.floor(i.so[1] + 74.75) && (lv.tint & 0xff) > ((lv.tint >> 16) & 0xff) - 40 && (lv.tint & 0xff) > 0xf0,
+    `depois do final II a luz viva cobre o novo Eclipse, maior e fria (raio ${lv ? lv.r.toFixed(1) : '-'}, cor ${lv ? lv.tint.toString(16) : '-'})`);
+  await shot(page, 'praca-final2');
+  // final I: amanheceu, não tem mais eclipse no céu
+  i = await end('truth', 'praca');
+  const dawnSky = i.parts.find((q) => q.key === 'city-sky-aurora');
+  check(!!dawnSky && i.live === null, `depois do final I o céu é o da manhã e não tem eclipse vivo (${dawnSky ? dawnSky.key : 'céu da manhã não entrou'})`);
+  await shot(page, 'praca-final1');
+  i = await end(null, 'praca');
+  check(i.live !== null && i.ending === '', 'sem final, o eclipse vivo volta');
   await page.context().close();
 
   // ---------- 5. um pacote que não chega: fica a pintura de antes ----------
