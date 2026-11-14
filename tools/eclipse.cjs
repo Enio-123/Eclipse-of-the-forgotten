@@ -90,11 +90,17 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
       const o = { key: p.key, tile, vis: p.o.visible, tex: tile ? p.o.displayTexture.key : p.o.texture.key, k: tile ? p.o.tileScaleX : p.o.scaleX, k0: p.k0 };
       if (p.m) {
         const px = p.o.displayFrame.width * p.o.tileScaleX;
+        const py = p.o.displayFrame.height * p.o.tileScaleY;
         let ox = (p.o.tilePositionX * p.o.tileScaleX) % px;
         if (ox < 0) ox += px;
+        let oy = (p.o.tilePositionY * p.o.tileScaleY) % py;
+        if (oy < 0) oy += py;
         o.px = px;
+        o.py = py;
+        o.th = p.o.height;
         o.want = Math.round((p.o.x - ox) * res) / res;
-        o.m = p.m.map((i) => ({ tex: i.texture.key, x: i.x, y: i.y, k: i.scaleX, w: i.width * i.scaleX, vis: i.visible, depth: i.depth }));
+        o.wantY = Math.round((p.o.y - oy) * res) / res;
+        o.m = p.m.map((i) => ({ tex: i.texture.key, x: i.x, y: i.y, k: i.scaleX, w: i.width * i.scaleX, h: i.height * i.scaleY, vis: i.visible, depth: i.depth }));
         o.depth = p.o.depth;
       }
       return o;
@@ -117,17 +123,23 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   });
   const near = (a, b, e = 0.01) => Math.abs(a - b) <= e;
   const third = (k) => near(k, 1 / 3, 0.001);
-  // uma camada no ECLIPSE: o céu troca de imagem; a que repete some e fica com duas imagens inteiras em 3x
+  // uma camada no ECLIPSE: o céu troca de imagem; a que repete some e fica com imagens inteiras em 3x
+  // (duas quando a pintura é mais larga que a tela; nos poços, que repetem nas duas direções com 512 px,
+  // três colunas por duas linhas)
   const layer3 = (i, key, file) => {
     const p = i.parts.find((q) => q.key === key);
     if (!p) return check(false, `${i.room}: a camada ${key} existe`);
     if (!p.tile) return check(p.tex === 'hd:3:' + file && third(p.k), `${i.room}: ${key} em 3x (${p.tex}, escala ${p.k.toFixed(3)})`);
     const m = p.m || [];
-    const okTex = m.length === 2 && m.every((q) => q.tex === 'hd:3:' + file && third(q.k) && q.vis && q.depth === p.depth);
-    check(okTex && !p.vis, `${i.room}: ${key} em 3x, em ${m.length} imagens inteiras no lugar da camada que repete`);
-    if (m.length !== 2) return;
-    const cover = m[0].x <= i.so[0] + 0.01 && m[1].x + m[1].w >= i.so[0] + 640 - 0.01;
-    const grid = m.every((q) => near(q.x * i.res, Math.round(q.x * i.res), 0.002));
+    const cols = p.m ? Math.ceil(640 / p.px) + 1 : 0;
+    const rows = p.m ? (p.py <= p.th + 0.5 ? 1 : Math.ceil(p.th / p.py) + 1) : 0;
+    const okTex = m.length === cols * rows && m.length >= 2 && m.every((q) => q.tex === 'hd:3:' + file && third(q.k) && q.vis && q.depth === p.depth);
+    check(okTex && !p.vis, `${i.room}: ${key} em 3x, em ${m.length} imagens inteiras (${cols} por ${rows}) no lugar da camada que repete`);
+    if (!okTex) return;
+    const last = m[m.length - 1];
+    let cover = m[0].x <= i.so[0] + 0.01 && last.x + last.w >= i.so[0] + 640 - 0.01;
+    if (rows > 1) cover = cover && m[0].y <= i.so[1] + 0.01 && last.y + last.h >= i.so[1] + 360 - 0.01 && near(m[cols].y - m[0].y, p.py, 0.002) && near(m[0].y, p.wantY, 0.002);
+    const grid = m.every((q) => near(q.x * i.res, Math.round(q.x * i.res), 0.002) && near(q.y * i.res, Math.round(q.y * i.res), 0.002));
     check(cover && near(m[1].x - m[0].x, p.px, 0.002) && near(m[0].x, p.want, 0.002) && grid, `${i.room}: ${key} cobre a tela, emenda no fim da pintura e anda com a rolagem (x ${m[0].x.toFixed(2)}, esperado ${p.want.toFixed(2)})`);
   };
   // a camada com a pintura de antes (a base, ou a 2x do EXTREME quando ela tem)
@@ -206,18 +218,20 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
     ['claustro', [['city-sky', 'f-city/city-sky'], ['city-far', 'f-city/city-far'], ['claustro-mid', 'f-claustro/claustro-mid']]],
     ['celas', [['prison-far', 'f-prison/prison-far'], ['prison-mid', 'f-prison/prison-mid']]],
     ['catacumbas', [['cat-far', 'f-catacomb/cat-far'], ['cat-mid', 'f-catacomb/cat-mid']]],
+    ['nave', [['nave-far', 'f-nave/nave-far'], ['nave-mid', 'f-nave/nave-mid']]],
+    ['boca', [['mine-far', 'f-mine/mine-far'], ['mine-mid', 'f-mine/mine-mid']]],
+    ['fosso', [['fosso-far', 'f-fosso/fosso-far'], ['fosso-mid', 'f-fosso/fosso-mid']]],
   ]) {
     await start(page, room, 3);
     i = await info(page);
     terrain(i, 3, '');
     for (const [key, file] of layers) layer3(i, key, file);
+    if (room === 'catacumbas') check(i.cast >= 1, `nas Catacumbas as luzes fixas fazem a sombra do cavaleiro (${i.cast} luz(es))`);
     await shot(page, `${room}-eclipse`);
   }
-  i = await info(page);
-  check(i.cast >= 1, `nas Catacumbas as luzes fixas fazem a sombra do cavaleiro (${i.cast} luz(es))`);
 
   // ---------- 3. as outras áreas (fundo em 3x ainda não pintado): terreno em 3x e o fundo de sempre ----------
-  for (const room of ['ponte', 'nave', 'fosso', 'boca', 'pinhal', 'prado', 'patio', 'arquivo', 'memoria']) {
+  for (const room of ['ponte', 'pinhal', 'prado', 'patio', 'arquivo', 'memoria']) {
     const n = errs.length;
     await start(page, room, 3);
     i = await info(page);

@@ -2612,6 +2612,20 @@
    "w": 3072,
    "h": 1260
   },
+  "nave-far": {
+   "pack": "f-nave",
+   "id": "nave-far",
+   "scale": 3,
+   "w": 3072,
+   "h": 1200
+  },
+  "nave-mid": {
+   "pack": "f-nave",
+   "id": "nave-mid",
+   "scale": 3,
+   "w": 3072,
+   "h": 1260
+  },
   "prison-far": {
    "pack": "f-prison",
    "id": "prison-far",

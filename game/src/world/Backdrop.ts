@@ -15,6 +15,8 @@ interface Part {
   key: string;
   k0?: number;
   m?: Phaser.GameObjects.Image[];
+  // quantas dessas imagens por linha
+  mc?: number;
 }
 // a pintura de uma camada que repete (a textura do TileSprite em si é a tela interna do Phaser)
 const painted = (t: Phaser.GameObjects.TileSprite) => t as unknown as { displayFrame: Phaser.Textures.Frame; displayTexture: Phaser.Textures.Texture };
@@ -198,8 +200,10 @@ export class Backdrop {
 
   // ECLIPSE: uma camada que repete mostrada com a pintura em 3x. O TileSprite do Phaser estica a imagem
   // para uma potência de 2 e lê sem filtro, o que borra a pintura; aqui a camada some e, no lugar dela,
-  // ficam imagens inteiras lado a lado (duas; quatro se ela repete também na vertical), cada pixel da
-  // pintura num pixel da tela. A camada continua recebendo a rolagem de sempre e as imagens copiam dela
+  // ficam imagens inteiras lado a lado, cada pixel da pintura num pixel da tela: quantas forem precisas
+  // para cobrir a camada em qualquer rolagem (duas quando a pintura é mais larga que a tela; nos poços,
+  // onde ela tem 512 px e repete também na vertical, três colunas por duas linhas). A camada continua
+  // recebendo a rolagem de sempre e as imagens copiam dela
   private mirror(p: Part, t: Phaser.GameObjects.TileSprite, b3: { file: string; scale: number } | null) {
     if (!b3) {
       if (p.m) {
@@ -210,18 +214,23 @@ export class Backdrop {
       return false;
     }
     if (p.m) return true;
+    const px = painted(t).displayFrame.width * t.tileScaleX;
+    const py = painted(t).displayFrame.height * t.tileScaleY;
     // a pintura tem que caber na altura da camada, ou a camada cobrir a tela toda (o resto fica fora dela)
-    const fits = painted(t).displayFrame.height * t.tileScaleY <= t.height + 0.5;
+    const fits = py <= t.height + 0.5;
     if (!fits && t.height < VIEW_H) return false;
     const key = hdKey(b3.file);
+    const cols = Math.ceil(t.width / px) + 1;
+    const rows = fits ? 1 : Math.ceil(t.height / py) + 1;
     p.m = [];
-    for (let i = 0; i < (fits ? 2 : 4); i++) p.m.push(this.scene.add.image(0, 0, key).setOrigin(0).setScrollFactor(0).setScale(1 / b3.scale).setDepth(t.depth));
+    p.mc = cols;
+    for (let i = 0; i < cols * rows; i++) p.m.push(this.scene.add.image(0, 0, key).setOrigin(0).setScrollFactor(0).setScale(1 / b3.scale).setDepth(t.depth));
     t.setVisible(false);
-    this.sync(t, p.m);
+    this.sync(t, p.m, cols);
     return true;
   }
 
-  private sync(t: Phaser.GameObjects.TileSprite, m: Phaser.GameObjects.Image[]) {
+  private sync(t: Phaser.GameObjects.TileSprite, m: Phaser.GameObjects.Image[], cols: number) {
     const px = painted(t).displayFrame.width * t.tileScaleX;
     const py = painted(t).displayFrame.height * t.tileScaleY;
     let ox = (t.tilePositionX * t.tileScaleX) % px;
@@ -233,7 +242,7 @@ export class Backdrop {
     const y0 = Math.round((t.y - oy) * RES) / RES;
     for (let i = 0; i < m.length; i++) {
       const im = m[i];
-      im.setPosition(x0 + (i & 1) * px, y0 + (i >> 1) * py).setAlpha(t.alpha);
+      im.setPosition(x0 + (i % cols) * px, y0 + Math.floor(i / cols) * py).setAlpha(t.alpha);
       if (t.isTinted) im.setTint(t.tintTopLeft);
       else if (im.isTinted) im.clearTint();
     }
@@ -728,6 +737,6 @@ export class Backdrop {
     // as contas usam o canto de cima da vista (com zoom, o scrollX da câmera fica antes dele)
     const cam = this.scene.cameras.main;
     for (const l of this.layers) l.update(cam.scrollX + this.so.x, cam.scrollY + this.so.y, time);
-    for (const p of this.parts) if (p.m) this.sync(p.o as Phaser.GameObjects.TileSprite, p.m);
+    for (const p of this.parts) if (p.m) this.sync(p.o as Phaser.GameObjects.TileSprite, p.m, p.mc ?? 2);
   }
 }

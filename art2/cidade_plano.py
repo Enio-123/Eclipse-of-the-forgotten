@@ -258,6 +258,24 @@ def claustro_plan(rng, TW=2048, H=840):
     return dict(glows=glows, ivy=ivy, trees=trees, TW=TW, H=H, bay=bay)
 
 
+def nave_plan(rng, TW=2048, H=840):
+    """nave-mid: o que fica pendurado em cada vão entre os pilares (estandarte e até onde ele desce, ou
+    lustre e a altura do aro) e os castiçais de pé (x, altura). Os pilares ficam a cada 512, sem sorteio."""
+    span, pw, floor, cap_y = 512, 118, 660, 236
+    for i in range(TW // span):
+        value_noise(H, span + 80, 16, rng, 3)
+    hang = []
+    for i in range(TW // span):
+        gx = (i + 1) * span
+        hang.append(('banner', gx, rng.uniform(330, 400)) if i % 2 == 0 else ('chandelier', gx, rng.uniform(170, 230)))
+    stands = []
+    for i in range(TW // span):
+        for sgn in (-1, 1):
+            if rng.random() < 0.5:
+                stands.append((i * span + span / 2 + sgn * (pw / 2 + 60), rng.uniform(130, 170)))
+    return dict(hang=hang, stands=stands, TW=TW, H=H, span=span, pw=pw, floor=floor, cap_y=cap_y)
+
+
 if __name__ == '__main__':
     # confere com o pintor antigo: o gerador tem que terminar no mesmo estado
     import fundos_cidade as old
@@ -278,4 +296,9 @@ if __name__ == '__main__':
     old.claustro_mid(rb)
     same3 = ra.bit_generator.state['state'] == rb.bit_generator.state['state']
     print('claustro-mid:', len(p['glows']), 'velas,', len(p['ivy']), 'ramos de hera,', len(p['trees']), 'ciprestes;', 'IGUAL' if same3 else 'DIFERENTE')
-    raise SystemExit(0 if same and same2 and same3 else 1)
+    ra, rb = np.random.default_rng(65), np.random.default_rng(65)
+    p = nave_plan(ra)
+    old.nave_mid(rb)
+    same4 = ra.bit_generator.state['state'] == rb.bit_generator.state['state']
+    print('nave-mid:', [(k, x, round(v)) for k, x, v in p['hang']], [(round(x), round(h)) for x, h in p['stands']], 'IGUAL' if same4 else 'DIFERENTE')
+    raise SystemExit(0 if same and same2 and same3 and same4 else 1)
