@@ -1,6 +1,8 @@
 // Confere o jogo num celular deitado e em pé: menu, controles de toque, pausa
+// (em pé a página deita sozinha: o analógico anda para a direita da página, que é para baixo na tela)
 const { chromium, devices } = require('playwright');
 const OUT = process.argv[2];
+const GAME = (process.env.GAME || 'http://localhost:8765').replace(/\/index\.html$/, '');
 (async () => {
   const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   const errs = [];
@@ -9,7 +11,7 @@ const OUT = process.argv[2];
     const page = await ctx.newPage();
     page.on('pageerror', (e) => errs.push(name + ' ERR ' + e.message));
     page.on('response', (r) => { if (r.status() >= 400) errs.push(name + ' HTTP ' + r.status() + ' ' + r.url()); });
-    await page.goto('http://localhost:8765/index.html');
+    await page.goto(GAME + '/index.html');
     await page.waitForSelector('#screen-menu.show', { timeout: 20000 });
     await page.waitForTimeout(800);
     await page.screenshot({ path: `${OUT}/m-${name}-menu.png` });
@@ -38,9 +40,11 @@ const OUT = process.argv[2];
       const b = await stick.boundingBox();
       const cdp = await ctx.newCDPSession(page);
       const cx = b.x + b.width / 2, cy = b.y + b.height / 2;
+      const cls = await page.evaluate(() => document.documentElement.className);
+      const [ux, uy] = cls.includes('turn-cw') ? [0, 1] : cls.includes('turn-ccw') ? [0, -1] : [1, 0];
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: cx, y: cy, id: 1 }] });
       for (let i = 1; i <= 6; i++) {
-        await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: cx + i * 6, y: cy, id: 1 }] });
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: cx + ux * i * 6, y: cy + uy * i * 6, id: 1 }] });
         await page.waitForTimeout(30);
       }
       await page.waitForTimeout(900);

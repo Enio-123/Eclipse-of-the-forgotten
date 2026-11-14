@@ -1,4 +1,6 @@
 import type { Action } from './Controls';
+import { toLocalVec, updateScreen } from './Screen';
+import { spotOf, watchTouchLayout } from './TouchLayout';
 
 // Captura o ponteiro quando possível (alguns navegadores recusam)
 function capture(el: Element, id: number) {
@@ -37,6 +39,9 @@ export class TouchControls {
   private enable() {
     this.enabled = true;
     document.body.classList.add('touch');
+    // agora é um aparelho de toque: a página confere se deita a imagem, e os controles vão para o lugar
+    updateScreen();
+    watchTouchLayout();
   }
 
   private bindStick() {
@@ -44,10 +49,13 @@ export class TouchControls {
     const knob = document.getElementById('stick-knob');
     if (!stick || !knob) return;
     let pointer: number | null = null;
-    const dead = 16;
-    const maxR = 42;
 
+    // dx, dy: o dedo em relação ao centro, nas coordenadas da página; a zona morta e o alcance crescem com
+    // o tamanho do analógico
     const set = (dx: number, dy: number) => {
+      const size = spotOf('stick').k;
+      const dead = 16 * size;
+      const maxR = 42 * size;
       const len = Math.hypot(dx, dy);
       const k = len > maxR ? maxR / len : 1;
       knob.style.transform = `translate(${dx * k}px, ${dy * k}px)`;
@@ -67,8 +75,10 @@ export class TouchControls {
       }
     };
     const move = (e: PointerEvent) => {
+      // o retângulo na tela de verdade tem o mesmo centro; o deslocamento do dedo é girado junto com a página
       const r = stick.getBoundingClientRect();
-      set(e.clientX - (r.left + r.width / 2), e.clientY - (r.top + r.height / 2));
+      const d = toLocalVec(e.clientX - (r.left + r.width / 2), e.clientY - (r.top + r.height / 2));
+      set(d.x, d.y);
     };
     stick.addEventListener('pointerdown', (e) => {
       pointer = e.pointerId;

@@ -68,6 +68,48 @@ export interface SettingsData {
   // ajustes gráficos (a predefinição é a que bate com eles) e o limite de quadros
   gfx: GfxFlags;
   fps: FpsLimit;
+  // o brilho da imagem: 0 (mais escura) a 1 (mais clara), 0.5 é o normal
+  brightness: number;
+  // celular: entrar na tela cheia ao jogar; com o celular em pé, deitar a imagem ou deixar pequena em cima;
+  // e para que lado a imagem deita
+  fullscreen: boolean;
+  portrait: Portrait;
+  flip: boolean;
+  // os botões na tela: a opacidade (0.2 a 1) e o lugar e o tamanho de cada um (o que não estiver aqui fica no padrão)
+  touchAlpha: number;
+  touchLayout: TouchLayout;
+}
+
+// celular em pé: a imagem deita (ocupa a tela toda, é só virar o celular) ou fica pequena em cima, com os botões embaixo
+export type Portrait = 'turn' | 'small';
+// os controles na tela do celular
+export type TouchId = 'stick' | 'jump' | 'attack' | 'dash' | 'hook' | 'memory' | 'skill' | 'pause';
+export const TOUCH_IDS: TouchId[] = ['stick', 'jump', 'attack', 'dash', 'hook', 'memory', 'skill', 'pause'];
+// onde fica o centro de um controle: a distância (px do CSS) até a borda da esquerda ou da direita (h) e até a
+// de cima ou a de baixo (v), sem contar a área do entalhe; k é o tamanho (1 = o padrão)
+export interface TouchSpot {
+  h: 'l' | 'r';
+  v: 't' | 'b';
+  x: number;
+  y: number;
+  k: number;
+}
+export type TouchLayout = Partial<Record<TouchId, TouchSpot>>;
+export const TOUCH_SCALE = { min: 0.6, max: 1.8 };
+export const TOUCH_ALPHA_MIN = 0.2;
+
+function cleanLayout(v: unknown): TouchLayout {
+  const out: TouchLayout = {};
+  if (!v || typeof v !== 'object') return out;
+  const num = (n: unknown): n is number => typeof n === 'number' && isFinite(n);
+  for (const id of TOUCH_IDS) {
+    const s = (v as Record<string, Partial<TouchSpot> | undefined>)[id];
+    if (!s || typeof s !== 'object') continue;
+    if ((s.h !== 'l' && s.h !== 'r') || (s.v !== 't' && s.v !== 'b') || !num(s.x) || !num(s.y) || !num(s.k)) continue;
+    const lim = (n: number) => Math.max(-4000, Math.min(4000, n));
+    out[id] = { h: s.h, v: s.v, x: lim(s.x), y: lim(s.y), k: Math.max(TOUCH_SCALE.min, Math.min(TOUCH_SCALE.max, s.k)) };
+  }
+  return out;
 }
 
 const KEY = 'eclipse-ajustes-v1';
@@ -76,6 +118,7 @@ function defaults(): SettingsData {
   return {
     scheme: 'keyboard', binds: structuredClone(DEFAULT_BINDS), pad: structuredClone(DEFAULT_PAD), vibration: true, volume: 0.8, music: 0.6, sfx: 0.8,
     weapon: 'scythe', quality: 'auto', gfx: { ...PRESETS[defaultPreset()] }, fps: 0,
+    brightness: 0.5, fullscreen: true, portrait: 'turn', flip: false, touchAlpha: 1, touchLayout: {},
   };
 }
 
@@ -116,6 +159,12 @@ function load(): SettingsData {
       quality: QUALITIES.includes(parsed.quality as Quality) ? (parsed.quality as Quality) : d.quality,
       gfx: parsed.gfx ? cleanFlags(parsed.gfx, d.gfx) : d.gfx,
       fps: FPS_LIMITS.includes(parsed.fps as FpsLimit) ? (parsed.fps as FpsLimit) : 0,
+      brightness: clamp01(parsed.brightness, d.brightness),
+      fullscreen: parsed.fullscreen !== false,
+      portrait: parsed.portrait === 'small' ? 'small' : 'turn',
+      flip: parsed.flip === true,
+      touchAlpha: Math.max(TOUCH_ALPHA_MIN, clamp01(parsed.touchAlpha, d.touchAlpha)),
+      touchLayout: cleanLayout(parsed.touchLayout),
     };
   } catch {
     return d;
@@ -138,6 +187,12 @@ export const settings = {
   resetBinds() {
     this.data.binds = structuredClone(DEFAULT_BINDS);
     this.data.scheme = 'keyboard';
+    this.save();
+  },
+  // os botões na tela voltam ao lugar, ao tamanho e à opacidade de antes
+  resetTouch() {
+    this.data.touchLayout = {};
+    this.data.touchAlpha = 1;
     this.save();
   },
   resetPad() {
