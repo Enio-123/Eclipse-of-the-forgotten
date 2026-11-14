@@ -45,8 +45,9 @@ body { container-type: size; }
   padding: var(--sa-t) var(--sa-r) var(--sa-b) var(--sa-l);
 }
 button { font: inherit; color: inherit; }
+/* o jogo fica fora da área do entalhe dos quatro lados (com a imagem deitada, o entalhe fica de lado) */
 #game {
-  position: fixed; left: 0; right: 0;
+  position: fixed; left: var(--sa-l); right: var(--sa-r);
   top: var(--sa-t); bottom: var(--sa-b);
   display: flex; align-items: center; justify-content: center;
 }
