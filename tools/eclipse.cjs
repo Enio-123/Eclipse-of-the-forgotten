@@ -319,6 +319,8 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
     await shot(page, `troca-${preset}-pausa`);
     await page.click('#screen-settings [data-cmd="back"]');
     await page.click('#screen-pause [data-cmd="resume"]');
+    // espera a cena voltar a andar (não um tempo fixo: com a máquina de teste devagar, 0,7 s não bastava)
+    await page.waitForFunction(() => window.__scene && window.__scene.scene.isActive(), null, { timeout: 15000 }).catch(() => null);
     await page.waitForTimeout(700);
     return paused;
   };

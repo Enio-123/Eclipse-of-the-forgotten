@@ -10,6 +10,8 @@ import { rng } from '../gfx/raster';
 
 // a subida na névoa do lado das quedas (px/s), como a corrente de ar da serra
 const RISE = 200;
+// quanto do tronco (px) o casco do Barqueiro tem que cobrir para afundar ele
+const HULL_BITE = 16;
 
 interface Fall {
   r: Rect;
@@ -426,12 +428,14 @@ export class Vale {
   }
 
   // o casco passando por cima: os troncos de x0 a x1 afundam enquanto ele está em cima (quem estava de
-  // pé neles cai na água). Chamado a cada quadro; o que ficou de fora volta a boiar
+  // pé neles cai na água). Só conta o tronco que o casco cobre de verdade: a ponta da proa encostando na
+  // ponta de um tronco que boiou para perto não afunda ele (antes afundava, e quem estava parado em cima
+  // caía na água sem o barco ter saído do lugar). Chamado a cada quadro; o que ficou de fora volta a boiar
   pressLogs(x0: number, x1: number) {
     for (const l of this.logs) {
       if (l.seg) continue;
       const b = l.body;
-      if (b.right > x0 && b.left < x1) l.pressed = true;
+      if (Math.min(b.right, x1) - Math.max(b.left, x0) > HULL_BITE) l.pressed = true;
     }
   }
 

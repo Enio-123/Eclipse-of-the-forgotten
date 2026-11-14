@@ -115,7 +115,8 @@ const URL = process.argv[3] || 'http://localhost:8765/index.html';
     const hint = await page.evaluate(() => { const s = window.__scene; const h = s.records.nearby(s.player); return h && h.hint; });
     await page.evaluate(() => { window.__talks = []; window.__banners = []; });
     await page.keyboard.down('KeyW');
-    await page.waitForTimeout(160);
+    // segura até o registro abrir (com a máquina de teste devagar, um toque de 160 ms às vezes não bastava)
+    await page.waitForFunction(() => window.__talks.length > 0, null, { timeout: 4000 }).catch(() => null);
     await page.keyboard.up('KeyW');
     await page.waitForTimeout(500);
     const t = await page.evaluate(() => window.__talks[0] || null);

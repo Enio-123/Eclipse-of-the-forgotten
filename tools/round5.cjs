@@ -224,8 +224,9 @@ let fails = 0;
   const hp2 = await st();
   ok(hp.max === 5 && hp.hp === 5 && hp2.max === 6 && hp2.hp === 5, `máscara: desligada vida ${hp.hp}/${hp.max}, ligada de novo ${hp2.hp}/${hp2.max} (sem cura de graça)`);
   const weaponsList = await page.evaluate(() => [...document.querySelectorAll('#screen-inventory .inv-weapons li')].map((l) => l.textContent));
-  // as quatro do começo e a de cada chefe, na ordem em que eles aparecem (a Lança do Mestre da Caça é a última)
-  ok(weaponsList.length === 9 && /trancada/.test(weaponsList[4]) && /Sineiro/.test(weaponsList[4]) && /Arcebispo/.test(weaponsList[5]) && /Carcereira/.test(weaponsList[6]) && /Capataz/.test(weaponsList[7]) && /Mestre da Caça/.test(weaponsList[8]), `armas no inventário: ${weaponsList.join(' | ')}`);
+  // as quatro do começo e a de cada chefe, na ordem em que eles aparecem (o Cetro do Senhor de Vhalor é a última)
+  ok(weaponsList.length === 11 && /trancada/.test(weaponsList[4]) && /Sineiro/.test(weaponsList[4]) && /Arcebispo/.test(weaponsList[5]) && /Carcereira/.test(weaponsList[6]) && /Capataz/.test(weaponsList[7]) && /Mestre da Caça/.test(weaponsList[8])
+    && /Barqueiro/.test(weaponsList[9]) && /Senhor de Vhalor/.test(weaponsList[10]), `armas no inventário: ${weaponsList.join(' | ')}`);
   await page.keyboard.press('Escape');
   await page.waitForTimeout(200);
   const top = await page.evaluate(() => window.__ui.top);
@@ -295,7 +296,7 @@ let fails = 0;
     const c = document.querySelector('#screen-weapons .card[data-w="badalo"]');
     return { n: document.querySelectorAll('#screen-weapons .card').length, dis: c.disabled, locked: c.classList.contains('locked'), tag: c.querySelector('.tag').textContent, stats: c.querySelectorAll('.stats dt').length };
   });
-  ok(lock.n === 9 && lock.dis && lock.locked && lock.tag === 'Vença o Sineiro' && lock.stats === 4, `Trocar arma: ${lock.n} armas (9 com a Lança), o Badalo trancado ("${lock.tag}"), 4 atributos com Corrida`);
+  ok(lock.n === 11 && lock.dis && lock.locked && lock.tag === 'Vença o Sineiro' && lock.stats === 4, `Trocar arma: ${lock.n} armas (11 com o Remo e o Cetro), o Badalo trancado ("${lock.tag}"), 4 atributos com Corrida`);
   await page.screenshot({ path: `${OUT}/armas-trancada.png` });
   await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
@@ -413,5 +414,6 @@ let fails = 0;
 
   ok(!errs.length, `sem erros no navegador${errs.length ? ': ' + errs.join(' | ') : ''}`);
   console.log(fails ? `FALHAS: ${fails}` : 'TUDO OK');
+  if (fails) process.exitCode = 1;
   await browser.close();
 })();
