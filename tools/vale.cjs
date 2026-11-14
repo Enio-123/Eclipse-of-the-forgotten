@@ -377,11 +377,13 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
     check(a.on && b2.on && a.load > 0.5, `de pé no tronco, ele afunda um pouco com o peso (carga ${a.load.toFixed(2)})`);
     check(b2.lx - a.lx > 15 && Math.abs((b2.px - a.px) - (b2.lx - a.lx)) < 6, `o tronco desce o rio e leva ele junto (tronco ${(b2.lx - a.lx).toFixed(0)} px, ele ${(b2.px - a.px).toFixed(0)} px)`);
     await shot('v27-tronco');
-    // no fim do trecho o tronco afunda e volta no começo
+    // no fim do trecho o tronco afunda e volta no começo (espera pelo que acontece com ele e não por um
+    // tempo marcado: com quadros lentos a física anda mais que o relógio do jogo e o tronco já ia longe)
     await page.evaluate(() => { const l = window.__scene.vale.logs[0]; l.body.reset(l.seg[1] - 40, l.surface - 3); window.__scene.player.teleport(5 * 16, 31 * 16); });
-    await waitGame(2.6);
+    const sank = await page.waitForFunction(() => window.__scene.vale.logs[0].sink > 0, null, { timeout: 20000, polling: 16 }).then(() => true, () => false);
+    const back = sank && (await page.waitForFunction(() => window.__scene.vale.logs[0].sink === 0, null, { timeout: 20000, polling: 16 }).then(() => true, () => false));
     const c = await page.evaluate(() => { const l = window.__scene.vale.logs[0]; return { x: l.body.center.x / 16, seg: l.seg.map((v) => v / 16) }; });
-    check(c.x < c.seg[0] + 8, `no fim do trecho o tronco afunda e volta lá no começo (x ${c.x.toFixed(1)}, trecho ${c.seg.join('-')})`);
+    check(sank && back && c.x < c.seg[0] + 8, `no fim do trecho o tronco afunda e volta lá no começo (afundou ${sank}, voltou ${back}, x ${c.x.toFixed(1)}, trecho ${c.seg.join('-')})`);
     // no lago do cais os troncos boiam no lugar
     await start('cais', '1');
     const d0 = await page.evaluate(() => window.__scene.vale.logs.map((l) => l.body.center.x));

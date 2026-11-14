@@ -186,9 +186,10 @@ const part = (k) => !ONLY.length || ONLY.includes(k);
       check(['howl', 'chase', 'crouch', 'pounce'].every((k) => st.includes(k)), `vê, uiva, corre, agacha e salta (${st.join(' > ')})`);
       const ph = await P();
       check(ph.hp < 5 && ph.room === 'encosta', `parado, a mordida acerta (vida ${ph.hp}, ${ph.room})`);
-      // o golpe machuca e ele morre com 4 de vida
-      const dmg = await page.evaluate(() => { const e = window.__e; const h0 = e.hp; e.hit(e.zone.x - 20, 1, 'side'); return h0 - e.hp; });
-      check(dmg === 1, `o golpe tira vida dele (${dmg})`);
+      // o golpe machuca (um quarto a mais se pegar o lobo ainda derrapando do salto: conforme a hora em que
+      // a conferência chega, ele pode estar no meio da derrapada)
+      const blow = await page.evaluate(() => { const e = window.__e; const h0 = e.hp; const skid = e.state === 'skid'; e.hit(e.zone.x - 20, 1, 'side'); return { dmg: h0 - e.hp, skid }; });
+      check(blow.dmg === (blow.skid ? 1.25 : 1), `o golpe tira vida dele (${blow.dmg}${blow.skid ? ', derrapando' : ''})`);
     }
     // o uivo chama os lobos perto
     await start('pinhal', '1');
