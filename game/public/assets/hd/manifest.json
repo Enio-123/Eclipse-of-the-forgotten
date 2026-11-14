@@ -2570,6 +2570,41 @@
   }
  },
  "backdrop3": {
+  "bridge-far": {
+   "pack": "f-bridge",
+   "id": "bridge-far",
+   "scale": 3,
+   "w": 3300,
+   "h": 1140
+  },
+  "bridge-far-rim": {
+   "pack": "f-bridge",
+   "id": "bridge-far-rim",
+   "scale": 3,
+   "w": 3300,
+   "h": 1140
+  },
+  "bridge-mid": {
+   "pack": "f-bridge",
+   "id": "bridge-mid",
+   "scale": 3,
+   "w": 3072,
+   "h": 1260
+  },
+  "bridge-mid-rim": {
+   "pack": "f-bridge",
+   "id": "bridge-mid-rim",
+   "scale": 3,
+   "w": 3072,
+   "h": 1260
+  },
+  "bridge-sky": {
+   "pack": "f-bridge",
+   "id": "bridge-sky",
+   "scale": 3,
+   "w": 3300,
+   "h": 1140
+  },
   "cat-far": {
    "pack": "f-catacomb",
    "id": "cat-far",
@@ -2667,6 +2702,27 @@
    "scale": 3,
    "w": 3072,
    "h": 1260
+  },
+  "title-land": {
+   "pack": "f-title",
+   "id": "title-land",
+   "scale": 3,
+   "w": 1920,
+   "h": 1080
+  },
+  "title-rim": {
+   "pack": "f-title",
+   "id": "title-rim",
+   "scale": 3,
+   "w": 1920,
+   "h": 1080
+  },
+  "title-sky": {
+   "pack": "f-title",
+   "id": "title-sky",
+   "scale": 3,
+   "w": 1920,
+   "h": 1080
   }
  },
  "props3": {

@@ -31,7 +31,9 @@ MAX_MB = 2.6
 # as camadas de fundo de cada área (as que tiverem PNG em FUNDOS entram no pacote f-<área>); as que só uma
 # sala usa ficam num pacote à parte, para as outras não baixarem
 BACK = {
-    'bridge': ['bridge-sky', 'bridge-far', 'bridge-mid'],
+    'bridge': ['bridge-sky', 'bridge-far', 'bridge-far-rim', 'bridge-mid', 'bridge-mid-rim'],
+    # a tela de título (o recorte do céu e do castelo da Ponte e o penhasco do cavaleiro)
+    'title': ['title-sky', 'title-land', 'title-rim'],
     'catacomb': ['cat-far', 'cat-mid'],
     'city': ['city-sky', 'city-far', 'city-mid'],
     'claustro': ['claustro-mid'],

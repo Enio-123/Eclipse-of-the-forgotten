@@ -12,6 +12,7 @@ import { fixedCamera } from '../gfx/view';
 import { hd } from '../gfx/flip';
 import { unmasked } from '../gfx/unmask';
 import { LivingEclipse, SKY_ECLIPSE, bigEclipse } from '../gfx/eclipse';
+import { ensure, hdBackdrop3, hdKey } from '../gfx/hdAssets';
 import { HeadCrown, KING_TINT } from '../gfx/crown';
 import type { GameInit } from './GameScene';
 import type { PathId } from '../ui/ui';
@@ -56,7 +57,7 @@ export class TitleScene extends Phaser.Scene {
     const dawn = (e === 'truth' || e === 'fragments') && this.textures.exists('title-sky-aurora');
     (this.scene.get('fx') as FxScene | null)?.setGrain(0.09);
     const add = this.add;
-    add.image(0, 0, dawn ? 'title-sky-aurora' : 'title-sky').setOrigin(0).setDepth(-20);
+    const sky = add.image(0, 0, dawn ? 'title-sky-aurora' : 'title-sky').setOrigin(0).setDepth(-20);
     // o novo Eclipse, maior que o de antes
     if (e === 'absorb') bigEclipse(this, SKY_ECLIPSE.title.x, SKY_ECLIPSE.title.y, SKY_ECLIPSE.title.r, -19.5);
     // ECLIPSE: a coroa se mexe (de manhã não tem eclipse); o ajuste vale na hora, com as Configurações abertas
@@ -74,10 +75,45 @@ export class TitleScene extends Phaser.Scene {
       }
     };
     liveSky();
-    this.events.once('shutdown', settings.onChange(liveSky));
     this.cloudsFar = add.tileSprite(0, 150, VIEW_W, 170, 'clouds-far').setOrigin(0).setDepth(-18);
-    add.image(0, 0, 'title-land').setOrigin(0).setDepth(-17);
+    const land = add.image(0, 0, 'title-land').setOrigin(0).setDepth(-17);
     const rim = add.image(0, 0, 'title-rim').setOrigin(0).setDepth(-16.9).setAlpha(0);
+    // ECLIPSE: o céu, o castelo e o penhasco na pintura em 3x (as três juntas: foram pintadas uma para a
+    // outra; de manhã o céu é outro e fica tudo na de sempre). Ela chega durante a entrada da tela; o
+    // ajuste vale na hora, com as Configurações abertas
+    const parts = [
+      { o: sky, key: 'title-sky' },
+      { o: land, key: 'title-land' },
+      { o: rim, key: 'title-rim' },
+    ];
+    const big: ({ file: string; scale: number } | null)[] = dawn ? [] : parts.map((p) => hdBackdrop3(p.key));
+    const can3 = big.length > 0 && big.every((b) => !!b);
+    let open = true;
+    const show3 = (on: boolean) => {
+      const ok = on && can3 && big.every((b) => this.textures.exists(hdKey(b!.file)));
+      parts.forEach((p, i) => {
+        const key = ok ? hdKey(big[i]!.file) : p.key;
+        if (p.o.texture.key !== key) p.o.setTexture(key).setScale(ok ? 1 / big[i]!.scale : 1);
+      });
+    };
+    const paint3 = () => {
+      if (!can3 || !gfx().hd3) return show3(false);
+      void ensure(
+        this.game,
+        big.map((b) => b!.file),
+      ).then(() => {
+        if (open) show3(gfx().hd3);
+      });
+    };
+    paint3();
+    const off = settings.onChange(() => {
+      liveSky();
+      paint3();
+    });
+    this.events.once('shutdown', () => {
+      open = false;
+      off();
+    });
     this.cloudsNear = add.tileSprite(0, -70, VIEW_W, 150, 'clouds-near').setOrigin(0).setDepth(-16.5);
     this.fog = add.tileSprite(0, 246, VIEW_W, 140, 'fog').setOrigin(0).setDepth(-15).setAlpha(0.65);
     this.knight = add.sprite(128, 299, 'knight-scythe', 0).setDepth(10);

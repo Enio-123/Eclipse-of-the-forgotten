@@ -1,5 +1,5 @@
 // ECLIPSE GRAPHICS, o nível acima do EXTREME: a predefinição nas Configurações, o terreno e os fundos
-// pintados em 3x (Prisão, Fosso, Catacumbas, Cidade, Claustro, Catedral e Minas), a troca EXTREME <->
+// pintados em 3x (Ponte, Prisão, Fosso, Catacumbas, Cidade, Claustro, Catedral e Minas) e a tela de título, a troca EXTREME <->
 // ECLIPSE com a sala aberta (na pausa), a volta para a pintura de antes quando um pacote não chega, as
 // sombras vivas, o eclipse vivo (a luz que se mexe por cima do eclipse pintado no céu e no título) e os
 // enfeites antigos da primeira área (portão, estátuas, lampiões, musgo, velas...) na pintura em 3x.
@@ -267,7 +267,28 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   const all = (g) => g.hd && g.light && g.shadows && g.fog && g.reflections && g.post && g.life === 2 && g.particles === 2;
   check(all(u.gfx) && u.gfx.hd3 && u.gfx.cast && u.gfx.sky, 'escolher ECLIPSE liga tudo do EXTREME e mais a pintura em 3x, as sombras vivas e o eclipse vivo');
   check(/Em uso: ECLIPSE GRAPHICS\./.test(u.note) && u.radio === 'eclipse' && u.boxes.hd3 && u.boxes.cast && u.boxes.sky, `a nota e as caixas acompanham ("${u.note.trim()}")`);
-  // a tela de título atrás das Configurações: o eclipse dela ganha a luz viva na hora
+  // a tela de título atrás das Configurações: o céu, o castelo com o penhasco e a beira acesa pelo relâmpago
+  // passam para a pintura em 3x assim que ela chega (do mesmo tamanho, no mesmo lugar)
+  const titleArt = () => page.evaluate(() => {
+    const t = window.__game.scene.getScene('title');
+    return t.children.list.filter((o) => o.type === 'Image' && /title-(sky|land|rim)/.test(o.texture.key))
+      .map((o) => ({ tex: o.texture.key, k: o.scaleX, w: o.displayWidth, h: o.displayHeight, x: o.x, y: o.y, depth: o.depth, linear: o.texture.source[0].scaleMode === 0 }));
+  });
+  const title3 = async (want) => {
+    await page.waitForFunction((want) => {
+      const t = window.__game.scene.getScene('title');
+      const n = t.children.list.filter((o) => o.type === 'Image' && /^hd:3:f-title\//.test(o.texture.key)).length;
+      return want ? n === 3 : n === 0;
+    }, want, { timeout: 60000 }).catch(() => null);
+    return titleArt();
+  };
+  const T3 = ['sky', 'land', 'rim'];
+  const bigTitle = (ta) => ta.length === 3 && ta.every((q, n) => q.tex === `hd:3:f-title/title-${T3[n]}` && third(q.k) && near(q.w, 640) && near(q.h, 360) && q.x === 0 && q.y === 0 && q.linear);
+  const oldTitle = (ta) => ta.length === 3 && ta.every((q, n) => q.tex === `title-${T3[n]}` && q.k === 1 && q.w === 640 && q.h === 360 && q.x === 0 && q.y === 0 && !q.linear);
+  let ta = await title3(true);
+  check(bigTitle(ta) && ta[0].depth < ta[1].depth && ta[1].depth < ta[2].depth, `no título o céu, o castelo com o penhasco e a beira do relâmpago passam para a pintura em 3x, do tamanho de sempre (${ta.map((q) => `${q.tex} ${q.w}x${q.h}`).join(', ')})`);
+  await shot(page, 'titulo-eclipse');
+  // o eclipse dela ganha a luz viva na hora
   const title = () => page.evaluate(() => {
     const t = window.__game.scene.getScene('title');
     const l = t.live;
@@ -293,7 +314,11 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   await page.click('#screen-settings input[name="gfx"][value="extreme"]');
   u = await st();
   check(all(u.gfx) && !u.gfx.hd3 && !u.gfx.cast && !u.gfx.sky && u.radio === 'extreme' && (await title()) === null, 'o EXTREME continua sem a pintura em 3x, sem as sombras vivas e sem o eclipse vivo');
+  ta = await title3(false);
+  check(oldTitle(ta), `no EXTREME a tela de título volta para a pintura de sempre (${ta.map((q) => q.tex).join(', ')})`);
   await page.click('#screen-settings input[name="gfx"][value="eclipse"]');
+  ta = await title3(true);
+  check(bigTitle(ta), 'e escolhendo o ECLIPSE de novo a pintura em 3x volta');
   await page.click('#screen-settings [data-cmd="back"]');
   await page.reload();
   await page.waitForSelector('#screen-menu.show', { timeout: 120000 });
@@ -362,23 +387,28 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
     await shot(page, `${room}-eclipse`);
   }
 
-  // ---------- 3. as outras áreas (fundo em 3x ainda não pintado): terreno em 3x e o fundo direto da pintura em 2x ----------
+  // ---------- 3. a Ponte (céu, castelo e abismo em 3x; nuvens e primeiro plano em 2x) e as outras áreas (fundo em
+  // 3x ainda não pintado): terreno em 3x e o fundo direto da pintura em 2x ----------
   // (e o eclipse vivo em todo céu que mostra o eclipse: na Ponte ele anda junto com o céu; no Vale e nas Torres
   // fica preso na tela; na neve, na memória e dentro das torres não tem eclipse no céu)
   let ponteProps = [];
   const SKY = { ponte: [[819.8, 94.8], 25.7], prado: [[483.75, 55.75], 14.8], patio: [[483.75, 55.75], 14.8] };
-  // quantas camadas pintadas que repetem cada sala tem (Ponte: nuvens longe e perto, a cidade do meio, a beira
-  // acesa dela e o primeiro plano; dentro das torres não tem fundo)
-  const TWO = { ponte: 5, pinhal: 2, prado: 2, patio: 1, arquivo: 0, memoria: 2 };
+  // quantas camadas pintadas que repetem cada sala tem só em 2x (Ponte: nuvens longe e perto e o primeiro
+  // plano; dentro das torres não tem fundo) e quantas camadas ela tem em 3x (Ponte: o céu, o castelo e o abismo,
+  // e a beira acesa pelo relâmpago dos dois últimos)
+  const TWO = { ponte: 3, pinhal: 2, prado: 2, patio: 1, arquivo: 0, memoria: 2 };
+  const THREE = { ponte: 5 };
   for (const room of ['ponte', 'pinhal', 'prado', 'patio', 'arquivo', 'memoria']) {
     const n = errs.length;
     await start(page, room, 3);
     i = await info(page);
     // as camadas pintadas que repetem (com pintura em 2x) saem direto dela; o resto (céu, névoa) fica como sempre
-    const two = i.parts.filter((q) => q.tile && (man.backdrop[q.key] || q.k0 < 0.99));
-    const rest = i.parts.filter((q) => !two.includes(q));
-    check(i.hdScale === 3 && i.hd.length > 0 && two.length === TWO[room] && rest.every((q) => q.vis && !q.m) && errs.length === n,
-      `${room}: terreno em 3x (${i.hd.length} pedaços), ${two.length} camada(s) pintada(s) que repete(m) de ${i.parts.length}, sem erro`);
+    const three = i.parts.filter((q) => man.backdrop3[q.key]);
+    const two = i.parts.filter((q) => q.tile && !three.includes(q) && (man.backdrop[q.key] || q.k0 < 0.99));
+    const rest = i.parts.filter((q) => !two.includes(q) && !three.includes(q));
+    check(i.hdScale === 3 && i.hd.length > 0 && two.length === TWO[room] && three.length === (THREE[room] || 0) && rest.every((q) => q.vis && !q.m) && errs.length === n,
+      `${room}: terreno em 3x (${i.hd.length} pedaços), ${three.length} camada(s) em 3x e ${two.length} pintada(s) em 2x que repete(m), de ${i.parts.length}, sem erro`);
+    for (const q of three) layer3(i, q.key, `${man.backdrop3[q.key].pack}/${man.backdrop3[q.key].id}`);
     for (const q of two) layer2(i, q.key, man.backdrop[q.key] ? 'hd:' + man.backdrop[q.key].file : q.key);
     if (SKY[room]) liveOn(room === 'ponte' ? i : { ...i, skyAt: i.so }, SKY[room][0], SKY[room][1], room === 'ponte' ? 'acompanha o céu da Ponte' : 'no céu');
     else check(i.live === null, `${room}: sem eclipse no céu, sem eclipse vivo`);
@@ -479,8 +509,11 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   // ---------- 5. um pacote que não chega: fica a pintura de antes (a de 2x, direto dela) ----------
   const packOf = (room) => man.terrain3[room].pack;
   // (o endereço fixando o nível, como nos testes e nas fotos)
-  page = await open(`?res=${RES}&gfx=eclipse`, ['assets/hd3/f-city.json', 'assets/hd3/f-catacomb.json', `assets/hd3/${packOf('celas')}.json`, 'assets/hd3/p-enfeites.json']);
+  page = await open(`?res=${RES}&gfx=eclipse`, ['assets/hd3/f-city.json', 'assets/hd3/f-catacomb.json', `assets/hd3/${packOf('celas')}.json`, 'assets/hd3/p-enfeites.json', 'assets/hd3/f-bridge.json', 'assets/hd3/f-title.json']);
   await fresh(page);
+  await page.waitForTimeout(1500);
+  ta = await titleArt();
+  check(oldTitle(ta) && page.hd3.includes('f-title.json'), `sem o pacote dela, a tela de título fica na pintura de sempre (${ta.map((q) => q.tex).join(', ')})`);
   u = await page.evaluate(() => { window.__ui.openSettings(); return document.querySelector('#screen-settings .gfx-note').textContent; });
   check(/fixou ECLIPSE GRAPHICS/.test(u), `?gfx=eclipse no endereço fixa o nível ("${u.trim()}")`);
   await page.evaluate(() => window.__ui.closeAll());
@@ -496,6 +529,14 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   terrain(i, 3, 'mesmo sem o pacote dos fundos das Catacumbas');
   for (const key of ['cat-far', 'cat-mid']) layer2(i, key, 'hd:' + man.backdrop[key].file);
   propsOld(await props(page), 'catacumbas', 150, ' quando o pacote deles não chega (com o terreno em 3x)');
+  await start(page, 'ponte', 3);
+  i = await info(page);
+  terrain(i, 3, 'mesmo sem o pacote dos fundos da Ponte');
+  for (const key of ['bridge-sky', 'bridge-far', 'bridge-far-rim']) {
+    const q = i.parts.find((r) => r.key === key);
+    check(!!q && q.tex === 'hd:' + man.backdrop[key].file && half(q.k) && q.vis && !q.m, `ponte: ${key} fica na pintura em 2x do EXTREME (${q ? q.tex : 'não achei'})`);
+  }
+  for (const key of ['bridge-mid', 'bridge-mid-rim']) layer2(i, key, 'hd:' + man.backdrop[key].file);
   await start(page, 'celas', 2);
   i = await info(page);
   terrain(i, 2, 'quando o pacote do terreno em 3x não chega');
@@ -505,9 +546,13 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   // ---------- 6. o EXTREME continua o de antes: não baixa nada do ECLIPSE e os enfeites são os de sempre ----------
   page = await open(`?res=${RES}&gfx=extreme`);
   await fresh(page);
+  await page.waitForTimeout(1500);
+  ta = await titleArt();
+  check(oldTitle(ta), `no EXTREME a tela de título é a de sempre (${ta.map((q) => q.tex).join(', ')})`);
   await start(page, 'ponte', 2);
   i = await info(page);
   terrain(i, 2, 'na Ponte, no EXTREME');
+  for (const key of ['bridge-sky', 'bridge-far', 'bridge-mid']) layerOld(i, key, 'hd:' + man.backdrop[key].file, 'na pintura em 2x do EXTREME');
   const ext = await props(page);
   propsOld(ext, 'ponte', 200, ' no EXTREME');
   check(sameProps(ponteProps, ext), 'ponte: no ECLIPSE cada enfeite fica no mesmo lugar e do mesmo tamanho que no EXTREME');
