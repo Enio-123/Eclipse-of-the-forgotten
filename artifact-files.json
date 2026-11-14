@@ -1,7 +1,3 @@
 {
-"assets/game.js": "artifact/assets/game.js",
-"assets/hd/manifest.json": "artifact/assets/hd/manifest.json",
-"assets/hd3/f-fosso.json": "artifact/assets/hd3/f-fosso.json",
-"assets/hd3/f-mine.json": "artifact/assets/hd3/f-mine.json",
-"assets/hd3/f-nave.json": "artifact/assets/hd3/f-nave.json"
+"assets/game.js": "artifact/assets/game.js"
 }
