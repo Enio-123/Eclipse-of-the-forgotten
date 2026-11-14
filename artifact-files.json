@@ -1,3 +1,5 @@
 {
-"assets/game.js": "artifact/assets/game.js"
+"assets/game.js": "artifact/assets/game.js",
+"assets/hd/manifest.json": "artifact/assets/hd/manifest.json",
+"assets/hd3/p-enfeites.json": "artifact/assets/hd3/p-enfeites.json"
 }
