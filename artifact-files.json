@@ -1,19 +1,7 @@
 {
 "assets/game.js": "artifact/assets/game.js",
 "assets/hd/manifest.json": "artifact/assets/hd/manifest.json",
-"assets/hd3/bridge.json": "artifact/assets/hd3/bridge.json",
-"assets/hd3/catacomb.json": "artifact/assets/hd3/catacomb.json",
-"assets/hd3/city.json": "artifact/assets/hd3/city.json",
-"assets/hd3/f-catacomb.json": "artifact/assets/hd3/f-catacomb.json",
-"assets/hd3/f-city.json": "artifact/assets/hd3/f-city.json",
-"assets/hd3/f-claustro.json": "artifact/assets/hd3/f-claustro.json",
-"assets/hd3/f-prison.json": "artifact/assets/hd3/f-prison.json",
-"assets/hd3/memory.json": "artifact/assets/hd3/memory.json",
-"assets/hd3/mine.json": "artifact/assets/hd3/mine.json",
-"assets/hd3/nave.json": "artifact/assets/hd3/nave.json",
-"assets/hd3/prison.json": "artifact/assets/hd3/prison.json",
-"assets/hd3/snow.json": "artifact/assets/hd3/snow.json",
-"assets/hd3/torres-2.json": "artifact/assets/hd3/torres-2.json",
-"assets/hd3/torres.json": "artifact/assets/hd3/torres.json",
-"assets/hd3/vale.json": "artifact/assets/hd3/vale.json"
+"assets/hd3/f-fosso.json": "artifact/assets/hd3/f-fosso.json",
+"assets/hd3/f-mine.json": "artifact/assets/hd3/f-mine.json",
+"assets/hd3/f-nave.json": "artifact/assets/hd3/f-nave.json"
 }
