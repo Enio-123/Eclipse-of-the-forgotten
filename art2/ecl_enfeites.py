@@ -6,6 +6,8 @@ depois reduzida para os pixels do jogo; aqui fica no tamanho em que foi pintada,
 alisados antes (Scale3x: as diagonais saem retas e os cantos dos retângulos continuam vivos). A forma, o
 lugar e a cor de cada enfeite são os de sempre. As árvores do vale da memória saem da pintura em 2x
 delas (arvores_deco.py), ampliada, e o espelho só é alisado (ele brilha: fica com a cor que tem).
+O portão da Ponte, que é de pedra listrada, ganha as juntas entre as fiadas (no pixel art elas não cabiam):
+sem elas, de perto, a pedra clara e lisa parecia um véu por cima do que está atrás.
 
 uso: python3 ecl_enfeites.py <pasta_saida> [nome ...] [--preview=<pasta>]
 Sai <pasta>/<nome>.png em 3x (nas folhas, os quadros no mesmo lugar, 3x maiores) e enfeites.json, com
@@ -16,6 +18,7 @@ import os
 import sys
 import numpy as np
 from PIL import Image
+from scipy import ndimage as ndi
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ARGS = [a for a in sys.argv[1:] if not a.startswith('--')]
@@ -35,6 +38,9 @@ HTILE = {'deco-balustrade': 'deco-balustrade', 'deco-balustrade-broken': 'deco-b
 EXACT = {'deco-post'}
 # fora de decos.py: o espelho (brilha, só alisa)
 PLAIN = ['deco-mirror']
+# pedra listrada (as duas cores das fiadas no pixel art e a da sombra da borda): entre uma fiada e a outra
+# vai a junta
+STONE = {'deco-gate': ((70, 80, 104), (50, 58, 77), (34, 40, 54))}
 
 
 def scale3x(img):
@@ -130,6 +136,48 @@ def match(big, small, sc=0.09, ss=0.8):
     return Image.fromarray((out * 255 + 0.5).astype(np.uint8), 'RGBA'), left
 
 
+def joints(big, name, groove=0.34, lip=0.1):
+    """As juntas de cantaria de um enfeite de pedra listrada: na emenda de uma fiada clara com uma escura
+    (lida do pixel art, alisada como a pintura) vai um sulco escuro de dois pixels da pintura em 3x, e a
+    quina de cima da pedra de baixo pega um fio da luz que vem do alto. O brilho médio da pedra fica o
+    mesmo: o que o sulco escurece as faces devolvem."""
+    light, dark, rim = STONE[name]
+    o = np.asarray(src(name))
+    cls = np.zeros(o.shape, np.uint8)
+    for col, mark in ((light, (255, 0, 0, 255)), (dark, (0, 0, 255, 255))):
+        cls[(o[..., :3] == col).all(-1) & (o[..., 3] > 0)] = mark
+    # a sombra da borda é da fiada que encosta nela: a junta vai até a beira da pedra
+    shade = (o[..., :3] == rim).all(-1) & (o[..., 3] > 0)
+    iy, ix = ndi.distance_transform_edt(cls[..., 3] == 0, return_indices=True)[1]
+    cls[shade] = cls[iy[shade], ix[shade]]
+    c3 = np.asarray(scale3x(Image.fromarray(cls, 'RGBA')))
+    L = c3[..., 0] > 0
+    D = c3[..., 2] > 0
+
+    def beside(m):
+        q = np.pad(m, 1)
+        return q[:-2, 1:-1] | q[2:, 1:-1] | q[1:-1, :-2] | q[1:-1, 2:]
+
+    cut = (L & beside(D)) | (D & beside(L))
+    stone = L | D
+    # a quina iluminada: pedra logo abaixo do sulco
+    under = np.zeros_like(cut)
+    under[1:] = cut[:-1]
+    edge = stone & ~cut & under
+    p = np.asarray(big, np.float32) / 255
+    g = np.clip(decos.blur(cut.astype(np.float32), 0.45) * 1.5, 0, 1) * stone
+    e = np.clip(decos.blur(edge.astype(np.float32), 0.4) * 1.4, 0, 1) * stone * (1 - g)
+    lum0 = (p[..., :3].mean(-1) * p[..., 3] * stone).sum()
+    rgb = p[..., :3] * (1 - groove * g[..., None]) * (1 + lip * e[..., None])
+    lum1 = (rgb.mean(-1) * p[..., 3] * stone).sum()
+    # devolve às faces (fora do sulco) o brilho que o sulco tirou
+    face = stone * (1 - g)
+    k = (lum0 - lum1) / max(float((rgb.mean(-1) * p[..., 3] * face).sum()), 1e-6)
+    rgb = rgb * (1 + k * face[..., None])
+    out = np.dstack([np.clip(rgb, 0, 1), p[..., 3]])
+    return Image.fromarray((out * 255 + 0.5).astype(np.uint8), 'RGBA')
+
+
 def paint(name, theme, flow, frame_w, vtile, rng):
     img = src(name)
     w, h = img.size
@@ -197,6 +245,8 @@ if __name__ == '__main__':
         if only and name not in only:
             continue
         out, left = match(paint(name, theme, flow, fw, vt, rng), game(name))
+        if name in STONE:
+            out = joints(out, name)
         out.save(os.path.join(OUT, name + '.png'))
         done.append(name)
         print(name, out.size, 'falta %.1f' % left)

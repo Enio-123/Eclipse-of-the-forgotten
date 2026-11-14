@@ -1,7 +1,8 @@
 // ECLIPSE GRAPHICS, o nível acima do EXTREME: a predefinição nas Configurações, o terreno e os fundos
 // pintados em 3x (Prisão, Fosso, Catacumbas, Cidade, Claustro, Catedral e Minas), a troca EXTREME <->
 // ECLIPSE com a sala aberta (na pausa), a volta para a pintura de antes quando um pacote não chega, as
-// sombras vivas e o eclipse vivo (a luz que se mexe por cima do eclipse pintado no céu e no título).
+// sombras vivas, o eclipse vivo (a luz que se mexe por cima do eclipse pintado no céu e no título) e os
+// enfeites antigos da primeira área (portão, estátuas, lampiões, musgo, velas...) na pintura em 3x.
 // Uso: node eclipse.cjs <pasta das fotos> [url]
 //   GL=mesa (com DISPLAY apontando para um Xvfb) desenha pela placa ou pelo llvmpipe, bem mais rápido
 //   que o swiftshader; RES=1..3 muda quantos pixels da tela cada pixel do jogo ocupa (padrão 2)
@@ -33,6 +34,8 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
     page.on('pageerror', (e) => errs.push('ERR ' + e.message + '\n' + (e.stack || '').split('\n').slice(0, 4).join('\n')));
     page.on('console', (m) => { if (m.type() === 'error' && !blocked.some((b) => (m.location().url || '').includes(b))) errs.push('CONSOLE ' + m.text() + ' ' + (m.location().url || '')); });
     page.on('response', (r) => { if (r.status() >= 400 && !blocked.some((b) => r.url().includes(b))) errs.push('HTTP ' + r.status() + ' ' + r.url()); });
+    page.hd3 = [];
+    page.on('request', (r) => { if (r.url().includes('/assets/hd3/')) page.hd3.push(r.url().replace(/^.*\/assets\/hd3\//, '')); });
     for (const r of routes) {
       blocked.push(r);
       await page.route('**/' + r, (route) => route.fulfill({ status: 404, body: 'fora' }));
@@ -195,6 +198,55 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   };
   const shot = async (page, name) => { try { await page.screenshot({ path: `${OUT}/${name}.png` }); } catch (e) { log('foto não saiu:', e.message.split('\n')[0]); } };
 
+  const man = JSON.parse(await (await fetch(URL.replace(/index\.html.*$/, '') + 'assets/hd/manifest.json')).text());
+  // ---------- os enfeites antigos da primeira área, que no ECLIPSE vêm da pintura em 3x ----------
+  // de cada um: a imagem que está na tela e o que não pode mudar com a troca (o lugar, o tamanho na tela, o
+  // recorte do musgo curto, o passo da repetição das correntes e dos postes, o quadro da folha, a cor)
+  const PROPS = man.props3 || {};
+  const PKEYS = Object.keys(PROPS);
+  const bigKey = (base) => `hd:3:${PROPS[base].pack}/${PROPS[base].id}`;
+  const props = (page) => page.evaluate((keys) => {
+    const r2 = (v) => Math.round(v * 100) / 100;
+    const out = [];
+    for (const o of window.__scene.children.list) {
+      const tile = o.type === 'TileSprite';
+      if (!tile && o.type !== 'Image' && o.type !== 'Sprite') continue;
+      const tex = tile ? o.displayTexture.key : o.texture.key;
+      const was = o.data ? o.data.get('p3') : undefined;
+      const base = was || tex;
+      if (!keys.includes(base)) continue;
+      const fr = tile ? o.displayFrame : o.frame;
+      const anim = o.anims && o.anims.currentAnim ? o.anims.currentAnim.key : '';
+      const geo = [o.type, base, r2(o.x), r2(o.y), o.originX, o.originY, o.depth, o.flipX ? 'F' : '', o.tintTopLeft.toString(16), o.visible ? '' : 'oculto'];
+      if (tile) geo.push(r2(o.width), r2(o.height), r2(o.scaleX), r2(o.scaleY), r2(fr.width * o.tileScaleX), r2(fr.height * o.tileScaleY), r2(o.tilePositionX * o.tileScaleX), r2(o.tilePositionY * o.tileScaleY), r2(o.rotation));
+      else {
+        geo.push(r2(o.displayWidth), r2(o.displayHeight), anim ? anim.replace(/@3$/, '') : `q${fr.name}`);
+        if (o.isCropped) { const c = o._crop; const kx = Math.abs(o.scaleX), ky = Math.abs(o.scaleY); geo.push('corte', r2(c.x * kx), r2(c.y * ky), r2(c.width * kx), r2(c.height * ky)); }
+      }
+      out.push({ base, tex, was: !!was, type: o.type, anim, cut: !tile && o.isCropped, linear: fr.texture.source[0].scaleMode === 0, k: tile ? o.tileScaleX : o.scaleX, dw: tile ? o.width : o.displayWidth, dh: tile ? o.height : o.displayHeight, geo: geo.join(' ') });
+    }
+    return out;
+  }, PKEYS);
+  const kinds = (ps) => [...new Set(ps.map((q) => q.base.replace(/^deco-/, '')))].sort().join(', ');
+  // todos na pintura em 3x (lida com filtro; as velas com a animação dos quadros grandes)
+  const propsBig = (ps, room, min, what = '') => {
+    const bad = ps.filter((q) => !(q.was && q.tex === bigKey(q.base) && q.linear && (q.anim === '' || /@3$/.test(q.anim))));
+    check(ps.length >= min && bad.length === 0, `${room}: os ${ps.length} enfeites antigos estão na pintura em 3x${what} (${bad.length ? `${bad.length} não: ${kinds(bad)}` : kinds(ps)})`);
+  };
+  // todos na imagem de sempre, como se nunca tivessem sido trocados
+  const propsOld = (ps, room, min, what = '') => {
+    const bad = ps.filter((q) => q.was || q.tex !== q.base || /@3$/.test(q.anim) || q.linear);
+    check(ps.length >= min && bad.length === 0, `${room}: os ${ps.length} enfeites antigos estão na imagem de sempre${what}${bad.length ? ` (${bad.length} não: ${kinds(bad)})` : ''}`);
+  };
+  // os mesmos enfeites, cada um no mesmo lugar e com o mesmo tamanho, recorte e passo
+  const sameProps = (a, b) => {
+    const A = a.map((q) => q.geo).sort();
+    const B = b.map((q) => q.geo).sort();
+    const diff = A.filter((g, n) => g !== B[n]);
+    if (A.length !== B.length || diff.length) log('enfeites diferentes:', A.length, B.length, diff.slice(0, 3).join(' | '), '<>', B.filter((g, n) => g !== A[n]).slice(0, 3).join(' | '));
+    return A.length === B.length && diff.length === 0;
+  };
+
   // ---------- 1. a predefinição nas Configurações ----------
   let page = await open(`?res=${RES}`);
   await fresh(page);
@@ -304,6 +356,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
     terrain(i, 3, '');
     for (const [key, file] of layers) layer3(i, key, file);
     if (room === 'catacumbas') check(i.cast >= 1, `nas Catacumbas as luzes fixas fazem a sombra do cavaleiro (${i.cast} luz(es))`);
+    if (room === 'catacumbas' || room === 'celas') propsBig(await props(page), room, room === 'celas' ? 100 : 150);
     if (room === 'claustro') liveOn({ ...i, skyAt: i.so }, [464.75, 74.75], 19.9, 'no céu do claustro');
     else check(i.live === null, `${room}: sala sem céu, sem eclipse vivo`);
     await shot(page, `${room}-eclipse`);
@@ -312,8 +365,8 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   // ---------- 3. as outras áreas (fundo em 3x ainda não pintado): terreno em 3x e o fundo direto da pintura em 2x ----------
   // (e o eclipse vivo em todo céu que mostra o eclipse: na Ponte ele anda junto com o céu; no Vale e nas Torres
   // fica preso na tela; na neve, na memória e dentro das torres não tem eclipse no céu)
+  let ponteProps = [];
   const SKY = { ponte: [[819.8, 94.8], 25.7], prado: [[483.75, 55.75], 14.8], patio: [[483.75, 55.75], 14.8] };
-  const man = JSON.parse(await (await fetch(URL.replace(/index\.html.*$/, '') + 'assets/hd/manifest.json')).text());
   // quantas camadas pintadas que repetem cada sala tem (Ponte: nuvens longe e perto, a cidade do meio, a beira
   // acesa dela e o primeiro plano; dentro das torres não tem fundo)
   const TWO = { ponte: 5, pinhal: 2, prado: 2, patio: 1, arquivo: 0, memoria: 2 };
@@ -330,6 +383,16 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
     if (SKY[room]) liveOn(room === 'ponte' ? i : { ...i, skyAt: i.so }, SKY[room][0], SKY[room][1], room === 'ponte' ? 'acompanha o céu da Ponte' : 'no céu');
     else check(i.live === null, `${room}: sem eclipse no céu, sem eclipse vivo`);
     if (SKY[room]) await shot(page, `${room}-eclipse`);
+    // os enfeites antigos: a Ponte (portão, estátuas, balaustrada, lampiões) e o vale da memória (as árvores)
+    if (room === 'ponte' || room === 'memoria') {
+      const ps = await props(page);
+      propsBig(ps, room, room === 'ponte' ? 200 : 80);
+      if (room === 'ponte') {
+        ponteProps = ps;
+        const gate = ps.find((q) => q.base === 'deco-gate');
+        check(!!gate && third(gate.k) && near(gate.dw, 120) && near(gate.dh, 136), `ponte: o portão é a pintura em 3x mostrada a um terço, do tamanho de sempre (${gate ? `${gate.dw} x ${gate.dh}, escala ${gate.k.toFixed(3)}` : 'não achei'})`);
+      } else check(ps.some((q) => q.base === 'deco-tree-big') && ps.some((q) => /^deco-tree-(pink|green)$/.test(q.base)), 'memoria: as árvores do vale entram na conta');
+    }
   }
 
   // ---------- 4. a troca com a sala aberta, pela pausa ----------
@@ -342,6 +405,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
     await page.click(`#screen-settings input[name="gfx"][value="${preset}"]`);
     await settle(page, want);
     const paused = await info(page);
+    paused.props = await props(page);
     await shot(page, `troca-${preset}-pausa`);
     await page.click('#screen-settings [data-cmd="back"]');
     await page.click('#screen-pause [data-cmd="resume"]');
@@ -369,6 +433,22 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   liveOn({ ...i, skyAt: i.so }, [464.75, 74.75], 19.9, 'volta ainda na pausa');
   i = await info(page);
   check(i.active && i.hdScale === 3 && i.eclipse === true && i.live !== null, 'saindo da pausa o jogo continua no ECLIPSE');
+
+  // ---------- 4a. os enfeites antigos na troca com a sala aberta ----------
+  // nas Catacumbas tem de todo tipo: imagens (santuário, pedestal), folhas (musgo, capim), velas animadas e
+  // correntes que repetem
+  await start(page, 'catacumbas', 3);
+  const cat3 = await props(page);
+  propsBig(cat3, 'catacumbas', 150, ', antes da troca');
+  const candles = cat3.filter((q) => q.base === 'deco-candles');
+  check(candles.length > 0 && candles.every((q) => q.type === 'Sprite' && q.anim === 'candles@3') && cat3.some((q) => q.type === 'TileSprite') && cat3.some((q) => q.cut),
+    `catacumbas: as velas tremem com os quadros grandes (${candles.length} velas), e a sala tem correntes que repetem e musgo cortado`);
+  i = await pauseTo('extreme', 2);
+  propsOld(i.props, 'catacumbas', 150, ' logo que o EXTREME é escolhido, ainda na pausa');
+  check(sameProps(cat3, i.props) && i.props.filter((q) => q.base === 'deco-candles').every((q) => q.anim === 'candles'), 'catacumbas: cada enfeite continua no mesmo lugar, com o mesmo tamanho, recorte e passo, e as velas voltam para a animação de sempre');
+  i = await pauseTo('eclipse', 3);
+  propsBig(i.props, 'catacumbas', 150, ' de novo, logo que o ECLIPSE é escolhido');
+  check(sameProps(cat3, i.props), 'catacumbas: e continuam todos no lugar depois de ir e voltar');
 
   // ---------- 4b. o eclipse vivo depois dos finais ----------
   // final II: o novo Eclipse, maior e frio, cobre o pintado; a luz viva vai por cima dele (no pixel inteiro do
@@ -399,7 +479,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   // ---------- 5. um pacote que não chega: fica a pintura de antes (a de 2x, direto dela) ----------
   const packOf = (room) => man.terrain3[room].pack;
   // (o endereço fixando o nível, como nos testes e nas fotos)
-  page = await open(`?res=${RES}&gfx=eclipse`, ['assets/hd3/f-city.json', 'assets/hd3/f-catacomb.json', `assets/hd3/${packOf('celas')}.json`]);
+  page = await open(`?res=${RES}&gfx=eclipse`, ['assets/hd3/f-city.json', 'assets/hd3/f-catacomb.json', `assets/hd3/${packOf('celas')}.json`, 'assets/hd3/p-enfeites.json']);
   await fresh(page);
   u = await page.evaluate(() => { window.__ui.openSettings(); return document.querySelector('#screen-settings .gfx-note').textContent; });
   check(/fixou ECLIPSE GRAPHICS/.test(u), `?gfx=eclipse no endereço fixa o nível ("${u.trim()}")`);
@@ -415,10 +495,25 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   i = await info(page);
   terrain(i, 3, 'mesmo sem o pacote dos fundos das Catacumbas');
   for (const key of ['cat-far', 'cat-mid']) layer2(i, key, 'hd:' + man.backdrop[key].file);
+  propsOld(await props(page), 'catacumbas', 150, ' quando o pacote deles não chega (com o terreno em 3x)');
   await start(page, 'celas', 2);
   i = await info(page);
   terrain(i, 2, 'quando o pacote do terreno em 3x não chega');
   check(i.parts.every((q) => q.vis && !q.m), 'e os fundos ficam os de antes, inteiros');
+  await page.context().close();
+
+  // ---------- 6. o EXTREME continua o de antes: não baixa nada do ECLIPSE e os enfeites são os de sempre ----------
+  page = await open(`?res=${RES}&gfx=extreme`);
+  await fresh(page);
+  await start(page, 'ponte', 2);
+  i = await info(page);
+  terrain(i, 2, 'na Ponte, no EXTREME');
+  const ext = await props(page);
+  propsOld(ext, 'ponte', 200, ' no EXTREME');
+  check(sameProps(ponteProps, ext), 'ponte: no ECLIPSE cada enfeite fica no mesmo lugar e do mesmo tamanho que no EXTREME');
+  await start(page, 'catacumbas', 2);
+  const hd3 = await page.evaluate(() => window.__game.textures.getTextureKeys().filter((k) => k.startsWith('hd:3:')).length);
+  check(page.hd3.length === 0 && hd3 === 0, `no EXTREME nenhum pacote do ECLIPSE é baixado (${page.hd3.length ? page.hd3.join(', ') : 'nenhum pedido'})`);
   await page.context().close();
 
   if (errs.length) console.log([...new Set(errs)].slice(0, 20).join('\n'));

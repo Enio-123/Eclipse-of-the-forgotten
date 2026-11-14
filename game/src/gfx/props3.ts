@@ -74,6 +74,8 @@ export function props3(scene: Phaser.Scene, ok: Set<string> | null) {
     if (o instanceof Phaser.GameObjects.TileSprite) {
       o.setTexture(on ? big : k);
       o.setTileScale(o.tileScaleX * kx, o.tileScaleY * ky);
+      // o deslocamento do desenho é contado em pixels da imagem: acompanha o tamanho dela
+      o.setTilePosition(o.tilePositionX / kx, o.tilePositionY / ky);
     } else {
       const img = o as Img;
       const c = img.isCropped ? { ...cropOf(img) } : null;
