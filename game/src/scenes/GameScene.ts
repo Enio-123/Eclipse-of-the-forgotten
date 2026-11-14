@@ -72,6 +72,7 @@ import { extremeCamera, type ExtremePipeline, type Look } from '../gfx/extreme';
 import { RoomLighting, type ShadowBody, type TerrainPiece } from '../gfx/lighting';
 import { afterLook, lookFor } from '../gfx/looks';
 import { ensure, hdBackdrop, hdBackdrop3, hdKey, hdTerrain, hdTerrain3, prefetch, release, roomFiles } from '../gfx/hdAssets';
+import { props3, props3Files } from '../gfx/props3';
 import { queueRoom, settleRoom } from '../gfx/roomAssets';
 import { HD_LAYERS, backdropKeys } from '../world/Backdrop';
 import { Life } from '../world/Life';
@@ -662,7 +663,8 @@ export class GameScene extends Phaser.Scene {
       }
     };
     const t3 = eclipse ? hdTerrain3(room.id) : null;
-    const files = roomFiles(room.id, layers, eclipse);
+    // ECLIPSE: os enfeites antigos que a sala usa vêm junto, na pintura em 3x
+    const files = [...roomFiles(room.id, layers, eclipse), ...(t3 ? props3Files(this) : [])];
     void ensure(this.game, files).then((ok) => {
       if (!live()) return;
       if (t3 && !t3.pieces.every((p) => ok.has(p.file))) {
@@ -706,6 +708,7 @@ export class GameScene extends Phaser.Scene {
       this.wallImg.setVisible(false);
     }
     this.backdrop.useHd(true, back3);
+    props3(this, eclipse ? ok : null);
     const sec = hdTerrain(`${this.room.id}-secret`);
     if (sec && sec.pieces.every((p) => ok.has(p.file))) this.fixtures.useHdVeils(sec.pieces, sec.scale);
   }
@@ -722,6 +725,7 @@ export class GameScene extends Phaser.Scene {
     this.hdWall = [];
     this.wallImg?.setVisible(true);
     this.backdrop?.useHd(false);
+    props3(this, null);
     this.fixtures?.useHdVeils(null, 1);
   }
 

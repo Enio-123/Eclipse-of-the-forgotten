@@ -27,6 +27,16 @@ interface Manifest {
   terrain3?: Record<string, { scale: number; pack: string; pieces: { id: string; x: number; y: number; w: number; h: number }[] }>;
   // ECLIPSE: os fundos repintados em 3x (pacote e id dentro dele)
   backdrop3?: Record<string, { pack: string; id: string; scale: number }>;
+  // ECLIPSE: os enfeites antigos (pixel art) repintados em 3x: pixels da pintura por pixel do mundo em
+  // cada eixo e, nas folhas, o tamanho de um quadro na pintura
+  props3?: Record<string, { pack: string; id: string; sx: number; sy: number; frame?: [number, number] }>;
+}
+
+export interface Prop3 {
+  file: string;
+  sx: number;
+  sy: number;
+  frame?: [number, number];
 }
 
 const BASE = 'assets/hd/';
@@ -34,6 +44,7 @@ const BASE3 = 'assets/hd3/';
 let manifest: Manifest | null = null;
 const terrain3 = new Map<string, { scale: number; pieces: HdPiece[] }>();
 const backdrop3 = new Map<string, { file: string; scale: number }>();
+const props3 = new Map<string, Prop3>();
 const blobs = new Map<string, Promise<Blob | null>>();
 const packs = new Map<string, Promise<Map<string, Blob> | null>>();
 const uploads = new Map<string, Promise<boolean>>();
@@ -54,6 +65,12 @@ export function setHdManifest(m: unknown) {
     if (!b || !b.pack || !b.id || !(b.scale > 0)) continue;
     backdrop3.set(key, { file: `3:${b.pack}/${b.id}`, scale: b.scale });
   }
+  props3.clear();
+  for (const [key, q] of Object.entries(manifest.props3 ?? {})) {
+    if (!q || !q.pack || !q.id || !(q.sx > 0) || !(q.sy > 0)) continue;
+    const frame = Array.isArray(q.frame) && q.frame[0] > 0 && q.frame[1] > 0 ? ([q.frame[0], q.frame[1]] as [number, number]) : undefined;
+    props3.set(key, { file: `3:${q.pack}/${q.id}`, sx: q.sx, sy: q.sy, frame });
+  }
 }
 
 export function hdTerrain(id: string) {
@@ -72,6 +89,11 @@ export function hdBackdrop(key: string) {
 // ECLIPSE: o fundo repintado em 3x (null se esta camada não tem)
 export function hdBackdrop3(key: string) {
   return backdrop3.get(key) ?? null;
+}
+
+// ECLIPSE: o enfeite repintado em 3x (null se este não tem)
+export function hdProp3(key: string) {
+  return props3.get(key) ?? null;
 }
 
 // arquivos de uma sala (terreno, parede falsa, pinheiros da floresta e os fundos que ela usa);

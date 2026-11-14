@@ -8,8 +8,12 @@ terrain3; o jogo lê em gfx/hdAssets.ts.
 Os fundos repintados em 3x (art2/ecl_*.py gravam PNG em art2/hd_eclipse_fundos) vão do mesmo jeito, um
 pacote por área (f-<área>.json, { "<camada>": "<WebP em base64>" }), e a lista entra em backdrop3.
 
-uso: python3 tools/eclipsepack.py            terreno e fundos (ENTRADA=<pasta> e FUNDOS=<pasta> para ler de outro lugar)
-     python3 tools/eclipsepack.py --fundos   só os fundos (os pacotes do terreno ficam como estão)
+Os enfeites antigos repintados em 3x (art2/ecl_enfeites.py grava PNG e enfeites.json em
+art2/hd_eclipse_enfeites) vão num pacote só (p-enfeites.json), e a lista entra em props3.
+
+uso: python3 tools/eclipsepack.py             terreno e fundos (ENTRADA=<pasta> e FUNDOS=<pasta> para ler de outro lugar)
+     python3 tools/eclipsepack.py --fundos    só os fundos (os pacotes do terreno ficam como estão)
+     python3 tools/eclipsepack.py --enfeites  só os enfeites (ENFEITES=<pasta> para ler de outro lugar)
 """
 import base64
 import io
@@ -22,6 +26,7 @@ SRC = os.environ.get('ENTRADA') or os.path.join(HERE, 'art2', 'hd_eclipse')
 OUT = os.path.join(HERE, 'game', 'public', 'assets', 'hd3')
 MAN = os.path.join(HERE, 'game', 'public', 'assets', 'hd', 'manifest.json')
 FUNDOS = os.environ.get('FUNDOS') or os.path.join(HERE, 'art2', 'hd_eclipse_fundos')
+ENFEITES = os.environ.get('ENFEITES') or os.path.join(HERE, 'art2', 'hd_eclipse_enfeites')
 MAX_MB = 2.6
 # as camadas de fundo de cada área (as que tiverem PNG em FUNDOS entram no pacote f-<área>); as que só uma
 # sala usa ficam num pacote à parte, para as outras não baixarem
@@ -36,6 +41,7 @@ BACK = {
     'mine': ['mine-far', 'mine-mid'],
 }
 Q_FUNDO = 92
+Q_ENFEITE = 95
 # a ordem das áreas no jogo (as salas de uma área ficam juntas no mesmo pacote enquanto couber)
 ORDER = ['bridge', 'catacomb', 'city', 'nave', 'memory', 'prison', 'mine', 'snow', 'vale', 'torres']
 
@@ -72,7 +78,34 @@ def fundos():
     return back3
 
 
+def enfeites():
+    """Os enfeites em 3x: PNG -> WebP, todos num pacote; devolve a lista para o manifesto."""
+    from PIL import Image
+    meta = json.load(open(os.path.join(ENFEITES, 'enfeites.json')))
+    data = {}
+    props3 = {}
+    for name, m in sorted(meta.items()):
+        path = os.path.join(ENFEITES, name + '.png')
+        if not os.path.exists(path):
+            sys.exit(f'falta {path}')
+        im = Image.open(path).convert('RGBA')
+        buf = io.BytesIO()
+        im.save(buf, 'WEBP', quality=Q_ENFEITE, method=6, alpha_quality=100, exact=True)
+        data[name] = base64.b64encode(buf.getvalue()).decode('ascii')
+        props3[name] = {'pack': 'p-enfeites', 'id': name, **m}
+    os.makedirs(OUT, exist_ok=True)
+    path = os.path.join(OUT, 'p-enfeites.json')
+    json.dump(data, open(path, 'w'), separators=(',', ':'))
+    print(len(props3), 'enfeites em 3x,', round(os.path.getsize(path) / 1e6, 2), 'MB')
+    return props3
+
+
 def main():
+    if '--enfeites' in sys.argv:
+        man = json.load(open(MAN))
+        man['props3'] = enfeites()
+        json.dump(man, open(MAN, 'w'), indent=1)
+        return
     if '--fundos' in sys.argv:
         man = json.load(open(MAN))
         man['backdrop3'] = dict(sorted(fundos().items()))
@@ -90,7 +123,7 @@ def main():
         print('sem pintura 3x (ficam com a 2x):', ', '.join(missing))
     os.makedirs(OUT, exist_ok=True)
     for f in os.listdir(OUT):
-        if f.endswith('.json') and not f.startswith('f-'):
+        if f.endswith('.json') and not f.startswith(('f-', 'p-')):
             os.remove(os.path.join(OUT, f))
     terrain3 = {}
     total = 0

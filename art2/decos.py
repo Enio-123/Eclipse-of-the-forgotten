@@ -65,13 +65,16 @@ def dirs(M):
     return [np.minimum(v, 60).astype(np.float32) for v in (dtop, dbot, dleft, dright)]
 
 
-def relight(img, theme, flow_kind, rng):
+def relight(img, theme, flow_kind, rng, keep3=None):
+    # keep3 (ecl_enfeites.py, ECLIPSE): a função que amplia o sprite para 3x; a pintura sai nesse tamanho
+    # em vez de voltar para 1x
     cfg = LIGHT[theme]
     arr = np.asarray(img.convert('RGBA'), np.float32) / 255
     h, w = arr.shape[:2]
     P = 4  # margem para as pinceladas não baterem na borda
     arr = np.pad(arr, ((P, P), (P, P), (0, 0)))
-    big = np.asarray(Image.fromarray((arr * 255).astype(np.uint8), 'RGBA').resize(((w + 2 * P) * SC, (h + 2 * P) * SC), Image.NEAREST), np.float32) / 255
+    pad = Image.fromarray((arr * 255).astype(np.uint8), 'RGBA')
+    big = np.asarray(keep3(pad) if keep3 else pad.resize(((w + 2 * P) * SC, (h + 2 * P) * SC), Image.NEAREST), np.float32) / 255
     a0 = big[..., 3]
     A = sstep(0.3, 0.7, blur(a0, 0.45 * SC))
     rgb = big[..., :3]
@@ -116,6 +119,8 @@ def relight(img, theme, flow_kind, rng):
     paint(L, col, A * (1 - emis * 0.8), flow, rng, passes, val_jitter=0.08, jitter=0.012, clip_soft=0, base=0.0)
     L.multiply_alpha(A > -1)
     out = L.image()
+    if keep3:
+        return out.crop((P * SC, P * SC, (P + w) * SC, (P + h) * SC))
     # volta para 1x: média ponderada pelo alfa
     o = np.asarray(out, np.float32) / 255
     oa = o[..., 3]

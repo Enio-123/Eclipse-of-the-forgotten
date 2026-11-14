@@ -2668,5 +2668,165 @@
    "w": 3072,
    "h": 1260
   }
+ },
+ "props3": {
+  "deco-anchor": {
+   "pack": "p-enfeites",
+   "id": "deco-anchor",
+   "sx": 3,
+   "sy": 3
+  },
+  "deco-balustrade": {
+   "pack": "p-enfeites",
+   "id": "deco-balustrade",
+   "sx": 3,
+   "sy": 3
+  },
+  "deco-balustrade-broken": {
+   "pack": "p-enfeites",
+   "id": "deco-balustrade-broken",
+   "sx": 3,
+   "sy": 3
+  },
+  "deco-bracket": {
+   "pack": "p-enfeites",
+   "id": "deco-bracket",
+   "sx": 3,
+   "sy": 3
+  },
+  "deco-candles": {
+   "pack": "p-enfeites",
+   "id": "deco-candles",
+   "frame": [
+    48,
+    42
+   ],
+   "sx": 3,
+   "sy": 3
+  },
+  "deco-chain": {
+   "pack": "p-enfeites",
+   "id": "deco-chain",
+   "sx": 3,
+   "sy": 3
+  },
+  "deco-gate": {
+   "pack": "p-enfeites",
+   "id": "deco-gate",
+   "sx": 3,
+   "sy": 3
+  },
+  "deco-lamp": {
+   "pack": "p-enfeites",
+   "id": "deco-lamp",
+   "sx": 3,
+   "sy": 3
+  },
+  "deco-lamp-off": {
+   "pack": "p-enfeites",
+   "id": "deco-lamp-off",
+   "sx": 3,
+   "sy": 3
+  },
+  "deco-mirror": {
+   "pack": "p-enfeites",
+   "id": "deco-mirror",
+   "sx": 3,
+   "sy": 3
+  },
+  "deco-moss": {
+   "pack": "p-enfeites",
+   "id": "deco-moss",
+   "frame": [
+    12,
+    90
+   ],
+   "sx": 3,
+   "sy": 3
+  },
+  "deco-pedestal": {
+   "pack": "p-enfeites",
+   "id": "deco-pedestal",
+   "sx": 3,
+   "sy": 3
+  },
+  "deco-portcullis": {
+   "pack": "p-enfeites",
+   "id": "deco-portcullis",
+   "sx": 3,
+   "sy": 3
+  },
+  "deco-post": {
+   "pack": "p-enfeites",
+   "id": "deco-post",
+   "sx": 3,
+   "sy": 3
+  },
+  "deco-scaffold": {
+   "pack": "p-enfeites",
+   "id": "deco-scaffold",
+   "sx": 3,
+   "sy": 3
+  },
+  "deco-shrine": {
+   "pack": "p-enfeites",
+   "id": "deco-shrine",
+   "sx": 3,
+   "sy": 3
+  },
+  "deco-statue": {
+   "pack": "p-enfeites",
+   "id": "deco-statue",
+   "sx": 3,
+   "sy": 3
+  },
+  "deco-tree-big": {
+   "pack": "p-enfeites",
+   "id": "deco-tree-big",
+   "sx": 3,
+   "sy": 3
+  },
+  "deco-tree-green": {
+   "pack": "p-enfeites",
+   "id": "deco-tree-green",
+   "sx": 3,
+   "sy": 3
+  },
+  "deco-tree-pink": {
+   "pack": "p-enfeites",
+   "id": "deco-tree-pink",
+   "sx": 3,
+   "sy": 3
+  },
+  "deco-tufts-bridge": {
+   "pack": "p-enfeites",
+   "id": "deco-tufts-bridge",
+   "frame": [
+    36,
+    24
+   ],
+   "sx": 3,
+   "sy": 3
+  },
+  "deco-tufts-catacomb": {
+   "pack": "p-enfeites",
+   "id": "deco-tufts-catacomb",
+   "frame": [
+    36,
+    24
+   ],
+   "sx": 3,
+   "sy": 3
+  },
+  "deco-tufts-memory": {
+   "pack": "p-enfeites",
+   "id": "deco-tufts-memory",
+   "frame": [
+    36,
+    24
+   ],
+   "sx": 3,
+   "sy": 3
+  }
  }
 }
