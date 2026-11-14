@@ -101,7 +101,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
         o.th = p.o.height;
         o.want = Math.round((p.o.x - ox) * res) / res;
         o.wantY = Math.round((p.o.y - oy) * res) / res;
-        o.m = p.m.map((i) => ({ tex: i.texture.key, x: i.x, y: i.y, k: i.scaleX, w: i.width * i.scaleX, h: i.height * i.scaleY, vis: i.visible, depth: i.depth }));
+        o.m = p.m.map((i) => ({ tex: i.texture.key, x: i.x, y: i.y, k: i.scaleX, w: i.width * i.scaleX, h: i.height * i.scaleY, vis: i.visible, depth: i.depth, linear: i.texture.source[0].scaleMode === 0 }));
         o.depth = p.o.depth;
       }
       return o;
@@ -153,6 +153,24 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
     if (rows > 1) cover = cover && m[0].y <= i.so[1] + 0.01 && last.y + last.h >= i.so[1] + 360 - 0.01 && near(m[cols].y - m[0].y, p.py, 0.002) && near(m[0].y, p.wantY, 0.002);
     const grid = m.every((q) => near(q.x * i.res, Math.round(q.x * i.res), 0.002) && near(q.y * i.res, Math.round(q.y * i.res), 0.002));
     check(cover && near(m[1].x - m[0].x, p.px, 0.002) && near(m[0].x, p.want, 0.002) && grid, `${i.room}: ${key} cobre a tela, emenda no fim da pintura e anda com a rolagem (x ${m[0].x.toFixed(2)}, esperado ${p.want.toFixed(2)})`);
+  };
+  // ECLIPSE numa camada que repete e não tem pintura em 3x (ou o pacote dela não chegou): sai direto da pintura
+  // em 2x (a do EXTREME, ou a de sempre quando essa já é pintada em 2x), em imagens inteiras lidas com filtro,
+  // no lugar da camada que repete (que o Phaser estica e serrilha)
+  const half = (k) => near(k, 0.5, 0.001);
+  const layer2 = (i, key, tex) => {
+    const p = i.parts.find((q) => q.key === key);
+    if (!p) return check(false, `${i.room}: a camada ${key} existe`);
+    const m = p.m || [];
+    const cols = p.m ? Math.ceil(640 / p.px) + 1 : 0;
+    const rows = p.m ? (p.py <= p.th + 0.5 ? 1 : Math.ceil(p.th / p.py) + 1) : 0;
+    const okTex = m.length === cols * rows && m.length >= 2 && m.every((q) => q.tex === tex && half(q.k) && q.vis && q.depth === p.depth && q.linear);
+    check(okTex && !p.vis, `${i.room}: ${key} direto da pintura em 2x (${m.length ? m[0].tex : p.tex}), em ${m.length} imagens inteiras com filtro`);
+    if (!okTex) return;
+    const last = m[m.length - 1];
+    let cover = m[0].x <= i.so[0] + 0.01 && last.x + last.w >= i.so[0] + 640 - 0.01;
+    if (rows > 1) cover = cover && m[0].y <= i.so[1] + 0.01 && last.y + last.h >= i.so[1] + 360 - 0.01;
+    check(cover && near(m[1].x - m[0].x, p.px, 0.002) && near(m[0].x, p.want, 0.002), `${i.room}: ${key} cobre a tela e anda com a rolagem (x ${m[0].x.toFixed(2)}, esperado ${p.want.toFixed(2)})`);
   };
   // a camada com a pintura de antes (a base, ou a 2x do EXTREME quando ela tem)
   const layerOld = (i, key, tex, what) => {
@@ -291,16 +309,24 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
     await shot(page, `${room}-eclipse`);
   }
 
-  // ---------- 3. as outras áreas (fundo em 3x ainda não pintado): terreno em 3x e o fundo de sempre ----------
+  // ---------- 3. as outras áreas (fundo em 3x ainda não pintado): terreno em 3x e o fundo direto da pintura em 2x ----------
   // (e o eclipse vivo em todo céu que mostra o eclipse: na Ponte ele anda junto com o céu; no Vale e nas Torres
   // fica preso na tela; na neve, na memória e dentro das torres não tem eclipse no céu)
   const SKY = { ponte: [[819.8, 94.8], 25.7], prado: [[483.75, 55.75], 14.8], patio: [[483.75, 55.75], 14.8] };
+  const man = JSON.parse(await (await fetch(URL.replace(/index\.html.*$/, '') + 'assets/hd/manifest.json')).text());
+  // quantas camadas pintadas que repetem cada sala tem (Ponte: nuvens longe e perto, a cidade do meio, a beira
+  // acesa dela e o primeiro plano; dentro das torres não tem fundo)
+  const TWO = { ponte: 5, pinhal: 2, prado: 2, patio: 1, arquivo: 0, memoria: 2 };
   for (const room of ['ponte', 'pinhal', 'prado', 'patio', 'arquivo', 'memoria']) {
     const n = errs.length;
     await start(page, room, 3);
     i = await info(page);
-    const mirrors = i.parts.filter((q) => q.m).length;
-    check(i.hdScale === 3 && i.hd.length > 0 && mirrors === 0 && i.parts.every((q) => q.vis) && errs.length === n, `${room}: terreno em 3x (${i.hd.length} pedaços), fundo de sempre (${i.parts.length} camadas), sem erro`);
+    // as camadas pintadas que repetem (com pintura em 2x) saem direto dela; o resto (céu, névoa) fica como sempre
+    const two = i.parts.filter((q) => q.tile && (man.backdrop[q.key] || q.k0 < 0.99));
+    const rest = i.parts.filter((q) => !two.includes(q));
+    check(i.hdScale === 3 && i.hd.length > 0 && two.length === TWO[room] && rest.every((q) => q.vis && !q.m) && errs.length === n,
+      `${room}: terreno em 3x (${i.hd.length} pedaços), ${two.length} camada(s) pintada(s) que repete(m) de ${i.parts.length}, sem erro`);
+    for (const q of two) layer2(i, q.key, man.backdrop[q.key] ? 'hd:' + man.backdrop[q.key].file : q.key);
     if (SKY[room]) liveOn(room === 'ponte' ? i : { ...i, skyAt: i.so }, SKY[room][0], SKY[room][1], room === 'ponte' ? 'acompanha o céu da Ponte' : 'no céu');
     else check(i.live === null, `${room}: sem eclipse no céu, sem eclipse vivo`);
     if (SKY[room]) await shot(page, `${room}-eclipse`);
@@ -370,8 +396,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   check(i.live !== null && i.ending === '', 'sem final, o eclipse vivo volta');
   await page.context().close();
 
-  // ---------- 5. um pacote que não chega: fica a pintura de antes ----------
-  const man = JSON.parse(await (await fetch(URL.replace(/index\.html.*$/, '') + 'assets/hd/manifest.json')).text());
+  // ---------- 5. um pacote que não chega: fica a pintura de antes (a de 2x, direto dela) ----------
   const packOf = (room) => man.terrain3[room].pack;
   // (o endereço fixando o nível, como nos testes e nas fotos)
   page = await open(`?res=${RES}&gfx=eclipse`, ['assets/hd3/f-city.json', 'assets/hd3/f-catacomb.json', `assets/hd3/${packOf('celas')}.json`]);
@@ -383,12 +408,13 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   i = await info(page);
   terrain(i, 3, 'mesmo sem o pacote dos fundos da cidade');
   layerOld(i, 'city-sky', 'city-sky', 'fica com o céu de antes');
-  layerOld(i, 'city-far', 'city-far', 'fica com a pintura de antes');
-  layerOld(i, 'city-mid', 'city-mid', 'fica com a pintura de antes');
+  // (a pintura de antes da cidade já é em 2x: sai direto dela)
+  layer2(i, 'city-far', 'city-far');
+  layer2(i, 'city-mid', 'city-mid');
   await start(page, 'catacumbas', 3);
   i = await info(page);
   terrain(i, 3, 'mesmo sem o pacote dos fundos das Catacumbas');
-  for (const key of ['cat-far', 'cat-mid']) layerOld(i, key, 'hd:' + man.backdrop[key].file, 'fica com a pintura em 2x do EXTREME');
+  for (const key of ['cat-far', 'cat-mid']) layer2(i, key, 'hd:' + man.backdrop[key].file);
   await start(page, 'celas', 2);
   i = await info(page);
   terrain(i, 2, 'quando o pacote do terreno em 3x não chega');

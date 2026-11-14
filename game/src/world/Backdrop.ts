@@ -15,8 +15,9 @@ interface Part {
   key: string;
   k0?: number;
   m?: Phaser.GameObjects.Image[];
-  // quantas dessas imagens por linha
+  // quantas dessas imagens por linha e a pintura que elas mostram
   mc?: number;
+  mk?: string;
 }
 // a pintura de uma camada que repete (a textura do TileSprite em si é a tela interna do Phaser)
 const painted = (t: Phaser.GameObjects.TileSprite) => t as unknown as { displayFrame: Phaser.Textures.Frame; displayTexture: Phaser.Textures.Texture };
@@ -183,13 +184,18 @@ export class Backdrop {
     for (const p of this.parts) {
       const b2 = hdBackdrop(p.key);
       const b3 = hdBackdrop3(p.key);
-      if (!b2 && !b3) continue;
       const tile = p.o instanceof Phaser.GameObjects.TileSprite ? p.o : null;
       // a medida da camada com a pintura normal (antes de qualquer troca)
       p.k0 ??= tile ? tile.tileScaleX : p.o.scaleX;
       const use3 = on && eclipse && b3 && tm.exists(hdKey(b3.file)) ? b3 : null;
-      if (tile && this.mirror(p, tile, use3)) continue;
       const b = use3 ?? (on && b2 && tm.exists(hdKey(b2.file)) ? b2 : null);
+      if (tile) {
+        // ECLIPSE: a camada que repete sai direto da melhor pintura que ela tem (a de 3x, a de 2x do EXTREME
+        // ou a de sempre, quando essa já tem mais pixels que o mundo)
+        const exact = !(on && eclipse) ? null : b ? { key: hdKey(b.file), scale: b.scale } : p.k0 < 1 ? { key: p.key, scale: 1 / p.k0 } : null;
+        if (this.mirror(p, tile, exact)) continue;
+      }
+      if (!b2 && !b3) continue;
       const key = b ? hdKey(b.file) : p.key;
       if ((tile ? painted(tile).displayTexture.key : p.o.texture.key) === key) continue;
       const k = b ? 1 / b.scale : p.k0;
@@ -203,33 +209,42 @@ export class Backdrop {
     }
   }
 
-  // ECLIPSE: uma camada que repete mostrada com a pintura em 3x. O TileSprite do Phaser estica a imagem
-  // para uma potência de 2 e lê sem filtro, o que borra a pintura; aqui a camada some e, no lugar dela,
-  // ficam imagens inteiras lado a lado, cada pixel da pintura num pixel da tela: quantas forem precisas
+  // ECLIPSE: uma camada que repete mostrada direto da pintura dela (a de 3x; onde não tem, a de 2x). O
+  // TileSprite do Phaser estica a imagem para uma potência de 2 e lê sem filtro, o que borra e serrilha a
+  // pintura; aqui a camada some e, no lugar dela, ficam imagens inteiras lado a lado (na de 3x, cada pixel
+  // da pintura num pixel da tela; na de 2x, lida com filtro, sem serrilhado): quantas forem precisas
   // para cobrir a camada em qualquer rolagem (duas quando a pintura é mais larga que a tela; nos poços,
   // onde ela tem 512 px e repete também na vertical, três colunas por duas linhas). A camada continua
   // recebendo a rolagem de sempre e as imagens copiam dela
-  private mirror(p: Part, t: Phaser.GameObjects.TileSprite, b3: { file: string; scale: number } | null) {
-    if (!b3) {
+  private mirror(p: Part, t: Phaser.GameObjects.TileSprite, ex: { key: string; scale: number } | null) {
+    if (!ex) {
       if (p.m) {
         for (const i of p.m) i.destroy();
         p.m = undefined;
+        p.mk = undefined;
         t.setVisible(true);
       }
       return false;
     }
-    if (p.m) return true;
+    if (p.m) {
+      // chegou uma pintura melhor (ou a de 3x saiu): as mesmas imagens passam a mostrar a de agora
+      if (p.mk !== ex.key) {
+        for (const i of p.m) i.setTexture(ex.key).setScale(1 / ex.scale);
+        p.mk = ex.key;
+      }
+      return true;
+    }
     const px = painted(t).displayFrame.width * t.tileScaleX;
     const py = painted(t).displayFrame.height * t.tileScaleY;
     // a pintura tem que caber na altura da camada, ou a camada cobrir a tela toda (o resto fica fora dela)
     const fits = py <= t.height + 0.5;
     if (!fits && t.height < VIEW_H) return false;
-    const key = hdKey(b3.file);
     const cols = Math.ceil(t.width / px) + 1;
     const rows = fits ? 1 : Math.ceil(t.height / py) + 1;
     p.m = [];
     p.mc = cols;
-    for (let i = 0; i < cols * rows; i++) p.m.push(this.scene.add.image(0, 0, key).setOrigin(0).setScrollFactor(0).setScale(1 / b3.scale).setDepth(t.depth));
+    p.mk = ex.key;
+    for (let i = 0; i < cols * rows; i++) p.m.push(this.scene.add.image(0, 0, ex.key).setOrigin(0).setScrollFactor(0).setScale(1 / ex.scale).setDepth(t.depth));
     t.setVisible(false);
     this.sync(t, p.m, cols);
     return true;
