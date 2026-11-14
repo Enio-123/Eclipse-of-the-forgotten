@@ -38,6 +38,15 @@ Esporas), Ctrl agacha, E lança a corrente, Q usa o poder de memória, M abre o 
 da região) e Esc pausa. Tudo pode ser trocado em Configurações. O jogo também aceita controle
 (PlayStation, Xbox, Nintendo e genéricos) e toque no celular.
 
+No celular, começar a jogar entra na tela cheia e deita a tela (no Android; no iPhone o Safari não deixa, e
+o jogo pode ir para a Tela de Início). Com o celular em pé a página inteira é desenhada deitada, girada 90
+graus, e o jogo ocupa a tela toda mesmo com a rotação travada (`game/src/systems/Screen.ts`; o CSS usa
+`@container` e `cqw/cqh` para valer também com a página deitada). Em Configurações > Celular dá para voltar à
+imagem pequena em cima, deitar para o outro lado e abrir o editor dos botões na tela, que muda o lugar e o
+tamanho de cada um e a opacidade de todos (`systems/TouchLayout.ts`, `ui/touchEdit.ts`). O brilho fica em
+Configurações > Imagem (`gfx/brightness.ts`, uma passada de gama depois de cada quadro). `tools/celular.cjs`
+confere tudo isso.
+
 ## Pastas
 
 - `game/` o jogo: `src/` (cenas, entidades, mundo, sistemas e interface) e `public/assets/` (folhas dos

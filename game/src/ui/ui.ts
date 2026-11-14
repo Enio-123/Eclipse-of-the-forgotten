@@ -13,12 +13,14 @@ import { MapView, regionThumb, type MapHere } from './mapview';
 import type { RegionDef, RegionId } from '../world/regions';
 import { RES, applyRes, resFor } from '../gfx/view';
 import { FORCED_PRESET, PRESETS, PRESET_LABEL, applyFpsLimit, presetOf, type FpsLimit, type GfxFlags, type Level3, type Preset } from '../systems/Graphics';
+import { autoFullscreen, canFullscreen, isFullscreen, layoutRect, onFullscreenChange, toLocal, toggleFullscreen, touchDevice } from '../systems/Screen';
+import { TouchEditor } from './touchEdit';
 
 // teclas que arrastam o mapa (direção em que o desenho anda)
 const MAP_PAN: Record<string, [number, number]> = {
   ArrowUp: [0, 1], ArrowDown: [0, -1], ArrowLeft: [1, 0], ArrowRight: [-1, 0], KeyW: [0, 1], KeyS: [0, -1], KeyA: [1, 0], KeyD: [-1, 0],
 };
-type ScreenId = 'loading' | 'intro' | 'menu' | 'erase' | 'path' | 'mages' | 'weapons' | 'settings' | 'pause' | 'end' | 'map' | 'shop' | 'surveyor' | 'inventory' | 'talk' | 'forge' | 'journal' | 'choice' | 'crown' | 'film';
+type ScreenId = 'loading' | 'intro' | 'menu' | 'erase' | 'path' | 'mages' | 'weapons' | 'settings' | 'pause' | 'end' | 'map' | 'shop' | 'surveyor' | 'inventory' | 'talk' | 'forge' | 'journal' | 'choice' | 'crown' | 'film' | 'touchedit';
 
 const COBRADOR_LINES = [
   'Voltou. Sempre voltam.',
@@ -116,12 +118,12 @@ class UI {
     });
   }
 
-  // a camada de textos acompanha o retângulo do canvas
+  // a camada de textos acompanha o retângulo do canvas (nas medidas da página, também com ela deitada)
   private syncLayer() {
     const canvas = document.querySelector('#game canvas');
     const layer = document.getElementById('layer');
     if (!canvas || !layer) return;
-    const r = canvas.getBoundingClientRect();
+    const r = layoutRect(canvas);
     Object.assign(layer.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px` });
     document.documentElement.style.setProperty('--u', `${(r.height / 360).toFixed(3)}px`);
   }
@@ -268,7 +270,7 @@ class UI {
 
   private switchTab(dir: number) {
     const s = document.getElementById(`screen-${this.top}`);
-    const tabs = s ? [...s.querySelectorAll<HTMLElement>('[role="tab"]')] : [];
+    const tabs = s ? [...s.querySelectorAll<HTMLElement>('[role="tab"]')].filter((t) => !t.hidden) : [];
     if (!tabs.length) return;
     const i = Math.max(0, tabs.findIndex((t) => t.getAttribute('aria-selected') === 'true'));
     const next = tabs[(i + dir + tabs.length) % tabs.length];
@@ -409,7 +411,11 @@ class UI {
     confirm.hidden = !o.notice;
     confirm.textContent = o.notice ?? '';
     let armed = false;
-    cont.onclick = () => o.onContinue();
+    // no celular, começar a jogar já entra na tela cheia (o navegador só deixa dentro de um toque)
+    cont.onclick = () => {
+      autoFullscreen();
+      o.onContinue();
+    };
     $<HTMLButtonElement>('[data-cmd="new"]', s).onclick = () => {
       if (o.hasSave && !armed) {
         armed = true;
@@ -417,6 +423,7 @@ class UI {
         confirm.hidden = false;
         return;
       }
+      autoFullscreen();
       o.onNew();
     };
     $<HTMLButtonElement>('[data-cmd="settings"]', s).onclick = () => this.openSettings();
@@ -717,7 +724,10 @@ class UI {
       s.querySelectorAll<HTMLElement>('.tab-panel').forEach((p) => (p.hidden = p.dataset.panel !== name));
     };
     tabs.forEach((t) => (t.onclick = () => show(t.dataset.tab!)));
-    show(pad.device === 'pad' ? 'pad' : 'controls');
+    // a aba Celular só aparece em aparelho de toque (e começa nela)
+    const touch = touchDevice();
+    tabs.forEach((t) => t.dataset.tab === 'mobile' && (t.hidden = !touch));
+    show(pad.device === 'pad' ? 'pad' : touch ? 'mobile' : 'controls');
     s.querySelectorAll<HTMLInputElement>('input[name="scheme"]').forEach((r) => {
       r.checked = r.value === settings.data.scheme;
       r.onchange = () => {
@@ -753,6 +763,8 @@ class UI {
     });
     this.renderQuality();
     this.bindGraphics(s);
+    this.bindBrightness(s);
+    this.bindMobile(s);
     const vib = $<HTMLInputElement>('input[data-opt="vibration"]', s);
     vib.checked = settings.data.vibration;
     vib.onchange = () => {
@@ -811,6 +823,75 @@ class UI {
       if (this.game) applyFpsLimit(this.game.loop as unknown as Parameters<typeof applyFpsLimit>[0], settings.data.fps);
     };
     render();
+  }
+
+  // Imagem > Brilho: 0 a 100, 50 é o normal (vale na hora)
+  private bindBrightness(s: HTMLElement) {
+    const inp = $<HTMLInputElement>('input[data-opt="brightness"]', s);
+    const out = $('.bright-val', s);
+    const render = () => {
+      const v = Math.round(settings.data.brightness * 100);
+      inp.value = String(v);
+      out.textContent = v === 50 ? 'Normal' : v > 50 ? `+${v - 50}` : `\u2212${50 - v}`;
+    };
+    inp.oninput = () => {
+      settings.data.brightness = Number(inp.value) / 100;
+      settings.save();
+      render();
+    };
+    $<HTMLButtonElement>('[data-cmd="bright-reset"]', s).onclick = () => {
+      settings.data.brightness = 0.5;
+      settings.save();
+      render();
+    };
+    render();
+  }
+
+  // aba Celular: tela cheia, o que fazer com o celular em pé e o editor dos botões
+  private bindMobile(s: HTMLElement) {
+    const full = $<HTMLInputElement>('input[data-opt="fullscreen"]', s);
+    full.checked = settings.data.fullscreen;
+    full.onchange = () => {
+      settings.data.fullscreen = full.checked;
+      settings.save();
+    };
+    const now = $<HTMLButtonElement>('[data-cmd="fullscreen"]', s);
+    const renderFull = () => {
+      now.hidden = !canFullscreen();
+      now.textContent = isFullscreen() ? 'Sair da tela cheia' : 'Entrar na tela cheia agora';
+    };
+    now.onclick = () => toggleFullscreen();
+    this.fsOff?.();
+    this.fsOff = onFullscreenChange(renderFull);
+    renderFull();
+    s.querySelectorAll<HTMLInputElement>('input[name="portrait"]').forEach((r) => {
+      r.checked = r.value === settings.data.portrait;
+      r.onchange = () => {
+        settings.data.portrait = r.value === 'small' ? 'small' : 'turn';
+        settings.save();
+      };
+    });
+    const flip = $<HTMLInputElement>('input[data-opt="flip"]', s);
+    flip.checked = settings.data.flip;
+    flip.onchange = () => {
+      settings.data.flip = flip.checked;
+      settings.save();
+    };
+    $<HTMLButtonElement>('[data-cmd="touch-edit"]', s).onclick = () => this.openTouchEditor();
+  }
+
+  private fsOff: (() => void) | null = null;
+  private touchEditor: TouchEditor | null = null;
+
+  // o editor dos botões na tela (por cima de tudo, com o jogo parado); Pronto, Esc ou voltar fecham
+  openTouchEditor() {
+    this.touchEditor ??= new TouchEditor();
+    const close = () => {
+      this.touchEditor?.close();
+      if (this.top === 'touchedit') this.pop();
+    };
+    this.touchEditor.open(close);
+    this.push('touchedit', close);
   }
 
   // resolução em uso agora (a automática pode ter baixado sozinha)
@@ -922,7 +1003,10 @@ class UI {
     const jBtn = $<HTMLButtonElement>('[data-cmd="journal"]', s);
     jBtn.hidden = !o.onJournal;
     jBtn.onclick = () => o.onJournal?.();
-    $<HTMLButtonElement>('[data-cmd="resume"]', s).onclick = () => o.onResume();
+    $<HTMLButtonElement>('[data-cmd="resume"]', s).onclick = () => {
+      autoFullscreen();
+      o.onResume();
+    };
     const mapBtn = $<HTMLButtonElement>('[data-cmd="map"]', s);
     mapBtn.hidden = !o.onMap;
     mapBtn.onclick = () => o.onMap?.();
@@ -1216,9 +1300,11 @@ class UI {
   private bindMap(cv: HTMLCanvasElement) {
     if (this.mapBound) return;
     this.mapBound = true;
+    // o ponto do dedo ou do mouse no mapa, nas medidas da página (também com ela deitada)
     const local = (e: { clientX: number; clientY: number }) => {
-      const r = cv.getBoundingClientRect();
-      return { x: e.clientX - r.left, y: e.clientY - r.top };
+      const r = layoutRect(cv);
+      const p = toLocal(e.clientX, e.clientY);
+      return { x: p.x - r.left, y: p.y - r.top };
     };
     cv.addEventListener(
       'wheel',

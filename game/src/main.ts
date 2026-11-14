@@ -17,6 +17,9 @@ import { MAP_POS, ROOMS } from './world/rooms';
 import { MEMORIES, NIGHT, RECORDS, VERSIONS } from './world/lore';
 import { night } from './world/story';
 import { audio } from './systems/Audio';
+import { initScreen } from './systems/Screen';
+import { watchTouchLayout } from './systems/TouchLayout';
+import { installBrightness } from './gfx/brightness';
 
 pad.vibration = settings.data.vibration;
 settings.onChange((d) => (pad.vibration = d.vibration));
@@ -29,7 +32,8 @@ const game = new Phaser.Game({
   backgroundColor: '#07080d',
   pixelArt: true,
   roundPixels: true,
-  scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+  // o #game já centraliza o canvas (flex): o centro do Phaser somava margens e tirava a imagem do meio
+  scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.NO_CENTER },
   input: { gamepad: false, activePointers: 4 },
   physics: {
     default: 'arcade',
@@ -38,6 +42,10 @@ const game = new Phaser.Game({
   scene: [BootScene, TitleScene, IntroScene, GameScene, HudScene, FxScene, EndingScene],
 });
 
+// a tela do celular (tela cheia, imagem deitada com o celular em pé), os botões na tela e o brilho
+initScreen(game);
+watchTouchLayout();
+installBrightness(game);
 ui.init(game);
 applyFpsLimit(game.loop as unknown as Parameters<typeof applyFpsLimit>[0], settings.data.fps);
 // resolução automática: desce um nível se o jogo ficar lento (só conta com o cavaleiro andando)

@@ -4,6 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
   <meta name="theme-color" content="#07080d" />
+  <!-- adicionado à tela de início do celular, o jogo abre sem a barra do navegador -->
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Eclipse" />
   <title>Eclipse of the Forgotten</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2307080d'/%3E%3Ccircle cx='32' cy='32' r='23' fill='none' stroke='%23f1c36b' stroke-opacity='.3' stroke-width='6'/%3E%3Ccircle cx='32' cy='32' r='19' fill='%23f1c36b'/%3E%3Ccircle cx='34' cy='30.5' r='17' fill='%2307080d'/%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -14,7 +19,7 @@
 <body>
   <div id="game"></div>
   <div id="touch" aria-hidden="true">
-    <div id="stick"><div id="stick-knob"></div></div>
+    <div id="stick" aria-label="Analógico"><div id="stick-knob"></div></div>
     <div id="buttons">
       <button data-action="dash" aria-label="Dash">
         <svg viewBox="0 0 24 24"><path d="M4 12h11M11 7l5 5-5 5M19 6v12" /></svg>
@@ -139,10 +144,26 @@
       <div class="panel">
         <h2>Configurações</h2>
         <div class="tabs" role="tablist">
+          <button role="tab" data-tab="mobile" aria-selected="false" hidden>Celular</button>
           <button role="tab" data-tab="controls" aria-selected="true">Teclado e mouse</button>
           <button role="tab" data-tab="pad" aria-selected="false">Controle</button>
           <button role="tab" data-tab="audio" aria-selected="false">Áudio</button>
           <button role="tab" data-tab="video" aria-selected="false">Imagem</button>
+        </div>
+        <div class="tab-panel" data-panel="mobile" hidden>
+          <fieldset class="scheme">
+            <legend>Com o celular em pé</legend>
+            <label><input type="radio" name="portrait" value="turn" /> <span>Deitar a imagem<small>O jogo ocupa a tela toda, deitado: é só virar o celular. Funciona até com a rotação da tela travada</small></span></label>
+            <label><input type="radio" name="portrait" value="small" /> <span>Imagem pequena em cima<small>O jogo numa faixa em cima e os botões embaixo, sem virar o celular</small></span></label>
+          </fieldset>
+          <label class="check"><input type="checkbox" data-opt="flip" /> <span>Deitar a imagem para o outro lado</span></label>
+          <label class="check"><input type="checkbox" data-opt="fullscreen" /> <span>Tela cheia ao começar a jogar</span></label>
+          <p class="note">A tela cheia esconde a barra do navegador e deita a tela sozinha (no Android). No iPhone o Safari não deixa: para jogar sem a barra, use Compartilhar e Adicionar à Tela de Início.</p>
+          <div class="btns">
+            <button data-cmd="touch-edit" class="primary">Editar botões na tela</button>
+            <button data-cmd="fullscreen" hidden>Entrar na tela cheia agora</button>
+          </div>
+          <p class="note">No editor dá para mudar o lugar e o tamanho de cada botão, a opacidade de todos e voltar ao padrão.</p>
         </div>
         <div class="tab-panel" data-panel="controls">
           <fieldset class="scheme">
@@ -167,6 +188,12 @@
           <label class="slider">Efeitos e ambiente <input type="range" min="0" max="100" data-vol="sfx" /></label>
         </div>
         <div class="tab-panel" data-panel="video" hidden>
+          <div class="bright">
+            <label class="slider">Brilho <input type="range" min="0" max="100" step="1" data-opt="brightness" /></label>
+            <output class="bright-val">Normal</output>
+            <button data-cmd="bright-reset">Voltar ao normal</button>
+          </div>
+          <p class="note bright-note">Deixa a imagem do jogo mais clara ou mais escura, em qualquer gráfico. Os menus ficam como estão.</p>
           <fieldset class="scheme three">
             <legend>Resolução</legend>
             <label><input type="radio" name="quality" value="auto" /> <span>Automática<small>Nítida quando o aparelho aguenta; fica mais leve sozinha se o jogo ficar lento</small></span></label>
@@ -377,6 +404,32 @@
       <div class="film-credits"><div class="film-roll"></div></div>
       <p class="film-line"></p>
       <p class="film-hint"><span class="kbd-only">Segure qualquer tecla para acelerar</span><span class="touch-only">Segure a tela para acelerar</span><span class="pad-only">Segure qualquer botão para acelerar</span></p>
+    </section>
+
+    <section id="screen-touchedit" class="screen" aria-label="Editar botões na tela">
+      <div class="touch-bar">
+        <div class="tb-row">
+          <b class="tb-name">Pular</b>
+          <span class="tb-help">Arraste para mudar o lugar. Toque em outro botão para escolher.</span>
+          <span class="tb-gap"></span>
+          <button data-cmd="touch-reset">Padrão</button>
+          <button data-cmd="done" class="primary">Pronto</button>
+        </div>
+        <div class="tb-row">
+          <span class="tb-group">
+            <span class="tb-label">Tamanho</span>
+            <button data-cmd="smaller" class="tb-step" aria-label="Diminuir o botão">&minus;</button>
+            <input type="range" min="60" max="180" step="5" data-opt="touch-size" aria-label="Tamanho do botão" />
+            <button data-cmd="bigger" class="tb-step" aria-label="Aumentar o botão">+</button>
+            <output class="tb-size">100%</output>
+          </span>
+          <span class="tb-group">
+            <span class="tb-label">Opacidade</span>
+            <input type="range" min="20" max="100" step="5" data-opt="touch-alpha" aria-label="Opacidade dos botões" />
+            <output class="tb-alpha">100%</output>
+          </span>
+        </div>
+      </div>
     </section>
 
     <section id="screen-end" class="screen dim">

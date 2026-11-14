@@ -1,15 +1,18 @@
 import type Phaser from 'phaser';
 import { VIEW_H, VIEW_W } from '../config';
 import { settings, type Quality } from '../systems/Settings';
+import { landscapeSize } from '../systems/Screen';
 
 // Pixels da tela por pixel do mundo: o mundo continua 640x360, mas a tela pode ter 2 ou 3 vezes mais
 // pixels para o traço liso dos personagens sair nítido (o cenário em pixel só aumenta). Em aparelho
 // fraco, ou sem placa de vídeo, a tela fica com 1 pixel por pixel do mundo e o jogo não fica lento.
 
-// o que a tela do aparelho comporta: 3 em tela grande com muitos pixels, senão 2
+// o que a tela do aparelho comporta: 3 em tela grande com muitos pixels, senão 2 (o celular conta deitado,
+// que é como o jogo fica)
 function sharpRes() {
   const dpr = window.devicePixelRatio || 1;
-  const fit = Math.min(window.innerWidth / VIEW_W, window.innerHeight / VIEW_H) * dpr;
+  const { w, h } = landscapeSize();
+  const fit = Math.min(w / VIEW_W, h / VIEW_H) * dpr;
   return fit >= 2.6 ? 3 : 2;
 }
 
